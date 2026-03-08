@@ -56,3 +56,33 @@ To manually trigger formatting, you can run:
 ```bash
 npm run fmt
 ```
+
+---
+
+## 🚀 Releasing a New Version
+
+The release process is simplified using `release-it`.
+
+### 1. Run the Release Command
+
+To start a new release, run:
+
+```bash
+npm run release
+```
+
+This will:
+
+1. Run formatting checks and tests.
+2. Prompt you to select the next version (Patch, Minor, Major).
+3. Automatically update the `version` field in `package.json` and `public/module.json`.
+4. Create a Git commit and tag (e.g., `v1.0.1`).
+5. Push the tag to GitHub.
+
+### 2. Automated Workflow
+
+Once the tag is pushed, the **Release Module** workflow on GitHub Actions will:
+
+1. Build the module distribution.
+2. Automatically update `dist/module.json` with the correct release information.
+3. Create a new GitHub Release with the bundled module and generated release notes.

@@ -1,0 +1,23 @@
+{
+  "hooks": {
+    "before:init": ["npm run fmt:check", "npm run test"],
+    "after:bump": "npm run build"
+  },
+  "git": {
+    "commitMessage": "chore: release v${version}",
+    "tagName": "v${version}",
+    "push": true,
+    "requireCleanWorkingDir": true
+  },
+  "github": {
+    "release": false
+  },
+  "npm": {
+    "publish": false
+  },
+  "plugins": {
+    "@release-it/bumper": {
+      "out": ["package.json", "public/module.json"]
+    }
+  }
+}
