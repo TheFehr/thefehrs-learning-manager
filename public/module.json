@@ -2,12 +2,29 @@
   "id": "thefehrs-learning-manager",
   "title": "Universal Downtime Engine",
   "description": "A fully customizable downtime and learning tracker integrated with Tidy5e.",
-  "version": "1.0.0",
-  "authors": [{ "name": "TheFehr", "url": "https://github.com/TheFehr" }],
-  "compatibility": { "minimum": "13", "verified": "13" },
+  "version": "0.9.0",
+  "authors": [
+    {
+      "name": "TheFehr",
+      "url": "https://github.com/TheFehr"
+    }
+  ],
+  "compatibility": {
+    "minimum": "13",
+    "verified": "13"
+  },
   "relationships": {
-    "systems": [{ "id": "dnd5e", "version": "3.0.0" }],
-    "requires": [{ "id": "tidy5e-sheet" }]
+    "systems": [
+      {
+        "id": "dnd5e",
+        "version": "3.0.0"
+      }
+    ],
+    "requires": [
+      {
+        "id": "tidy5e-sheet"
+      }
+    ]
   },
   "esmodules": ["main.js"],
   "styles": ["src/styles/module.css"]
