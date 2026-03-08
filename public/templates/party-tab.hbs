@@ -88,16 +88,11 @@
                   data-proj-id="{{project.id}}"
                   style="width: 100%;"
                 >
-                  <option value="">-- No Tutor --</option>
-                  {{#each @root.tiers as |tier|}}
-                    <option
-                      value="{{tier.id}}"
-                      selected={{if (eq project.guidanceType tier.name) true false}}
-                    >
-                      {{tier.name}}
-                      ({{#if (gt tier.modifier 0)}}+{{/if}}{{tier.modifier}})
-                    </option>
-                  {{/each}}
+                  {{selectOptions
+                    @root.tierOptions
+                    selected=project.guidanceTierId
+                    blank="-- No Tutor --"
+                  }}
                 </select>
               </td>
             </tr>

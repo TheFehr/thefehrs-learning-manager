@@ -118,11 +118,15 @@ export class TheFehrsLearningManager {
   private static async prepareActorData(actor: Actor) {
     const timeUnits = Settings.timeUnits;
     const bank = actor.getFlag(this.ID, "bank") || { total: 0 };
-    const allProjects = (actor.getFlag(this.ID, "projects") || []).map((p) => ({
-      ...p,
-      percent: Math.min((p.progress / p.maxProgress) * 100, 100),
-      isCompleted: p.progress >= p.maxProgress,
-    }));
+    const allProjects = (actor.getFlag(this.ID, "projects") || []).map((p: any) => {
+      const tier = Settings.guidanceTiers.find((t) => t.id === p.guidanceTierId);
+      return {
+        ...p,
+        percent: Math.min((p.progress / p.maxProgress) * 100, 100),
+        isCompleted: p.progress >= p.maxProgress,
+        guidanceType: tier ? tier.name : "None",
+      };
+    });
 
     return {
       formattedBank: this.formatTimeBank(bank.total, timeUnits),
@@ -137,10 +141,17 @@ export class TheFehrsLearningManager {
   private static async preparePartyData(partyActor: DowntimeGroupActor) {
     const timeUnits = Settings.timeUnits;
     const rawMembers = partyActor.system.members || [];
+    const tiers = Settings.guidanceTiers;
+
+    const tierOptions = tiers.reduce((acc: Record<string, string>, t) => {
+      const sign = t.modifier > 0 ? "+" : "";
+      acc[t.id] = `${t.name} (${sign}${t.modifier})`;
+      return acc;
+    }, {});
 
     return {
       members: rawMembers.map((m) => this.mapMemberData(m, timeUnits)).filter((m) => !!m),
-      tiers: Settings.guidanceTiers,
+      tierOptions,
       isGM: game.user?.isGM,
     };
   }
@@ -409,7 +420,13 @@ export class TheFehrsLearningManager {
     const a = actualActor as Actor;
 
     const bank = a.getFlag(this.ID, "bank") || { total: 0 };
-    const projects = a.getFlag(this.ID, "projects") || [];
+    const projects = (a.getFlag(this.ID, "projects") || []).map((p: any) => {
+      const tier = Settings.guidanceTiers.find((t) => t.id === p.guidanceTierId);
+      return {
+        ...p,
+        guidanceType: tier ? tier.name : "None",
+      };
+    });
 
     return {
       id: a.id,

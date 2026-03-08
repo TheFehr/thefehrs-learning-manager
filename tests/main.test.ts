@@ -89,6 +89,7 @@ describe("TheFehrsLearningManager", () => {
       vi.mocked(game.settings.get).mockImplementation((scope, key) => {
         if (key === "timeUnits") return timeUnits;
         if (key === "projectTemplates") return [];
+        if (key === "guidanceTiers") return [];
         return null;
       });
 
