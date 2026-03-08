@@ -43,3 +43,16 @@ Ensure you have Node.js installed. Clone the repository and install the dependen
 ```bash
 npm install
 ```
+
+### 2. Code Quality & Hooks
+
+This project uses **Husky** and **lint-staged** to maintain code quality.
+
+- **Pre-commit Hook:** A Git `pre-commit` hook is automatically configured to run whenever you commit changes.
+- **Automatic Formatting:** On every commit, `lint-staged` runs `npm run fmt` (powered by `oxfmt`) on your staged files. This ensures all code adheres to the project's formatting standards before it enters the repository.
+
+To manually trigger formatting, you can run:
+
+```bash
+npm run fmt
+```
