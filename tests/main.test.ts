@@ -15,6 +15,10 @@ describe("TheFehrsLearningManager", () => {
       expect(TheFehrsLearningManager.formatTimeBank(-5, timeUnits)).toBe("0");
     });
 
+    it('should return "0" for empty timeUnits', () => {
+      expect(TheFehrsLearningManager.formatTimeBank(10, [])).toBe("0");
+    });
+
     it("should format units correctly based on ratios", () => {
       // 1 hour
       expect(TheFehrsLearningManager.formatTimeBank(1, timeUnits)).toBe("1h");
@@ -52,39 +56,38 @@ describe("TheFehrsLearningManager", () => {
       expect(game.settings.register).toHaveBeenCalledWith(
         TheFehrsLearningManager.ID,
         "rules",
-        expect.any(Object),
+        expect.objectContaining({ scope: "world", config: false }),
       );
       expect(game.settings.register).toHaveBeenCalledWith(
         TheFehrsLearningManager.ID,
         "timeUnits",
-        expect.any(Object),
+        expect.objectContaining({ scope: "world", config: false }),
       );
       expect(game.settings.register).toHaveBeenCalledWith(
         TheFehrsLearningManager.ID,
         "guidanceTiers",
-        expect.any(Object),
+        expect.objectContaining({ scope: "world", config: false }),
       );
       expect(game.settings.register).toHaveBeenCalledWith(
         TheFehrsLearningManager.ID,
         "projectTemplates",
-        expect.any(Object),
+        expect.objectContaining({ scope: "world", config: false }),
       );
     });
   });
 
   describe("prepareActorData", () => {
     it("should return correct data for actor", async () => {
-      const actor = {
-        getFlag: vi.fn((scope, key) => {
-          if (key === "bank") return { total: 15 };
-          if (key === "projects")
-            return [
-              { id: "p1", name: "Project 1", progress: 5, maxProgress: 10 },
-              { id: "p2", name: "Project 2", progress: 10, maxProgress: 10 },
-            ];
-          return null;
-        }),
-      } as any;
+      const actor = new Actor() as any;
+      actor.flags = {
+        [TheFehrsLearningManager.ID]: {
+          bank: { total: 15 },
+          projects: [
+            { id: "p1", name: "Project 1", progress: 5, maxProgress: 10 },
+            { id: "p2", name: "Project 2", progress: 10, maxProgress: 10 },
+          ],
+        },
+      };
 
       vi.mocked(game.settings.get).mockImplementation((scope, key) => {
         if (key === "timeUnits") return timeUnits;
@@ -93,13 +96,26 @@ describe("TheFehrsLearningManager", () => {
         return null;
       });
 
-      const data = await (TheFehrsLearningManager as any).prepareActorData(actor);
+      // @ts-ignore
+      const data = await TheFehrsLearningManager.prepareActorData(actor);
 
       expect(data.formattedBank).toBe("1d 5h");
       expect(data.activeProjects).toHaveLength(1);
       expect(data.activeProjects[0].id).toBe("p1");
       expect(data.completedProjects).toHaveLength(1);
       expect(data.completedProjects[0].id).toBe("p2");
+    });
+
+    it("should handle missing flags gracefully", async () => {
+      const actor = new Actor() as any;
+      vi.mocked(game.settings.get).mockReturnValue([]);
+
+      // @ts-ignore
+      const data = await TheFehrsLearningManager.prepareActorData(actor);
+
+      expect(data.formattedBank).toBe("0");
+      expect(data.activeProjects).toHaveLength(0);
+      expect(data.completedProjects).toHaveLength(0);
     });
   });
 
@@ -111,15 +127,15 @@ describe("TheFehrsLearningManager", () => {
         },
       } as any;
 
-      const memberActor = {
-        id: "m1",
-        name: "Member 1",
-        img: "path/to/img",
-        getFlag: vi.fn((scope, key) => {
-          if (key === "bank") return { total: 10 };
-          if (key === "projects") return [];
-          return null;
-        }),
+      const memberActor = new Actor() as any;
+      memberActor.id = "m1";
+      memberActor.name = "Member 1";
+      memberActor.img = "path/to/img";
+      memberActor.flags = {
+        [TheFehrsLearningManager.ID]: {
+          bank: { total: 10 },
+          projects: [],
+        },
       };
 
       vi.mocked(game.actors.get).mockReturnValue(memberActor as any);
@@ -129,7 +145,8 @@ describe("TheFehrsLearningManager", () => {
         return null;
       });
 
-      const data = await (TheFehrsLearningManager as any).preparePartyData(partyActor);
+      // @ts-ignore
+      const data = await TheFehrsLearningManager.preparePartyData(partyActor);
 
       expect(data.members).toHaveLength(1);
       expect(data.members[0].id).toBe("m1");
@@ -144,13 +161,15 @@ describe("TheFehrsLearningManager", () => {
       const btn = html.querySelector(".bulk-train")!;
 
       const actor = { id: "a1" };
-      (TheFehrsLearningManager as any).activateListeners(html, actor);
+      // @ts-ignore
+      TheFehrsLearningManager.activateListeners(html, actor);
 
       // We can't easily test if the listener was added without spying on addEventListener
       // before calling activateListeners, or triggering the event.
       // Let's trigger it.
       const processTrainingSpy = vi
-        .spyOn(TheFehrsLearningManager as any, "processTraining")
+        // @ts-ignore
+        .spyOn(TheFehrsLearningManager, "processTraining")
         .mockResolvedValue(undefined);
 
       btn.dispatchEvent(new MouseEvent("click"));
@@ -174,18 +193,19 @@ describe("TheFehrsLearningManager", () => {
         { id: "tpl1", name: "Template 1", target: 100 },
       ]);
 
-      (TheFehrsLearningManager as any).activateListeners(html, actor);
+      // @ts-ignore
+      TheFehrsLearningManager.activateListeners(html, actor);
 
       btn.dispatchEvent(new MouseEvent("click"));
 
       // Wait for async listeners
-      await new Promise((resolve) => setTimeout(resolve, 0));
-
-      expect(actor.setFlag).toHaveBeenCalledWith(
-        TheFehrsLearningManager.ID,
-        "projects",
-        expect.arrayContaining([expect.objectContaining({ name: "Template 1" })]),
-      );
+      await vi.waitFor(() => {
+        expect(actor.setFlag).toHaveBeenCalledWith(
+          TheFehrsLearningManager.ID,
+          "projects",
+          expect.arrayContaining([expect.objectContaining({ name: "Template 1" })]),
+        );
+      });
     });
   });
 });

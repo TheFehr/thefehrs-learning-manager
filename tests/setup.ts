@@ -37,7 +37,27 @@ globalThis.game = {
   },
   user: { isGM: false },
   actors: { get: vi.fn() },
+  ID: "thefehrs-learning-manager",
 } as any;
+
+class MockActor {
+  id = "mock-id";
+  name = "Mock Actor";
+  flags: any = {};
+  system: any = {};
+
+  getFlag(scope: string, key: string) {
+    return this.flags?.[scope]?.[key];
+  }
+
+  async setFlag(scope: string, key: string, value: any) {
+    if (!this.flags[scope]) this.flags[scope] = {};
+    this.flags[scope][key] = value;
+    return this;
+  }
+}
+
+globalThis.Actor = MockActor as any;
 
 globalThis.Hooks = {
   on: vi.fn(),

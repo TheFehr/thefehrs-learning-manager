@@ -112,7 +112,7 @@ export class TheFehrsLearningManager {
         remaining %= tu.ratio;
       }
     }
-    return displayParts.join(" ");
+    return displayParts.length > 0 ? displayParts.join(" ") : "0";
   }
 
   private static async prepareActorData(actor: Actor) {

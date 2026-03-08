@@ -17,7 +17,8 @@ describe("LearningConfigApp", () => {
       });
 
       const app = new LearningConfigApp();
-      const context = await (app as any)._prepareContext();
+      // @ts-ignore
+      const context = await app._prepareContext();
 
       expect(context.rules.method).toBe("roll");
       expect(context.timeUnits).toHaveLength(1);
@@ -29,17 +30,20 @@ describe("LearningConfigApp", () => {
     it("should expand form data and update settings", async () => {
       const app = new LearningConfigApp();
       const mockForm = document.createElement("form");
-      // Mocking FormData and its entries is tricky, but let's assume foundry.utils.expandObject handles it
-      (app as any).element = mockForm;
+      // @ts-ignore
+      app.element = mockForm;
 
-      globalThis.foundry.utils.expandObject = vi.fn().mockReturnValue({
+      const mockData = {
         rules: { method: "direct" },
         timeUnits: { "0": { id: "tu1", name: "Unit 1", ratio: "5", isBulk: "on" } },
         tiers: { "0": { id: "t1", modifier: "2", costs: { tu1: "10" }, progress: { tu1: "1" } } },
         projects: { "0": { id: "p1", target: "50" } },
-      });
+      };
 
-      await (app as any).saveFormData();
+      vi.mocked(foundry.utils.expandObject).mockReturnValue(mockData);
+
+      // @ts-ignore
+      await app.saveFormData();
 
       expect(game.settings.set).toHaveBeenCalledWith("thefehrs-learning-manager", "rules", {
         method: "direct",
@@ -146,6 +150,21 @@ describe("LearningConfigApp", () => {
         [{ id: "p2" }],
       );
       expect(app.render).toHaveBeenCalled();
+    });
+
+    it("saveFormData should handle missing data gracefully", async () => {
+      const app = new LearningConfigApp();
+      const mockForm = document.createElement("form");
+      // @ts-ignore
+      app.element = mockForm;
+
+      vi.mocked(foundry.utils.expandObject).mockReturnValue({});
+
+      // @ts-ignore
+      await app.saveFormData();
+
+      // Should still call sets with defaults or empty arrays
+      expect(game.settings.set).toHaveBeenCalled();
     });
   });
 });
