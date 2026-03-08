@@ -64,7 +64,7 @@
                   <span class="progress-read-only">{{project.progress}}
                     /
                     {{project.maxProgress}}</span>
-                  {{#if this.isGM}}
+                  {{#if @root.isGM}}
                     <span class="progress-editable" style="display: none;">
                       <input
                         type="number"
@@ -89,7 +89,7 @@
                   style="width: 100%;"
                 >
                   <option value="">-- No Tutor --</option>
-                  {{#each this.tiers as |tier|}}
+                  {{#each @root.tiers as |tier|}}
                     <option
                       value="{{tier.id}}"
                       selected={{if (eq project.guidanceType tier.name) true false}}
