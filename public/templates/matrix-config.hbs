@@ -1,160 +1,163 @@
 <div class="thefehrs-settings">
-    <div style="display:flex; justify-content:space-between; margin-bottom:15px;">
-        <button type="button" data-action="exportData" style="width:48%;"><i
-                class="fas fa-file-export"
-        ></i>
-            Export JSON
-        </button>
-        <button type="button" data-action="importData" style="width:48%;"><i
-                class="fas fa-file-import"
-        ></i>
-            Import JSON
-        </button>
-    </div>
+  <div style="display:flex; justify-content:space-between; margin-bottom:15px;">
+    <button type="button" data-action="exportData" style="width:48%;"><i
+        class="fas fa-file-export"
+      ></i>
+      Export JSON
+    </button>
+    <button type="button" data-action="importData" style="width:48%;"><i
+        class="fas fa-file-import"
+      ></i>
+      Import JSON
+    </button>
+  </div>
 
-    <h3>Global Rules</h3>
-    <div class="form-group"><label>Method:</label>
-        <select name="rules.method">
-            {{selectOptions rules.method choices=(array
-                    (hash value="direct" label="1 Base Unit = 1 Progress")
-                    (hash value="roll" label="Learning Check")
-            )}}
-        </select>
-    </div>
-    <div class="form-group"><label>Check Formula:</label><input
-            type="text"
-            name="rules.checkFormula"
-            value="{{rules.checkFormula}}"
+  <h3>Global Rules</h3>
+  <div class="form-group"><label>Method:</label>
+    <select name="rules.method">
+      {{selectOptions
+        rules.method
+        choices=(array
+          (hash value="direct" label="1 Base Unit = 1 Progress")
+          (hash value="roll" label="Learning Check")
+        )
+      }}
+    </select>
+  </div>
+  <div class="form-group"><label>Check Formula:</label><input
+      type="text"
+      name="rules.checkFormula"
+      value="{{rules.checkFormula}}"
     /></div>
-    <div class="form-group"><label>Check DC:</label><input
-            type="number"
-            name="rules.checkDC"
-            value="{{rules.checkDC}}"
+  <div class="form-group"><label>Check DC:</label><input
+      type="number"
+      name="rules.checkDC"
+      value="{{rules.checkDC}}"
     />
-    </div>
-    <hr/>
+  </div>
+  <hr />
 
-    <h3>Time Units</h3>
-    <table class="tidy-table" style="font-size:0.8rem;">
-        <tr>
-            <th>Name</th>
-            <th>Short</th>
-            <th>Ratio</th>
-            <th>Bulk Method?</th>
-            <th></th>
-        </tr>
-        {{#each timeUnits}}
-            <tr>
-                <td><input type="text" name="timeUnits.{{id}}.name" value="{{name}}"/></td>
-                <td><input
-                        type="text"
-                        name="timeUnits.{{id}}.short"
-                        value="{{short}}"
-                        style="width:40px;"
-                /></td>
-                <td><input type="number" name="timeUnits.{{id}}.ratio" value="{{ratio}}" min="1"/></td>
-                <td><input type="checkbox" name="timeUnits.{{id}}.isBulk" {{checked isBulk}} /></td>
-                <td>
-                    <input type="hidden" name="timeUnits.{{id}}.id" value="{{id}}"/>
-                    <button type="button" data-action="deleteTimeUnit" data-id="{{id}}"><i
-                            class="fas fa-trash"
-                    ></i>
-                    </button>
-                </td>
-            </tr>
-        {{/each}}
-    </table>
-    <button type="button" data-action="addTimeUnit" style="margin-top:5px;"><i
-            class="fas fa-plus"
+  <h3>Time Units</h3>
+  <table class="tidy-table" style="font-size:0.8rem;">
+    <tr>
+      <th>Name</th>
+      <th>Short</th>
+      <th>Ratio</th>
+      <th>Bulk Method?</th>
+      <th></th>
+    </tr>
+    {{#each timeUnits}}
+      <tr>
+        <td><input type="text" name="timeUnits.{{id}}.name" value="{{name}}" /></td>
+        <td><input
+            type="text"
+            name="timeUnits.{{id}}.short"
+            value="{{short}}"
+            style="width:40px;"
+          /></td>
+        <td><input type="number" name="timeUnits.{{id}}.ratio" value="{{ratio}}" min="1" /></td>
+        <td><input type="checkbox" name="timeUnits.{{id}}.isBulk" {{checked isBulk}} /></td>
+        <td>
+          <input type="hidden" name="timeUnits.{{id}}.id" value="{{id}}" />
+          <button type="button" data-action="deleteTimeUnit" data-id="{{id}}"><i
+              class="fas fa-trash"
+            ></i>
+          </button>
+        </td>
+      </tr>
+    {{/each}}
+  </table>
+  <button type="button" data-action="addTimeUnit" style="margin-top:5px;"><i
+      class="fas fa-plus"
     ></i>
-        Add Time Unit
-    </button>
-    <hr/>
+    Add Time Unit
+  </button>
+  <hr />
 
-    <h3>Guidance Tiers (The Matrix)</h3>
-    <div class="table-responsive-wrapper">
-        <table class="tidy-table" style="font-size:0.8rem;">
-            <thead>
-            <tr>
-                <th>Tier Name</th>
-                <th>Roll Mod</th>
-                {{#each timeUnits}}
-                    <th title="Cost per {{name}} in gp">Cost/{{short}} (gp)</th>
-                    {{#if isBulk}}
-                        <th title="Progress gained per {{name}}">Prog/{{short}}</th>{{/if}}
-                {{/each}}
-                <th></th>
-            </tr>
-            </thead>
-            <tbody>
-            {{#each this.tiers as |tier|}}
-                <tr>
-                    <td><input type="text" name="tiers.{{tier.id}}.name" value="{{tier.name}}"/></td>
-                    <td><input
-                            type="number"
-                            name="tiers.{{tier.id}}.modifier"
-                            value="{{tier.modifier}}"
-                    /></td>
-                    <input type="hidden" name="tiers.{{tier.id}}.id" value="{{tier.id}}"/>
-                    {{#each this.timeUnits as |timeUnit|}}
-                        <td><input
-                                type="number"
-                                name="tiers.{{tier.id}}.costs.{{timeUnit.id}}"
-                                value="{{lookup this.costs id}}"
-                                step="0.01"
-                        /></td>
-                        {{#if isBulk}}
-                            <td><input
-                                    type="number"
-                                    name="tiers.{{tier.id}}.progress.{{timeUnit.id}}"
-                                    value="{{lookup this.progress id}}"
-                            /></td>{{/if}}
-                    {{/each}}
-                    <td>
-                        <button type="button" data-action="deleteTier" data-id="{{tier.id}}"><i
-                                class="fas fa-trash"
-                        ></i>
-                        </button>
-                    </td>
-                </tr>
-            {{/each}}
-            </tbody>
-        </table>
-    </div>
-    <button type="button" data-action="addTier" style="margin-top:5px;"><i class="fas fa-plus"></i>
-        Add Tier
-    </button>
-
-    <hr/>
-    <h3>Project Library</h3>
-    <table class="tidy-table">
+  <h3>Guidance Tiers (The Matrix)</h3>
+  <div class="table-responsive-wrapper">
+    <table class="tidy-table" style="font-size:0.8rem;">
+      <thead>
         <tr>
-            <th>Project Name</th>
-            <th>Target Base Units</th>
-            <th title="Paste an Item UUID here to auto-grant it upon completion">Reward Item UUID</th>
-            <th></th>
+          <th>Tier Name</th>
+          <th>Roll Mod</th>
+          {{#each timeUnits}}
+            <th title="Cost per {{name}} in gp">Cost/{{short}} (gp)</th>
+            {{#if isBulk}}
+              <th title="Progress gained per {{name}}">Prog/{{short}}</th>{{/if}}
+          {{/each}}
+          <th></th>
         </tr>
-        {{#each projects}}
-            <tr>
-                <td><input type="text" name="projects.{{id}}.name" value="{{name}}"/></td>
-                <td><input type="number" name="projects.{{id}}.target" value="{{target}}" min="1"/></td>
-                <td><input
-                        type="text"
-                        name="projects.{{id}}.rewardUuid"
-                        value="{{rewardUuid}}"
-                        placeholder="Item.123abc456def"
+      </thead>
+      <tbody>
+        {{#each this.tiers as |tier|}}
+          <tr>
+            <td><input type="text" name="tiers.{{tier.id}}.name" value="{{tier.name}}" /></td>
+            <td><input
+                type="number"
+                name="tiers.{{tier.id}}.modifier"
+                value="{{tier.modifier}}"
+              /></td>
+            <input type="hidden" name="tiers.{{tier.id}}.id" value="{{tier.id}}" />
+            {{#each this.timeUnits as |timeUnit|}}
+              <td><input
+                  type="number"
+                  name="tiers.{{tier.id}}.costs.{{timeUnit.id}}"
+                  value="{{lookup this.costs id}}"
+                  step="0.01"
                 /></td>
-                <input type="hidden" name="projects.{{id}}.id" value="{{id}}"/>
-                <td>
-                    <button type="button" data-action="deleteProject" data-id="{{id}}"><i
-                            class="fas fa-trash"
-                    ></i>
-                    </button>
-                </td>
-            </tr>
+              {{#if isBulk}}
+                <td><input
+                    type="number"
+                    name="tiers.{{tier.id}}.progress.{{timeUnit.id}}"
+                    value="{{lookup this.progress id}}"
+                  /></td>{{/if}}
+            {{/each}}
+            <td>
+              <button type="button" data-action="deleteTier" data-id="{{tier.id}}"><i
+                  class="fas fa-trash"
+                ></i>
+              </button>
+            </td>
+          </tr>
         {{/each}}
+      </tbody>
     </table>
-    <button type="button" data-action="addProject" style="margin-top:5px;"><i class="fas fa-plus"></i>
-        Add Project
-    </button>
+  </div>
+  <button type="button" data-action="addTier" style="margin-top:5px;"><i class="fas fa-plus"></i>
+    Add Tier
+  </button>
+
+  <hr />
+  <h3>Project Library</h3>
+  <table class="tidy-table">
+    <tr>
+      <th>Project Name</th>
+      <th>Target Base Units</th>
+      <th title="Paste an Item UUID here to auto-grant it upon completion">Reward Item UUID</th>
+      <th></th>
+    </tr>
+    {{#each projects}}
+      <tr>
+        <td><input type="text" name="projects.{{id}}.name" value="{{name}}" /></td>
+        <td><input type="number" name="projects.{{id}}.target" value="{{target}}" min="1" /></td>
+        <td><input
+            type="text"
+            name="projects.{{id}}.rewardUuid"
+            value="{{rewardUuid}}"
+            placeholder="Item.123abc456def"
+          /></td>
+        <input type="hidden" name="projects.{{id}}.id" value="{{id}}" />
+        <td>
+          <button type="button" data-action="deleteProject" data-id="{{id}}"><i
+              class="fas fa-trash"
+            ></i>
+          </button>
+        </td>
+      </tr>
+    {{/each}}
+  </table>
+  <button type="button" data-action="addProject" style="margin-top:5px;"><i class="fas fa-plus"></i>
+    Add Project
+  </button>
 </div>
