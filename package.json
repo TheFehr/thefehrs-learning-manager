@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
-    "fmt": "oxfmt",
+    "fmt": "oxfmt --no-error-on-unmatched-pattern",
     "fmt:check": "oxfmt --check",
     "test": "vitest run",
     "release": "release-it",
@@ -27,6 +27,6 @@
     "vitest": "^4.0.18"
   },
   "lint-staged": {
-    "**/*": "npm run fmt"
+    "**/*.{ts,json,js,hbs,scss,md}": "npm run fmt"
   }
 }
