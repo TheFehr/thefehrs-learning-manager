@@ -47,6 +47,7 @@ describe("TheFehrsLearningManager", () => {
       TheFehrsLearningManager.init();
       expect(game.settings.registerMenu).toHaveBeenCalled();
       expect(Handlebars.registerHelper).toHaveBeenCalledWith("eq", expect.any(Function));
+      expect(Handlebars.registerHelper).toHaveBeenCalledWith("array", expect.any(Function));
     });
   });
 

@@ -7,6 +7,7 @@
     "build": "tsc && vite build",
     "fmt": "oxfmt --no-error-on-unmatched-pattern",
     "fmt:check": "oxfmt --check",
+    "lint:hbs": "./scripts/check-hbs-syntax.sh",
     "test": "vitest run",
     "release": "release-it",
     "prepare": "husky"
@@ -27,6 +28,7 @@
     "vitest": "^4.0.18"
   },
   "lint-staged": {
+    "**/*.hbs": "npm run lint:hbs",
     "**/*.{ts,json,js,hbs,scss,md}": "npm run fmt"
   }
 }

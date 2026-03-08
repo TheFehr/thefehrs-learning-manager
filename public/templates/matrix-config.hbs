@@ -15,13 +15,7 @@
   <h3>Global Rules</h3>
   <div class="form-group"><label>Method:</label>
     <select name="rules.method">
-      {{selectOptions
-        rules.method
-        choices=(array
-          (hash value="direct" label="1 Base Unit = 1 Progress")
-          (hash value="roll" label="Learning Check")
-        )
-      }}
+      {{selectOptions choices selected=rules.method}}
     </select>
   </div>
   <div class="form-group"><label>Check Formula:</label><input
@@ -99,18 +93,18 @@
                 value="{{tier.modifier}}"
               /></td>
             <input type="hidden" name="tiers.{{tier.id}}.id" value="{{tier.id}}" />
-            {{#each this.timeUnits as |timeUnit|}}
+            {{#each @root.timeUnits as |timeUnit|}}
               <td><input
                   type="number"
                   name="tiers.{{tier.id}}.costs.{{timeUnit.id}}"
-                  value="{{lookup this.costs id}}"
+                  value="{{lookup tier.costs timeUnit.id}}"
                   step="0.01"
                 /></td>
-              {{#if isBulk}}
+              {{#if timeUnit.isBulk}}
                 <td><input
                     type="number"
                     name="tiers.{{tier.id}}.progress.{{timeUnit.id}}"
-                    value="{{lookup this.progress id}}"
+                    value="{{lookup tier.progress timeUnit.id}}"
                   /></td>{{/if}}
             {{/each}}
             <td>
