@@ -7,7 +7,7 @@ import type {
   TimeUnit,
   Tidy5eApi,
   Tidy5eTabGetDataParams,
-  Tidy5eTabRenderParams
+  Tidy5eTabRenderParams,
 } from "./types";
 import { LearningConfigApp } from "./settings-app";
 import "./styles/module.scss";
@@ -252,8 +252,8 @@ export class TheFehrsLearningManager {
 
         const members = isParty
           ? (actor.system.members || [])
-            .map((m: any) => this.mapMemberData(m, timeUnits))
-            .filter((m: any) => !!m)
+              .map((m: any) => this.mapMemberData(m, timeUnits))
+              .filter((m: any) => !!m)
           : [];
 
         const templateData = { timeUnits, isParty, members };

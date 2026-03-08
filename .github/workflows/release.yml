@@ -3,7 +3,7 @@ name: Release Module
 on:
   push:
     tags:
-      - 'v*'
+      - "v*"
 
 jobs:
   build:
@@ -18,8 +18,8 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          cache: 'npm'
+          node-version: "20"
+          cache: "npm"
 
       - name: Install dependencies
         run: npm ci
@@ -49,5 +49,5 @@ jobs:
           draft: false
           prerelease: false
           token: ${{ secrets.GITHUB_TOKEN }}
-          artifacts: './thefehrs-learning-manager.zip, ./dist/module.json'
+          artifacts: "./thefehrs-learning-manager.zip, ./dist/module.json"
           generateReleaseNotes: true

@@ -93,17 +93,17 @@
                 value="{{tier.modifier}}"
               /></td>
             <input type="hidden" name="tiers.{{tier.id}}.id" value="{{tier.id}}" />
-            {{#each this.timeUnits}}
+            {{#each this.timeUnits as |timeUnit|}}
               <td><input
                   type="number"
-                  name="tiers.{{this.id}}.costs.{{tier.id}}"
+                  name="tiers.{{tier.id}}.costs.{{timeUnit.id}}"
                   value="{{lookup this.costs id}}"
                   step="0.01"
                 /></td>
               {{#if isBulk}}
                 <td><input
                     type="number"
-                    name="tiers.{{this.id}}.progress.{{tier.id}}"
+                    name="tiers.{{tier.id}}.progress.{{timeUnit.id}}"
                     value="{{lookup this.progress id}}"
                   /></td>{{/if}}
             {{/each}}

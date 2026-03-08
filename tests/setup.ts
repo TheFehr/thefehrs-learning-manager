@@ -1,15 +1,15 @@
-import { vi } from 'vitest';
+import { vi } from "vitest";
 
 globalThis.foundry = {
   applications: {
     api: {
       ApplicationV2: class {},
       HandlebarsApplicationMixin: (base: any) => base,
-    }
+    },
   },
   utils: {
-    randomID: vi.fn().mockReturnValue('randomid'),
-  }
+    randomID: vi.fn().mockReturnValue("randomid"),
+  },
 } as any;
 
 globalThis.game = {
@@ -37,7 +37,7 @@ globalThis.ui = {
     info: vi.fn(),
     warn: vi.fn(),
     error: vi.fn(),
-  }
+  },
 } as any;
 
 globalThis.renderTemplate = vi.fn();
