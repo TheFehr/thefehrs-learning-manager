@@ -33,6 +33,21 @@ jobs:
       - name: Build the module
         run: npm run build
 
+      - name: Update module.json with release information
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/}"
+          VERSION_CLEAN="${VERSION#v}"
+          URL="https://github.com/${{ github.repository }}"
+          MANIFEST="${URL}/releases/latest/download/module.json"
+          DOWNLOAD="${URL}/releases/download/${VERSION}/thefehrs-learning-manager.zip"
+
+          jq --arg version "$VERSION_CLEAN" \
+             --arg url "$URL" \
+             --arg manifest "$MANIFEST" \
+             --arg download "$DOWNLOAD" \
+             '.version = $version | .url = $url | .manifest = $manifest | .download = $download' \
+             dist/module.json > dist/module.json.tmp && mv dist/module.json.tmp dist/module.json
+
       - name: Zip the distribution folder
         run: |
           cd dist
