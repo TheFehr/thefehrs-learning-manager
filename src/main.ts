@@ -491,11 +491,12 @@ export class TheFehrsLearningManager {
     try {
       const rewardDoc = await fromUuid(project.rewardUuid as any);
       if (!rewardDoc) return;
+      const rewardType = project.rewardType === "effect" ? "effect" : "item";
 
-      if (project.rewardType === "item" && rewardDoc instanceof Item) {
+      if (rewardType === "item" && rewardDoc instanceof Item) {
         await actor.createEmbeddedDocuments("Item", [rewardDoc.toObject()]);
         ui.notifications?.info(`Learning Complete: ${actor.name} gained item ${rewardDoc.name}!`);
-      } else if (project.rewardType === "effect" && rewardDoc instanceof ActiveEffect) {
+      } else if (rewardType === "effect" && rewardDoc instanceof ActiveEffect) {
         const effectData = rewardDoc.toObject() as any;
         effectData.origin = actor.uuid;
 
