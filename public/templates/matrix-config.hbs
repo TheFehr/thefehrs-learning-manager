@@ -49,7 +49,7 @@
             value="{{short}}"
             style="width:40px;"
           /></td>
-        <td><input type="number" name="timeUnits.{{id}}.ratio" value="{{ratio}}" /></td>
+        <td><input type="number" name="timeUnits.{{id}}.ratio" value="{{ratio}}" min="1" /></td>
         <td><input type="checkbox" name="timeUnits.{{id}}.isBulk" {{checked isBulk}} /></td>
         <td>
           <input type="hidden" name="timeUnits.{{id}}.id" value="{{id}}" />
@@ -133,7 +133,7 @@
     {{#each projects}}
       <tr>
         <td><input type="text" name="projects.{{id}}.name" value="{{name}}" /></td>
-        <td><input type="number" name="projects.{{id}}.target" value="{{target}}" /></td>
+        <td><input type="number" name="projects.{{id}}.target" value="{{target}}" min="1" /></td>
         <td><input
             type="text"
             name="projects.{{id}}.rewardUuid"

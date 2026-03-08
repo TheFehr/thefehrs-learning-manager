@@ -3,12 +3,28 @@ import { vi } from "vitest";
 globalThis.foundry = {
   applications: {
     api: {
-      ApplicationV2: class {},
+      ApplicationV2: class {
+        render = vi.fn();
+      },
       HandlebarsApplicationMixin: (base: any) => base,
     },
   },
   utils: {
     randomID: vi.fn().mockReturnValue("randomid"),
+    expandObject: vi.fn((obj: any) => {
+      const result: any = {};
+      for (const [key, value] of Object.entries(obj)) {
+        const parts = key.split(".");
+        let curr = result;
+        for (let i = 0; i < parts.length - 1; i++) {
+          const part = parts[i];
+          if (!(part in curr)) curr[part] = {};
+          curr = curr[part];
+        }
+        curr[parts[parts.length - 1]] = value;
+      }
+      return result;
+    }),
   },
 } as any;
 
@@ -42,6 +58,10 @@ globalThis.ui = {
 
 globalThis.renderTemplate = vi.fn();
 globalThis.Dialog = class {
+  constructor(public data: any) {
+    this.buttons = data.buttons;
+  }
+  buttons: any;
   render = vi.fn();
 } as any;
 globalThis.ChatMessage = {
