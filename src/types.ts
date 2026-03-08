@@ -20,11 +20,14 @@ export interface GuidanceTier {
   progress: Record<string, number>;
 }
 
+export type RewardType = "item" | "effect";
+
 export interface ProjectTemplate {
   id: string;
   name: string;
   target: number;
   rewardUuid: string;
+  rewardType: RewardType;
 }
 
 export interface LearningProject {
@@ -35,6 +38,7 @@ export interface LearningProject {
   guidanceTierId: string;
   tutelage: number;
   rewardUuid: string;
+  rewardType: RewardType;
   isCompleted: boolean;
   percent?: number;
 }
