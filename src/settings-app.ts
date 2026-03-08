@@ -31,6 +31,10 @@ export class LearningConfigApp extends HandlebarsApplicationMixin(ApplicationV2)
       timeUnits: Settings.timeUnits,
       tiers: Settings.guidanceTiers,
       projects: Settings.projectTemplates,
+      choices: {
+        direct: "1 Base Unit = 1 Progress",
+        roll: "Learning Check",
+      },
     };
   }
 
@@ -58,9 +62,23 @@ export class LearningConfigApp extends HandlebarsApplicationMixin(ApplicationV2)
     const tiersArray = Object.values(data.tiers || {}).map((t: any) => {
       const costs: Record<string, number> = {};
       const progress: Record<string, number> = {};
-      if (t.costs) for (const [k, v] of Object.entries(t.costs)) costs[k] = Number(v) || 0;
-      if (t.progress) for (const [k, v] of Object.entries(t.progress)) progress[k] = Number(v) || 0;
-      return { ...t, modifier: Number(t.modifier) || 0, costs, progress, id: t.id };
+      if (t.costs) {
+        for (const [k, v] of Object.entries(t.costs)) {
+          costs[k] = Number(v) || 0;
+        }
+      }
+      if (t.progress) {
+        for (const [k, v] of Object.entries(t.progress)) {
+          progress[k] = Number(v) || 0;
+        }
+      }
+      return {
+        id: t.id,
+        name: t.name || "",
+        modifier: Number(t.modifier) || 0,
+        costs,
+        progress,
+      };
     }) as GuidanceTier[];
     await Settings.setGuidanceTiers(tiersArray);
 

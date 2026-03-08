@@ -21,6 +21,10 @@ describe("LearningConfigApp", () => {
       const context = await app._prepareContext();
 
       expect(context.rules.method).toBe("roll");
+      expect(context.choices).toEqual({
+        direct: "1 Base Unit = 1 Progress",
+        roll: "Learning Check",
+      });
       expect(context.timeUnits).toHaveLength(1);
       expect(game.settings.get).toHaveBeenCalledTimes(4);
     });
@@ -36,7 +40,15 @@ describe("LearningConfigApp", () => {
       const mockData = {
         rules: { method: "direct" },
         timeUnits: { "0": { id: "tu1", name: "Unit 1", ratio: "5", isBulk: "on" } },
-        tiers: { "0": { id: "t1", modifier: "2", costs: { tu1: "10" }, progress: { tu1: "1" } } },
+        tiers: {
+          "0": {
+            id: "t1",
+            name: "Tier 1",
+            modifier: "2",
+            costs: { tu1: "10" },
+            progress: { tu1: "1" },
+          },
+        },
         projects: { "0": { id: "p1", target: "50" } },
       };
 
@@ -52,7 +64,7 @@ describe("LearningConfigApp", () => {
         { id: "tu1", name: "Unit 1", ratio: 5, isBulk: true },
       ]);
       expect(game.settings.set).toHaveBeenCalledWith("thefehrs-learning-manager", "guidanceTiers", [
-        { id: "t1", modifier: 2, costs: { tu1: 10 }, progress: { tu1: 1 } },
+        { id: "t1", name: "Tier 1", modifier: 2, costs: { tu1: 10 }, progress: { tu1: 1 } },
       ]);
       expect(game.settings.set).toHaveBeenCalledWith(
         "thefehrs-learning-manager",

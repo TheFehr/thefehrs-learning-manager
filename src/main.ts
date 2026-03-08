@@ -24,6 +24,10 @@ export class TheFehrsLearningManager {
       return a === b;
     });
 
+    Handlebars.registerHelper("array", function (...args) {
+      return args.slice(0, -1);
+    });
+
     Settings.registerMenu("configMenu", {
       name: "Downtime Engine Config",
       label: "Open Settings Panel",
@@ -90,7 +94,50 @@ export class TheFehrsLearningManager {
       scope: "world",
       config: false,
       type: Array,
-      default: [],
+      default: [
+        {
+          id: "tier_prof_solo",
+          name: "Professional teacher, solo lesson",
+          modifier: 10,
+          costs: { tu_hr: 5, tu_day: 40, tu_wk: 200 },
+          progress: { tu_day: 1, tu_wk: 7 },
+        },
+        {
+          id: "tier_prof_divided",
+          name: "Professional teacher, divided attention",
+          modifier: 8,
+          costs: { tu_hr: 2, tu_day: 15, tu_wk: 75 },
+          progress: { tu_day: 1, tu_wk: 7 },
+        },
+        {
+          id: "tier_ama_solo",
+          name: "Amateur teacher, solo lesson",
+          modifier: 6,
+          costs: { tu_hr: 1, tu_day: 8, tu_wk: 40 },
+          progress: { tu_day: 1, tu_wk: 7 },
+        },
+        {
+          id: "tier_ama_divided",
+          name: "Amateur teacher, divided attention",
+          modifier: 4,
+          costs: { tu_hr: 0.5, tu_day: 4, tu_wk: 20 },
+          progress: { tu_day: 1, tu_wk: 7 },
+        },
+        {
+          id: "tier_self_book",
+          name: "Self-taught with a book/untrained help",
+          modifier: 2,
+          costs: { tu_hr: 0, tu_day: 0, tu_wk: 0 },
+          progress: { tu_day: 1, tu_wk: 7 },
+        },
+        {
+          id: "tier_self_none",
+          name: "Self-taught, no guidance",
+          modifier: 0,
+          costs: { tu_hr: 0, tu_day: 0, tu_wk: 0 },
+          progress: { tu_day: 1, tu_wk: 7 },
+        },
+      ],
     });
     Settings.register("projectTemplates", {
       scope: "world",
