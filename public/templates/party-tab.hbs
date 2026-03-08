@@ -1,85 +1,121 @@
 <div class="party-learning-container">
-    {{#if isGM}}
+  {{#if isGM}}
     <div class="party-controls" style="display: flex; gap: 10px; margin-bottom: 15px;">
-        <button class="grant-time-btn tidy-button" style="flex: 1;">
-            <i class="fa-solid fa-clock-rotate-left"></i> Distribute Time
-        </button>
-        <button class="toggle-progress-edit tidy-button" style="flex: 0 0 40px;" title="Toggle Manual Progress Edit">
-            <i class="fas fa-edit"></i>
-        </button>
+      <button class="grant-time-btn tidy-button" style="flex: 1;">
+        <i class="fa-solid fa-clock-rotate-left"></i>
+        Distribute Time
+      </button>
+      <button
+        class="toggle-progress-edit tidy-button"
+        style="flex: 0 0 40px;"
+        title="Toggle Manual Progress Edit"
+      >
+        <i class="fas fa-edit"></i>
+      </button>
     </div>
-    {{/if}}
+  {{/if}}
 
-    <table class="tidy-table party-learning-table">
-        <thead>
-            <tr>
-                <th style="width: 200px;">Character</th>
-                <th>Project</th>
-                <th style="width: 150px;">Progress</th>
-                <th style="width: 180px;">Tutor/Guidance</th>
+  <table class="tidy-table party-learning-table">
+    <thead>
+      <tr>
+        <th style="width: 200px;">Character</th>
+        <th>Project</th>
+        <th style="width: 150px;">Progress</th>
+        <th style="width: 180px;">Tutor/Guidance</th>
+      </tr>
+    </thead>
+    <tbody>
+      {{#each members as |member|}}
+        {{#if member.projects.length}}
+          {{#each member.projects as |project|}}
+            <tr class="project-row" data-actor-id="{{member.id}}" data-project-id="{{project.id}}">
+              {{#if @first}}
+                <td
+                  rowspan="{{member.projects.length}}"
+                  class="member-info-cell"
+                  style="vertical-align: top; border-right: 1px solid var(--t5e-faint-color);"
+                >
+                  <div style="display: flex; align-items: center; gap: 8px; font-weight: bold;">
+                    <img
+                      src="{{member.img}}"
+                      width="24"
+                      height="24"
+                      style="border: none; border-radius: 4px;"
+                    />
+                    <span>{{member.name}}</span>
+                  </div>
+                  <div
+                    class="bank-display"
+                    style="font-size: 0.85em; margin-top: 4px; color: var(--t5e-secondary-color);"
+                  >
+                    <i class="fa-solid fa-piggy-bank"></i>
+                    {{member.formattedBank}}
+                  </div>
+                </td>
+              {{/if}}
+
+              <td class="project-name">{{project.name}}</td>
+
+              <td class="project-progress">
+                <div
+                  class="progress-container"
+                  style="display: flex; align-items: center; gap: 5px;"
+                >
+                  <span class="progress-read-only">{{project.progress}}
+                    /
+                    {{project.maxProgress}}</span>
+                  {{#if this.isGM}}
+                    <span class="progress-editable" style="display: none;">
+                      <input
+                        type="number"
+                        class="update-project-progress"
+                        data-actor-id="{{member.id}}"
+                        data-proj-id="{{project.id}}"
+                        value="{{project.progress}}"
+                        style="width: 50px; text-align: center;"
+                      />
+                      /
+                      {{project.maxProgress}}
+                    </span>
+                  {{/if}}
+                </div>
+              </td>
+
+              <td class="project-tutor">
+                <select
+                  class="update-project"
+                  data-actor-id="{{member.id}}"
+                  data-proj-id="{{project.id}}"
+                  style="width: 100%;"
+                >
+                  <option value="">-- No Tutor --</option>
+                  {{#each this.tiers as |tier|}}
+                    <option
+                      value="{{tier.id}}"
+                      selected={{if (eq project.guidanceType tier.name) true false}}
+                    >
+                      {{tier.name}}
+                      ({{#if (gt tier.modifier 0)}}+{{/if}}{{tier.modifier}})
+                    </option>
+                  {{/each}}
+                </select>
+              </td>
             </tr>
-        </thead>
-        <tbody>
-            {{#each members as |member|}}
-                {{#if member.projects.length}}
-                    {{#each member.projects as |project|}}
-                    <tr class="project-row" data-actor-id="{{member.id}}" data-project-id="{{project.id}}">
-                        {{#if @first}}
-                        <td rowspan="{{member.projects.length}}" class="member-info-cell" style="vertical-align: top; border-right: 1px solid var(--t5e-faint-color);">
-                            <div style="display: flex; align-items: center; gap: 8px; font-weight: bold;">
-                                <img src="{{member.img}}" width="24" height="24" style="border: none; border-radius: 4px;">
-                                <span>{{member.name}}</span>
-                            </div>
-                            <div class="bank-display" style="font-size: 0.85em; margin-top: 4px; color: var(--t5e-secondary-color);">
-                                <i class="fa-solid fa-piggy-bank"></i> {{member.formattedBank}}
-                            </div>
-                        </td>
-                        {{/if}}
-                        
-                        <td class="project-name">{{project.name}}</td>
-                        
-                        <td class="project-progress">
-                            <div class="progress-container" style="display: flex; align-items: center; gap: 5px;">
-                                <span class="progress-read-only">{{project.progress}} / {{project.maxProgress}}</span>
-                                {{#if ../../isGM}}
-                                <span class="progress-editable" style="display: none;">
-                                    <input type="number" 
-                                           class="update-project-progress" 
-                                           data-actor-id="{{member.id}}" 
-                                           data-proj-id="{{project.id}}" 
-                                           value="{{project.progress}}" 
-                                           style="width: 50px; text-align: center;">
-                                    / {{project.maxProgress}}
-                                </span>
-                                {{/if}}
-                            </div>
-                        </td>
-
-                        <td class="project-tutor">
-                            <select class="update-project" data-actor-id="{{member.id}}" data-proj-id="{{project.id}}" style="width: 100%;">
-                                <option value="">-- No Tutor --</option>
-                                {{#each ../../tiers as |tier|}}
-                                <option value="{{tier.id}}" {{#if (eq project.guidanceType tier.name)}}selected{{/if}}>
-                                    {{tier.name}} ({{#if (gt tier.modifier 0)}}+{{/if}}{{tier.modifier}})
-                                </option>
-                                {{/each}}
-                            </select>
-                        </td>
-                    </tr>
-                    {{/each}}
-                {{else}}
-                    {{!-- Case where a member has no active projects --}}
-                    <tr>
-                        <td style="border-right: 1px solid var(--t5e-faint-color);">
-                            <div style="display: flex; align-items: center; gap: 8px;">
-                                <img src="{{member.img}}" width="24" height="24" style="border-radius: 4px;">
-                                <span style="opacity: 0.7;">{{member.name}}</span>
-                            </div>
-                        </td>
-                        <td colspan="3" style="font-style: italic; opacity: 0.5; text-align: center;">No active projects</td>
-                    </tr>
-                {{/if}}
-            {{/each}}
-        </tbody>
-    </table>
+          {{/each}}
+        {{else}}
+          {{! Case where a member has no active projects }}
+          <tr>
+            <td style="border-right: 1px solid var(--t5e-faint-color);">
+              <div style="display: flex; align-items: center; gap: 8px;">
+                <img src="{{member.img}}" width="24" height="24" style="border-radius: 4px;" />
+                <span style="opacity: 0.7;">{{member.name}}</span>
+              </div>
+            </td>
+            <td colspan="3" style="font-style: italic; opacity: 0.5; text-align: center;">No active
+              projects</td>
+          </tr>
+        {{/if}}
+      {{/each}}
+    </tbody>
+  </table>
 </div>

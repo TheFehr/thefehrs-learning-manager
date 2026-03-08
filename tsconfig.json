@@ -8,10 +8,7 @@
     "skipLibCheck": true,
     "esModuleInterop": true,
     "noEmit": true,
-    "types": [
-      "@league-of-foundry-developers/foundry-vtt-types",
-      "handlebars"
-    ]
+    "types": ["@league-of-foundry-developers/foundry-vtt-types", "handlebars"]
   },
   "include": ["src/**/*"]
 }
