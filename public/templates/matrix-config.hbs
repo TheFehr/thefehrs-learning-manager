@@ -128,18 +128,24 @@
     <tr>
       <th>Project Name</th>
       <th>Target Base Units</th>
-      <th title="Paste an Item UUID here to auto-grant it upon completion">Reward Item UUID</th>
+      <th>Reward Type</th>
+      <th title="Paste an Item or Effect UUID here to auto-grant it upon completion">Reward UUID</th>
       <th></th>
     </tr>
     {{#each projects}}
       <tr>
         <td><input type="text" name="projects.{{id}}.name" value="{{name}}" /></td>
         <td><input type="number" name="projects.{{id}}.target" value="{{target}}" min="1" /></td>
+        <td>
+          <select name="projects.{{id}}.rewardType">
+            {{selectOptions @root.rewardTypes selected=rewardType}}
+          </select>
+        </td>
         <td><input
             type="text"
             name="projects.{{id}}.rewardUuid"
             value="{{rewardUuid}}"
-            placeholder="Item.123abc456def"
+            placeholder="Paste Item or Effect UUID"
           /></td>
         <input type="hidden" name="projects.{{id}}.id" value="{{id}}" />
         <td>

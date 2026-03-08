@@ -49,7 +49,7 @@ describe("LearningConfigApp", () => {
             progress: { tu1: "1" },
           },
         },
-        projects: { "0": { id: "p1", target: "50" } },
+        projects: { "0": { id: "p1", target: "50", rewardType: "item" } },
       };
 
       vi.mocked(foundry.utils.expandObject).mockReturnValue(mockData);
@@ -69,7 +69,7 @@ describe("LearningConfigApp", () => {
       expect(game.settings.set).toHaveBeenCalledWith(
         "thefehrs-learning-manager",
         "projectTemplates",
-        [{ id: "p1", target: 50 }],
+        [{ id: "p1", target: 50, rewardType: "item" }],
       );
     });
   });
@@ -151,7 +151,10 @@ describe("LearningConfigApp", () => {
     it("deleteProject should remove project and re-render", async () => {
       const app = new LearningConfigApp();
       app.render = vi.fn();
-      vi.mocked(game.settings.get).mockReturnValue([{ id: "p1" }, { id: "p2" }]);
+      vi.mocked(game.settings.get).mockReturnValue([
+        { id: "p1", rewardType: "item" },
+        { id: "p2", rewardType: "item" },
+      ]);
       const mockTarget = { dataset: { id: "p1" } } as any;
 
       await LearningConfigApp.deleteProject.call(app, new Event("click"), mockTarget);
@@ -159,7 +162,7 @@ describe("LearningConfigApp", () => {
       expect(game.settings.set).toHaveBeenCalledWith(
         "thefehrs-learning-manager",
         "projectTemplates",
-        [{ id: "p2" }],
+        [{ id: "p2", rewardType: "item" }],
       );
       expect(app.render).toHaveBeenCalled();
     });

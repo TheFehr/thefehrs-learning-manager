@@ -35,6 +35,10 @@ export class LearningConfigApp extends HandlebarsApplicationMixin(ApplicationV2)
         direct: "1 Base Unit = 1 Progress",
         roll: "Learning Check",
       },
+      rewardTypes: {
+        item: "Item",
+        effect: "Effect",
+      },
     };
   }
 
@@ -85,6 +89,7 @@ export class LearningConfigApp extends HandlebarsApplicationMixin(ApplicationV2)
     const projArray = Object.values(data.projects || {}).map((p: any) => ({
       ...p,
       target: Number(p.target) || 100,
+      rewardType: p.rewardType || "item",
     })) as ProjectTemplate[];
     await Settings.setProjectTemplates(projArray);
   }
@@ -141,6 +146,7 @@ export class LearningConfigApp extends HandlebarsApplicationMixin(ApplicationV2)
       name: "New Project",
       target: 100,
       rewardUuid: "",
+      rewardType: "item",
     });
     await Settings.setProjectTemplates(projects);
     this.render();

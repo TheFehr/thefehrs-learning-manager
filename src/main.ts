@@ -235,6 +235,7 @@ export class TheFehrsLearningManager {
             guidanceTierId: "", // Updated to guidanceTierId
             tutelage: 0,
             rewardUuid: tpl.rewardUuid || "",
+            rewardType: tpl.rewardType || "item",
             isCompleted: false,
           });
           await actor.setFlag(this.ID, "projects", projects);
@@ -488,10 +489,19 @@ export class TheFehrsLearningManager {
     if (!project.rewardUuid) return;
 
     try {
-      const rewardItem = await fromUuid(project.rewardUuid as any);
-      if (rewardItem instanceof Item) {
-        await actor.createEmbeddedDocuments("Item", [rewardItem.toObject()]);
-        ui.notifications?.info(`Learning Complete: ${actor.name} gained ${rewardItem.name}!`);
+      const rewardDoc = await fromUuid(project.rewardUuid as any);
+      if (!rewardDoc) return;
+      const rewardType = project.rewardType === "effect" ? "effect" : "item";
+
+      if (rewardType === "item" && rewardDoc instanceof Item) {
+        await actor.createEmbeddedDocuments("Item", [rewardDoc.toObject()]);
+        ui.notifications?.info(`Learning Complete: ${actor.name} gained item ${rewardDoc.name}!`);
+      } else if (rewardType === "effect" && rewardDoc instanceof ActiveEffect) {
+        const effectData = rewardDoc.toObject() as any;
+        effectData.origin = actor.uuid;
+
+        await actor.createEmbeddedDocuments("ActiveEffect", [effectData]);
+        ui.notifications?.info(`Learning Complete: ${actor.name} gained effect ${rewardDoc.name}!`);
       }
     } catch (err) {
       console.error(`${this.ID} | Failed to grant reward:`, err);
