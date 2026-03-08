@@ -1,5 +1,5 @@
-// @ts-nocheck
 import type { SystemRules, GuidanceTier, ProjectTemplate, TimeUnit } from "./types";
+import { Settings } from "./settings";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -25,12 +25,12 @@ export class LearningConfigApp extends HandlebarsApplicationMixin(ApplicationV2)
     form: { template: "modules/thefehrs-learning-manager/templates/matrix-config.hbs" },
   };
 
-  protected override async _prepareContext() {
+  protected override async _prepareContext(): Promise<any> {
     return {
-      rules: game.settings.get("thefehrs-learning-manager", "rules"),
-      timeUnits: game.settings.get("thefehrs-learning-manager", "timeUnits"),
-      tiers: game.settings.get("thefehrs-learning-manager", "guidanceTiers"),
-      projects: game.settings.get("thefehrs-learning-manager", "projectTemplates"),
+      rules: Settings.rules,
+      timeUnits: Settings.timeUnits,
+      tiers: Settings.guidanceTiers,
+      projects: Settings.projectTemplates,
     };
   }
 
@@ -44,16 +44,16 @@ export class LearningConfigApp extends HandlebarsApplicationMixin(ApplicationV2)
   private async saveFormData() {
     if (!(this.element instanceof HTMLFormElement)) return;
     const formData = new FormData(this.element);
-    const data = foundry.utils.expandObject(Object.fromEntries(formData));
+    const data = foundry.utils.expandObject(Object.fromEntries(formData)) as any;
 
-    if (data.rules) await game.settings.set("thefehrs-learning-manager", "rules", data.rules);
+    if (data.rules) await Settings.setRules(data.rules as SystemRules);
 
     const tuArray = Object.values(data.timeUnits || {}).map((tu: any) => ({
       ...tu,
       isBulk: !!tu.isBulk,
       ratio: Number(tu.ratio) || 1,
-    }));
-    await game.settings.set("thefehrs-learning-manager", "timeUnits", tuArray);
+    })) as TimeUnit[];
+    await Settings.setTimeUnits(tuArray);
 
     const tiersArray = Object.values(data.tiers || {}).map((t: any) => {
       const costs: Record<string, number> = {};
@@ -61,19 +61,19 @@ export class LearningConfigApp extends HandlebarsApplicationMixin(ApplicationV2)
       if (t.costs) for (const [k, v] of Object.entries(t.costs)) costs[k] = Number(v) || 0;
       if (t.progress) for (const [k, v] of Object.entries(t.progress)) progress[k] = Number(v) || 0;
       return { ...t, modifier: Number(t.modifier) || 0, costs, progress, id: t.id };
-    });
-    await game.settings.set("thefehrs-learning-manager", "guidanceTiers", tiersArray);
+    }) as GuidanceTier[];
+    await Settings.setGuidanceTiers(tiersArray);
 
     const projArray = Object.values(data.projects || {}).map((p: any) => ({
       ...p,
       target: Number(p.target) || 100,
-    }));
-    await game.settings.set("thefehrs-learning-manager", "projectTemplates", projArray);
+    })) as ProjectTemplate[];
+    await Settings.setProjectTemplates(projArray);
   }
 
   static async addTimeUnit(this: LearningConfigApp) {
     await this.saveFormData();
-    const tu = game.settings.get("thefehrs-learning-manager", "timeUnits") as TimeUnit[];
+    const tu = Settings.timeUnits;
     tu.push({
       id: foundry.utils.randomID(),
       name: "New Unit",
@@ -81,23 +81,21 @@ export class LearningConfigApp extends HandlebarsApplicationMixin(ApplicationV2)
       isBulk: false,
       ratio: 1,
     });
-    await game.settings.set("thefehrs-learning-manager", "timeUnits", tu);
+    await Settings.setTimeUnits(tu);
     this.render();
   }
 
   static async deleteTimeUnit(this: LearningConfigApp, event: Event, target: HTMLElement) {
     await this.saveFormData();
     const id = target.dataset.id;
-    const tu = (game.settings.get("thefehrs-learning-manager", "timeUnits") as TimeUnit[]).filter(
-      (t) => t.id !== id,
-    );
-    await game.settings.set("thefehrs-learning-manager", "timeUnits", tu);
+    const tu = Settings.timeUnits.filter((t) => t.id !== id);
+    await Settings.setTimeUnits(tu);
     this.render();
   }
 
   static async addTier(this: LearningConfigApp) {
     await this.saveFormData();
-    const tiers = game.settings.get("thefehrs-learning-manager", "guidanceTiers") as GuidanceTier[];
+    const tiers = Settings.guidanceTiers;
     tiers.push({
       id: foundry.utils.randomID(),
       name: "New Tier",
@@ -105,52 +103,45 @@ export class LearningConfigApp extends HandlebarsApplicationMixin(ApplicationV2)
       costs: {},
       progress: {},
     });
-    await game.settings.set("thefehrs-learning-manager", "guidanceTiers", tiers);
+    await Settings.setGuidanceTiers(tiers);
     this.render();
   }
 
   static async deleteTier(this: LearningConfigApp, event: Event, target: HTMLElement) {
     await this.saveFormData();
     const id = target.dataset.id;
-    const tiers = (
-      game.settings.get("thefehrs-learning-manager", "guidanceTiers") as GuidanceTier[]
-    ).filter((t) => t.id !== id);
-    await game.settings.set("thefehrs-learning-manager", "guidanceTiers", tiers);
+    const tiers = Settings.guidanceTiers.filter((t) => t.id !== id);
+    await Settings.setGuidanceTiers(tiers);
     this.render();
   }
 
   static async addProject(this: LearningConfigApp) {
     await this.saveFormData();
-    const projects = game.settings.get(
-      "thefehrs-learning-manager",
-      "projectTemplates",
-    ) as ProjectTemplate[];
+    const projects = Settings.projectTemplates;
     projects.push({
       id: foundry.utils.randomID(),
       name: "New Project",
       target: 100,
       rewardUuid: "",
     });
-    await game.settings.set("thefehrs-learning-manager", "projectTemplates", projects);
+    await Settings.setProjectTemplates(projects);
     this.render();
   }
 
   static async deleteProject(this: LearningConfigApp, event: Event, target: HTMLElement) {
     await this.saveFormData();
     const id = target.dataset.id;
-    const projects = (
-      game.settings.get("thefehrs-learning-manager", "projectTemplates") as ProjectTemplate[]
-    ).filter((p) => p.id !== id);
-    await game.settings.set("thefehrs-learning-manager", "projectTemplates", projects);
+    const projects = Settings.projectTemplates.filter((p) => p.id !== id);
+    await Settings.setProjectTemplates(projects);
     this.render();
   }
 
   static exportData() {
     const data = {
-      rules: game.settings.get("thefehrs-learning-manager", "rules"),
-      timeUnits: game.settings.get("thefehrs-learning-manager", "timeUnits"),
-      tiers: game.settings.get("thefehrs-learning-manager", "guidanceTiers"),
-      projects: game.settings.get("thefehrs-learning-manager", "projectTemplates"),
+      rules: Settings.rules,
+      timeUnits: Settings.timeUnits,
+      tiers: Settings.guidanceTiers,
+      projects: Settings.projectTemplates,
     };
     saveDataToFile(JSON.stringify(data, null, 2), "text/json", "downtime-engine-settings.json");
   }
@@ -167,13 +158,10 @@ export class LearningConfigApp extends HandlebarsApplicationMixin(ApplicationV2)
           const data = JSON.parse(event.target.result);
           if (typeof data !== "object") throw new Error("Invalid format");
 
-          if (data.rules) await game.settings.set("thefehrs-learning-manager", "rules", data.rules);
-          if (data.timeUnits)
-            await game.settings.set("thefehrs-learning-manager", "timeUnits", data.timeUnits);
-          if (data.tiers)
-            await game.settings.set("thefehrs-learning-manager", "guidanceTiers", data.tiers);
-          if (data.projects)
-            await game.settings.set("thefehrs-learning-manager", "projectTemplates", data.projects);
+          if (data.rules) await Settings.setRules(data.rules as SystemRules);
+          if (data.timeUnits) await Settings.setTimeUnits(data.timeUnits as TimeUnit[]);
+          if (data.tiers) await Settings.setGuidanceTiers(data.tiers as GuidanceTier[]);
+          if (data.projects) await Settings.setProjectTemplates(data.projects as ProjectTemplate[]);
 
           ui.notifications.info("Settings Imported!");
           this.render();

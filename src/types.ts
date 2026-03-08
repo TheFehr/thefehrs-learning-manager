@@ -36,10 +36,49 @@ export interface LearningProject {
   tutelage: number;
   rewardUuid: string;
   isCompleted: boolean;
+  percent?: number;
 }
 
 export interface TimeBank {
   total: number;
+}
+
+export interface DowntimeActor extends Actor {
+  system: Actor["system"] & {
+    currency: {
+      gp: number;
+      sp: number;
+      cp: number;
+    };
+  };
+}
+
+export interface DowntimeGroupActor extends Actor {
+  system: Actor["system"] & {
+    members: any[];
+  };
+}
+
+declare global {
+  interface SettingConfig {
+    "thefehrs-learning-manager.rules": SystemRules;
+    "thefehrs-learning-manager.timeUnits": TimeUnit[];
+    "thefehrs-learning-manager.guidanceTiers": GuidanceTier[];
+    "thefehrs-learning-manager.projectTemplates": ProjectTemplate[];
+  }
+
+  interface HookConfig {
+    "tidy5e-sheet.ready": [api: Tidy5eApi];
+  }
+
+  interface FlagConfig {
+    Actor: {
+      "thefehrs-learning-manager": {
+        bank: TimeBank;
+        projects: LearningProject[];
+      };
+    };
+  }
 }
 
 // --- Tidy 5e Sheets API Types ---

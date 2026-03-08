@@ -8,12 +8,15 @@ import type {
   Tidy5eApi,
   Tidy5eTabGetDataParams,
   Tidy5eTabRenderParams,
+  DowntimeActor,
+  DowntimeGroupActor,
 } from "./types";
 import { LearningConfigApp } from "./settings-app";
+import { Settings } from "./settings";
 import "./styles/module.scss";
 
 export class TheFehrsLearningManager {
-  static ID = "thefehrs-learning-manager";
+  static ID = "thefehrs-learning-manager" as const;
 
   static init() {
     this.registerSettings();
@@ -21,7 +24,7 @@ export class TheFehrsLearningManager {
       return a === b;
     });
 
-    game.settings.registerMenu(this.ID, "configMenu", {
+    Settings.registerMenu("configMenu", {
       name: "Downtime Engine Config",
       label: "Open Settings Panel",
       hint: "Configure the Downtime Engine",
@@ -30,7 +33,7 @@ export class TheFehrsLearningManager {
       restricted: true,
     });
 
-    Hooks.on("tidy5e-sheet.ready", (api: Tidy5eApi) => {
+    Hooks.on("tidy5e-sheet.ready" as any, (api: Tidy5eApi) => {
       api.registerCharacterTab(
         new api.models.HandlebarsTab({
           title: "Learning",
@@ -51,7 +54,8 @@ export class TheFehrsLearningManager {
           iconClass: "fa-solid fa-book-open-cover",
           tabId: "thefehrs-party-tab",
           path: `modules/${this.ID}/templates/party-tab.hbs`,
-          getData: async (data: Tidy5eTabGetDataParams) => await this.preparePartyData(data.actor),
+          getData: async (data: Tidy5eTabGetDataParams) =>
+            await this.preparePartyData(data.actor as DowntimeGroupActor),
           onRender: (params: Tidy5eTabRenderParams) => {
             const sheetActor = params.app.document || params.app.actor;
             if (sheetActor) this.activateListeners(params.element, sheetActor);
@@ -62,7 +66,7 @@ export class TheFehrsLearningManager {
   }
 
   static registerSettings() {
-    game.settings.register(this.ID, "rules", {
+    Settings.register("rules", {
       scope: "world",
       config: false,
       type: Object,
@@ -72,7 +76,7 @@ export class TheFehrsLearningManager {
         checkFormula: "1d20 + @tutelage + (2 * @abilities.int.mod)",
       },
     });
-    game.settings.register(this.ID, "timeUnits", {
+    Settings.register("timeUnits", {
       scope: "world",
       config: false,
       type: Array,
@@ -82,13 +86,13 @@ export class TheFehrsLearningManager {
         { id: "tu_wk", name: "Week", short: "w", isBulk: true, ratio: 70 },
       ],
     });
-    game.settings.register(this.ID, "guidanceTiers", {
+    Settings.register("guidanceTiers", {
       scope: "world",
       config: false,
       type: Array,
       default: [],
     });
-    game.settings.register(this.ID, "projectTemplates", {
+    Settings.register("projectTemplates", {
       scope: "world",
       config: false,
       type: Array,
@@ -111,39 +115,37 @@ export class TheFehrsLearningManager {
     return displayParts.join(" ");
   }
 
-  private static async prepareActorData(actor: any) {
-    const timeUnits = game.settings.get(this.ID, "timeUnits") as TimeUnit[];
-    const bank = (actor.getFlag(this.ID, "bank") as TimeBank) || { total: 0 };
-    const allProjects = ((actor.getFlag(this.ID, "projects") as LearningProject[]) || []).map(
-      (p) => ({
-        ...p,
-        percent: Math.min((p.progress / p.maxProgress) * 100, 100),
-        isCompleted: p.progress >= p.maxProgress,
-      }),
-    );
+  private static async prepareActorData(actor: Actor) {
+    const timeUnits = Settings.timeUnits;
+    const bank = actor.getFlag(this.ID, "bank") || { total: 0 };
+    const allProjects = (actor.getFlag(this.ID, "projects") || []).map((p) => ({
+      ...p,
+      percent: Math.min((p.progress / p.maxProgress) * 100, 100),
+      isCompleted: p.progress >= p.maxProgress,
+    }));
 
     return {
       formattedBank: this.formatTimeBank(bank.total, timeUnits),
       timeUnits,
       activeProjects: allProjects.filter((p) => !p.isCompleted),
       completedProjects: allProjects.filter((p) => p.isCompleted),
-      library: game.settings.get(this.ID, "projectTemplates"),
+      library: Settings.projectTemplates,
       isGM: game.user?.isGM,
     };
   }
 
-  private static async preparePartyData(partyActor: any) {
-    const timeUnits = game.settings.get(this.ID, "timeUnits") as TimeUnit[];
+  private static async preparePartyData(partyActor: DowntimeGroupActor) {
+    const timeUnits = Settings.timeUnits;
     const rawMembers = partyActor.system.members || [];
 
     return {
-      members: rawMembers.map((m: any) => this.mapMemberData(m, timeUnits)).filter((m: any) => !!m),
-      tiers: game.settings.get(this.ID, "guidanceTiers"),
+      members: rawMembers.map((m) => this.mapMemberData(m, timeUnits)).filter((m) => !!m),
+      tiers: Settings.guidanceTiers,
       isGM: game.user?.isGM,
     };
   }
 
-  private static activateListeners(html: HTMLElement, actor: any) {
+  private static activateListeners(html: HTMLElement, actor: Actor) {
     // Bulk Training Listener (Updated with dataset validation)
     html.querySelectorAll(".bulk-train").forEach((btn) => {
       btn.addEventListener("click", async (ev) => {
@@ -153,7 +155,7 @@ export class TheFehrsLearningManager {
         const { id, unit } = target.dataset;
         if (!id || !unit) return;
 
-        await this.processTraining(actor, id, unit);
+        await this.processTraining(actor as DowntimeActor, id, unit);
       });
     });
 
@@ -163,10 +165,10 @@ export class TheFehrsLearningManager {
       addBtn.addEventListener("click", async () => {
         const selectedId = (html.querySelector(".project-selector") as HTMLSelectElement)?.value;
         if (!selectedId) return;
-        const library = game.settings.get(this.ID, "projectTemplates") as ProjectTemplate[];
+        const library = Settings.projectTemplates;
         const tpl = library.find((t) => t.id === selectedId);
         if (tpl) {
-          const projects = (actor.getFlag(this.ID, "projects") as LearningProject[]) || [];
+          const projects = actor.getFlag(this.ID, "projects") || [];
           projects.push({
             id: foundry.utils.randomID(),
             name: tpl.name,
@@ -189,11 +191,12 @@ export class TheFehrsLearningManager {
         if (!target || !target.dataset) return;
 
         const { actorId, projId } = target.dataset;
+        if (!actorId || !projId) return;
         const val = target.value;
-        const targetActor = game.actors?.get(actorId as string) || actor;
-        const projects = targetActor.getFlag(this.ID, "projects") as LearningProject[];
+        const targetActor = (game.actors?.get(actorId as string) || actor) as Actor;
+        const projects = targetActor.getFlag(this.ID, "projects") || [];
         const p = projects.find((x) => x.id === projId);
-        const tiers = game.settings.get(this.ID, "guidanceTiers") as GuidanceTier[];
+        const tiers = Settings.guidanceTiers;
         const tier = tiers.find((t) => t.id === val);
 
         if (p && tier) {
@@ -224,17 +227,17 @@ export class TheFehrsLearningManager {
 
         const { actorId, projId } = target.dataset;
         const newProgress = parseInt(target.value) || 0;
-        const targetActor = game.actors?.get(actorId as string);
+        const targetActor = game.actors?.get(actorId as string) as Actor | undefined;
         if (!targetActor) return;
 
-        const projects = targetActor.getFlag(this.ID, "projects") as LearningProject[];
+        const projects = targetActor.getFlag(this.ID, "projects") || [];
         const p = projects.find((x) => x.id === projId);
 
         if (p) {
           p.progress = Math.min(newProgress, p.maxProgress);
           if (p.progress >= p.maxProgress && !p.isCompleted) {
             p.isCompleted = true;
-            await this.grantProjectReward(targetActor, p); // Fixed: targetActor instead of actor
+            await this.grantProjectReward(targetActor as Actor, p); // Fixed: targetActor instead of actor
           }
           await targetActor.setFlag(this.ID, "projects", projects);
         }
@@ -247,13 +250,13 @@ export class TheFehrsLearningManager {
       grantBtn.addEventListener("click", async () => {
         if (!game.user?.isGM) return;
 
-        const timeUnits = game.settings.get(this.ID, "timeUnits") as TimeUnit[];
-        const isParty = actor.type === "group";
+        const timeUnits = Settings.timeUnits;
+        const isParty = (actor.type as string) === "group";
 
         const members = isParty
-          ? (actor.system.members || [])
-              .map((m: any) => this.mapMemberData(m, timeUnits))
-              .filter((m: any) => !!m)
+          ? (actor as DowntimeGroupActor).system.members
+              .map((m) => this.mapMemberData(m, timeUnits))
+              .filter((m) => !!m)
           : [];
 
         const templateData = { timeUnits, isParty, members };
@@ -295,13 +298,13 @@ export class TheFehrsLearningManager {
 
                 // Batch update
                 for (const id of selectedIds) {
-                  const a = game.actors?.get(id);
-                  if (!a) continue;
-                  const bank = (a.getFlag(this.ID, "bank") as TimeBank) || { total: 0 };
+                  const a = game.actors?.get(id) as Actor | undefined;
+                  if (!(a instanceof (globalThis.Actor || Object))) continue;
+                  const bank = a.getFlag(this.ID, "bank") || { total: 0 };
                   await a.setFlag(this.ID, "bank", { total: (bank.total || 0) + totalBase });
                 }
 
-                ChatMessage.create({
+                (ChatMessage.implementation as any).create({
                   speaker: { alias: "Downtime System" },
                   content: `Granted <strong>${this.formatTimeBank(totalBase, timeUnits)}</strong> to ${selectedIds.length} characters.`,
                 });
@@ -314,13 +317,13 @@ export class TheFehrsLearningManager {
     }
   }
 
-  private static async processTraining(actor: any, projId: string, unitId: string) {
-    const rules = game.settings.get(this.ID, "rules") as SystemRules;
-    const library = game.settings.get(this.ID, "guidanceTiers") as GuidanceTier[];
-    const timeUnits = game.settings.get(this.ID, "timeUnits") as TimeUnit[];
+  private static async processTraining(actor: DowntimeActor, projId: string, unitId: string) {
+    const rules = Settings.rules;
+    const library = Settings.guidanceTiers;
+    const timeUnits = Settings.timeUnits;
 
-    const bank = (actor.getFlag(this.ID, "bank") as TimeBank) || { total: 0 };
-    const projects = actor.getFlag(this.ID, "projects") as LearningProject[];
+    const bank = actor.getFlag(this.ID, "bank") || { total: 0 };
+    const projects = actor.getFlag(this.ID, "projects") || [];
     const p = projects.find((x) => x.id === projId);
     const tu = timeUnits.find((x) => x.id === unitId);
 
@@ -373,7 +376,7 @@ export class TheFehrsLearningManager {
     await actor.setFlag(this.ID, "projects", projects);
   }
 
-  private static async deductCurrency(actor: any, amountGp: number): Promise<boolean> {
+  private static async deductCurrency(actor: DowntimeActor, amountGp: number): Promise<boolean> {
     const costCp = Math.round(amountGp * 100);
     const cur = actor.system.currency;
     let walletCp = cur.gp * 100 + cur.sp * 10 + cur.cp;
@@ -382,17 +385,19 @@ export class TheFehrsLearningManager {
 
     walletCp -= costCp;
     await actor.update({
-      "system.currency": {
-        gp: Math.floor(walletCp / 100),
-        sp: Math.floor((walletCp % 100) / 10),
-        cp: walletCp % 10,
+      system: {
+        currency: {
+          gp: Math.floor(walletCp / 100),
+          sp: Math.floor((walletCp % 100) / 10),
+          cp: walletCp % 10,
+        },
       },
     });
     return true;
   }
 
   private static getMemberId(member: any): string | null {
-    if (member.ids instanceof Set) return Array.from(member.ids)[0] || null;
+    if (member.ids instanceof Set) return (Array.from(member.ids)[0] as string) || null;
     return member.actorId || member.id || null;
   }
 
@@ -400,26 +405,27 @@ export class TheFehrsLearningManager {
     const actorId = this.getMemberId(member);
     const actualActor = member.actor || (actorId ? game.actors?.get(actorId as string) : null);
 
-    if (!actualActor) return null;
+    if (!(actualActor instanceof (globalThis.Actor || Object))) return null;
+    const a = actualActor as Actor;
 
-    const bank = (actualActor.getFlag(this.ID, "bank") as TimeBank) || { total: 0 };
-    const projects = (actualActor.getFlag(this.ID, "projects") as LearningProject[]) || [];
+    const bank = a.getFlag(this.ID, "bank") || { total: 0 };
+    const projects = a.getFlag(this.ID, "projects") || [];
 
     return {
-      id: actualActor.id,
-      name: actualActor.name,
-      img: actualActor.img,
+      id: a.id,
+      name: a.name,
+      img: a.img,
       formattedBank: this.formatTimeBank(bank.total, timeUnits),
       projects: projects.filter((p) => !p.isCompleted),
     };
   }
 
-  private static async grantProjectReward(actor: any, project: LearningProject) {
+  private static async grantProjectReward(actor: Actor, project: LearningProject) {
     if (!project.rewardUuid) return;
 
     try {
-      const rewardItem: any = await fromUuid(project.rewardUuid);
-      if (rewardItem) {
+      const rewardItem = await fromUuid(project.rewardUuid as any);
+      if (rewardItem instanceof Item) {
         await actor.createEmbeddedDocuments("Item", [rewardItem.toObject()]);
         ui.notifications?.info(`Learning Complete: ${actor.name} gained ${rewardItem.name}!`);
       }
