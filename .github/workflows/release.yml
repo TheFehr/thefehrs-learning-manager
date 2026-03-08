@@ -1,0 +1,53 @@
+name: Release Module
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      # --- NEW: Linting & Testing Steps ---
+      - name: Check Formatting
+        run: npm run fmt:check
+
+      - name: Run Tests
+        # Ensure you have added the "test" script to your package.json
+        run: npm run test
+      # ------------------------------------
+
+      - name: Build the module
+        run: npm run build
+
+      - name: Zip the distribution folder
+        run: |
+          cd dist
+          zip -r ../thefehrs-learning-manager.zip ./*
+
+      - name: Create GitHub Release
+        uses: ncipollo/release-action@v1
+        with:
+          allowUpdates: true
+          name: Release ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          token: ${{ secrets.GITHUB_TOKEN }}
+          artifacts: './thefehrs-learning-manager.zip, ./dist/module.json'
+          generateReleaseNotes: true
