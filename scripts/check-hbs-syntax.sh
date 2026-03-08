@@ -1,8 +1,5 @@
 #!/usr/bin/env bash
 
-# Find all .hbs files in the public/templates directory
-hbs_files=$(find public/templates -name "*.hbs")
-
 # Search for any occurrences of ../ in those files
 # The regex looks for ../ specifically within Handlebars tags if we want to be precise, 
 # but generally ../ should not be used in these templates at all for context shifting.
