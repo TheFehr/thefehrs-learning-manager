@@ -1,11 +1,9 @@
 name: CI Pipeline
 
 on:
-  # Trigger on pushes to the main branch
   push:
     branches:
       - main
-  # Trigger on any pull request targeting the main branch
   pull_request:
     branches:
       - main
@@ -21,17 +19,14 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20" # Matches the version in your release workflow
+          node-version: "20"
           cache: "npm"
 
       - name: Install dependencies
         run: npm ci
 
       - name: Check Formatting
-        # Uses the oxfmt script already defined in your package.json
         run: npm run fmt:check
 
       - name: Run Tests
-        # Runs the vitest setup we discussed.
-        # Note: Ensure you have added the "test": "vitest run" script to your package.json!
         run: npm run test
