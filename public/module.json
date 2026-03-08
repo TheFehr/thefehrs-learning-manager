@@ -2,7 +2,7 @@
   "id": "thefehrs-learning-manager",
   "title": "Universal Downtime Engine",
   "description": "A fully customizable downtime and learning tracker integrated with Tidy5e.",
-  "version": "0.9.0",
+  "version": "1.0.0",
   "authors": [
     {
       "name": "TheFehr",
