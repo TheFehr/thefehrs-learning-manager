@@ -1,0 +1,77 @@
+<div class="thefehrs-container tidy-sheet-body">
+    <div class="bank-display" style="padding: 0.5rem; background: var(--t5e-faint-color); border-radius: 5px; margin-bottom: 1rem;">
+        <span><i class="fas fa-hourglass-half"></i> Available Downtime: {{formattedBank}}</span>
+    </div>
+    
+    <div class="add-project-zone" style="display:flex; gap:10px; margin-bottom: 15px;">
+        <select class="project-selector" style="flex:1;">
+            <option value="">-- Select a Project to Start --</option>
+            {{#each library as |tpl|}}
+                <option value="{{tpl.id}}">{{tpl.name}} ({{tpl.target}})</option>
+            {{/each}}
+        </select>
+        <button class="add-selected-project tidy-button">Start</button>
+    </div>
+
+    <section class="tidy-table">
+        <header class="tidy-table-header-row">
+            <div class="tidy-table-header-cell primary">Active Projects</div>
+            <div class="tidy-table-header-cell" style="--tidy-table-column-width: 40rem;">Progress</div>
+            <div class="tidy-table-header-cell" style="--tidy-table-column-width: 12rem;">Actions</div>
+        </header>
+
+        <div class="active-projects-list item-table-body">
+            {{#each activeProjects as |project|}}
+            <div class="project-card tidy-table-row-container">
+                <div class="tidy-table-row">
+                    <div class="tidy-table-cell primary item-label">
+                        <div class="cell-text">
+                            <span class="cell-name">{{project.name}}</span>
+                            <p style="font-size:0.75rem; font-style:italic; margin: 0; opacity: 0.7;">
+                                Tutor: {{project.guidanceType}}
+                            </p>
+                        </div>
+                    </div>
+
+                    <div class="tidy-table-cell" style="--tidy-table-column-width: 40rem;">
+                        <div style="width: 100%;">
+                            <div style="font-size: 0.7rem; margin-bottom: 2px; text-align: center;">
+                                {{project.progress}} / {{project.maxProgress}}
+                            </div>
+                            <div class="t5e-progress-bar" style="background: var(--t5e-faint-color); border-radius: 4px; height: 8px; overflow: hidden;">
+                                <div class="t5e-progress-fill" style="width:{{project.percent}}%; background: var(--t5e-primary-accent-color); height: 100%;"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="actions tidy-table-cell" style="--tidy-table-column-width: 12rem; display: flex; gap: 5px; justify-content: flex-end;">
+                        {{#each ../timeUnits as |tu|}}
+                        <button class="bulk-train tidy-button small" data-id="{{project.id}}" data-unit="{{tu.id}}">
+                            Spend 1 {{tu.name}}
+                        </button>
+                        {{/each}}
+                    </div>
+                </div>
+            </div>
+            {{/each}}
+        </div>
+    </section>
+
+    {{#if completedProjects.length}}
+    <div class="completed-projects-zone" style="margin-top: 25px;">
+        <h3 style="border-bottom: 1px solid var(--t5e-faint-color); padding-bottom: 5px; color: var(--t5e-secondary-color); font-size: 1.1rem;">
+            <i class="fas fa-award"></i> Completed Training
+        </h3>
+        <div style="display: flex; flex-direction: column; gap: 4px; margin-top: 10px;">
+            {{#each completedProjects as |project|}}
+            <div class="completed-card tidy-table-row" style="padding: 0 10px; height: 32px; align-items: center;">
+                <span style="font-weight: bold; color: var(--t5e-primary-font-color); flex: 1;">
+                    <i class="fas fa-check-circle" style="color: #28a745; margin-right: 8px;"></i> {{project.name}}
+                </span>
+                <span style="font-size: 0.75rem; font-style: italic; opacity: 0.6;">Mastered</span>
+            </div>
+            {{/each}}
+        </div>
+    </div>
+    {{/if}}
+</div>

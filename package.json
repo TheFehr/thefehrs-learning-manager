@@ -1,0 +1,17 @@
+{
+  "name": "thefehrs-learning-manager",
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build"
+  },
+  "devDependencies": {
+    "@league-of-foundry-developers/foundry-vtt-types": "^13.345.1",
+    "@types/handlebars": "^4.0.40",
+    "sass-embedded": "^1.97.3",
+    "typescript": "^5.0.0",
+    "vite": "^7.3.1",
+    "vite-plugin-fvtt": "latest"
+  }
+}
