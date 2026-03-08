@@ -1,0 +1,65 @@
+name: Release Module
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check Formatting
+        run: npm run fmt:check
+
+      - name: Run Tests
+        run: npm run test
+
+      - name: Build the module
+        run: npm run build
+
+      - name: Update module.json with release information
+        run: |
+          VERSION="${GITHUB_REF#refs/tags/}"
+          VERSION_CLEAN="${VERSION#v}"
+          URL="https://github.com/${{ github.repository }}"
+          MANIFEST="${URL}/releases/latest/download/module.json"
+          DOWNLOAD="${URL}/releases/download/${VERSION}/thefehrs-learning-manager.zip"
+
+          jq --arg version "$VERSION_CLEAN" \
+             --arg url "$URL" \
+             --arg manifest "$MANIFEST" \
+             --arg download "$DOWNLOAD" \
+             '.version = $version | .url = $url | .manifest = $manifest | .download = $download' \
+             dist/module.json > dist/module.json.tmp && mv dist/module.json.tmp dist/module.json
+
+      - name: Zip the distribution folder
+        run: |
+          cd dist
+          zip -r ../thefehrs-learning-manager.zip ./*
+
+      - name: Create GitHub Release
+        uses: ncipollo/release-action@v1
+        with:
+          allowUpdates: true
+          name: Release ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+          token: ${{ secrets.GITHUB_TOKEN }}
+          artifacts: "./thefehrs-learning-manager.zip, ./dist/module.json"
+          generateReleaseNotes: true

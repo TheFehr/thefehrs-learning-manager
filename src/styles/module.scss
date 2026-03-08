@@ -1,0 +1,130 @@
+// Variables for easy maintenance
+$border-radius: 5px;
+$padding-standard: 1rem;
+$transition-speed: 0.4s;
+
+// Mixin for card-like elements
+@mixin t5e-card {
+  border: 1px solid var(--t5e-faint-color);
+  border-radius: $border-radius;
+  padding: $padding-standard;
+  background: var(--t5e-background);
+}
+
+.tidy5e-sheet {
+  .thefehrs-container,
+  .party-learning-list {
+    padding: $padding-standard;
+    display: flex;
+    flex-direction: column;
+    gap: $padding-standard;
+
+    .bank-display {
+      background: var(--t5e-faint-color);
+      padding: 0.75rem;
+      border-radius: $border-radius;
+      font-weight: bold;
+      text-align: center;
+      border: 1px solid var(--t5e-faint-color);
+    }
+
+    .member-block {
+      @include t5e-card;
+    }
+
+    .t5e-progress-bar {
+      background: var(--t5e-faint-color);
+      border-radius: 7px;
+      position: relative;
+      overflow: hidden;
+      border: 1px solid var(--t5e-faint-color);
+
+      .t5e-progress-fill {
+        background: var(--t5e-primary-accent-color);
+        height: 100%;
+        transition: width $transition-speed ease-in-out;
+      }
+    }
+
+    .actions {
+      display: flex;
+      gap: 5px;
+      margin-top: 10px;
+
+      button {
+        flex: 0 1 auto;
+        height: 28px;
+        background: var(--t5e-button-background);
+        color: var(--t5e-button-font-color);
+        border: 1px solid var(--t5e-button-border-color);
+        cursor: pointer;
+      }
+    }
+
+    .project-row {
+      display: grid;
+      grid-template-columns: 1.5fr 2fr;
+      gap: 10px;
+      align-items: center;
+      padding: 5px 0;
+      border-top: 1px solid var(--t5e-faint-color);
+    }
+  }
+}
+
+.thefehrs-settings {
+  padding: 10px;
+  height: 100%;
+  max-height: 100%;
+  overflow-y: auto;
+
+  .form-group {
+    margin-bottom: 10px;
+  }
+
+  .table-responsive-wrapper {
+    width: 100%;
+    overflow-x: auto;
+    margin-bottom: $padding-standard;
+    border: 1px solid var(--t5e-faint-color);
+    border-radius: $border-radius;
+    scroll-behavior: smooth;
+
+    .tidy-table {
+      width: 100%;
+      min-width: max-content;
+      border-collapse: collapse;
+
+      th,
+      td {
+        &:first-child {
+          position: sticky;
+          left: 0;
+          background: var(--t5e-background);
+          z-index: 2;
+          border-right: 2px solid var(--t5e-faint-color);
+          padding-left: 10px;
+        }
+      }
+
+      th:first-child {
+        z-index: 3;
+      }
+
+      input {
+        &[type="number"] {
+          width: 65px;
+          text-align: center;
+        }
+
+        &[type="text"] {
+          min-width: 120px;
+        }
+      }
+
+      tbody tr:hover td {
+        background: rgba(128, 128, 128, 0.1);
+      }
+    }
+  }
+}
