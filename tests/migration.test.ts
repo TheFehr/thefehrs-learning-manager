@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { migrateData } from "../src/migration";
 import { TheFehrsLearningManager } from "../src/main";
+import { ActorsCollection } from "./setup";
 
 describe("Data Migration", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (game.actors as any[]) = [];
+    game.actors = new ActorsCollection();
     game.user.isGM = true;
   });
 

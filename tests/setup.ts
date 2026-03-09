@@ -42,6 +42,10 @@ globalThis.foundry = {
   },
 } as any;
 
+export class ActorsCollection extends Array<any> {
+  get = vi.fn((id: string) => this.find((a) => a.id === id));
+}
+
 globalThis.game = {
   settings: {
     register: vi.fn(),
@@ -50,12 +54,9 @@ globalThis.game = {
     set: vi.fn(),
   },
   user: { isGM: false },
-  actors: [],
+  actors: new ActorsCollection(),
   ID: "thefehrs-learning-manager",
 } as any;
-globalThis.game.actors.get = vi.fn((id: string) =>
-  (globalThis.game.actors as any[]).find((a) => a.id === id),
-);
 
 class MockActor {
   id = "mock-id";

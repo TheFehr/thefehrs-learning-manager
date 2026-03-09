@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { LearningConfigApp } from "../src/settings-app";
+import { ActorsCollection } from "./setup";
 
 describe("LearningConfigApp", () => {
   beforeEach(() => {
@@ -158,7 +159,7 @@ describe("LearningConfigApp", () => {
       const mockTarget = { dataset: { id: "p1" } } as any;
 
       // Ensure game.actors is an array and doesn't contain the project
-      (game.actors as any[]) = [];
+      game.actors = new ActorsCollection();
 
       await LearningConfigApp.deleteProject.call(app, new Event("click"), mockTarget);
 
