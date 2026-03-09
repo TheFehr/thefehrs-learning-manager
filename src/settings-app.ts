@@ -205,9 +205,9 @@ export class LearningConfigApp extends HandlebarsApplicationMixin(ApplicationV2)
 
   static async addRequirement(this: LearningConfigApp, event: Event, target: HTMLElement) {
     await this.saveFormData();
-    const projId = target.dataset.projId;
+    const projectId = target.dataset.projectId;
     const projects = Settings.projectTemplates;
-    const proj = projects.find((p) => p.id === projId);
+    const proj = projects.find((p) => p.id === projectId);
     if (proj) {
       if (!proj.requirements) proj.requirements = [];
       proj.requirements.push({
@@ -223,10 +223,10 @@ export class LearningConfigApp extends HandlebarsApplicationMixin(ApplicationV2)
 
   static async deleteRequirement(this: LearningConfigApp, event: Event, target: HTMLElement) {
     await this.saveFormData();
-    const projId = target.dataset.projId;
+    const projectId = target.dataset.projectId;
     const reqId = target.dataset.reqId;
     const projects = Settings.projectTemplates;
-    const proj = projects.find((p) => p.id === projId);
+    const proj = projects.find((p) => p.id === projectId);
     if (proj && proj.requirements) {
       proj.requirements = proj.requirements.filter((r) => r.id !== reqId);
       await Settings.setProjectTemplates(projects);

@@ -45,7 +45,7 @@ export class ActorProxy {
   }
 
   async createEmbeddedDocuments(type: string, data: any[]): Promise<any[]> {
-    return await this.actor.createEmbeddedDocuments(type, data);
+    return await (this.actor as any).createEmbeddedDocuments(type, data);
   }
 
   get currency(): { gp: number; sp: number; cp: number } {

@@ -1,6 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { TheFehrsLearningManager } from "../src/main";
 import { ActorProxy } from "../src/actor-proxy";
+import { TabLogic } from "../src/tabs/tab-logic";
+import { LearningTab } from "../src/tabs/learning-tab";
+import { PartyTab } from "../src/tabs/party-tab";
 import type { TimeUnit } from "../src/types";
 
 describe("TheFehrsLearningManager", () => {
@@ -12,25 +15,25 @@ describe("TheFehrsLearningManager", () => {
 
   describe("formatTimeBank", () => {
     it('should return "0" for 0 or negative units', () => {
-      expect(TheFehrsLearningManager.formatTimeBank(0, timeUnits)).toBe("0");
-      expect(TheFehrsLearningManager.formatTimeBank(-5, timeUnits)).toBe("0");
+      expect(TabLogic.formatTimeBank(0, timeUnits)).toBe("0");
+      expect(TabLogic.formatTimeBank(-5, timeUnits)).toBe("0");
     });
 
     it('should return "0" for empty timeUnits', () => {
-      expect(TheFehrsLearningManager.formatTimeBank(10, [])).toBe("0");
+      expect(TabLogic.formatTimeBank(10, [])).toBe("0");
     });
 
     it("should format units correctly based on ratios", () => {
       // 1 hour
-      expect(TheFehrsLearningManager.formatTimeBank(1, timeUnits)).toBe("1h");
+      expect(TabLogic.formatTimeBank(1, timeUnits)).toBe("1h");
       // 10 hours = 1 day
-      expect(TheFehrsLearningManager.formatTimeBank(10, timeUnits)).toBe("1d");
+      expect(TabLogic.formatTimeBank(10, timeUnits)).toBe("1d");
       // 11 hours = 1 day 1 hour
-      expect(TheFehrsLearningManager.formatTimeBank(11, timeUnits)).toBe("1d 1h");
+      expect(TabLogic.formatTimeBank(11, timeUnits)).toBe("1d 1h");
       // 70 hours = 1 week
-      expect(TheFehrsLearningManager.formatTimeBank(70, timeUnits)).toBe("1w");
+      expect(TabLogic.formatTimeBank(70, timeUnits)).toBe("1w");
       // 81 hours = 1 week 1 day 1 hour
-      expect(TheFehrsLearningManager.formatTimeBank(81, timeUnits)).toBe("1w 1d 1h");
+      expect(TabLogic.formatTimeBank(81, timeUnits)).toBe("1w 1d 1h");
     });
 
     it("should handle units that are not in order", () => {
@@ -39,7 +42,7 @@ describe("TheFehrsLearningManager", () => {
         { id: "tu_wk", name: "Week", short: "w", isBulk: true, ratio: 70 },
         { id: "tu_day", name: "Day", short: "d", isBulk: true, ratio: 10 },
       ];
-      expect(TheFehrsLearningManager.formatTimeBank(81, unsortedUnits)).toBe("1w 1d 1h");
+      expect(TabLogic.formatTimeBank(81, unsortedUnits)).toBe("1w 1d 1h");
     });
   });
 
@@ -103,7 +106,7 @@ describe("TheFehrsLearningManager", () => {
       });
 
       // @ts-ignore
-      const data = await TheFehrsLearningManager.prepareActorData(actor);
+      const data = await LearningTab.getData(actor);
 
       expect(data.formattedBank).toBe("1d 5h");
       expect(data.activeProjects).toHaveLength(1);
@@ -117,7 +120,7 @@ describe("TheFehrsLearningManager", () => {
       vi.mocked(game.settings.get).mockReturnValue([]);
 
       // @ts-ignore
-      const data = await TheFehrsLearningManager.prepareActorData(actor);
+      const data = await LearningTab.getData(actor);
 
       expect(data.formattedBank).toBe("0");
       expect(data.activeProjects).toHaveLength(0);
@@ -152,7 +155,7 @@ describe("TheFehrsLearningManager", () => {
       });
 
       // @ts-ignore
-      const data = await TheFehrsLearningManager.preparePartyData(partyActor);
+      const data = await PartyTab.getData(partyActor);
 
       expect(data.members).toHaveLength(1);
       expect(data.members[0].id).toBe("m1");
@@ -168,14 +171,12 @@ describe("TheFehrsLearningManager", () => {
 
       const actor = { id: "a1" };
       // @ts-ignore
-      TheFehrsLearningManager.activateListeners(html, actor);
+      TabLogic.activateListeners(html, actor);
 
-      // We can't easily test if the listener was added without spying on addEventListener
-      // before calling activateListeners, or triggering the event.
-      // Let's trigger it.
+      // Trigger it.
       const processTrainingSpy = vi
         // @ts-ignore
-        .spyOn(TheFehrsLearningManager, "processTraining")
+        .spyOn(TabLogic, "processTraining")
         .mockResolvedValue(undefined);
 
       btn.dispatchEvent(new MouseEvent("click"));
@@ -200,7 +201,7 @@ describe("TheFehrsLearningManager", () => {
       ]);
 
       // @ts-ignore
-      TheFehrsLearningManager.activateListeners(html, actor);
+      TabLogic.activateListeners(html, actor);
 
       btn.dispatchEvent(new MouseEvent("click"));
 
@@ -225,7 +226,7 @@ describe("TheFehrsLearningManager", () => {
     it("should return true for empty requirements", () => {
       const actor = new Actor() as any;
       // @ts-ignore
-      const result = TheFehrsLearningManager.meetsRequirements(actor, []);
+      const result = TabLogic.meetsRequirements(actor, []);
       expect(result.eligible).toBe(true);
     });
 
@@ -234,21 +235,21 @@ describe("TheFehrsLearningManager", () => {
 
       // @ts-ignore
       expect(
-        TheFehrsLearningManager.meetsRequirements(actor, [
+        TabLogic.meetsRequirements(actor, [
           { attribute: "system.abilities.str.value", operator: ">=", value: "15" },
         ]).eligible,
       ).toBe(true);
 
       // @ts-ignore
       expect(
-        TheFehrsLearningManager.meetsRequirements(actor, [
+        TabLogic.meetsRequirements(actor, [
           { attribute: "system.abilities.str.value", operator: ">", value: "15" },
         ]).eligible,
       ).toBe(false);
 
       // @ts-ignore
       expect(
-        TheFehrsLearningManager.meetsRequirements(actor, [
+        TabLogic.meetsRequirements(actor, [
           { attribute: "system.abilities.str.value", operator: "<", value: "20" },
         ]).eligible,
       ).toBe(true);
@@ -259,14 +260,14 @@ describe("TheFehrsLearningManager", () => {
 
       // @ts-ignore
       expect(
-        TheFehrsLearningManager.meetsRequirements(actor, [
+        TabLogic.meetsRequirements(actor, [
           { attribute: "system.traits.languages", operator: "includes", value: "common" },
         ]).eligible,
       ).toBe(true);
 
       // @ts-ignore
       expect(
-        TheFehrsLearningManager.meetsRequirements(actor, [
+        TabLogic.meetsRequirements(actor, [
           { attribute: "system.traits.languages", operator: "includes", value: "orcish" },
         ]).eligible,
       ).toBe(false);
@@ -299,7 +300,7 @@ describe("TheFehrsLearningManager", () => {
       vi.mocked(fromUuid).mockResolvedValue(new (globalThis.Item as any)());
 
       // @ts-ignore
-      await TheFehrsLearningManager.grantProjectReward(actor, template);
+      await TabLogic.grantProjectReward(actor, template);
 
       expect(actor.createEmbeddedDocuments).toHaveBeenCalledWith("Item", [{ name: "Mock Item" }]);
     });
@@ -315,7 +316,7 @@ describe("TheFehrsLearningManager", () => {
       actor.system = { currency: { gp: 10, sp: 0, cp: 0 } };
 
       // @ts-ignore
-      const result = await TheFehrsLearningManager.deductCurrency(actor, 1.55);
+      const result = await TabLogic.deductCurrency(actor, 1.55);
 
       expect(result).toBe(true);
       expect(actor.update).toHaveBeenCalledWith({
@@ -334,12 +335,13 @@ describe("TheFehrsLearningManager", () => {
       actor.system = { currency: { gp: 1, sp: 0, cp: 0 } };
 
       // @ts-ignore
-      const result = await TheFehrsLearningManager.deductCurrency(actor, 2.0);
+      const result = await TabLogic.deductCurrency(actor, 2.0);
 
       expect(result).toBe(false);
       expect(actor.update).not.toHaveBeenCalled();
     });
   });
+
   describe("ActorProxy", () => {
     it("should correctly wrap actor methods", async () => {
       const actor = new Actor() as any;

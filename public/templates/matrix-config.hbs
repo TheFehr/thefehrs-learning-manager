@@ -140,7 +140,7 @@
             value="{{project.name}}"
           /></td>
         <td style="min-width: 320px; vertical-align: top;">
-          {{#each requirements as |req|}}
+          {{#each project.requirements as |req|}}
             <div style="display:flex; gap: 4px; margin-bottom: 5px; align-items: center;">
               <input
                 type="text"
@@ -169,7 +169,7 @@
               <button
                 type="button"
                 data-action="deleteRequirement"
-                data-proj-id="{{project.id}}"
+                data-projec-id="{{project.id}}"
                 data-req-id="{{req.id}}"
                 style="flex: 0 0 25px;"
                 title="Remove Requirement"
@@ -184,7 +184,7 @@
           <button
             type="button"
             data-action="addRequirement"
-            data-proj-id="{{project.id}}"
+            data-projec-id="{{project.id}}"
             class="tidy-button small"
           ><i class="fas fa-plus"></i>
             Add Requirement
@@ -198,7 +198,7 @@
           /></td>
         <td style="vertical-align: top;">
           <select name="projects.{{project.id}}.rewardType">
-            {{selectOptions @root.rewardTypes selected=rewardType}}
+            {{selectOptions @root.rewardTypes selected=project.rewardType}}
           </select>
         </td>
         <td style="vertical-align: top;"><input
@@ -207,8 +207,8 @@
             value="{{project.rewardUuid}}"
             placeholder="Paste Item or Effect UUID"
           /></td>
-        <input type="hidden" name="projects.{{project.id}}.id" value="{{project.id}}" />
         <td style="vertical-align: top;">
+          <input type="hidden" name="projects.{{project.id}}.id" value="{{project.id}}" />
           <button type="button" data-action="deleteProject" data-id="{{project.id}}"><i
               class="fas fa-trash"
             ></i>
