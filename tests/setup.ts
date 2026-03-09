@@ -79,7 +79,7 @@ class MockActor {
   }
 
   async createEmbeddedDocuments(type: string, data: any[]) {
-    return data.map((d) => ({ ...d, id: "new-id" }));
+    return data.map((d) => ({ ...d, id: foundry.utils.randomID() }));
   }
 }
 vi.spyOn(MockActor.prototype, "setFlag");

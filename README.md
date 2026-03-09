@@ -13,7 +13,8 @@ Whether your players are learning a new language, training a feat, or mastering 
 - **Data-Driven & System Agnostic:** The core code is completely rule-agnostic. All scaling matrices, learning rates, and tutelage modifiers are driven by configurable JSON data, allowing you to adapt the module to your specific campaign mechanics without touching the underlying code.
 - **Global Time Bank Distribution:** A dedicated GM interface on the Party Sheet to distribute configurable blocks of time (e.g., Hours, Days, Weeks) to specific characters or the entire party simultaneously.
 - **Custom Tutelage Matrix:** Define exactly how effective different teachers are (e.g., _Self-Taught_, _Amateur_, _Professional_). Set specific gold/silver/copper costs and progress yields based on the tier of the teacher and the time unit spent.
-- **Project Library:** Pre-define standard projects (e.g., "Learn Elvish", "Blacksmithing Training") with specific target goals. Attach Item UUIDs to auto-grant the reward directly to the player's inventory upon completion.
+- **Project Library & Dynamic Rewards:** Pre-define standard projects (e.g., "Learn Elvish", "Blacksmithing Training") with specific target goals. Attach UUIDs to auto-grant rewards—such as Items or Active Effects—directly to the player upon completion.
+- **Project Requirements:** Set specific attribute conditions that actors must meet to participate in learning projects.
 
 ### For the Players
 

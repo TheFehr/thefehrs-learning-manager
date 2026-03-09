@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { TheFehrsLearningManager } from "../src/main";
 import { ActorProxy } from "../src/actor-proxy";
 import { TabLogic } from "../src/tabs/tab-logic";
@@ -275,6 +275,16 @@ describe("TheFehrsLearningManager", () => {
   });
 
   describe("grantProjectReward", () => {
+    let originalItem: any;
+
+    beforeEach(() => {
+      originalItem = globalThis.Item;
+    });
+
+    afterEach(() => {
+      globalThis.Item = originalItem;
+    });
+
     it("should create embedded item document for item rewards", async () => {
       const actor = new Actor() as any;
       const template = {

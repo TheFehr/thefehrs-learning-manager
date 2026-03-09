@@ -26,7 +26,7 @@ export class PartyTab {
     const actorId = this.getMemberId(member);
     const actualActor = member.actor || (actorId ? game.actors?.get(actorId as string) : null);
 
-    if (!(actualActor instanceof (globalThis.Actor || Object))) return null;
+    if (!globalThis.Actor || !(actualActor instanceof globalThis.Actor)) return null;
     const a = actualActor as Actor;
     const proxy = ActorProxy.forActor(a);
 
@@ -108,17 +108,23 @@ export class PartyTab {
                 if (selectedIds.length === 0)
                   return ui.notifications?.warn("No recipients selected.");
 
+                let successCount = 0;
                 for (const id of selectedIds) {
                   const a = game.actors?.get(id) as Actor | undefined;
-                  if (!(a instanceof (globalThis.Actor || Object))) continue;
-                  const proxy = ActorProxy.forActor(a);
-                  const bank = proxy.bank;
-                  await proxy.setBank({ total: (bank.total || 0) + totalBase });
+                  if (!globalThis.Actor || !(a instanceof globalThis.Actor)) continue;
+                  try {
+                    const proxy = ActorProxy.forActor(a);
+                    const bank = proxy.bank;
+                    await proxy.setBank({ total: (bank.total || 0) + totalBase });
+                    successCount++;
+                  } catch (err) {
+                    console.error(`Failed to update bank for actor ${id}:`, err);
+                  }
                 }
 
                 (ChatMessage.implementation as any).create({
                   speaker: { alias: "Downtime System" },
-                  content: `Granted <strong>${TabLogic.formatTimeBank(totalBase, timeUnits)}</strong> to ${selectedIds.length} characters.`,
+                  content: `Granted <strong>${TabLogic.formatTimeBank(totalBase, timeUnits)}</strong> to ${successCount} characters.`,
                 });
               },
             },

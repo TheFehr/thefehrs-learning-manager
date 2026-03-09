@@ -32,7 +32,7 @@ export class LearningTab {
           ...p,
           name: tpl.name,
           maxProgress: tpl.target,
-          percent: Math.min((p.progress / tpl.target) * 100, 100),
+          percent: tpl.target > 0 ? Math.min((p.progress / tpl.target) * 100, 100) : 0,
           isCompleted: p.progress >= tpl.target || p.isCompleted,
           guidanceType: tier ? tier.name : "None",
         };

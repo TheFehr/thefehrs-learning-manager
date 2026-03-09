@@ -151,7 +151,7 @@ export class TabLogic {
 
                 const totalToAdd = amount * tu.ratio;
                 const members = (actor as any).system.members || [];
-                members.forEach(async (m: any) => {
+                for (const m of members) {
                   const memberId = m.actorId || m.id;
                   const memberActor = game.actors?.get(memberId) as any;
                   if (memberActor) {
@@ -159,7 +159,7 @@ export class TabLogic {
                     const bank = proxy.bank;
                     await proxy.setBank({ total: bank.total + totalToAdd });
                   }
-                });
+                }
               },
             },
           },

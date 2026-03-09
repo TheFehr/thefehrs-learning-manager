@@ -213,7 +213,7 @@ export class LearningConfigApp extends HandlebarsApplicationMixin(ApplicationV2)
       proj.requirements.push({
         id: foundry.utils.randomID(),
         attribute: "",
-        operator: ">=",
+        operator: "===",
         value: "",
       });
       await Settings.setProjectTemplates(projects);
