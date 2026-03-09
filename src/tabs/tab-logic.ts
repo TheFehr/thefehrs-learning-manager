@@ -9,6 +9,8 @@ import type {
 } from "../types";
 
 export class TabLogic {
+  static editModeState = new Map<string, boolean>();
+
   static activateListeners(html: HTMLElement, actor: Actor) {
     // Bulk Training Listener
     html.querySelectorAll(".bulk-train").forEach((btn) => {
@@ -82,12 +84,34 @@ export class TabLogic {
 
     // Toggle Progress Edit Listener
     const toggleBtn = html.querySelector(".toggle-progress-edit");
+    const isEditMode = this.editModeState.get(actor.id) || false;
+
+    const updateDisplay = (editMode: boolean) => {
+      if (toggleBtn) {
+        if (editMode) {
+          toggleBtn.setAttribute("aria-checked", "true");
+          toggleBtn.innerHTML = '<i class="thumb-icon fas fa-unlock fa-fw"></i><!---->';
+        } else {
+          toggleBtn.setAttribute("aria-checked", "false");
+          toggleBtn.innerHTML = '<i class="thumb-icon fas fa-lock fa-fw"></i><!---->';
+        }
+      }
+      html.querySelectorAll(".progress-read-only").forEach((el) => {
+        (el as HTMLElement).style.display = editMode ? "none" : "inline";
+      });
+      html.querySelectorAll(".progress-editable").forEach((el) => {
+        (el as HTMLElement).style.display = editMode ? "inline" : "none";
+      });
+    };
+
+    updateDisplay(isEditMode);
+
     if (toggleBtn) {
       toggleBtn.addEventListener("click", () => {
-        html.querySelectorAll(".progress-read-only, .progress-editable").forEach((el) => {
-          const htmlEl = el as HTMLElement;
-          htmlEl.style.display = htmlEl.style.display === "none" ? "inline" : "none";
-        });
+        const currentState = this.editModeState.get(actor.id) || false;
+        const newState = !currentState;
+        this.editModeState.set(actor.id, newState);
+        updateDisplay(newState);
       });
     }
 

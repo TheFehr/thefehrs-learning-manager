@@ -1,5 +1,25 @@
 <div class="party-learning-container">
   <aside class="sidebar expanded">
+    {{#if isGM}}
+      <div
+        class="party-controls"
+        style="display: flex; gap: 10px; margin-bottom: 15px; padding: 10px;"
+      >
+        <button class="grant-time-btn tidy-button" style="flex: 1 1 0%;">
+          <i class="fa-solid fa-clock-rotate-left"></i>
+          Distribute Time
+        </button>
+        <div
+          class="toggle-progress-edit"
+          role="switch"
+          aria-checked="false"
+          style="display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 5px; border-radius: 4px; background: rgba(0,0,0,0.1); width: 32px;"
+          title="Toggle Manual Progress Edit"
+        >
+          <i class="thumb-icon fas fa-lock fa-fw"></i><!---->
+        </div>
+      </div>
+    {{/if}}
     {{#each members as |member|}}
       <div
         class="actor-container"
@@ -30,21 +50,6 @@
   </aside>
 
   <div class="learning-main-content" style="flex: 1;">
-    {{#if isGM}}
-      <div class="party-controls" style="display: flex; gap: 10px; margin-bottom: 15px;">
-        <button class="grant-time-btn tidy-button" style="flex: 1;">
-          <i class="fa-solid fa-clock-rotate-left"></i>
-          Distribute Time
-        </button>
-        <button
-          class="toggle-progress-edit tidy-button"
-          style="flex: 0 0 40px;"
-          title="Toggle Manual Progress Edit"
-        >
-          <i class="fas fa-edit"></i>
-        </button>
-      </div>
-    {{/if}}
 
     <table class="tidy-table party-learning-table">
       <thead>
