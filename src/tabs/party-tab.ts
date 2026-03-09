@@ -1,7 +1,7 @@
 import { Settings } from "../settings";
 import { ActorProxy } from "../actor-proxy";
 import { TabLogic } from "./tab-logic";
-import type { DowntimeGroupActor, TimeUnit, ProjectTemplate, ProjectRequirement } from "../types";
+import type { DowntimeGroupActor, TimeUnit } from "../types";
 
 export class PartyTab {
   static async getData(partyActor: DowntimeGroupActor) {

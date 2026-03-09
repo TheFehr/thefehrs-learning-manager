@@ -229,7 +229,6 @@ export class TabLogic {
 
     if (progressGained === 0) {
       ui.notifications?.info("Training unsuccessful - no progress gained.");
-      await proxy.setBank({ total: bank.total - tu.ratio });
     }
 
     p.progress = Math.min(p.progress + progressGained, tpl.target);

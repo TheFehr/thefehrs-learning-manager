@@ -114,7 +114,7 @@ export class LearningConfigApp extends HandlebarsApplicationMixin(ApplicationV2)
 
       return {
         ...p,
-        target: Number(p.target) ?? 100,
+        target: Number(p.target) || 100,
         rewardType: p.rewardType || "item",
         requirements,
       };

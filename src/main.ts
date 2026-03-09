@@ -1,5 +1,4 @@
 import type {
-  LearningProject,
   TimeUnit,
   Tidy5eApi,
   Tidy5eTabGetDataParams,
@@ -10,7 +9,6 @@ import type {
 } from "./types";
 import { LearningConfigApp } from "./settings-app";
 import { Settings } from "./settings";
-import { ActorProxy } from "./actor-proxy";
 import { LearningTab } from "./tabs/learning-tab";
 import { PartyTab } from "./tabs/party-tab";
 import { migrateData } from "./migration";
@@ -21,12 +19,6 @@ export class TheFehrsLearningManager {
 
   static init() {
     this.registerSettings();
-    Handlebars.registerHelper("eq", function (a, b) {
-      return a === b;
-    });
-    Handlebars.registerHelper("array", function (...args) {
-      return args.slice(0, -1);
-    });
 
     Settings.registerMenu("configMenu", {
       name: "Downtime Engine Config",
@@ -123,7 +115,7 @@ export class TheFehrsLearningManager {
 }
 
 Hooks.once("init", () => TheFehrsLearningManager.init());
-Hooks.once("ready", () => {
+Hooks.once("ready", async () => {
   console.debug("Downtime Engine | Initialized");
-  migrateData();
+  await migrateData();
 });
