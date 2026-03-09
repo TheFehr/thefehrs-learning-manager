@@ -318,7 +318,13 @@ export class TabLogic {
           met = Number(actorValue) <= Number(targetValue);
           break;
         case "includes":
-          met = Array.isArray(actorValue) && actorValue.includes(targetValue);
+          if (Array.isArray(actorValue)) {
+            met = actorValue.includes(targetValue);
+          } else if (typeof actorValue === "string") {
+            met = actorValue.includes(String(targetValue));
+          } else {
+            met = false;
+          }
           break;
       }
       if (!met) return { eligible: false, reason: `${req.attribute} ${op} ${req.value}` };
