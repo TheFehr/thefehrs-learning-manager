@@ -76,7 +76,7 @@
           <th>Tier Name</th>
           <th>Roll Mod</th>
           {{#each timeUnits}}
-            <th title="Cost per {{name}} in gp">Cost/{{short}} (gp)</th>
+            <th title="Cost per {{name}} in cp">Cost/{{short}} (cp)</th>
             {{#if isBulk}}
               <th title="Progress gained per {{name}}">Prog/{{short}}</th>{{/if}}
           {{/each}}
@@ -98,7 +98,7 @@
                   type="number"
                   name="tiers.{{tier.id}}.costs.{{timeUnit.id}}"
                   value="{{lookup tier.costs timeUnit.id}}"
-                  step="0.01"
+                  step="1"
                 /></td>
               {{#if timeUnit.isBulk}}
                 <td><input

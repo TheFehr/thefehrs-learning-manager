@@ -32,6 +32,11 @@ $transition-speed: 0.4s;
       @include t5e-card;
     }
 
+    .item-label {
+      padding: var(--t5e-size-halfx) var(--t5e-size-1x)
+        calc(var(--t5e-size-halfx) + var(--t5e-size-1));
+    }
+
     .t5e-progress-bar {
       background: var(--t5e-faint-color);
       border-radius: 7px;
@@ -49,7 +54,6 @@ $transition-speed: 0.4s;
     .actions {
       display: flex;
       gap: 5px;
-      margin-top: 10px;
 
       button {
         flex: 0 1 auto;

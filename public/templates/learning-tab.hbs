@@ -20,16 +20,17 @@
 
   <section class="tidy-table">
     <header class="tidy-table-header-row">
-      <div class="tidy-table-header-cell primary">Active Projects</div>
-      <div class="tidy-table-header-cell" style="--tidy-table-column-width: 40rem;">Progress</div>
-      <div class="tidy-table-header-cell" style="--tidy-table-column-width: 12rem;">Actions</div>
+      <div class="tidy-table-header-cell primary" style="--tidy-table-column-width: 30%">Active
+        Projects</div>
+      <div class="tidy-table-header-cell" style="--tidy-table-column-width: 50%;">Progress</div>
+      <div class="tidy-table-header-cell" style="--tidy-table-column-width: 20%;">Actions</div>
     </header>
 
     <div class="active-projects-list item-table-body">
       {{#each activeProjects as |project|}}
         <div class="project-card tidy-table-row-container">
           <div class="tidy-table-row">
-            <div class="tidy-table-cell primary item-label">
+            <div class="tidy-table-cell primary item-label" style="--tidy-table-column-width: 30%;">
               <div class="cell-text">
                 <span class="cell-name">{{project.name}}</span>
                 <p style="font-size:0.75rem; font-style:italic; margin: 0; opacity: 0.7;">
@@ -39,7 +40,7 @@
               </div>
             </div>
 
-            <div class="tidy-table-cell" style="--tidy-table-column-width: 40rem;">
+            <div class="tidy-table-cell" style="--tidy-table-column-width: 50%;">
               <div style="width: 100%;">
                 <div style="font-size: 0.7rem; margin-bottom: 2px; text-align: center;">
                   {{project.progress}}
@@ -60,20 +61,34 @@
 
             <div
               class="actions tidy-table-cell"
-              style="--tidy-table-column-width: 12rem; display: flex; gap: 5px; justify-content: flex-end;"
+              style="--tidy-table-column-width: 20%; display: flex; gap: 5px; justify-content: flex-end;"
             >
               {{#each @root.timeUnits as |tu|}}
-                <button
-                  class="bulk-train tidy-button small"
-                  data-id="{{project.id}}"
-                  data-unit="{{tu.id}}"
-                  title="Spend 1 {{tu.name}}"
-                  aria-label="Spend 1 {{tu.name}}"
-                  style="min-width: 3rem; padding: 2px 4px;"
-                >
-                  <i class="fa-solid fa-plus"></i>
-                  {{tu.short}}
-                </button>
+                {{#if project.tierCostInfo}}
+                  <button
+                    class="bulk-train tidy-button small"
+                    data-id="{{project.id}}"
+                    data-unit="{{tu.id}}"
+                    title="Spend 1 {{tu.name}} (Cost: {{lookup project.tierCostInfo tu.id}}cp)"
+                    aria-label="Spend 1 {{tu.name}} (Cost: {{lookup project.tierCostInfo tu.id}}cp)"
+                    style="min-width: 3rem; padding: 2px 4px;"
+                  >
+                    <i class="fa-solid fa-plus"></i>
+                    {{tu.short}}
+                  </button>
+                {{else}}
+                  <button
+                    class="bulk-train tidy-button small"
+                    data-id="{{project.id}}"
+                    data-unit="{{tu.id}}"
+                    title="Spend 1 {{tu.name}} (Cost: 0cp)"
+                    aria-label="Spend 1 {{tu.name}} (Cost: 0cp)"
+                    style="min-width: 3rem; padding: 2px 4px;"
+                  >
+                    <i class="fa-solid fa-plus"></i>
+                    {{tu.short}}
+                  </button>
+                {{/if}}
               {{/each}}
             </div>
           </div>

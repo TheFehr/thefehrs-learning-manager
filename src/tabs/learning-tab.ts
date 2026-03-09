@@ -35,6 +35,7 @@ export class LearningTab {
           percent: tpl.target > 0 ? Math.min((p.progress / tpl.target) * 100, 100) : 0,
           isCompleted: p.progress >= tpl.target || p.isCompleted,
           guidanceType: tier ? tier.name : "None",
+          tierCostInfo: tier ? tier.costs : null,
         };
       })
       .filter((p: any) => p !== null);

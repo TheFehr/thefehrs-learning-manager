@@ -326,7 +326,7 @@ describe("TheFehrsLearningManager", () => {
       actor.system = { currency: { gp: 10, sp: 0, cp: 0 } };
 
       // @ts-ignore
-      const result = await TabLogic.deductCurrency(actor, 1.55);
+      const result = await TabLogic.deductCurrency(actor, 155);
 
       expect(result).toBe(true);
       expect(actor.update).toHaveBeenCalledWith({
@@ -345,7 +345,7 @@ describe("TheFehrsLearningManager", () => {
       actor.system = { currency: { gp: 1, sp: 0, cp: 0 } };
 
       // @ts-ignore
-      const result = await TabLogic.deductCurrency(actor, 2.0);
+      const result = await TabLogic.deductCurrency(actor, 200);
 
       expect(result).toBe(false);
       expect(actor.update).not.toHaveBeenCalled();

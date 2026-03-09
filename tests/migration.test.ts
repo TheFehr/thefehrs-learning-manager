@@ -25,6 +25,7 @@ describe("Data Migration", () => {
     vi.mocked(game.settings.get).mockImplementation((scope, key) => {
       if (key === "migrationVersion") return 0;
       if (key === "projectTemplates") return library;
+      if (key === "guidanceTiers") return [];
       return null;
     });
 
@@ -61,19 +62,13 @@ describe("Data Migration", () => {
         }),
       ]),
     );
-
-    // Check if migration version was updated
-    expect(game.settings.set).toHaveBeenCalledWith(
-      TheFehrsLearningManager.ID,
-      "migrationVersion",
-      1,
-    );
   });
 
   it("should create a new template if matching one is not found in library", async () => {
     vi.mocked(game.settings.get).mockImplementation((scope, key) => {
       if (key === "migrationVersion") return 0;
       if (key === "projectTemplates") return [];
+      if (key === "guidanceTiers") return [];
       return null;
     });
 
@@ -104,8 +99,35 @@ describe("Data Migration", () => {
     expect(setFlagCall![2][0].templateId).toBe("randomid");
   });
 
-  it("should skip migration if version is already 1 or higher", async () => {
-    vi.mocked(game.settings.get).mockReturnValue(1);
+  it("should migrate version 1 to 2 by converting gp costs to cp", async () => {
+    const tiers = [
+      { id: "t1", name: "Tier 1", modifier: 1, costs: { h: 1.5, d: 10.25 }, progress: {} },
+      { id: "t2", name: "Tier 2", modifier: 2, costs: { h: 0, d: 5 }, progress: {} },
+    ];
+
+    vi.mocked(game.settings.get).mockImplementation((scope, key) => {
+      if (key === "migrationVersion") return 1;
+      if (key === "guidanceTiers") return tiers;
+      if (key === "projectTemplates") return [];
+      return null;
+    });
+
+    await TheFehrsLearningManager.migrateData();
+
+    expect(game.settings.set).toHaveBeenCalledWith(TheFehrsLearningManager.ID, "guidanceTiers", [
+      { id: "t1", name: "Tier 1", modifier: 1, costs: { h: 150, d: 1025 }, progress: {} },
+      { id: "t2", name: "Tier 2", modifier: 2, costs: { h: 0, d: 500 }, progress: {} },
+    ]);
+
+    expect(game.settings.set).toHaveBeenCalledWith(
+      TheFehrsLearningManager.ID,
+      "migrationVersion",
+      2,
+    );
+  });
+
+  it("should skip migration if version is already 2 or higher", async () => {
+    vi.mocked(game.settings.get).mockReturnValue(2);
 
     await TheFehrsLearningManager.migrateData();
 

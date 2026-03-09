@@ -201,15 +201,14 @@ export class TabLogic {
       costs: {},
       progress: {},
     };
-    const costGp = tier.costs?.[tu.id] || 0;
-    const costCp = Math.round(costGp * 100);
+    const costCp = tier.costs?.[tu.id] || 0;
 
     const cur = proxy.currency;
     const totalCp = cur.gp * 100 + cur.sp * 10 + cur.cp;
 
-    if (totalCp < costCp) return ui.notifications?.warn(`Need ${costGp}gp!`);
+    if (totalCp < costCp) return ui.notifications?.warn(`Need ${costCp}cp!`);
 
-    const didDeduct = await this.deductCurrency(actor, costGp);
+    const didDeduct = await this.deductCurrency(actor, costCp);
     if (!didDeduct) return;
 
     let progressGained = 0;
@@ -266,22 +265,21 @@ export class TabLogic {
     }
   }
 
-  static async deductCurrency(actor: Actor, amountGp: number): Promise<boolean> {
-    if (amountGp < 0) {
+  static async deductCurrency(actor: Actor, amountCp: number): Promise<boolean> {
+    if (amountCp < 0) {
       console.warn("Negative amount deducted");
       return false;
     }
     const proxy = ActorProxy.forActor(actor);
     const cur = proxy.currency;
     let totalCp = cur.gp * 100 + cur.sp * 10 + cur.cp;
-    const costCp = Math.round(amountGp * 100);
 
-    if (totalCp < costCp) {
+    if (totalCp < amountCp) {
       ui.notifications?.warn("Insufficient funds!");
       return false;
     }
 
-    totalCp -= costCp;
+    totalCp -= amountCp;
     const newGp = Math.floor(totalCp / 100);
     totalCp %= 100;
     const newSp = Math.floor(totalCp / 10);
