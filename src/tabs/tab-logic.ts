@@ -62,7 +62,11 @@ export class TabLogic {
         const { actorId, projectId } = target.dataset;
         if (!actorId || !projectId) return;
         const val = target.value;
-        const targetActor = (game.actors?.get(actorId as string) || actor) as Actor;
+        const targetActor = game.actors?.get(actorId as string) as Actor | undefined;
+        if (!targetActor) {
+          ui.notifications?.warn("Target actor not found");
+          return;
+        }
         const proxy = ActorProxy.forActor(targetActor);
         const projects = proxy.projects;
         const p = projects.find((x) => x.id === projectId);
@@ -155,9 +159,14 @@ export class TabLogic {
                   const memberId = m.actorId || m.id;
                   const memberActor = game.actors?.get(memberId) as any;
                   if (memberActor) {
-                    const proxy = ActorProxy.forActor(memberActor);
-                    const bank = proxy.bank;
-                    await proxy.setBank({ total: bank.total + totalToAdd });
+                    try {
+                      const proxy = ActorProxy.forActor(memberActor);
+                      const bank = proxy.bank;
+                      await proxy.setBank({ total: bank.total + totalToAdd });
+                    } catch (e) {
+                      console.error(`Failed to grant time to ${memberActor.name}:`, e);
+                      ui.notifications?.warn(`Failed to grant time to ${memberActor.name}`);
+                    }
                   }
                 }
               },
@@ -200,6 +209,9 @@ export class TabLogic {
 
     if (totalCp < costCp) return ui.notifications?.warn(`Need ${costGp}gp!`);
 
+    const didDeduct = await this.deductCurrency(actor, costGp);
+    if (!didDeduct) return;
+
     let progressGained = 0;
     if (tu.isBulk) {
       progressGained = tier.progress?.[tu.id] || 0;
@@ -216,8 +228,10 @@ export class TabLogic {
       await roll.toMessage({ flavor: `Learning Check: ${tpl.name}` });
     } else progressGained = 1;
 
-    const didDeduct = await this.deductCurrency(actor, costGp);
-    if (!didDeduct) return;
+    if (progressGained === 0) {
+      ui.notifications?.info("Training unsuccessful - no progress gained.");
+      await proxy.setBank({ total: bank.total - tu.ratio });
+    }
 
     p.progress = Math.min(p.progress + progressGained, tpl.target);
 
@@ -253,6 +267,10 @@ export class TabLogic {
   }
 
   static async deductCurrency(actor: Actor, amountGp: number): Promise<boolean> {
+    if (amountGp < 0) {
+      console.warn("Negative amount deducted");
+      return false;
+    }
     const proxy = ActorProxy.forActor(actor);
     const cur = proxy.currency;
     let totalCp = cur.gp * 100 + cur.sp * 10 + cur.cp;

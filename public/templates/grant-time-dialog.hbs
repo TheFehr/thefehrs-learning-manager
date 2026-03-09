@@ -15,7 +15,7 @@
       {{#each members as |m|}}
         <label class="recipient-row">
           <input type="checkbox" name="actor_{{m.id}}" checked />
-          <img src="{{m.img}}" title="{{m.name}}" />
+          <img src="{{m.img}}" title="{{m.name}}" alt="{{m.name}}" />
           <span>{{m.name}}</span>
         </label>
       {{/each}}
