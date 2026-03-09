@@ -79,11 +79,16 @@ $transition-speed: 0.4s;
     display: flex;
     flex-direction: row;
     height: 100%;
+    width: 100%;
 
     .learning-main-content {
       flex: 1;
-      padding-left: 1rem;
+      padding: 0.5rem 1.5rem;
       overflow-y: auto;
+      min-width: 0; /* Ensures the flex child doesn't overflow its container bounds */
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
     }
 
     .sidebar {

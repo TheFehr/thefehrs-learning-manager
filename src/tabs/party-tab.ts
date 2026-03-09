@@ -44,6 +44,7 @@ export class PartyTab {
           name: tpl.name,
           maxProgress: tpl.target,
           guidanceType: tier ? tier.name : "None",
+          progressPercentage: Math.min(100, Math.round((p.progress / tpl.target) * 100)),
         };
       })
       .filter((p: any) => p !== null);

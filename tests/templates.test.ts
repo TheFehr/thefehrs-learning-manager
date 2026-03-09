@@ -179,7 +179,7 @@ describe("Handlebars Templates", () => {
     expect(completedZone?.textContent).toContain("Completed Project 1");
   });
 
-  it("should render Party Learning Tab with sidebar correctly", () => {
+  it("should render Party Learning Tab with sidebar and sections correctly", () => {
     const data = {
       isGM: true,
       members: [
@@ -208,15 +208,29 @@ describe("Handlebars Templates", () => {
     const container = document.createElement("div");
     container.innerHTML = rendered;
 
-    // Check main content
-    expect(container.querySelector(".learning-main-content")).not.toBeNull();
-    expect(container.querySelector(".project-name")?.textContent).toBe("Ancient Lore");
-
     // Check sidebar
     const sidebar = container.querySelector(".sidebar");
     expect(sidebar).not.toBeNull();
-    expect(sidebar?.querySelector(".font-label-medium")?.textContent).toBe("Esha");
+    const actorName = sidebar?.querySelector(".font-label-medium");
+    expect(actorName?.textContent).toBe("Esha");
     expect(sidebar?.querySelector(".actor-time-bank")?.textContent).toContain("10 Days");
     expect(sidebar?.querySelector("img")?.getAttribute("src")).toBe("tokens/esha.png");
+
+    // Check table exists for actor
+    const actorSection = container.querySelector(
+      'section.tidy-table[data-tidy-section-key="actor-actor1"]',
+    );
+    expect(actorSection).not.toBeNull();
+
+    // Check section header name
+    const sectionHeader = actorSection?.querySelector("h3");
+    expect(sectionHeader?.textContent).toBe("Esha");
+
+    // Check project name
+    const projectCells = Array.from(
+      actorSection?.querySelectorAll(".tidy-table-cell span.font-label-medium") || [],
+    );
+    const projectCell = projectCells.find((el) => el.textContent === "Ancient Lore");
+    expect(projectCell).not.toBeUndefined();
   });
 });
