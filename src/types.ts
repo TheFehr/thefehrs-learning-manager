@@ -18,6 +18,7 @@ export interface GuidanceTier {
   modifier: number;
   costs: Record<string, number>;
   progress: Record<string, number>;
+  _migratedToV2?: boolean;
 }
 
 export type RewardType = "item" | "effect";
