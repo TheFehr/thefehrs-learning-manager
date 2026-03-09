@@ -96,7 +96,7 @@ export class PartyTab {
           templateData,
         );
 
-        new Dialog({
+        new foundry.appv1.api.Dialog({
           title: "Distribute Training Time",
           content: content,
           buttons: {

@@ -56,32 +56,25 @@
         data-tidy-sheet-part="item-table"
         data-tidy-section-key="actor-{{member.id}}"
       >
-        <header
-          class="tidy-table-header-row theme-dark toggleable"
-          data-tidy-sheet-part="table-header-row"
-        >
+        <header class="tidy-table-header-row theme-dark" data-tidy-sheet-part="table-header-row">
           <div
             class="tidy-table-header-cell header-label-cell primary"
             data-tidy-sheet-part="table-header-cell"
           >
-            <div class="button expand-button expanded"><i
-                class="fa-solid fa-chevron-right"
-                data-tidy-sheet-part="table-expansion-toggle"
-              ></i></div>
             <h3>{{member.name}}</h3>
             <span class="table-header-count">{{member.projects.length}}</span>
           </div>
           <div
             class="tidy-table-header-cell"
             data-tidy-sheet-part="table-header-cell"
-            style="--tidy-table-column-width: 8rem;"
+            style="--tidy-table-column-width: min(30%, 250px);"
           >
             Progress
           </div>
           <div
             class="tidy-table-header-cell"
             data-tidy-sheet-part="table-header-cell"
-            style="--tidy-table-column-width: 10rem;"
+            style="--tidy-table-column-width: min(40%, 300px);"
           >
             Tutor/Guidance
           </div>
@@ -104,40 +97,32 @@
                     <div
                       class="tidy-table-cell"
                       data-tidy-sheet-part="table-cell"
-                      style="--tidy-table-column-width: 8rem;"
+                      style="--tidy-table-column-width: min(30%, 250px);"
                     >
                       <div class="hp-column-content" style="width: 100%;">
                         <div
-                          class="meter meter-small progress xp"
+                          class="meter progress"
                           style="--bar-percentage: {{project.progressPercentage}}%; --bar-adjusted: 0%; --bar-adjusted-background: var(--t5e-color-hp-temp); --bar-adjusted-content: '';"
                         ></div>
                         <div class="flexrow progress-container">
+
+                          {{#if @root.isGM}}
+                            <input
+                              type="number"
+                              class="update-project-progress"
+                              data-actor-id="{{member.id}}"
+                              data-project-id="{{project.id}}"
+                              value="{{project.progress}}"
+                              style="display: none; width: 50px; text-align: center; height: 1rem;"
+                            />
+                          {{/if}}
                           <span
                             class="font-data-medium color-text-default value progress-read-only"
                           >{{project.progress}}</span>
+                          <span class="font-body-medium color-text-lightest separator">/</span>
                           <span
-                            class="font-body-medium color-text-lightest separator progress-read-only"
-                          >/</span>
-                          <span
-                            class="font-label-medium color-text-default max progress-read-only"
+                            class="font-label-medium color-text-default max"
                           >{{project.maxProgress}}</span>
-
-                          {{#if @root.isGM}}
-                            <span class="progress-editable" style="display: none; width: 100%;">
-                              <input
-                                type="number"
-                                class="update-project-progress"
-                                data-actor-id="{{member.id}}"
-                                data-project-id="{{project.id}}"
-                                value="{{project.progress}}"
-                                style="width: 50px; text-align: center; height: 1.5rem;"
-                              />
-                              <span class="font-body-medium color-text-lightest separator">/</span>
-                              <span
-                                class="font-label-medium color-text-default max"
-                              >{{project.maxProgress}}</span>
-                            </span>
-                          {{/if}}
                         </div>
                       </div>
                     </div>
@@ -145,7 +130,7 @@
                     <div
                       class="tidy-table-cell"
                       data-tidy-sheet-part="table-cell"
-                      style="--tidy-table-column-width: 10rem;"
+                      style="--tidy-table-column-width: min(40%, 300px);"
                     >
                       <select
                         class="update-project font-label-medium"

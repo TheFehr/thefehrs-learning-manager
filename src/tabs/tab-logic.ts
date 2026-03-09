@@ -99,7 +99,7 @@ export class TabLogic {
       html.querySelectorAll(".progress-read-only").forEach((el) => {
         (el as HTMLElement).style.display = editMode ? "none" : "inline";
       });
-      html.querySelectorAll(".progress-editable").forEach((el) => {
+      html.querySelectorAll(".update-project-progress").forEach((el) => {
         (el as HTMLElement).style.display = editMode ? "inline" : "none";
       });
     };
@@ -144,62 +144,6 @@ export class TabLogic {
         }
       });
     });
-
-    // Grant Time Dialog Listener
-    const grantBtn = html.querySelector(".grant-time-btn");
-    if (grantBtn) {
-      grantBtn.addEventListener("click", () => {
-        const timeUnits = Settings.timeUnits;
-        const unitOptions = timeUnits
-          .map((u) => `<option value="${u.id}">${u.name}</option>`)
-          .join("");
-
-        new Dialog({
-          title: "Grant Time to Party",
-          content: `
-            <form>
-              <div class="form-group">
-                <label>Amount</label>
-                <input type="number" name="amount" value="1" min="1">
-              </div>
-              <div class="form-group">
-                <label>Unit</label>
-                <select name="unit">${unitOptions}</select>
-              </div>
-            </form>
-          `,
-          buttons: {
-            apply: {
-              label: "Grant",
-              callback: async (dialogHtml: JQuery) => {
-                const amount = parseInt(dialogHtml.find('[name="amount"]').val() as string) || 1;
-                const unitId = dialogHtml.find('[name="unit"]').val() as string;
-                const tu = timeUnits.find((u) => u.id === unitId);
-                if (!tu) return;
-
-                const totalToAdd = amount * tu.ratio;
-                const members = (actor as any).system.members || [];
-                for (const m of members) {
-                  const memberId = m.actorId || m.id;
-                  const memberActor = game.actors?.get(memberId) as any;
-                  if (memberActor) {
-                    try {
-                      const proxy = ActorProxy.forActor(memberActor);
-                      const bank = proxy.bank;
-                      await proxy.setBank({ total: bank.total + totalToAdd });
-                    } catch (e) {
-                      console.error(`Failed to grant time to ${memberActor.name}:`, e);
-                      ui.notifications?.warn(`Failed to grant time to ${memberActor.name}`);
-                    }
-                  }
-                }
-              },
-            },
-          },
-          default: "apply",
-        }).render(true);
-      });
-    }
   }
 
   static async processTraining(actor: DowntimeActor, projectId: string, unitId: string) {
