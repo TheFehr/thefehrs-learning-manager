@@ -60,6 +60,20 @@ export class PartyTab {
   }
 
   static activateListeners(html: HTMLElement, actor: Actor) {
+    // Open Actor Sheet Listener
+    html.querySelectorAll(".actor-container").forEach((el) => {
+      el.addEventListener("click", async (ev) => {
+        const target = ev.currentTarget as HTMLElement | null;
+        if (!target || !target.dataset.uuid) return;
+
+        const uuid = target.dataset.uuid;
+        const doc = await fromUuid(uuid as any);
+        if (doc && (doc as any).sheet) {
+          (doc as any).sheet.render(true);
+        }
+      });
+    });
+
     // Grant Time Dialog Listener
     const grantBtn = html.querySelector(".grant-time-btn");
     if (grantBtn) {
