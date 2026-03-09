@@ -187,6 +187,7 @@ describe("Handlebars Templates", () => {
           id: "actor1",
           name: "Esha",
           img: "ui/particles/leaf3.png",
+          tokenImg: "tokens/esha.png",
           currency: { gp: 4371 },
           formattedBank: "10 Days",
           projects: [
@@ -215,8 +216,7 @@ describe("Handlebars Templates", () => {
     const sidebar = container.querySelector(".sidebar");
     expect(sidebar).not.toBeNull();
     expect(sidebar?.querySelector(".font-label-medium")?.textContent).toBe("Esha");
-    expect(sidebar?.querySelector(".actor-currency")?.textContent).toContain("4371");
-    expect(sidebar?.querySelector(".actor-currency")?.textContent).toContain("gp");
-    expect(sidebar?.querySelector("img")?.getAttribute("src")).toBe("ui/particles/leaf3.png");
+    expect(sidebar?.querySelector(".actor-time-bank")?.textContent).toContain("10 Days");
+    expect(sidebar?.querySelector("img")?.getAttribute("src")).toBe("tokens/esha.png");
   });
 });

@@ -82,14 +82,14 @@ $transition-speed: 0.4s;
 
     .learning-main-content {
       flex: 1;
-      padding-right: 1rem;
+      padding-left: 1rem;
       overflow-y: auto;
     }
 
     .sidebar {
       flex: 0 0 220px;
-      padding-left: 1rem;
-      border-left: 1px solid var(--t5e-faint-color);
+      padding-right: 1rem;
+      border-right: 1px solid var(--t5e-faint-color);
       overflow-y: auto;
 
       .actor-container {

@@ -52,6 +52,7 @@ export class PartyTab {
       id: proxy.id,
       name: proxy.name,
       img: proxy.img,
+      tokenImg: proxy.tokenImg,
       currency: proxy.currency,
       formattedBank: TabLogic.formatTimeBank(bank.total, timeUnits),
       projects: projects.filter((p: any) => !p.isCompleted),

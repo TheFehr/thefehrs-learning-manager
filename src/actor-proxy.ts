@@ -20,6 +20,10 @@ export class ActorProxy {
     return this.actor.img;
   }
 
+  get tokenImg(): string | null {
+    return (this.actor as any).prototypeToken?.texture?.src || this.actor.img;
+  }
+
   get uuid(): string {
     return this.actor.uuid;
   }
