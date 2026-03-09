@@ -9,11 +9,11 @@ export class ActorProxy {
   }
 
   get id(): string {
-    return this.actor.id!;
+    return this.actor.id ?? "";
   }
 
   get name(): string {
-    return this.actor.name!;
+    return this.actor.name ?? "";
   }
 
   get img(): string | null {
