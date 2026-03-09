@@ -70,6 +70,64 @@ $transition-speed: 0.4s;
       border-top: 1px solid var(--t5e-faint-color);
     }
   }
+
+  .party-learning-container {
+    display: flex;
+    flex-direction: row;
+    height: 100%;
+
+    .learning-main-content {
+      flex: 1;
+      padding-right: 1rem;
+      overflow-y: auto;
+    }
+
+    .sidebar {
+      flex: 0 0 220px;
+      padding-left: 1rem;
+      border-left: 1px solid var(--t5e-faint-color);
+      overflow-y: auto;
+
+      .actor-container {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 0.75rem;
+        padding: 0.5rem;
+        border-radius: 5px;
+        transition: background 0.2s ease;
+        cursor: pointer;
+
+        &:hover {
+          background: var(--t5e-faint-color);
+        }
+
+        .actor-image-container {
+          .actor-image img {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 1px solid var(--t5e-faint-color);
+          }
+        }
+
+        .actor-name {
+          display: flex;
+          flex-direction: column;
+
+          h4 {
+            margin: 0;
+            font-size: 0.9rem;
+          }
+
+          .actor-currency {
+            font-size: 0.8rem;
+            color: var(--t5e-secondary-color);
+          }
+        }
+      }
+    }
+  }
 }
 
 .thefehrs-settings {

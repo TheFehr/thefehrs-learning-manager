@@ -69,7 +69,7 @@ describe("LearningConfigApp", () => {
       expect(game.settings.set).toHaveBeenCalledWith(
         "thefehrs-learning-manager",
         "projectTemplates",
-        [{ id: "p1", target: 50, rewardType: "item" }],
+        [{ id: "p1", target: 50, rewardType: "item", requirements: [] }],
       );
     });
   });
@@ -156,6 +156,9 @@ describe("LearningConfigApp", () => {
         { id: "p2", rewardType: "item" },
       ]);
       const mockTarget = { dataset: { id: "p1" } } as any;
+
+      // Ensure game.actors is an array and doesn't contain the project
+      (game.actors as any[]) = [];
 
       await LearningConfigApp.deleteProject.call(app, new Event("click"), mockTarget);
 

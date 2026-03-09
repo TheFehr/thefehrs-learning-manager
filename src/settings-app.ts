@@ -1,5 +1,12 @@
-import type { SystemRules, GuidanceTier, ProjectTemplate, TimeUnit } from "./types";
+import type {
+  SystemRules,
+  GuidanceTier,
+  ProjectTemplate,
+  TimeUnit,
+  ProjectRequirement,
+} from "./types";
 import { Settings } from "./settings";
+import { ActorProxy } from "./actor-proxy";
 
 const { ApplicationV2, HandlebarsApplicationMixin } = foundry.applications.api;
 
@@ -16,6 +23,8 @@ export class LearningConfigApp extends HandlebarsApplicationMixin(ApplicationV2)
       deleteTier: LearningConfigApp.deleteTier,
       addProject: LearningConfigApp.addProject,
       deleteProject: LearningConfigApp.deleteProject,
+      addRequirement: LearningConfigApp.addRequirement,
+      deleteRequirement: LearningConfigApp.deleteRequirement,
       exportData: LearningConfigApp.exportData,
       importData: LearningConfigApp.importData,
     },
@@ -38,6 +47,15 @@ export class LearningConfigApp extends HandlebarsApplicationMixin(ApplicationV2)
       rewardTypes: {
         item: "Item",
         effect: "Effect",
+      },
+      operatorChoices: {
+        "===": "Equals",
+        "!==": "Not Equals",
+        ">": "Greater Than",
+        ">=": "Greater or Equal",
+        "<": "Less Than",
+        "<=": "Less or Equal",
+        includes: "Contains (Text/Array)",
       },
     };
   }
@@ -86,11 +104,22 @@ export class LearningConfigApp extends HandlebarsApplicationMixin(ApplicationV2)
     }) as GuidanceTier[];
     await Settings.setGuidanceTiers(tiersArray);
 
-    const projArray = Object.values(data.projects || {}).map((p: any) => ({
-      ...p,
-      target: Number(p.target) || 100,
-      rewardType: p.rewardType || "item",
-    })) as ProjectTemplate[];
+    const projArray = Object.values(data.projects || {}).map((p: any) => {
+      const requirements = Object.values(p.requirements || {}).map((r: any) => ({
+        id: r.id,
+        attribute: r.attribute || "",
+        operator: r.operator || "===",
+        value: r.value || "",
+      })) as ProjectRequirement[];
+
+      return {
+        ...p,
+        target: Number(p.target) || 100,
+        rewardType: p.rewardType || "item",
+        requirements,
+      };
+    }) as ProjectTemplate[];
+
     await Settings.setProjectTemplates(projArray);
   }
 
@@ -147,6 +176,7 @@ export class LearningConfigApp extends HandlebarsApplicationMixin(ApplicationV2)
       target: 100,
       rewardUuid: "",
       rewardType: "item",
+      requirements: [],
     });
     await Settings.setProjectTemplates(projects);
     this.render();
@@ -155,9 +185,53 @@ export class LearningConfigApp extends HandlebarsApplicationMixin(ApplicationV2)
   static async deleteProject(this: LearningConfigApp, event: Event, target: HTMLElement) {
     await this.saveFormData();
     const id = target.dataset.id;
+
+    const isProjectInUse = game.actors?.some((actor: any) => {
+      const proxy = ActorProxy.forActor(actor);
+      return proxy.projects.some((p: any) => p.templateId === id);
+    });
+
+    if (isProjectInUse) {
+      ui.notifications.warn(
+        "Cannot delete project: One or more characters are currently actively learning it.",
+      );
+      return;
+    }
+
     const projects = Settings.projectTemplates.filter((p) => p.id !== id);
     await Settings.setProjectTemplates(projects);
     this.render();
+  }
+
+  static async addRequirement(this: LearningConfigApp, event: Event, target: HTMLElement) {
+    await this.saveFormData();
+    const projId = target.dataset.projId;
+    const projects = Settings.projectTemplates;
+    const proj = projects.find((p) => p.id === projId);
+    if (proj) {
+      if (!proj.requirements) proj.requirements = [];
+      proj.requirements.push({
+        id: foundry.utils.randomID(),
+        attribute: "",
+        operator: ">=",
+        value: "",
+      });
+      await Settings.setProjectTemplates(projects);
+      this.render();
+    }
+  }
+
+  static async deleteRequirement(this: LearningConfigApp, event: Event, target: HTMLElement) {
+    await this.saveFormData();
+    const projId = target.dataset.projId;
+    const reqId = target.dataset.reqId;
+    const projects = Settings.projectTemplates;
+    const proj = projects.find((p) => p.id === projId);
+    if (proj && proj.requirements) {
+      proj.requirements = proj.requirements.filter((r) => r.id !== reqId);
+      await Settings.setProjectTemplates(projects);
+      this.render();
+    }
   }
 
   static exportData() {

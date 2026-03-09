@@ -25,6 +25,20 @@ globalThis.foundry = {
       }
       return result;
     }),
+    getProperty: vi.fn((obj: any, path: string) => {
+      return path.split(".").reduce((o, i) => (o ? o[i] : undefined), obj);
+    }),
+    mergeObject: vi.fn((target: any, source: any) => {
+      for (const [key, value] of Object.entries(source)) {
+        if (value && typeof value === "object" && !Array.isArray(value)) {
+          if (!target[key]) target[key] = {};
+          globalThis.foundry.utils.mergeObject(target[key], value);
+        } else {
+          target[key] = value;
+        }
+      }
+      return target;
+    }),
   },
 } as any;
 
@@ -36,9 +50,12 @@ globalThis.game = {
     set: vi.fn(),
   },
   user: { isGM: false },
-  actors: { get: vi.fn() },
+  actors: [],
   ID: "thefehrs-learning-manager",
 } as any;
+globalThis.game.actors.get = vi.fn((id: string) =>
+  (globalThis.game.actors as any[]).find((a) => a.id === id),
+);
 
 class MockActor {
   id = "mock-id";
@@ -55,9 +72,24 @@ class MockActor {
     this.flags[scope][key] = value;
     return this;
   }
+
+  async update(data: any) {
+    foundry.utils.mergeObject(this, data);
+    return this;
+  }
+
+  async createEmbeddedDocuments(type: string, data: any[]) {
+    return data.map((d) => ({ ...d, id: "new-id" }));
+  }
 }
+vi.spyOn(MockActor.prototype, "setFlag");
+vi.spyOn(MockActor.prototype, "update");
+vi.spyOn(MockActor.prototype, "createEmbeddedDocuments");
 
 globalThis.Actor = MockActor as any;
+
+globalThis.Item = class {} as any;
+globalThis.ActiveEffect = class {} as any;
 
 globalThis.Hooks = {
   on: vi.fn(),

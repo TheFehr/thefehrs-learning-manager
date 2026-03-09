@@ -1,18 +1,19 @@
 import type {
-  SystemRules,
-  GuidanceTier,
   ProjectTemplate,
   LearningProject,
-  TimeBank,
   TimeUnit,
   Tidy5eApi,
   Tidy5eTabGetDataParams,
   Tidy5eTabRenderParams,
   DowntimeActor,
   DowntimeGroupActor,
+  ProjectRequirement,
+  SystemRules,
+  GuidanceTier,
 } from "./types";
 import { LearningConfigApp } from "./settings-app";
 import { Settings } from "./settings";
+import { ActorProxy } from "./actor-proxy";
 import "./styles/module.scss";
 
 export class TheFehrsLearningManager {
@@ -23,7 +24,6 @@ export class TheFehrsLearningManager {
     Handlebars.registerHelper("eq", function (a, b) {
       return a === b;
     });
-
     Handlebars.registerHelper("array", function (...args) {
       return args.slice(0, -1);
     });
@@ -70,74 +70,42 @@ export class TheFehrsLearningManager {
   }
 
   static registerSettings() {
+    const rules: SystemRules = {
+      method: "direct",
+    };
     Settings.register("rules", {
       scope: "world",
       config: false,
       type: Object,
-      default: {
-        method: "roll",
-        checkDC: 12,
-        checkFormula: "1d20 + @tutelage + (2 * @abilities.int.mod)",
-      },
+      default: rules,
     });
+
+    const timeUnits: TimeUnit[] = [
+      { id: "hour", name: "Hour", short: "h", isBulk: false, ratio: 1 },
+      { id: "day", name: "Day", short: "d", isBulk: true, ratio: 10 },
+      { id: "week", name: "Week", short: "w", isBulk: true, ratio: 70 },
+    ];
     Settings.register("timeUnits", {
       scope: "world",
       config: false,
       type: Array,
-      default: [
-        { id: "tu_hr", name: "Hour", short: "h", isBulk: false, ratio: 1 },
-        { id: "tu_day", name: "Day", short: "d", isBulk: true, ratio: 10 },
-        { id: "tu_wk", name: "Week", short: "w", isBulk: true, ratio: 70 },
-      ],
+      default: timeUnits,
     });
+
+    const guidanceTiers: GuidanceTier[] = [
+      {
+        id: "example_tier",
+        name: "Example Tier",
+        modifier: 2,
+        costs: { hour: 0, day: 0, week: 0 },
+        progress: { day: 1, week: 7 },
+      },
+    ];
     Settings.register("guidanceTiers", {
       scope: "world",
       config: false,
       type: Array,
-      default: [
-        {
-          id: "tier_prof_solo",
-          name: "Professional teacher, solo lesson",
-          modifier: 10,
-          costs: { tu_hr: 5, tu_day: 40, tu_wk: 200 },
-          progress: { tu_day: 1, tu_wk: 7 },
-        },
-        {
-          id: "tier_prof_divided",
-          name: "Professional teacher, divided attention",
-          modifier: 8,
-          costs: { tu_hr: 2, tu_day: 15, tu_wk: 75 },
-          progress: { tu_day: 1, tu_wk: 7 },
-        },
-        {
-          id: "tier_ama_solo",
-          name: "Amateur teacher, solo lesson",
-          modifier: 6,
-          costs: { tu_hr: 1, tu_day: 8, tu_wk: 40 },
-          progress: { tu_day: 1, tu_wk: 7 },
-        },
-        {
-          id: "tier_ama_divided",
-          name: "Amateur teacher, divided attention",
-          modifier: 4,
-          costs: { tu_hr: 0.5, tu_day: 4, tu_wk: 20 },
-          progress: { tu_day: 1, tu_wk: 7 },
-        },
-        {
-          id: "tier_self_book",
-          name: "Self-taught with a book/untrained help",
-          modifier: 2,
-          costs: { tu_hr: 0, tu_day: 0, tu_wk: 0 },
-          progress: { tu_day: 1, tu_wk: 7 },
-        },
-        {
-          id: "tier_self_none",
-          name: "Self-taught, no guidance",
-          modifier: 0,
-          costs: { tu_hr: 0, tu_day: 0, tu_wk: 0 },
-          progress: { tu_day: 1, tu_wk: 7 },
-        },
-      ],
+      default: guidanceTiers,
     });
     Settings.register("projectTemplates", {
       scope: "world",
@@ -145,6 +113,65 @@ export class TheFehrsLearningManager {
       type: Array,
       default: [],
     });
+    Settings.register("migrationVersion", {
+      scope: "world",
+      config: false,
+      type: Number,
+      default: 0,
+    });
+  }
+
+  static async migrateData() {
+    const version = Settings.migrationVersion;
+    if (version >= 1 || !game.user?.isGM) return;
+
+    ui.notifications?.info("Migrating Downtime Engine projects to relational schema...");
+    const library = Settings.projectTemplates;
+    let libraryUpdated = false;
+
+    for (const actor of game.actors || []) {
+      const proxy = ActorProxy.forActor(actor);
+      const projects = proxy.projects;
+      if (!projects || projects.length === 0) continue;
+
+      let actorUpdated = false;
+      const migratedProjects: LearningProject[] = [];
+
+      for (const p of projects) {
+        if (p.templateId) {
+          migratedProjects.push(p);
+          continue;
+        }
+
+        let tpl = library.find((t) => t.name === p.name);
+        if (!tpl) {
+          tpl = {
+            id: foundry.utils.randomID(),
+            name: p.name,
+            target: p.maxProgress || 100,
+            rewardUuid: p.rewardUuid || "",
+            rewardType: p.rewardType || "item",
+            requirements: [],
+          };
+          library.push(tpl);
+          libraryUpdated = true;
+        }
+
+        migratedProjects.push({
+          id: p.id,
+          templateId: tpl.id,
+          progress: p.progress || 0,
+          guidanceTierId: p.guidanceTierId || "",
+          isCompleted: p.isCompleted || false,
+        });
+        actorUpdated = true;
+      }
+
+      if (actorUpdated) await proxy.setProjects(migratedProjects);
+    }
+
+    if (libraryUpdated) await Settings.setProjectTemplates(library);
+    await Settings.setMigrationVersion(1);
   }
 
   public static formatTimeBank(totalUnits: number, timeUnits: TimeUnit[]): string {
@@ -163,24 +190,47 @@ export class TheFehrsLearningManager {
   }
 
   private static async prepareActorData(actor: Actor) {
+    const proxy = ActorProxy.forActor(actor);
     const timeUnits = Settings.timeUnits;
-    const bank = actor.getFlag(this.ID, "bank") || { total: 0 };
-    const allProjects = (actor.getFlag(this.ID, "projects") || []).map((p: any) => {
-      const tier = Settings.guidanceTiers.find((t) => t.id === p.guidanceTierId);
+    const bank = proxy.bank;
+
+    // Evaluate the library for this specific actor
+    const library = Settings.projectTemplates.map((tpl) => {
+      const eligibility = this.meetsRequirements(actor, tpl.requirements || []);
+      const label = `${tpl.name} (${tpl.target})${!eligibility.eligible ? " - Locked" : ""}`;
       return {
-        ...p,
-        percent: Math.min((p.progress / p.maxProgress) * 100, 100),
-        isCompleted: p.progress >= p.maxProgress,
-        guidanceType: tier ? tier.name : "None",
+        ...tpl,
+        isEligible: eligibility.eligible,
+        ineligibilityReason: eligibility.reason,
+        label,
+        disabled: !eligibility.eligible,
+        title: !eligibility.eligible ? eligibility.reason : "",
       };
     });
+
+    const allProjects = proxy.projects
+      .map((p: any) => {
+        const tier = Settings.guidanceTiers.find((t) => t.id === p.guidanceTierId);
+        const tpl = library.find((t) => t.id === p.templateId);
+        if (!tpl) return null;
+
+        return {
+          ...p,
+          name: tpl.name,
+          maxProgress: tpl.target,
+          percent: Math.min((p.progress / tpl.target) * 100, 100),
+          isCompleted: p.progress >= tpl.target || p.isCompleted,
+          guidanceType: tier ? tier.name : "None",
+        };
+      })
+      .filter((p: any) => p !== null);
 
     return {
       formattedBank: this.formatTimeBank(bank.total, timeUnits),
       timeUnits,
-      activeProjects: allProjects.filter((p) => !p.isCompleted),
-      completedProjects: allProjects.filter((p) => p.isCompleted),
-      library: Settings.projectTemplates,
+      activeProjects: allProjects.filter((p: any) => !p.isCompleted),
+      completedProjects: allProjects.filter((p: any) => p.isCompleted),
+      library,
       isGM: game.user?.isGM,
     };
   }
@@ -225,20 +275,25 @@ export class TheFehrsLearningManager {
         if (!selectedId) return;
         const library = Settings.projectTemplates;
         const tpl = library.find((t) => t.id === selectedId);
+
         if (tpl) {
-          const projects = actor.getFlag(this.ID, "projects") || [];
+          // Double-check eligibility using the helper
+          const { eligible, reason } = this.meetsRequirements(actor, tpl.requirements || []);
+          if (!eligible) {
+            ui.notifications?.warn(`Requirement not met for ${tpl.name}: ${reason}`);
+            return;
+          }
+
+          const proxy = ActorProxy.forActor(actor);
+          const projects = proxy.projects;
           projects.push({
             id: foundry.utils.randomID(),
-            name: tpl.name,
+            templateId: tpl.id,
             progress: 0,
-            maxProgress: tpl.target,
-            guidanceTierId: "", // Updated to guidanceTierId
-            tutelage: 0,
-            rewardUuid: tpl.rewardUuid || "",
-            rewardType: tpl.rewardType || "item",
+            guidanceTierId: "",
             isCompleted: false,
           });
-          await actor.setFlag(this.ID, "projects", projects);
+          await proxy.setProjects(projects);
         }
       });
     }
@@ -253,15 +308,15 @@ export class TheFehrsLearningManager {
         if (!actorId || !projId) return;
         const val = target.value;
         const targetActor = (game.actors?.get(actorId as string) || actor) as Actor;
-        const projects = targetActor.getFlag(this.ID, "projects") || [];
+        const proxy = ActorProxy.forActor(targetActor);
+        const projects = proxy.projects;
         const p = projects.find((x) => x.id === projId);
         const tiers = Settings.guidanceTiers;
         const tier = tiers.find((t) => t.id === val);
 
         if (p && tier) {
           p.guidanceTierId = tier.id; // Updated to guidanceTierId
-          p.tutelage = tier.modifier;
-          await targetActor.setFlag(this.ID, "projects", projects);
+          await proxy.setProjects(projects);
         }
       });
     });
@@ -289,16 +344,20 @@ export class TheFehrsLearningManager {
         const targetActor = game.actors?.get(actorId as string) as Actor | undefined;
         if (!targetActor) return;
 
-        const projects = targetActor.getFlag(this.ID, "projects") || [];
+        const proxy = ActorProxy.forActor(targetActor);
+        const projects = proxy.projects;
         const p = projects.find((x) => x.id === projId);
 
         if (p) {
-          p.progress = Math.min(newProgress, p.maxProgress);
-          if (p.progress >= p.maxProgress && !p.isCompleted) {
+          const tpl = Settings.projectTemplates.find((t) => t.id === p.templateId);
+          if (!tpl) return;
+
+          p.progress = Math.min(newProgress, tpl.target);
+          if (p.progress >= tpl.target && !p.isCompleted) {
             p.isCompleted = true;
-            await this.grantProjectReward(targetActor as Actor, p); // Fixed: targetActor instead of actor
+            await this.grantProjectReward(targetActor as Actor, tpl);
           }
-          await targetActor.setFlag(this.ID, "projects", projects);
+          await proxy.setProjects(projects);
         }
       });
     });
@@ -359,8 +418,9 @@ export class TheFehrsLearningManager {
                 for (const id of selectedIds) {
                   const a = game.actors?.get(id) as Actor | undefined;
                   if (!(a instanceof (globalThis.Actor || Object))) continue;
-                  const bank = a.getFlag(this.ID, "bank") || { total: 0 };
-                  await a.setFlag(this.ID, "bank", { total: (bank.total || 0) + totalBase });
+                  const proxy = ActorProxy.forActor(a);
+                  const bank = proxy.bank;
+                  await proxy.setBank({ total: (bank.total || 0) + totalBase });
                 }
 
                 (ChatMessage.implementation as any).create({
@@ -381,12 +441,16 @@ export class TheFehrsLearningManager {
     const library = Settings.guidanceTiers;
     const timeUnits = Settings.timeUnits;
 
-    const bank = actor.getFlag(this.ID, "bank") || { total: 0 };
-    const projects = actor.getFlag(this.ID, "projects") || [];
+    const proxy = ActorProxy.forActor(actor);
+    const bank = proxy.bank;
+    const projects = proxy.projects;
     const p = projects.find((x) => x.id === projId);
     const tu = timeUnits.find((x) => x.id === unitId);
 
     if (!p || !tu || bank.total < tu.ratio) return ui.notifications?.warn(`Not enough time!`);
+
+    const tpl = Settings.projectTemplates.find((t) => t.id === p.templateId);
+    if (!tpl) return ui.notifications?.warn("Project template missing!");
 
     const tier = library.find((t) => t.id === p.guidanceTierId) || {
       id: "unknown",
@@ -398,7 +462,7 @@ export class TheFehrsLearningManager {
     const costGp = tier.costs?.[tu.id] || 0;
     const costCp = Math.round(costGp * 100);
 
-    const cur = actor.system.currency;
+    const cur = proxy.currency;
     const totalCp = cur.gp * 100 + cur.sp * 10 + cur.cp;
 
     if (totalCp < costCp) return ui.notifications?.warn(`Need ${costGp}gp!`);
@@ -409,55 +473,28 @@ export class TheFehrsLearningManager {
     } else if (rules.method === "roll") {
       const roll = await new Roll(rules.checkFormula, {
         ...actor.getRollData(),
-        tutelage: tier.modifier,
+        tutelage: tier.modifier, // Dynamically sourced from Settings
       }).evaluate();
 
-      // Defensive check for roll results
       const firstDie = roll.dice?.[0];
       const isNat20 = firstDie?.results?.[0]?.result === 20;
 
       if (roll.total >= rules.checkDC || isNat20) progressGained = isNat20 ? 2 : 1;
-      await roll.toMessage({ flavor: `Learning Check: ${p.name}` });
+      await roll.toMessage({ flavor: `Learning Check: ${tpl.name}` });
     } else progressGained = 1;
 
-    // Await the deduction check. If it fails (which shouldn't happen due to the check above, but safe), abort.
     const didDeduct = await this.deductCurrency(actor, costGp);
     if (!didDeduct) return;
 
-    p.progress = Math.min(p.progress + progressGained, p.maxProgress);
+    p.progress = Math.min(p.progress + progressGained, tpl.target);
 
-    if (p.progress >= p.maxProgress && !p.isCompleted) {
+    if (p.progress >= tpl.target && !p.isCompleted) {
       p.isCompleted = true;
-      await this.grantProjectReward(actor, p);
+      await this.grantProjectReward(actor, tpl);
     }
 
-    await actor.setFlag(this.ID, "bank", { total: bank.total - tu.ratio });
-    await actor.setFlag(this.ID, "projects", projects);
-  }
-
-  private static async deductCurrency(actor: DowntimeActor, amountGp: number): Promise<boolean> {
-    const costCp = Math.round(amountGp * 100);
-    const cur = actor.system.currency;
-    let walletCp = cur.gp * 100 + cur.sp * 10 + cur.cp;
-
-    if (walletCp < costCp) return false;
-
-    walletCp -= costCp;
-    await actor.update({
-      system: {
-        currency: {
-          gp: Math.floor(walletCp / 100),
-          sp: Math.floor((walletCp % 100) / 10),
-          cp: walletCp % 10,
-        },
-      },
-    });
-    return true;
-  }
-
-  private static getMemberId(member: any): string | null {
-    if (member.ids instanceof Set) return (Array.from(member.ids)[0] as string) || null;
-    return member.actorId || member.id || null;
+    await proxy.setBank({ total: bank.total - tu.ratio });
+    await proxy.setProjects(projects);
   }
 
   private static mapMemberData(member: any, timeUnits: TimeUnit[]): any {
@@ -466,46 +503,134 @@ export class TheFehrsLearningManager {
 
     if (!(actualActor instanceof (globalThis.Actor || Object))) return null;
     const a = actualActor as Actor;
+    const proxy = ActorProxy.forActor(a);
 
-    const bank = a.getFlag(this.ID, "bank") || { total: 0 };
-    const projects = (a.getFlag(this.ID, "projects") || []).map((p: any) => {
-      const tier = Settings.guidanceTiers.find((t) => t.id === p.guidanceTierId);
-      return {
-        ...p,
-        guidanceType: tier ? tier.name : "None",
-      };
-    });
+    const bank = proxy.bank;
+    const library = Settings.projectTemplates;
+
+    const projects = proxy.projects
+      .map((p: any) => {
+        const tier = Settings.guidanceTiers.find((t) => t.id === p.guidanceTierId);
+        const tpl = library.find((t) => t.id === p.templateId);
+        if (!tpl) return null;
+
+        return {
+          ...p,
+          name: tpl.name,
+          maxProgress: tpl.target,
+          guidanceType: tier ? tier.name : "None",
+        };
+      })
+      .filter((p: any) => p !== null);
 
     return {
-      id: a.id,
-      name: a.name,
-      img: a.img,
+      id: proxy.id,
+      name: proxy.name,
+      img: proxy.img,
+      currency: proxy.currency,
       formattedBank: this.formatTimeBank(bank.total, timeUnits),
-      projects: projects.filter((p) => !p.isCompleted),
+      projects: projects.filter((p: any) => !p.isCompleted),
     };
   }
 
-  private static async grantProjectReward(actor: Actor, project: LearningProject) {
-    if (!project.rewardUuid) return;
-
+  // Changed signature to accept ProjectTemplate
+  private static async grantProjectReward(actor: Actor, template: ProjectTemplate) {
+    if (!template.rewardUuid) return;
     try {
-      const rewardDoc = await fromUuid(project.rewardUuid as any);
+      const rewardDoc = await fromUuid(template.rewardUuid as any);
       if (!rewardDoc) return;
-      const rewardType = project.rewardType === "effect" ? "effect" : "item";
-
+      const proxy = ActorProxy.forActor(actor);
+      const rewardType = template.rewardType === "effect" ? "effect" : "item";
       if (rewardType === "item" && rewardDoc instanceof Item) {
-        await actor.createEmbeddedDocuments("Item", [rewardDoc.toObject()]);
-        ui.notifications?.info(`Learning Complete: ${actor.name} gained item ${rewardDoc.name}!`);
+        await proxy.createEmbeddedDocuments("Item", [rewardDoc.toObject()]);
+        ui.notifications?.info(`Learning Complete: ${proxy.name} gained item ${rewardDoc.name}!`);
       } else if (rewardType === "effect" && rewardDoc instanceof ActiveEffect) {
         const effectData = rewardDoc.toObject() as any;
-        effectData.origin = actor.uuid;
-
-        await actor.createEmbeddedDocuments("ActiveEffect", [effectData]);
-        ui.notifications?.info(`Learning Complete: ${actor.name} gained effect ${rewardDoc.name}!`);
+        effectData.origin = proxy.uuid;
+        await proxy.createEmbeddedDocuments("ActiveEffect", [effectData]);
+        ui.notifications?.info(`Learning Complete: ${proxy.name} gained effect ${rewardDoc.name}!`);
       }
     } catch (err) {
       console.error(`${this.ID} | Failed to grant reward:`, err);
     }
+  }
+
+  private static meetsRequirements(
+    actor: Actor,
+    requirements: ProjectRequirement[],
+  ): {
+    eligible: boolean;
+    reason?: string;
+  } {
+    if (!requirements || requirements.length === 0) return { eligible: true };
+
+    for (const req of requirements) {
+      if (!req.attribute) continue;
+
+      const actorVal = foundry.utils.getProperty(actor, req.attribute);
+      let targetVal: any = req.value;
+
+      if (!isNaN(Number(targetVal)) && targetVal.trim() !== "") targetVal = Number(targetVal);
+
+      let passed = false;
+      switch (req.operator) {
+        case "===":
+          passed = actorVal === targetVal;
+          break;
+        case "!==":
+          passed = actorVal !== targetVal;
+          break;
+        case ">":
+          passed = Number(actorVal) > targetVal;
+          break;
+        case ">=":
+          passed = Number(actorVal) >= targetVal;
+          break;
+        case "<":
+          passed = Number(actorVal) < targetVal;
+          break;
+        case "<=":
+          passed = Number(actorVal) <= targetVal;
+          break;
+        case "includes":
+          passed =
+            Array.isArray(actorVal) || typeof actorVal === "string"
+              ? actorVal.includes(targetVal)
+              : false;
+          break;
+      }
+
+      if (!passed) {
+        return {
+          eligible: false,
+          reason: `Requires ${req.attribute} ${req.operator} ${targetVal}`,
+        };
+      }
+    }
+
+    return { eligible: true };
+  }
+
+  private static async deductCurrency(actor: DowntimeActor, amountGp: number): Promise<boolean> {
+    const proxy = ActorProxy.forActor(actor);
+    const costCp = Math.round(amountGp * 100);
+    const cur = proxy.currency;
+    let walletCp = cur.gp * 100 + cur.sp * 10 + cur.cp;
+
+    if (walletCp < costCp) return false;
+
+    walletCp -= costCp;
+    await proxy.updateCurrency({
+      gp: Math.floor(walletCp / 100),
+      sp: Math.floor((walletCp % 100) / 10),
+      cp: walletCp % 10,
+    });
+    return true;
+  }
+
+  private static getMemberId(member: any): string | null {
+    if (member.ids instanceof Set) return (Array.from(member.ids)[0] as string) || null;
+    return member.actorId || member.id || null;
   }
 }
 

@@ -6,6 +6,7 @@ import { join } from "path";
 describe("Handlebars Templates", () => {
   let matrixConfigTemplate: HandlebarsTemplateDelegate;
   let learningTabTemplate: HandlebarsTemplateDelegate;
+  let partyTabTemplate: HandlebarsTemplateDelegate;
 
   beforeAll(() => {
     // Load and compile matrix-config template
@@ -18,14 +19,32 @@ describe("Handlebars Templates", () => {
     const learningTabSource = readFileSync(learningTabPath, "utf-8");
     learningTabTemplate = Handlebars.compile(learningTabSource);
 
+    // Load and compile party-tab template
+    const partyTabPath = join(__dirname, "../public/templates/party-tab.hbs");
+    const partyTabSource = readFileSync(partyTabPath, "utf-8");
+    partyTabTemplate = Handlebars.compile(partyTabSource);
+
     // Register any helpers used in the template
     // Note: Foundry VTT provides some helpers like `selectOptions` and `checked`
     // We need to mock them for the test to work
     Handlebars.registerHelper("selectOptions", (choices, options) => {
       let html = "";
-      for (const [key, value] of Object.entries(choices)) {
-        const selected = options.hash.selected === key ? " selected" : "";
-        html += `<option value="${key}"${selected}>${value}</option>`;
+      const nameAttr = options.hash.nameAttr || "id";
+      const labelAttr = options.hash.labelAttr || "name";
+      const selectedValue = options.hash.selected;
+
+      if (Array.isArray(choices)) {
+        for (const choice of choices) {
+          const value = choice[nameAttr];
+          const label = choice[labelAttr];
+          const selected = selectedValue === value ? " selected" : "";
+          html += `<option value="${value}"${selected}>${label}</option>`;
+        }
+      } else {
+        for (const [key, value] of Object.entries(choices)) {
+          const selected = selectedValue === key ? " selected" : "";
+          html += `<option value="${key}"${selected}>${value}</option>`;
+        }
       }
       return new Handlebars.SafeString(html);
     });
@@ -107,7 +126,7 @@ describe("Handlebars Templates", () => {
   it("should render Learning Tab with active and completed projects", () => {
     const data = {
       formattedBank: "10 Days",
-      library: [{ id: "proj1", name: "Project 1", target: 100 }],
+      library: [{ id: "proj1", label: "Project 1 (100)" }],
       activeProjects: [
         {
           id: "active1",
@@ -131,9 +150,9 @@ describe("Handlebars Templates", () => {
 
     // Check library select
     const select = container.querySelector("select.project-selector");
-    expect(select?.querySelector('option[value="proj1"]')?.textContent).toContain(
-      "Project 1 (100)",
-    );
+    const option = select?.querySelector('option[value="proj1"]');
+    expect(option).not.toBeNull();
+    expect(option?.textContent).toContain("Project 1 (100)");
 
     // Check active project
     const activeProjectName = container.querySelector(".active-projects-list .cell-name");
@@ -158,5 +177,46 @@ describe("Handlebars Templates", () => {
     const completedZone = container.querySelector(".completed-projects-zone");
     expect(completedZone).not.toBeNull();
     expect(completedZone?.textContent).toContain("Completed Project 1");
+  });
+
+  it("should render Party Learning Tab with sidebar correctly", () => {
+    const data = {
+      isGM: true,
+      members: [
+        {
+          id: "actor1",
+          name: "Esha",
+          img: "ui/particles/leaf3.png",
+          currency: { gp: 4371 },
+          formattedBank: "10 Days",
+          projects: [
+            {
+              id: "proj1",
+              name: "Ancient Lore",
+              progress: 50,
+              maxProgress: 100,
+              guidanceTierId: "tier1",
+            },
+          ],
+        },
+      ],
+      tierOptions: { tier1: "Expert (+2)" },
+    };
+
+    const rendered = partyTabTemplate(data);
+    const container = document.createElement("div");
+    container.innerHTML = rendered;
+
+    // Check main content
+    expect(container.querySelector(".learning-main-content")).not.toBeNull();
+    expect(container.querySelector(".project-name")?.textContent).toBe("Ancient Lore");
+
+    // Check sidebar
+    const sidebar = container.querySelector(".sidebar");
+    expect(sidebar).not.toBeNull();
+    expect(sidebar?.querySelector(".font-label-medium")?.textContent).toBe("Esha");
+    expect(sidebar?.querySelector(".actor-currency")?.textContent).toContain("4371");
+    expect(sidebar?.querySelector(".actor-currency")?.textContent).toContain("gp");
+    expect(sidebar?.querySelector("img")?.getAttribute("src")).toBe("ui/particles/leaf3.png");
   });
 });

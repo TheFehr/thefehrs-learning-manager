@@ -1,5 +1,6 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { TheFehrsLearningManager } from "../src/main";
+import { ActorProxy } from "../src/actor-proxy";
 import type { TimeUnit } from "../src/types";
 
 describe("TheFehrsLearningManager", () => {
@@ -84,15 +85,19 @@ describe("TheFehrsLearningManager", () => {
         [TheFehrsLearningManager.ID]: {
           bank: { total: 15 },
           projects: [
-            { id: "p1", name: "Project 1", progress: 5, maxProgress: 10 },
-            { id: "p2", name: "Project 2", progress: 10, maxProgress: 10 },
+            { id: "p1", templateId: "tpl1", progress: 5 },
+            { id: "p2", templateId: "tpl2", progress: 10 },
           ],
         },
       };
 
       vi.mocked(game.settings.get).mockImplementation((scope, key) => {
         if (key === "timeUnits") return timeUnits;
-        if (key === "projectTemplates") return [];
+        if (key === "projectTemplates")
+          return [
+            { id: "tpl1", name: "Project 1", target: 10 },
+            { id: "tpl2", name: "Project 2", target: 10 },
+          ];
         if (key === "guidanceTiers") return [];
         return null;
       });
@@ -191,7 +196,7 @@ describe("TheFehrsLearningManager", () => {
       } as any;
 
       vi.mocked(game.settings.get).mockReturnValue([
-        { id: "tpl1", name: "Template 1", target: 100 },
+        { id: "tpl1", name: "Template 1", target: 100, requirements: [] },
       ]);
 
       // @ts-ignore
@@ -204,8 +209,160 @@ describe("TheFehrsLearningManager", () => {
         expect(actor.setFlag).toHaveBeenCalledWith(
           TheFehrsLearningManager.ID,
           "projects",
-          expect.arrayContaining([expect.objectContaining({ name: "Template 1" })]),
+          expect.arrayContaining([
+            expect.objectContaining({
+              templateId: "tpl1",
+              progress: 0,
+              isCompleted: false,
+            }),
+          ]),
         );
+      });
+    });
+  });
+
+  describe("meetsRequirements", () => {
+    it("should return true for empty requirements", () => {
+      const actor = new Actor() as any;
+      // @ts-ignore
+      const result = TheFehrsLearningManager.meetsRequirements(actor, []);
+      expect(result.eligible).toBe(true);
+    });
+
+    it("should handle numeric comparisons correctly", () => {
+      const actor = { system: { abilities: { str: { value: 15 } } } } as any;
+
+      // @ts-ignore
+      expect(
+        TheFehrsLearningManager.meetsRequirements(actor, [
+          { attribute: "system.abilities.str.value", operator: ">=", value: "15" },
+        ]).eligible,
+      ).toBe(true);
+
+      // @ts-ignore
+      expect(
+        TheFehrsLearningManager.meetsRequirements(actor, [
+          { attribute: "system.abilities.str.value", operator: ">", value: "15" },
+        ]).eligible,
+      ).toBe(false);
+
+      // @ts-ignore
+      expect(
+        TheFehrsLearningManager.meetsRequirements(actor, [
+          { attribute: "system.abilities.str.value", operator: "<", value: "20" },
+        ]).eligible,
+      ).toBe(true);
+    });
+
+    it("should handle string and array inclusion", () => {
+      const actor = { system: { traits: { languages: ["common", "elvish"] } } } as any;
+
+      // @ts-ignore
+      expect(
+        TheFehrsLearningManager.meetsRequirements(actor, [
+          { attribute: "system.traits.languages", operator: "includes", value: "common" },
+        ]).eligible,
+      ).toBe(true);
+
+      // @ts-ignore
+      expect(
+        TheFehrsLearningManager.meetsRequirements(actor, [
+          { attribute: "system.traits.languages", operator: "includes", value: "orcish" },
+        ]).eligible,
+      ).toBe(false);
+    });
+  });
+
+  describe("grantProjectReward", () => {
+    it("should create embedded item document for item rewards", async () => {
+      const actor = new Actor() as any;
+      const template = {
+        name: "Test",
+        target: 10,
+        rewardUuid: "item-uuid",
+        rewardType: "item",
+      };
+
+      const mockItem = {
+        name: "Mock Item",
+        toObject: () => ({ name: "Mock Item" }),
+      };
+      // @ts-ignore
+      globalThis.Item = class {
+        constructor() {
+          Object.assign(this, mockItem);
+        }
+        static [Symbol.hasInstance](instance) {
+          return true;
+        }
+      };
+      vi.mocked(fromUuid).mockResolvedValue(new (globalThis.Item as any)());
+
+      // @ts-ignore
+      await TheFehrsLearningManager.grantProjectReward(actor, template);
+
+      expect(actor.createEmbeddedDocuments).toHaveBeenCalledWith("Item", [{ name: "Mock Item" }]);
+    });
+  });
+
+  describe("deductCurrency", () => {
+    beforeEach(() => {
+      vi.mocked(Actor.prototype.update).mockClear();
+    });
+
+    it("should deduct currency correctly and return true", async () => {
+      const actor = new Actor() as any;
+      actor.system = { currency: { gp: 10, sp: 0, cp: 0 } };
+
+      // @ts-ignore
+      const result = await TheFehrsLearningManager.deductCurrency(actor, 1.55);
+
+      expect(result).toBe(true);
+      expect(actor.update).toHaveBeenCalledWith({
+        system: {
+          currency: {
+            gp: 8,
+            sp: 4,
+            cp: 5,
+          },
+        },
+      });
+    });
+
+    it("should return false if actor cannot afford the cost", async () => {
+      const actor = new Actor() as any;
+      actor.system = { currency: { gp: 1, sp: 0, cp: 0 } };
+
+      // @ts-ignore
+      const result = await TheFehrsLearningManager.deductCurrency(actor, 2.0);
+
+      expect(result).toBe(false);
+      expect(actor.update).not.toHaveBeenCalled();
+    });
+  });
+  describe("ActorProxy", () => {
+    it("should correctly wrap actor methods", async () => {
+      const actor = new Actor() as any;
+      actor.flags = {
+        [TheFehrsLearningManager.ID]: {
+          bank: { total: 10 },
+          projects: [{ id: "p1", templateId: "tpl1" }],
+        },
+      };
+      actor.system = { currency: { gp: 5, sp: 2, cp: 3 } };
+
+      const proxy = new ActorProxy(actor);
+
+      expect(proxy.bank.total).toBe(10);
+      expect(proxy.projects).toHaveLength(1);
+      expect(proxy.currency.gp).toBe(5);
+
+      await proxy.setBank({ total: 20 });
+      expect(actor.setFlag).toHaveBeenCalledWith(TheFehrsLearningManager.ID, "bank", { total: 20 });
+
+      await proxy.updateCurrency({ gp: 10, sp: 0, cp: 0 });
+      expect(actor.update).toHaveBeenCalledWith({
+        system: { currency: { gp: 10, sp: 0, cp: 0 } },
       });
     });
   });

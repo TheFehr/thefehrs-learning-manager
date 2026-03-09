@@ -8,10 +8,12 @@
 
   <div class="add-project-zone" style="display:flex; gap:10px; margin-bottom: 15px;">
     <select class="project-selector" style="flex:1;">
-      <option value="">-- Select a Project to Start --</option>
-      {{#each library as |tpl|}}
-        <option value="{{tpl.id}}">{{tpl.name}} ({{tpl.target}})</option>
-      {{/each}}
+      {{selectOptions
+        library
+        blank="-- Select a Project to Start --"
+        nameAttr="id"
+        labelAttr="label"
+      }}
     </select>
     <button class="add-selected-project tidy-button">Start</button>
   </div>
