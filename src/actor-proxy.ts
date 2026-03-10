@@ -52,6 +52,10 @@ export class ActorProxy {
     return await (this.actor as any).createEmbeddedDocuments(type, data);
   }
 
+  async deleteEmbeddedDocuments(type: string, ids: string[]): Promise<any[]> {
+    return await (this.actor as any).deleteEmbeddedDocuments(type, ids);
+  }
+
   get currency(): { gp: number; sp: number; cp: number } {
     return (this.actor as DowntimeActor).system.currency || { gp: 0, sp: 0, cp: 0 };
   }

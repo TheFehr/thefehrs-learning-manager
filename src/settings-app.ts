@@ -44,6 +44,11 @@ export class LearningConfigApp extends HandlebarsApplicationMixin(ApplicationV2)
         direct: "1 Base Unit = 1 Progress",
         roll: "Learning Check",
       },
+      critStrategies: {
+        any: "Double if any die >= threshold",
+        all: "Double if all dice >= threshold",
+        never: "Never double",
+      },
       rewardTypes: {
         item: "Item",
         effect: "Effect",

@@ -29,6 +29,18 @@
       value="{{rules.checkDC}}"
     />
   </div>
+  <div class="form-group"><label>Crit Double Strategy:</label>
+    <select name="rules.critDoubleStrategy">
+      {{selectOptions critStrategies selected=rules.critDoubleStrategy blank="Never double"}}
+    </select>
+  </div>
+  <div class="form-group"><label>Crit Double Threshold:</label><input
+      type="number"
+      name="rules.critThreshold"
+      value="{{rules.critThreshold}}"
+      placeholder="e.g., 20"
+    />
+  </div>
   <hr />
 
   <h3>Time Units</h3>

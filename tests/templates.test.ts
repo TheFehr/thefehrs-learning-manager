@@ -40,7 +40,7 @@ describe("Handlebars Templates", () => {
           const selected = selectedValue === value ? " selected" : "";
           html += `<option value="${value}"${selected}>${label}</option>`;
         }
-      } else {
+      } else if (choices) {
         for (const [key, value] of Object.entries(choices)) {
           const selected = selectedValue === key ? " selected" : "";
           html += `<option value="${key}"${selected}>${value}</option>`;

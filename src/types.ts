@@ -10,6 +10,8 @@ export interface SystemRules {
   method: "direct" | "roll";
   checkDC?: number;
   checkFormula?: string;
+  critDoubleStrategy?: "any" | "all" | "never";
+  critThreshold?: number;
 }
 
 export interface GuidanceTier {
