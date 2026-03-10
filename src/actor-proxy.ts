@@ -57,7 +57,12 @@ export class ActorProxy {
   }
 
   get currency(): { gp: number; sp: number; cp: number } {
-    return (this.actor as DowntimeActor).system.currency || { gp: 0, sp: 0, cp: 0 };
+    const currency = (this.actor as DowntimeActor).system?.currency;
+    return {
+      gp: currency?.gp ?? 0,
+      sp: currency?.sp ?? 0,
+      cp: currency?.cp ?? 0,
+    };
   }
 
   async updateCurrency(currency: { gp: number; sp: number; cp: number }): Promise<Actor> {
