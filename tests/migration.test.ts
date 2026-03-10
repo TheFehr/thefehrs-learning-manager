@@ -199,8 +199,35 @@ describe("Data Migration", () => {
     );
   });
 
-  it("should skip migration if version is already 2 or higher", async () => {
-    vi.mocked(game.settings.get).mockReturnValue(2);
+  it("should migrate version 2 to 3 by setting default crit rules", async () => {
+    const rules = { method: "roll", checkDC: 15 };
+
+    vi.mocked(game.settings.get).mockImplementation((scope, key) => {
+      if (key === "migrationVersion") return 2;
+      if (key === "rules") return rules;
+      if (key === "projectTemplates") return [];
+      if (key === "guidanceTiers") return [];
+      return null;
+    });
+
+    await migrateData();
+
+    expect(game.settings.set).toHaveBeenCalledWith(TheFehrsLearningManager.ID, "rules", {
+      method: "roll",
+      checkDC: 15,
+      critDoubleStrategy: "any",
+      critThreshold: 20,
+    });
+
+    expect(game.settings.set).toHaveBeenCalledWith(
+      TheFehrsLearningManager.ID,
+      "migrationVersion",
+      3,
+    );
+  });
+
+  it("should skip migration if version is already 3 or higher", async () => {
+    vi.mocked(game.settings.get).mockReturnValue(3);
 
     await migrateData();
 

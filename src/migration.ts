@@ -4,7 +4,7 @@ import type { LearningProject } from "./types";
 
 export async function migrateData() {
   let version = Settings.migrationVersion;
-  if (version >= 2 || !game.user?.isGM) return;
+  if (version >= 3 || !game.user?.isGM) return;
 
   if (version < 1) {
     ui.notifications?.info("Migrating Downtime Engine projects to relational schema...");
@@ -102,10 +102,29 @@ export async function migrateData() {
         await Settings.setGuidanceTiers(tiers);
       }
       await Settings.setMigrationVersion(2);
+      version = 2;
       ui?.notifications?.info("Downtime Engine guidance costs migrated to cp successfully!");
     } catch (error) {
       console.error("Downtime Engine migration to v2 failed:", error);
       ui?.notifications?.error("Migration to v2 failed. Please check the console for details.");
+    }
+  }
+
+  if (version < 3) {
+    ui.notifications?.info("Migrating Downtime Engine critical hit rules...");
+    try {
+      const rules = Settings.rules || { method: "roll" };
+      if (!rules.critDoubleStrategy) {
+        rules.critDoubleStrategy = "any";
+        rules.critThreshold = 20;
+        await Settings.setRules(rules);
+      }
+      await Settings.setMigrationVersion(3);
+      version = 3;
+      ui?.notifications?.info("Downtime Engine critical hit rules migrated successfully!");
+    } catch (error) {
+      console.error("Downtime Engine migration to v3 failed:", error);
+      ui?.notifications?.error("Migration to v3 failed. Please check the console for details.");
     }
   }
 }
