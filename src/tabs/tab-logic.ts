@@ -172,7 +172,7 @@ export class TabLogic {
       const threshold = rules.critThreshold ?? 20;
 
       if (strategy !== "never") {
-        const d20s = (roll.dice ?? []).filter((die: any) => die._faces === 20);
+        const d20s = (roll.dice ?? []).filter((die: any) => die.faces === 20);
         if (d20s.length > 0) {
           if (strategy === "any") {
             if (d20s.some((die: any) => die.results?.[0]?.result >= threshold)) multiplier = 2;

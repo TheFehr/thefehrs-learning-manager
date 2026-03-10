@@ -55,7 +55,7 @@ describe("TabLogic", () => {
 
         const rollInstance = new (globalThis as any).Roll("1d20", {});
         rollInstance.total = 15;
-        rollInstance.dice = [{ _faces: 20, results: [{ result: 15 }] }];
+        rollInstance.dice = [{ faces: 20, results: [{ result: 15 }] }];
 
         (globalThis as any).Roll = class {
           total = rollInstance.total;
@@ -82,7 +82,7 @@ describe("TabLogic", () => {
 
         const rollInstance = new (globalThis as any).Roll("1d20", {});
         rollInstance.total = 10;
-        rollInstance.dice = [{ _faces: 20, results: [{ result: 10 }] }];
+        rollInstance.dice = [{ faces: 20, results: [{ result: 10 }] }];
 
         (globalThis as any).Roll = class {
           total = rollInstance.total;
@@ -116,8 +116,8 @@ describe("TabLogic", () => {
           const rollInstance = new (globalThis as any).Roll("2d20", {});
           rollInstance.total = 20;
           rollInstance.dice = [
-            { _faces: 20, results: [{ result: 10 }] },
-            { _faces: 20, results: [{ result: 19 }] },
+            { faces: 20, results: [{ result: 10 }] },
+            { faces: 20, results: [{ result: 19 }] },
           ];
 
           (globalThis as any).Roll = class {
@@ -151,8 +151,8 @@ describe("TabLogic", () => {
           const rollInstance = new (globalThis as any).Roll("2d20", {});
           rollInstance.total = 20;
           rollInstance.dice = [
-            { _faces: 20, results: [{ result: 10 }] },
-            { _faces: 20, results: [{ result: 18 }] },
+            { faces: 20, results: [{ result: 10 }] },
+            { faces: 20, results: [{ result: 18 }] },
           ];
 
           (globalThis as any).Roll = class {
@@ -188,8 +188,8 @@ describe("TabLogic", () => {
           const rollInstance = new (globalThis as any).Roll("2d20", {});
           rollInstance.total = 38;
           rollInstance.dice = [
-            { _faces: 20, results: [{ result: 19 }] },
-            { _faces: 20, results: [{ result: 20 }] },
+            { faces: 20, results: [{ result: 19 }] },
+            { faces: 20, results: [{ result: 20 }] },
           ];
 
           (globalThis as any).Roll = class {
@@ -223,8 +223,8 @@ describe("TabLogic", () => {
           const rollInstance = new (globalThis as any).Roll("2d20", {});
           rollInstance.total = 30;
           rollInstance.dice = [
-            { _faces: 20, results: [{ result: 19 }] },
-            { _faces: 20, results: [{ result: 10 }] },
+            { faces: 20, results: [{ result: 19 }] },
+            { faces: 20, results: [{ result: 10 }] },
           ];
 
           (globalThis as any).Roll = class {
@@ -259,7 +259,7 @@ describe("TabLogic", () => {
 
           const rollInstance = new (globalThis as any).Roll("1d20", {});
           rollInstance.total = 20;
-          rollInstance.dice = [{ _faces: 20, results: [{ result: 20 }] }];
+          rollInstance.dice = [{ faces: 20, results: [{ result: 20 }] }];
 
           (globalThis as any).Roll = class {
             total = rollInstance.total;
