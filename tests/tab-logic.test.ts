@@ -280,4 +280,63 @@ describe("TabLogic", () => {
       });
     });
   });
+
+  describe("activateListeners update-project-progress", () => {
+    it("should rollback granted rewards if setProjects throws", async () => {
+      const mockActor = new (globalThis as any).Actor();
+      mockActor.id = "actor1";
+      (globalThis as any).game.actors.length = 0;
+      (globalThis as any).game.actors.push(mockActor);
+      (globalThis as any).game.user.isGM = true;
+
+      const { ActorProxy } = await import("../src/actor-proxy");
+      const { Settings } = await import("../src/settings");
+
+      const proxy = new ActorProxy(mockActor);
+      const project = {
+        id: "proj1",
+        templateId: "tpl1",
+        progress: 0,
+        isCompleted: false,
+        guidanceTierId: "",
+      };
+      Object.defineProperty(proxy, "projects", { get: () => [project] });
+      proxy.setProjects = vi.fn().mockRejectedValue(new Error("Database error"));
+      proxy.deleteEmbeddedDocuments = vi.fn().mockResolvedValue([]);
+      proxy.createEmbeddedDocuments = vi.fn().mockResolvedValue([{ _id: "newitem1" }]);
+
+      vi.spyOn(ActorProxy, "forActor").mockReturnValue(proxy);
+
+      vi.spyOn(Settings, "projectTemplates", "get").mockReturnValue([
+        { id: "tpl1", target: 10, rewardUuid: "Item.id", rewardType: "item", name: "Test Tpl" },
+      ] as any);
+
+      const item = new (globalThis as any).Item();
+      item.name = "Test Item";
+      item.toObject = () => ({ name: "Test Item" });
+      (globalThis as any).fromUuid = vi.fn().mockResolvedValue(item);
+
+      const html = document.createElement("div");
+      html.innerHTML = `<input class="update-project-progress" data-actor-id="actor1" data-project-id="proj1" value="10" />`;
+
+      const input = html.querySelector(".update-project-progress") as HTMLInputElement;
+
+      let listener: any;
+      input.addEventListener = vi.fn().mockImplementation((type: string, cb: any) => {
+        if (type === "change") listener = cb;
+      });
+
+      TabLogic.activateListeners(html, mockActor as any);
+
+      expect(listener).toBeDefined();
+
+      const ev = new Event("change");
+      Object.defineProperty(ev, "currentTarget", { value: input, enumerable: true });
+
+      await expect(listener(ev)).rejects.toThrow("Database error");
+
+      expect(project.isCompleted).toBe(false);
+      expect(proxy.deleteEmbeddedDocuments).toHaveBeenCalledWith("Item", ["newitem1"]);
+    });
+  });
 });

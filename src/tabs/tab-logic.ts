@@ -142,9 +142,24 @@ export class TabLogic {
           p.progress = Math.max(0, Math.min(newProgress, tpl.target));
           if (p.progress >= tpl.target && !p.isCompleted) {
             p.isCompleted = true;
-            await this.grantProjectReward(targetActor as Actor, tpl);
+            let rewardDocs: any[] = [];
+            try {
+              rewardDocs = await this.grantProjectReward(targetActor as Actor, tpl);
+              await proxy.setProjects(projects);
+            } catch (error) {
+              if (rewardDocs && rewardDocs.length > 0) {
+                const ids = rewardDocs.map((d: any) => d.id || d._id).filter(Boolean);
+                if (ids.length > 0) {
+                  const rewardType = tpl.rewardType === "effect" ? "ActiveEffect" : "Item";
+                  await proxy.deleteEmbeddedDocuments(rewardType, ids);
+                }
+              }
+              p.isCompleted = false;
+              throw error;
+            }
+          } else {
+            await proxy.setProjects(projects);
           }
-          await proxy.setProjects(projects);
         }
       });
     });
