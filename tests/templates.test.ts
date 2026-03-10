@@ -6,6 +6,7 @@ import { join } from "path";
 describe("Handlebars Templates", () => {
   let matrixConfigTemplate: HandlebarsTemplateDelegate;
   let learningTabTemplate: HandlebarsTemplateDelegate;
+  let partyTabTemplate: HandlebarsTemplateDelegate;
 
   beforeAll(() => {
     // Load and compile matrix-config template
@@ -18,14 +19,32 @@ describe("Handlebars Templates", () => {
     const learningTabSource = readFileSync(learningTabPath, "utf-8");
     learningTabTemplate = Handlebars.compile(learningTabSource);
 
+    // Load and compile party-tab template
+    const partyTabPath = join(__dirname, "../public/templates/party-tab.hbs");
+    const partyTabSource = readFileSync(partyTabPath, "utf-8");
+    partyTabTemplate = Handlebars.compile(partyTabSource);
+
     // Register any helpers used in the template
     // Note: Foundry VTT provides some helpers like `selectOptions` and `checked`
     // We need to mock them for the test to work
     Handlebars.registerHelper("selectOptions", (choices, options) => {
       let html = "";
-      for (const [key, value] of Object.entries(choices)) {
-        const selected = options.hash.selected === key ? " selected" : "";
-        html += `<option value="${key}"${selected}>${value}</option>`;
+      const nameAttr = options.hash.nameAttr || "id";
+      const labelAttr = options.hash.labelAttr || "name";
+      const selectedValue = options.hash.selected;
+
+      if (Array.isArray(choices)) {
+        for (const choice of choices) {
+          const value = choice[nameAttr];
+          const label = choice[labelAttr];
+          const selected = selectedValue === value ? " selected" : "";
+          html += `<option value="${value}"${selected}>${label}</option>`;
+        }
+      } else if (choices) {
+        for (const [key, value] of Object.entries(choices)) {
+          const selected = selectedValue === key ? " selected" : "";
+          html += `<option value="${key}"${selected}>${value}</option>`;
+        }
       }
       return new Handlebars.SafeString(html);
     });
@@ -107,7 +126,7 @@ describe("Handlebars Templates", () => {
   it("should render Learning Tab with active and completed projects", () => {
     const data = {
       formattedBank: "10 Days",
-      library: [{ id: "proj1", name: "Project 1", target: 100 }],
+      library: [{ id: "proj1", label: "Project 1 (100)" }],
       activeProjects: [
         {
           id: "active1",
@@ -131,9 +150,9 @@ describe("Handlebars Templates", () => {
 
     // Check library select
     const select = container.querySelector("select.project-selector");
-    expect(select?.querySelector('option[value="proj1"]')?.textContent).toContain(
-      "Project 1 (100)",
-    );
+    const option = select?.querySelector('option[value="proj1"]');
+    expect(option).not.toBeNull();
+    expect(option?.textContent).toContain("Project 1 (100)");
 
     // Check active project
     const activeProjectName = container.querySelector(".active-projects-list .cell-name");
@@ -158,5 +177,60 @@ describe("Handlebars Templates", () => {
     const completedZone = container.querySelector(".completed-projects-zone");
     expect(completedZone).not.toBeNull();
     expect(completedZone?.textContent).toContain("Completed Project 1");
+  });
+
+  it("should render Party Learning Tab with sidebar and sections correctly", () => {
+    const data = {
+      isGM: true,
+      members: [
+        {
+          id: "actor1",
+          name: "Esha",
+          img: "ui/particles/leaf3.png",
+          tokenImg: "tokens/esha.png",
+          currency: { gp: 4371 },
+          formattedBank: "10 Days",
+          projects: [
+            {
+              id: "proj1",
+              name: "Ancient Lore",
+              progress: 50,
+              maxProgress: 100,
+              guidanceTierId: "tier1",
+            },
+          ],
+        },
+      ],
+      tierOptions: { tier1: "Expert (+2)" },
+    };
+
+    const rendered = partyTabTemplate(data);
+    const container = document.createElement("div");
+    container.innerHTML = rendered;
+
+    // Check sidebar
+    const sidebar = container.querySelector(".sidebar");
+    expect(sidebar).not.toBeNull();
+    const actorName = sidebar?.querySelector(".font-label-medium");
+    expect(actorName?.textContent).toBe("Esha");
+    expect(sidebar?.querySelector(".actor-time-bank")?.textContent).toContain("10 Days");
+    expect(sidebar?.querySelector("img")?.getAttribute("src")).toBe("tokens/esha.png");
+
+    // Check table exists for actor
+    const actorSection = container.querySelector(
+      'section.tidy-table[data-tidy-section-key="actor-actor1"]',
+    );
+    expect(actorSection).not.toBeNull();
+
+    // Check section header name
+    const sectionHeader = actorSection?.querySelector("h3");
+    expect(sectionHeader?.textContent).toBe("Esha");
+
+    // Check project name
+    const projectCells = Array.from(
+      actorSection?.querySelectorAll(".tidy-table-cell span.font-label-medium") || [],
+    );
+    const projectCell = projectCells.find((el) => el.textContent === "Ancient Lore");
+    expect(projectCell).not.toBeUndefined();
   });
 });

@@ -8,8 +8,10 @@ export interface TimeUnit {
 
 export interface SystemRules {
   method: "direct" | "roll";
-  checkDC: number;
-  checkFormula: string;
+  checkDC?: number;
+  checkFormula?: string;
+  critDoubleStrategy?: "any" | "all" | "never";
+  critThreshold?: number;
 }
 
 export interface GuidanceTier {
@@ -18,9 +20,18 @@ export interface GuidanceTier {
   modifier: number;
   costs: Record<string, number>;
   progress: Record<string, number>;
+  _migratedToV2?: boolean;
 }
 
 export type RewardType = "item" | "effect";
+export type ComparisonOperator = "===" | "!==" | ">" | ">=" | "<" | "<=" | "includes";
+
+export interface ProjectRequirement {
+  id: string;
+  attribute: string;
+  operator: ComparisonOperator;
+  value: string;
+}
 
 export interface ProjectTemplate {
   id: string;
@@ -28,19 +39,15 @@ export interface ProjectTemplate {
   target: number;
   rewardUuid: string;
   rewardType: RewardType;
+  requirements: ProjectRequirement[];
 }
 
 export interface LearningProject {
   id: string;
-  name: string;
+  templateId: string;
   progress: number;
-  maxProgress: number;
   guidanceTierId: string;
-  tutelage: number;
-  rewardUuid: string;
-  rewardType: RewardType;
   isCompleted: boolean;
-  percent?: number;
 }
 
 export interface TimeBank {
@@ -49,18 +56,12 @@ export interface TimeBank {
 
 export interface DowntimeActor extends Actor {
   system: Actor["system"] & {
-    currency: {
-      gp: number;
-      sp: number;
-      cp: number;
-    };
+    currency: { gp: number; sp: number; cp: number };
   };
 }
 
 export interface DowntimeGroupActor extends Actor {
-  system: Actor["system"] & {
-    members: any[];
-  };
+  system: Actor["system"] & { members: any[] };
 }
 
 declare global {
@@ -69,6 +70,7 @@ declare global {
     "thefehrs-learning-manager.timeUnits": TimeUnit[];
     "thefehrs-learning-manager.guidanceTiers": GuidanceTier[];
     "thefehrs-learning-manager.projectTemplates": ProjectTemplate[];
+    "thefehrs-learning-manager.migrationVersion": number;
   }
 
   interface HookConfig {

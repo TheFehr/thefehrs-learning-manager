@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { LearningConfigApp } from "../src/settings-app";
+import { ActorsCollection } from "./setup";
 
 describe("LearningConfigApp", () => {
   beforeEach(() => {
@@ -69,7 +70,7 @@ describe("LearningConfigApp", () => {
       expect(game.settings.set).toHaveBeenCalledWith(
         "thefehrs-learning-manager",
         "projectTemplates",
-        [{ id: "p1", target: 50, rewardType: "item" }],
+        [{ id: "p1", target: 50, rewardType: "item", requirements: [] }],
       );
     });
   });
@@ -156,6 +157,9 @@ describe("LearningConfigApp", () => {
         { id: "p2", rewardType: "item" },
       ]);
       const mockTarget = { dataset: { id: "p1" } } as any;
+
+      // Ensure game.actors is an array and doesn't contain the project
+      game.actors = new ActorsCollection();
 
       await LearningConfigApp.deleteProject.call(app, new Event("click"), mockTarget);
 

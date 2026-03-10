@@ -1,116 +1,167 @@
 <div class="party-learning-container">
-  {{#if isGM}}
-    <div class="party-controls" style="display: flex; gap: 10px; margin-bottom: 15px;">
-      <button class="grant-time-btn tidy-button" style="flex: 1;">
-        <i class="fa-solid fa-clock-rotate-left"></i>
-        Distribute Time
-      </button>
-      <button
-        class="toggle-progress-edit tidy-button"
-        style="flex: 0 0 40px;"
-        title="Toggle Manual Progress Edit"
+  <aside class="sidebar expanded">
+    {{#if isGM}}
+      <div
+        class="party-controls"
+        style="display: flex; gap: 10px; margin-bottom: 15px; padding: 10px;"
       >
-        <i class="fas fa-edit"></i>
-      </button>
-    </div>
-  {{/if}}
+        <button class="grant-time-btn tidy-button" style="flex: 1 1 0%;">
+          <i class="fa-solid fa-clock-rotate-left"></i>
+          Distribute Time
+        </button>
+        <button
+          aria-checked="false"
+          class="toggle-progress-edit"
+          role="switch"
+          style="display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 5px; border-radius: 4px; background: rgba(0,0,0,0.1); width: 32px;"
+          title="Toggle Manual Progress Edit"
+          type="button"
+        >
+          <i class="thumb-icon fas fa-lock fa-fw"></i><!---->
+        </button>
+      </div>
+    {{/if}}
+    {{#each members as |member|}}
+      <div
+        class="actor-container"
+        role="button"
+        data-keyboard-focus=""
+        tabindex="0"
+        data-uuid="Actor.{{member.id}}"
+      >
+        <div class="actor-image-container flexshrink">
+          <div class="actor-image token">
+            <img src="{{member.tokenImg}}" alt="{{member.name}}" />
+          </div>
+        </div>
+        <div class="actor-name flexcol">
+          <h4 class="font-label-medium">{{member.name}}</h4>
+          <div class="separated-list">
+            <span
+              class="actor-time-bank"
+              style="font-size: 0.85rem; color: var(--t5e-secondary-color);"
+            >
+              <i class="fa-solid fa-piggy-bank"></i>
+              {{member.formattedBank}}
+            </span>
+          </div>
+        </div>
+      </div>
+    {{/each}}
+  </aside>
 
-  <table class="tidy-table party-learning-table">
-    <thead>
-      <tr>
-        <th style="width: 200px;">Character</th>
-        <th>Project</th>
-        <th style="width: 150px;">Progress</th>
-        <th style="width: 180px;">Tutor/Guidance</th>
-      </tr>
-    </thead>
-    <tbody>
-      {{#each members as |member|}}
-        {{#if member.projects.length}}
-          {{#each member.projects as |project|}}
-            <tr class="project-row" data-actor-id="{{member.id}}" data-project-id="{{project.id}}">
-              {{#if @first}}
-                <td
-                  rowspan="{{member.projects.length}}"
-                  class="member-info-cell"
-                  style="vertical-align: top; border-right: 1px solid var(--t5e-faint-color);"
-                >
-                  <div style="display: flex; align-items: center; gap: 8px; font-weight: bold;">
-                    <img
-                      src="{{member.img}}"
-                      width="24"
-                      height="24"
-                      style="border: none; border-radius: 4px;"
-                    />
-                    <span>{{member.name}}</span>
-                  </div>
+  <div class="learning-main-content" style="flex: 1;">
+    {{#each members as |member|}}
+      <section
+        class="tidy-table"
+        data-tidy-sheet-part="item-table"
+        data-tidy-section-key="actor-{{member.id}}"
+      >
+        <header class="tidy-table-header-row theme-dark" data-tidy-sheet-part="table-header-row">
+          <div
+            class="tidy-table-header-cell header-label-cell primary"
+            data-tidy-sheet-part="table-header-cell"
+          >
+            <h3>{{member.name}}</h3>
+            <span class="table-header-count">{{member.projects.length}}</span>
+          </div>
+          <div
+            class="tidy-table-header-cell"
+            data-tidy-sheet-part="table-header-cell"
+            style="--tidy-table-column-width: min(30%, 250px);"
+          >
+            Progress
+          </div>
+          <div
+            class="tidy-table-header-cell"
+            data-tidy-sheet-part="table-header-cell"
+            style="--tidy-table-column-width: min(40%, 300px);"
+          >
+            Tutor/Guidance
+          </div>
+        </header>
+
+        <div class="expandable expanded" role="presentation">
+          <div role="presentation" class="expandable-child-animation-wrapper">
+            <div class="item-table-body">
+              {{#if member.projects.length}}
+                {{#each member.projects as |project|}}
                   <div
-                    class="bank-display"
-                    style="font-size: 0.85em; margin-top: 4px; color: var(--t5e-secondary-color);"
+                    class="tidy-table-row project-row"
+                    data-actor-id="{{member.id}}"
+                    data-project-id="{{project.id}}"
                   >
-                    <i class="fa-solid fa-piggy-bank"></i>
-                    {{member.formattedBank}}
-                  </div>
-                </td>
-              {{/if}}
+                    <div class="tidy-table-cell text-cell primary item-label flexcol">
+                      <span class="font-label-medium color-text-default">{{project.name}}</span>
+                    </div>
 
-              <td class="project-name">{{project.name}}</td>
+                    <div
+                      class="tidy-table-cell"
+                      data-tidy-sheet-part="table-cell"
+                      style="--tidy-table-column-width: min(30%, 250px);"
+                    >
+                      <div class="hp-column-content" style="width: 100%;">
+                        <div
+                          class="meter progress"
+                          style="--bar-percentage: {{project.progressPercentage}}%; --bar-adjusted: 0%; --bar-adjusted-background: var(--t5e-color-hp-temp); --bar-adjusted-content: '';"
+                        ></div>
+                        <div class="flexrow progress-container">
 
-              <td class="project-progress">
-                <div
-                  class="progress-container"
-                  style="display: flex; align-items: center; gap: 5px;"
-                >
-                  <span class="progress-read-only">{{project.progress}}
-                    /
-                    {{project.maxProgress}}</span>
-                  {{#if @root.isGM}}
-                    <span class="progress-editable" style="display: none;">
-                      <input
-                        type="number"
-                        class="update-project-progress"
+                          {{#if @root.isGM}}
+                            <input
+                              type="number"
+                              class="update-project-progress"
+                              data-actor-id="{{member.id}}"
+                              data-project-id="{{project.id}}"
+                              value="{{project.progress}}"
+                              style="display: none; width: 50px; text-align: center; height: 1rem;"
+                            />
+                          {{/if}}
+                          <span
+                            class="font-data-medium color-text-default value progress-read-only"
+                          >{{project.progress}}</span>
+                          <span class="font-body-medium color-text-lightest separator">/</span>
+                          <span
+                            class="font-label-medium color-text-default max"
+                          >{{project.maxProgress}}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div
+                      class="tidy-table-cell"
+                      data-tidy-sheet-part="table-cell"
+                      style="--tidy-table-column-width: min(40%, 300px);"
+                    >
+                      <select
+                        class="update-project font-label-medium"
                         data-actor-id="{{member.id}}"
-                        data-proj-id="{{project.id}}"
-                        value="{{project.progress}}"
-                        style="width: 50px; text-align: center;"
-                      />
-                      /
-                      {{project.maxProgress}}
-                    </span>
-                  {{/if}}
+                        data-project-id="{{project.id}}"
+                        style="width: 100%; height: 2rem;"
+                      >
+                        {{selectOptions
+                          @root.tierOptions
+                          selected=project.guidanceTierId
+                          blank="-- No Tutor --"
+                        }}
+                      </select>
+                    </div>
+                  </div>
+                {{/each}}
+              {{else}}
+                <div class="tidy-table-row">
+                  <div
+                    class="tidy-table-cell text-cell primary item-label flexcol"
+                    style="font-style: italic; opacity: 0.5; text-align: center; justify-content: center; padding: 1rem;"
+                  >
+                    No active projects
+                  </div>
                 </div>
-              </td>
-
-              <td class="project-tutor">
-                <select
-                  class="update-project"
-                  data-actor-id="{{member.id}}"
-                  data-proj-id="{{project.id}}"
-                  style="width: 100%;"
-                >
-                  {{selectOptions
-                    @root.tierOptions
-                    selected=project.guidanceTierId
-                    blank="-- No Tutor --"
-                  }}
-                </select>
-              </td>
-            </tr>
-          {{/each}}
-        {{else}}
-          {{! Case where a member has no active projects }}
-          <tr>
-            <td style="border-right: 1px solid var(--t5e-faint-color);">
-              <div style="display: flex; align-items: center; gap: 8px;">
-                <img src="{{member.img}}" width="24" height="24" style="border-radius: 4px;" />
-                <span style="opacity: 0.7;">{{member.name}}</span>
-              </div>
-            </td>
-            <td colspan="3" style="font-style: italic; opacity: 0.5; text-align: center;">No active
-              projects</td>
-          </tr>
-        {{/if}}
-      {{/each}}
-    </tbody>
-  </table>
+              {{/if}}
+            </div>
+          </div>
+        </div>
+      </section>
+    {{/each}}
+  </div>
 </div>
