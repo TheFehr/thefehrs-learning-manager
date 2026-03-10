@@ -194,9 +194,11 @@ export class TabLogic {
         const d20s = (roll.dice ?? []).filter((die: any) => die.faces === 20);
         if (d20s.length > 0) {
           if (strategy === "any") {
-            if (d20s.some((die: any) => die.results?.[0]?.result >= threshold)) multiplier = 2;
+            if (d20s.some((die: any) => die.results?.some((r: any) => r.result >= threshold)))
+              multiplier = 2;
           } else if (strategy === "all") {
-            if (d20s.every((die: any) => die.results?.[0]?.result >= threshold)) multiplier = 2;
+            if (d20s.every((die: any) => die.results?.every((r: any) => r.result >= threshold)))
+              multiplier = 2;
           }
         }
       }
