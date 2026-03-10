@@ -171,6 +171,38 @@ describe("TabLogic", () => {
           );
           expect(progressGained).toBe(1);
         });
+
+        it("should return 2 progress if any die meets threshold in a multi-die term (e.g. 2d20)", async () => {
+          const tu = { id: "tu1", isBulk: false };
+          const tier = { modifier: 1 };
+          const rules = {
+            method: "roll",
+            checkFormula: "2d20",
+            checkDC: 15,
+            critDoubleStrategy: "any",
+            critThreshold: 19,
+          };
+
+          const rollInstance = new (globalThis as any).Roll("2d20", {});
+          rollInstance.total = 29;
+          rollInstance.dice = [{ faces: 20, results: [{ result: 10 }, { result: 19 }] }];
+
+          (globalThis as any).Roll = class {
+            total = rollInstance.total;
+            dice = rollInstance.dice;
+            evaluate() {
+              return Promise.resolve(this);
+            }
+          };
+
+          const { progressGained } = await TabLogic.computeProgress(
+            mockActor as any,
+            rules,
+            tier,
+            tu,
+          );
+          expect(progressGained).toBe(2);
+        });
       });
 
       describe("critDoubleStrategy: all", () => {
@@ -226,6 +258,70 @@ describe("TabLogic", () => {
             { faces: 20, results: [{ result: 19 }] },
             { faces: 20, results: [{ result: 10 }] },
           ];
+
+          (globalThis as any).Roll = class {
+            total = rollInstance.total;
+            dice = rollInstance.dice;
+            evaluate() {
+              return Promise.resolve(this);
+            }
+          };
+
+          const { progressGained } = await TabLogic.computeProgress(
+            mockActor as any,
+            rules,
+            tier,
+            tu,
+          );
+          expect(progressGained).toBe(1);
+        });
+
+        it("should return 2 progress if all dice meet threshold in a multi-die term", async () => {
+          const tu = { id: "tu1", isBulk: false };
+          const tier = { modifier: 1 };
+          const rules = {
+            method: "roll",
+            checkFormula: "2d20",
+            checkDC: 15,
+            critDoubleStrategy: "all",
+            critThreshold: 19,
+          };
+
+          const rollInstance = new (globalThis as any).Roll("2d20", {});
+          rollInstance.total = 39;
+          rollInstance.dice = [{ faces: 20, results: [{ result: 19 }, { result: 20 }] }];
+
+          (globalThis as any).Roll = class {
+            total = rollInstance.total;
+            dice = rollInstance.dice;
+            evaluate() {
+              return Promise.resolve(this);
+            }
+          };
+
+          const { progressGained } = await TabLogic.computeProgress(
+            mockActor as any,
+            rules,
+            tier,
+            tu,
+          );
+          expect(progressGained).toBe(2);
+        });
+
+        it("should return 1 progress if not all dice meet threshold in a multi-die term", async () => {
+          const tu = { id: "tu1", isBulk: false };
+          const tier = { modifier: 1 };
+          const rules = {
+            method: "roll",
+            checkFormula: "2d20",
+            checkDC: 15,
+            critDoubleStrategy: "all",
+            critThreshold: 19,
+          };
+
+          const rollInstance = new (globalThis as any).Roll("2d20", {});
+          rollInstance.total = 29;
+          rollInstance.dice = [{ faces: 20, results: [{ result: 19 }, { result: 10 }] }];
 
           (globalThis as any).Roll = class {
             total = rollInstance.total;

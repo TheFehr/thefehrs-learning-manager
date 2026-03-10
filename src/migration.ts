@@ -115,8 +115,8 @@ export async function migrateData() {
     try {
       const rules = Settings.rules || { method: "roll" };
       if (!rules.critDoubleStrategy) {
-        rules.critDoubleStrategy = "any";
-        rules.critThreshold = 20;
+        rules.critDoubleStrategy = "never";
+        rules.critThreshold = 10;
         await Settings.setRules(rules);
       }
       await Settings.setMigrationVersion(3);

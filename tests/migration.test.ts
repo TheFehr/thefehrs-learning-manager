@@ -215,8 +215,8 @@ describe("Data Migration", () => {
     expect(game.settings.set).toHaveBeenCalledWith(TheFehrsLearningManager.ID, "rules", {
       method: "roll",
       checkDC: 15,
-      critDoubleStrategy: "any",
-      critThreshold: 20,
+      critDoubleStrategy: "never",
+      critThreshold: 10,
     });
 
     expect(game.settings.set).toHaveBeenCalledWith(
