@@ -162,10 +162,14 @@ export class TabLogic {
     if (tu.isBulk) {
       progressGained = tier.progress?.[tu.id] || 0;
     } else if (rules.method === "roll") {
-      roll = await new Roll(rules.checkFormula, {
-        ...actor.getRollData(),
-        tutelage: tier.modifier,
-      }).evaluate();
+      roll = await new Roll(
+        rules.checkFormula,
+        {
+          ...actor.getRollData(),
+          tutelage: tier.modifier,
+        },
+        { target: rules.checkDC } as any,
+      ).evaluate();
 
       let multiplier = 1;
       const strategy = rules.critDoubleStrategy ?? "never"; // legacy was "any" with threshold 20, but we'll default to never if missing, or maybe "any" since default was any?
@@ -290,7 +294,9 @@ export class TabLogic {
     }
 
     if (roll) {
-      await roll.toMessage({ flavor: `Learning Check: ${tpl.name}` });
+      await roll.toMessage({
+        flavor: `${actor.name} tries to learn ${tpl.name} (DC ${rules.checkDC})`,
+      });
     }
 
     if (progressGained === 0) {
