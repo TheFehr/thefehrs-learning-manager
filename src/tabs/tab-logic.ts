@@ -417,9 +417,12 @@ export class TabLogic {
   }
 
   static formatTimeBank(totalUnits: number, timeUnits: TimeUnit[]): string {
+    if (totalUnits === 0) return "0";
+
+    const isNegative = totalUnits < 0;
+    let remaining = Math.abs(totalUnits);
     const sorted = [...timeUnits].sort((a, b) => b.ratio - a.ratio);
     const parts: string[] = [];
-    let remaining = totalUnits;
 
     for (const unit of sorted) {
       const count = Math.floor(remaining / unit.ratio);
@@ -429,6 +432,7 @@ export class TabLogic {
       }
     }
 
-    return parts.length > 0 ? parts.join(" ") : "0";
+    const formatted = parts.length > 0 ? parts.join(" ") : "0";
+    return isNegative ? `-${formatted}` : formatted;
   }
 }

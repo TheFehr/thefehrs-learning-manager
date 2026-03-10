@@ -14,9 +14,9 @@ describe("TheFehrsLearningManager", () => {
   ];
 
   describe("formatTimeBank", () => {
-    it('should return "0" for 0 or negative units', () => {
+    it('should format negative values properly or return "0" for 0 units', () => {
       expect(TabLogic.formatTimeBank(0, timeUnits)).toBe("0");
-      expect(TabLogic.formatTimeBank(-5, timeUnits)).toBe("0");
+      expect(TabLogic.formatTimeBank(-5, timeUnits)).toBe("-5h");
     });
 
     it('should return "0" for empty timeUnits', () => {

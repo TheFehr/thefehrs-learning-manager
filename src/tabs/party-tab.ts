@@ -105,11 +105,11 @@ export class PartyTab {
         );
 
         new foundry.appv1.api.Dialog({
-          title: "Distribute Training Time",
+          title: "Modify Training Time",
           content: content,
           buttons: {
             apply: {
-              label: "Grant Time",
+              label: "Apply Time",
               icon: '<i class="fas fa-check"></i>',
               callback: async (dialogHtml: JQuery | HTMLElement) => {
                 const htmlElement = dialogHtml instanceof HTMLElement ? dialogHtml : dialogHtml[0];
@@ -146,9 +146,13 @@ export class PartyTab {
                   }
                 }
 
+                const actionWord = totalBase > 0 ? "Granted" : "Deducted";
+                const preposition = totalBase > 0 ? "to" : "from";
+                const formattedTime = TabLogic.formatTimeBank(Math.abs(totalBase), timeUnits);
+
                 (ChatMessage.implementation as any).create({
                   speaker: { alias: "Downtime System" },
-                  content: `Granted <strong>${TabLogic.formatTimeBank(totalBase, timeUnits)}</strong> to ${successCount} characters.`,
+                  content: `${actionWord} <strong>${formattedTime}</strong> ${preposition} ${successCount} characters.`,
                 });
               },
             },
