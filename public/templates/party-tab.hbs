@@ -9,15 +9,16 @@
           <i class="fa-solid fa-clock-rotate-left"></i>
           Distribute Time
         </button>
-        <div
+        <button
+          aria-checked="false"
           class="toggle-progress-edit"
           role="switch"
-          aria-checked="false"
           style="display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 5px; border-radius: 4px; background: rgba(0,0,0,0.1); width: 32px;"
           title="Toggle Manual Progress Edit"
+          type="button"
         >
           <i class="thumb-icon fas fa-lock fa-fw"></i><!---->
-        </div>
+        </button>
       </div>
     {{/if}}
     {{#each members as |member|}}

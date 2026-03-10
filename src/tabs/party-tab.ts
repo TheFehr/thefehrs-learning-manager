@@ -63,7 +63,7 @@ export class PartyTab {
   static activateListeners(html: HTMLElement, actor: Actor) {
     // Open Actor Sheet Listener
     html.querySelectorAll(".actor-container").forEach((el) => {
-      el.addEventListener("click", async (ev) => {
+      const openActorSheet = async (ev: Event) => {
         const target = ev.currentTarget as HTMLElement | null;
         if (!target || !target.dataset.uuid) return;
 
@@ -72,6 +72,13 @@ export class PartyTab {
         if (doc && (doc as any).sheet) {
           (doc as any).sheet.render(true);
         }
+      };
+
+      el.addEventListener("click", openActorSheet);
+      el.addEventListener("keydown", (ev: KeyboardEvent) => {
+        if (ev.key !== "Enter" && ev.key !== " ") return;
+        ev.preventDefault();
+        void openActorSheet(ev);
       });
     });
 

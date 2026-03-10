@@ -3,7 +3,7 @@ import { ActorProxy } from "./actor-proxy";
 import type { LearningProject } from "./types";
 
 export async function migrateData() {
-  const version = Settings.migrationVersion;
+  let version = Settings.migrationVersion;
   if (version >= 2 || !game.user?.isGM) return;
 
   if (version < 1) {
@@ -68,6 +68,7 @@ export async function migrateData() {
 
       if (libraryUpdated) await Settings.setProjectTemplates(library);
       await Settings.setMigrationVersion(1);
+      version = 1;
 
       if (failures.length > 0) {
         ui?.notifications?.warn(
@@ -79,6 +80,7 @@ export async function migrateData() {
     } catch (error) {
       console.error("Downtime Engine migration failed:", error);
       ui?.notifications?.error("Migration failed. Please check the console for details.");
+      return;
     }
   }
 

@@ -75,8 +75,12 @@ export class TabLogic {
         const tiers = Settings.guidanceTiers;
         const tier = tiers.find((t) => t.id === val);
 
-        if (p && tier) {
-          p.guidanceTierId = tier.id;
+        if (p) {
+          if (val && !tier) {
+            ui.notifications?.warn(`Guidance tier ${val} not found`);
+            return;
+          }
+          p.guidanceTierId = tier?.id ?? "";
           await proxy.setProjects(projects);
         }
       });
@@ -123,7 +127,7 @@ export class TabLogic {
         if (!target || !target.dataset) return;
 
         const { actorId, projectId } = target.dataset;
-        const newProgress = parseInt(target.value) || 0;
+        const newProgress = Math.max(0, parseInt(target.value, 10) || 0);
         const targetActor = game.actors?.get(actorId as string) as Actor | undefined;
         if (!targetActor) return;
 
@@ -135,7 +139,7 @@ export class TabLogic {
           const tpl = Settings.projectTemplates.find((t) => t.id === p.templateId);
           if (!tpl) return;
 
-          p.progress = Math.min(newProgress, tpl.target);
+          p.progress = Math.max(0, Math.min(newProgress, tpl.target));
           if (p.progress >= tpl.target && !p.isCompleted) {
             p.isCompleted = true;
             await this.grantProjectReward(targetActor as Actor, tpl);
