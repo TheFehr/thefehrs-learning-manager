@@ -377,6 +377,79 @@ describe("TabLogic", () => {
     });
   });
 
+  describe("activateListeners delete-project", () => {
+    it("should prompt user and delete project on confirm", async () => {
+      const mockActor = new (globalThis as any).Actor();
+      mockActor.id = "actor1";
+      mockActor.name = "Test Actor";
+      (globalThis as any).game.actors.length = 0;
+      (globalThis as any).game.actors.push(mockActor);
+
+      const { ActorProxy } = await import("../src/actor-proxy");
+      const { Settings } = await import("../src/settings");
+
+      const proxy = new ActorProxy(mockActor);
+      const project = {
+        id: "proj1",
+        templateId: "tpl1",
+        progress: 0,
+        isCompleted: false,
+        guidanceTierId: "",
+      };
+      let currentProjects = [project];
+      Object.defineProperty(proxy, "projects", { get: () => currentProjects });
+      proxy.setProjects = vi.fn().mockImplementation(async (newProjects) => {
+        currentProjects = newProjects;
+      });
+
+      vi.spyOn(ActorProxy, "forActor").mockReturnValue(proxy);
+
+      vi.spyOn(Settings, "projectTemplates", "get").mockReturnValue([
+        { id: "tpl1", target: 10, rewardUuid: "Item.id", rewardType: "item", name: "Test Tpl" },
+      ] as any);
+
+      const html = document.createElement("div");
+      html.innerHTML = `<button class="delete-project" data-actor-id="actor1" data-id="proj1"></button>`;
+
+      const btn = html.querySelector(".delete-project") as HTMLElement;
+
+      let listener: any;
+      btn.addEventListener = vi.fn().mockImplementation((type: string, cb: any) => {
+        if (type === "click") listener = cb;
+      });
+
+      TabLogic.activateListeners(html, mockActor as any);
+
+      expect(listener).toBeDefined();
+
+      const ev = new Event("click");
+      Object.defineProperty(ev, "currentTarget", { value: btn, enumerable: true });
+
+      // Override Dialog to auto-click "yes"
+      let dialogData: any;
+      (globalThis as any).foundry.appv1.api.Dialog = class {
+        constructor(public data: any) {
+          dialogData = data;
+        }
+        render = vi.fn().mockImplementation(() => {
+          if (
+            dialogData &&
+            dialogData.buttons &&
+            dialogData.buttons.yes &&
+            dialogData.buttons.yes.callback
+          ) {
+            dialogData.buttons.yes.callback();
+          }
+        });
+      } as any;
+
+      await listener(ev);
+
+      expect(proxy.setProjects).toHaveBeenCalled();
+      expect(currentProjects).toHaveLength(0);
+    });
+  });
+
   describe("activateListeners update-project-progress", () => {
     it("should rollback granted rewards if setProjects throws", async () => {
       const mockActor = new (globalThis as any).Actor();

@@ -55,6 +55,50 @@ export class TabLogic {
       });
     }
 
+    // Delete Project Listener
+    html.querySelectorAll(".delete-project").forEach((btn) => {
+      btn.addEventListener("click", async (ev) => {
+        const target = ev.currentTarget as HTMLElement | null;
+        if (!target || !target.dataset) return;
+
+        const { id, actorId } = target.dataset;
+        if (!id) return;
+
+        const targetActor = actorId ? (game.actors?.get(actorId) as Actor) : actor;
+        if (!targetActor) return;
+
+        const proxy = ActorProxy.forActor(targetActor);
+        const projects = proxy.projects;
+        const project = projects.find((p: any) => p.id === id);
+
+        if (!project) return;
+
+        const library = Settings.projectTemplates;
+        const tpl = library.find((t) => t.id === project.templateId);
+        const projectName = tpl ? tpl.name : "Unknown Project";
+
+        new foundry.appv1.api.Dialog({
+          title: "Abort Project",
+          content: `<p>Are you sure you want to abort the project <strong>${projectName}</strong> for <strong>${targetActor.name}</strong>?</p><p>Any progress will be lost.</p>`,
+          buttons: {
+            yes: {
+              icon: '<i class="fas fa-check"></i>',
+              label: "Yes",
+              callback: async () => {
+                const updatedProjects = projects.filter((p: any) => p.id !== id);
+                await proxy.setProjects(updatedProjects);
+              },
+            },
+            no: {
+              icon: '<i class="fas fa-times"></i>',
+              label: "No",
+            },
+          },
+          default: "no",
+        }).render(true);
+      });
+    });
+
     // Guidance Tier Change Listener
     html.querySelectorAll(".update-project").forEach((select) => {
       select.addEventListener("change", async (ev) => {
@@ -105,6 +149,9 @@ export class TabLogic {
       });
       html.querySelectorAll(".update-project-progress").forEach((el) => {
         (el as HTMLElement).style.display = editMode ? "inline" : "none";
+      });
+      html.querySelectorAll(".party-edit-control").forEach((el) => {
+        (el as HTMLElement).style.display = editMode ? "inline-flex" : "none";
       });
     };
 

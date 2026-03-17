@@ -1,6 +1,17 @@
 import { vi } from "vitest";
 
 globalThis.foundry = {
+  appv1: {
+    api: {
+      Dialog: class {
+        constructor(public data: any) {
+          this.buttons = data.buttons;
+        }
+        buttons: any;
+        render = vi.fn();
+      },
+    },
+  },
   applications: {
     api: {
       ApplicationV2: class {
