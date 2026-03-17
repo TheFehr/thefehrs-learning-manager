@@ -118,7 +118,7 @@ jobs:
 
           # 4. Send the request
           CURL_EXIT=0
-          RESPONSE=$(curl -s --fail-with-body -w "\n%{http_code}" \
+          RESPONSE=$(curl -sS --fail-with-body -w "\n%{http_code}" \
             --connect-timeout 10 \
             --max-time 30 \
             -X POST "https://foundryvtt.com/_api/packages/release_version/" \
@@ -126,7 +126,7 @@ jobs:
             -H "Authorization: $FOUNDRY_API_TOKEN" \
             -d "$PAYLOAD") || CURL_EXIT=$?
 
-          if [ "$CURL_EXIT" -ne 0 ]; then
+          if [ "$CURL_EXIT" -ne 0 ] && [ "$CURL_EXIT" -ne 22 ]; then
             echo "Error: curl command failed with exit code $CURL_EXIT (transport/timeout error)"
             echo "Response Body: $RESPONSE"
             exit "$CURL_EXIT"
