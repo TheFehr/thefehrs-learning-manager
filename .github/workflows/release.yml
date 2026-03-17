@@ -53,6 +53,24 @@ jobs:
           cd dist
           zip -r ../thefehrs-learning-manager.zip ./*
 
+      - name: Preflight checks
+        env:
+          FOUNDRY_API_TOKEN: ${{ secrets.FOUNDRY_API_TOKEN }}
+        run: |
+          if [ -z "$FOUNDRY_API_TOKEN" ]; then
+            echo "Error: FOUNDRY_API_TOKEN is empty or not set."
+            exit 1
+          fi
+
+          MIN_COMPAT=$(jq -r '.compatibility.minimum' dist/module.json)
+          VERIFIED_COMPAT=$(jq -r '.compatibility.verified' dist/module.json)
+          MAX_COMPAT=$(jq -r '.compatibility.maximum' dist/module.json)
+
+          if [ -z "$MIN_COMPAT" ] || [ "$MIN_COMPAT" = "null" ] || [ -z "$VERIFIED_COMPAT" ] || [ "$VERIFIED_COMPAT" = "null" ]; then
+            echo "Error: Required compatibility fields 'minimum' and 'verified' are missing or null."
+            exit 1
+          fi
+
       - name: Create GitHub Release
         uses: ncipollo/release-action@v1
         with:
@@ -68,11 +86,6 @@ jobs:
         env:
           FOUNDRY_API_TOKEN: ${{ secrets.FOUNDRY_API_TOKEN }}
         run: |
-          if [ -z "$FOUNDRY_API_TOKEN" ]; then
-            echo "Error: FOUNDRY_API_TOKEN is empty or not set."
-            exit 1
-          fi
-
           # 1. Extract version from tag
           VERSION="${GITHUB_REF#refs/tags/}"
           VERSION_CLEAN="${VERSION#v}"
@@ -81,11 +94,6 @@ jobs:
           MIN_COMPAT=$(jq -r '.compatibility.minimum' dist/module.json)
           VERIFIED_COMPAT=$(jq -r '.compatibility.verified' dist/module.json)
           MAX_COMPAT=$(jq -r '.compatibility.maximum' dist/module.json)
-
-          if [ -z "$MIN_COMPAT" ] || [ "$MIN_COMPAT" = "null" ] || [ -z "$VERIFIED_COMPAT" ] || [ "$VERIFIED_COMPAT" = "null" ]; then
-            echo "Error: Required compatibility fields 'minimum' and 'verified' are missing or null."
-            exit 1
-          fi
 
           # 3. Construct the JSON payload
           # We use jq to build the JSON string safely to avoid escaping issues with shell variables
