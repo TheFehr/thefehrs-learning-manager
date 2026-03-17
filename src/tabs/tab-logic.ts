@@ -79,6 +79,11 @@ export class TabLogic {
 
         if (!project) return;
 
+        if (project.progress > 0 && !game.user?.isGM) {
+          ui.notifications?.warn("You cannot abort an in-progress project.");
+          return;
+        }
+
         const library = Settings.projectTemplates;
         const tpl = library.find((t) => t.id === project.templateId);
         const projectName = tpl ? tpl.name : "Unknown Project";

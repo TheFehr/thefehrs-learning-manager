@@ -76,12 +76,12 @@ jobs:
           # 1. Extract version from tag
           VERSION="${GITHUB_REF#refs/tags/}"
           VERSION_CLEAN="${VERSION#v}"
-          
+
           # 2. Extract compatibility info from the built module.json
           MIN_COMPAT=$(jq -r '.compatibility.minimum' dist/module.json)
           VERIFIED_COMPAT=$(jq -r '.compatibility.verified' dist/module.json)
           MAX_COMPAT=$(jq -r '.compatibility.maximum' dist/module.json)
-          
+
           # 3. Construct the JSON payload
           # We use jq to build the JSON string safely to avoid escaping issues with shell variables
           PAYLOAD=$(jq -n \
@@ -94,7 +94,7 @@ jobs:
             --arg max "$MAX_COMPAT" \
             '{
               id: $id,
-              dry-run: false,
+              "dry-run": false,
               release: {
                 version: $ver,
                 manifest: $manifest,
@@ -102,21 +102,21 @@ jobs:
                 compatibility: ({minimum: $min, verified: $verified, maximum: $max} | with_entries(select(.value != "null" and .value != "")))
               }
             }')
-          
+
           # 4. Send the request
-          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "https://foundryvtt.com/api/v1/packages/release" \
+          RESPONSE=$(curl -s --fail-with-body -w "\n%{http_code}" -X POST "https://foundryvtt.com/api/v1/packages/release" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $FOUNDRY_API_TOKEN" \
             -d "$PAYLOAD")
-          
+
           HTTP_STATUS=$(echo "$RESPONSE" | tail -n1)
           BODY=$(echo "$RESPONSE" | sed '$d')
-          
+
           if [ "$HTTP_STATUS" -ge 400 ]; then
             echo "Error: HTTP request failed with status $HTTP_STATUS"
             echo "Response Body: $BODY"
             exit 1
           fi
-          
+
           echo "Success: HTTP status $HTTP_STATUS"
           echo "Response Body: $BODY"
