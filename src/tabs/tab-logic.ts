@@ -67,6 +67,12 @@ export class TabLogic {
         const targetActor = actorId ? (game.actors?.get(actorId) as Actor) : actor;
         if (!targetActor) return;
 
+        // Check if user has permission to modify this actor
+        if (!targetActor.isOwner) {
+          ui.notifications?.warn("You do not have permission to modify this actor's projects.");
+          return;
+        }
+
         const proxy = ActorProxy.forActor(targetActor);
         const projects = proxy.projects;
         const project = projects.find((p: any) => p.id === id);
@@ -77,9 +83,12 @@ export class TabLogic {
         const tpl = library.find((t) => t.id === project.templateId);
         const projectName = tpl ? tpl.name : "Unknown Project";
 
+        const escapedProjectName = foundry.utils.escapeHTML(projectName);
+        const escapedActorName = foundry.utils.escapeHTML(targetActor.name);
+
         new foundry.appv1.api.Dialog({
           title: "Abort Project",
-          content: `<p>Are you sure you want to abort the project <strong>${projectName}</strong> for <strong>${targetActor.name}</strong>?</p><p>Any progress will be lost.</p>`,
+          content: `<p>Are you sure you want to abort the project <strong>${escapedProjectName}</strong> for <strong>${escapedActorName}</strong>?</p><p>Any progress will be lost.</p>`,
           buttons: {
             yes: {
               icon: '<i class="fas fa-check"></i>',

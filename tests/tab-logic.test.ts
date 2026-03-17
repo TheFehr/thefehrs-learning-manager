@@ -382,6 +382,7 @@ describe("TabLogic", () => {
       const mockActor = new (globalThis as any).Actor();
       mockActor.id = "actor1";
       mockActor.name = "Test Actor";
+      mockActor.isOwner = true;
       (globalThis as any).game.actors.length = 0;
       (globalThis as any).game.actors.push(mockActor);
 
@@ -431,14 +432,14 @@ describe("TabLogic", () => {
         constructor(public data: any) {
           dialogData = data;
         }
-        render = vi.fn().mockImplementation(() => {
+        render = vi.fn().mockImplementation(async () => {
           if (
             dialogData &&
             dialogData.buttons &&
             dialogData.buttons.yes &&
             dialogData.buttons.yes.callback
           ) {
-            dialogData.buttons.yes.callback();
+            await dialogData.buttons.yes.callback();
           }
         });
       } as any;
