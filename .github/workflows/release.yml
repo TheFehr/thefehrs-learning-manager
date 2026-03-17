@@ -87,7 +87,7 @@ jobs:
           PAYLOAD=$(jq -n \
             --arg id "thefehrs-learning-manager" \
             --arg ver "$VERSION_CLEAN" \
-            --arg manifest "https://github.com/${{ github.repository }}/releases/latest/download/module.json" \
+            --arg manifest "https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/module.json" \
             --arg notes "https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}" \
             --arg min "$MIN_COMPAT" \
             --arg verified "$VERIFIED_COMPAT" \
@@ -104,10 +104,20 @@ jobs:
             }')
 
           # 4. Send the request
-          RESPONSE=$(curl -s --fail-with-body -w "\n%{http_code}" -X POST "https://foundryvtt.com/api/v1/packages/release" \
+          CURL_EXIT=0
+          RESPONSE=$(curl -s --fail-with-body -w "\n%{http_code}" \
+            --connect-timeout 10 \
+            --max-time 30 \
+            -X POST "https://foundryvtt.com/_api/packages/release_version/" \
             -H "Content-Type: application/json" \
             -H "Authorization: $FOUNDRY_API_TOKEN" \
-            -d "$PAYLOAD")
+            -d "$PAYLOAD") || CURL_EXIT=$?
+
+          if [ "$CURL_EXIT" -ne 0 ]; then
+            echo "Error: curl command failed with exit code $CURL_EXIT (transport/timeout error)"
+            echo "Response Body: $RESPONSE"
+            exit "$CURL_EXIT"
+          fi
 
           HTTP_STATUS=$(echo "$RESPONSE" | tail -n1)
           BODY=$(echo "$RESPONSE" | sed '$d')
