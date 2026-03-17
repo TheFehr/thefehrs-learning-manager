@@ -63,3 +63,44 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           artifacts: "./thefehrs-learning-manager.zip, ./dist/module.json"
           generateReleaseNotes: true
+
+      - name: Notify Foundry VTT Package Release
+        env:
+          FOUNDRY_API_TOKEN: ${{ secrets.FOUNDRY_API_TOKEN }}
+        run: |
+          # 1. Extract version from tag
+          VERSION="${GITHUB_REF#refs/tags/}"
+          VERSION_CLEAN="${VERSION#v}"
+          
+          # 2. Extract compatibility info from the built module.json
+          MIN_COMPAT=$(jq -r '.compatibility.minimum' dist/module.json)
+          VERIFIED_COMPAT=$(jq -r '.compatibility.verified' dist/module.json)
+          
+          # 3. Construct the JSON payload
+          # We use jq to build the JSON string safely to avoid escaping issues with shell variables
+          PAYLOAD=$(jq -n \
+            --arg id "thefehrs-learning-manager" \
+            --arg ver "$VERSION_CLEAN" \
+            --arg manifest "https://github.com/${{ github.repository }}/releases/latest/download/module.json" \
+            --arg notes "https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}" \
+            --arg min "$MIN_COMPAT" \
+            --arg verified "$VERIFIED_COMPAT" \
+            '{
+              id: $id,
+              dry-run: false,
+              release: {
+                version: $ver,
+                manifest: $manifest,
+                notes: $notes,
+                compatibility: {
+                  minimum: $min,
+                  verified: $verified
+                }
+              }
+            }')
+          
+          # 4. Send the request
+          curl -X POST "https://foundryvtt.com/api/v1/packages/release" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: $FOUNDRY_API_TOKEN" \
+            -d "$PAYLOAD"
