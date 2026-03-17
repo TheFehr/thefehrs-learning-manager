@@ -79,6 +79,12 @@
           >
             Tutor/Guidance
           </div>
+          <div
+            class="tidy-table-header-cell"
+            data-tidy-sheet-part="table-header-cell"
+            style="--tidy-table-column-width: 40px;"
+          >
+          </div>
         </header>
 
         <div class="expandable expanded" role="presentation">
@@ -145,6 +151,25 @@
                           blank="-- No Tutor --"
                         }}
                       </select>
+                    </div>
+
+                    <div
+                      class="tidy-table-cell"
+                      data-tidy-sheet-part="table-cell"
+                      style="--tidy-table-column-width: 40px; display: flex; justify-content: center; align-items: center;"
+                    >
+                      {{#if project.canAbort}}
+                        <button
+                          class="delete-project party-edit-control tidy-button small"
+                          data-id="{{project.id}}"
+                          data-actor-id="{{member.id}}"
+                          title="Abort Project"
+                          aria-label="Abort Project"
+                          style="min-width: 2rem; padding: 2px 4px; color: var(--t5e-danger-color); display: none;"
+                        >
+                          <i class="fas fa-trash"></i>
+                        </button>
+                      {{/if}}
                     </div>
                   </div>
                 {{/each}}

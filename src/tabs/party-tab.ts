@@ -46,6 +46,7 @@ export class PartyTab {
           guidanceType: tier ? tier.name : "None",
           progressPercentage:
             tpl.target > 0 ? Math.min(100, Math.round((p.progress / tpl.target) * 100)) : 0,
+          canAbort: p.progress === 0 || game.user?.isGM,
         };
       })
       .filter((p: any) => p !== null);

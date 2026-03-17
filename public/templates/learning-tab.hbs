@@ -63,6 +63,18 @@
               class="actions tidy-table-cell"
               style="--tidy-table-column-width: 20%; display: flex; gap: 5px; justify-content: flex-end;"
             >
+              {{#if project.canAbort}}
+                <button
+                  class="delete-project tidy-button small"
+                  data-tidy-render-scheme="unlocked"
+                  data-id="{{project.id}}"
+                  title="Abort Project"
+                  aria-label="Abort Project"
+                  style="min-width: 2rem; padding: 2px 4px; color: var(--t5e-danger-color);"
+                >
+                  <i class="fas fa-trash"></i>
+                </button>
+              {{/if}}
               {{#each @root.timeUnits as |tu|}}
                 {{#if project.tierCostInfo}}
                   <button

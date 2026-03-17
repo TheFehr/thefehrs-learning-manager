@@ -1,6 +1,17 @@
 import { vi } from "vitest";
 
 globalThis.foundry = {
+  appv1: {
+    api: {
+      Dialog: class {
+        constructor(public data: any) {
+          this.buttons = data.buttons;
+        }
+        buttons: any;
+        render = vi.fn();
+      },
+    },
+  },
   applications: {
     api: {
       ApplicationV2: class {
@@ -38,6 +49,15 @@ globalThis.foundry = {
         }
       }
       return target;
+    }),
+    escapeHTML: vi.fn((str: string) => {
+      if (!str) return str;
+      return String(str)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#39;");
     }),
   },
 } as any;

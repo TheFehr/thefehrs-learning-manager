@@ -36,6 +36,7 @@ export class LearningTab {
           isCompleted: p.progress >= tpl.target || p.isCompleted,
           guidanceType: tier ? tier.name : "None",
           tierCostInfo: tier ? tier.costs : null,
+          canAbort: p.progress === 0,
         };
       })
       .filter((p: any) => p !== null);

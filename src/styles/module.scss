@@ -12,6 +12,12 @@ $transition-speed: 0.4s;
 }
 
 .tidy5e-sheet {
+  &:not(.sheet-mode-edit) {
+    .thefehrs-container .delete-project {
+      display: none !important;
+    }
+  }
+
   .thefehrs-container,
   .party-learning-list {
     padding: $padding-standard;
