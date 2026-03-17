@@ -68,6 +68,11 @@ jobs:
         env:
           FOUNDRY_API_TOKEN: ${{ secrets.FOUNDRY_API_TOKEN }}
         run: |
+          if [ -z "$FOUNDRY_API_TOKEN" ]; then
+            echo "Error: FOUNDRY_API_TOKEN is empty or not set."
+            exit 1
+          fi
+
           # 1. Extract version from tag
           VERSION="${GITHUB_REF#refs/tags/}"
           VERSION_CLEAN="${VERSION#v}"
@@ -75,6 +80,7 @@ jobs:
           # 2. Extract compatibility info from the built module.json
           MIN_COMPAT=$(jq -r '.compatibility.minimum' dist/module.json)
           VERIFIED_COMPAT=$(jq -r '.compatibility.verified' dist/module.json)
+          MAX_COMPAT=$(jq -r '.compatibility.maximum' dist/module.json)
           
           # 3. Construct the JSON payload
           # We use jq to build the JSON string safely to avoid escaping issues with shell variables
@@ -85,6 +91,7 @@ jobs:
             --arg notes "https://github.com/${{ github.repository }}/releases/tag/${{ github.ref_name }}" \
             --arg min "$MIN_COMPAT" \
             --arg verified "$VERIFIED_COMPAT" \
+            --arg max "$MAX_COMPAT" \
             '{
               id: $id,
               dry-run: false,
@@ -92,15 +99,24 @@ jobs:
                 version: $ver,
                 manifest: $manifest,
                 notes: $notes,
-                compatibility: {
-                  minimum: $min,
-                  verified: $verified
-                }
+                compatibility: ({minimum: $min, verified: $verified, maximum: $max} | with_entries(select(.value != "null" and .value != "")))
               }
             }')
           
           # 4. Send the request
-          curl -X POST "https://foundryvtt.com/api/v1/packages/release" \
+          RESPONSE=$(curl -s -w "\n%{http_code}" -X POST "https://foundryvtt.com/api/v1/packages/release" \
             -H "Content-Type: application/json" \
-            -H "Authorization: $FOUNDRY_API_TOKEN" \
-            -d "$PAYLOAD"
+            -H "Authorization: Bearer $FOUNDRY_API_TOKEN" \
+            -d "$PAYLOAD")
+          
+          HTTP_STATUS=$(echo "$RESPONSE" | tail -n1)
+          BODY=$(echo "$RESPONSE" | sed '$d')
+          
+          if [ "$HTTP_STATUS" -ge 400 ]; then
+            echo "Error: HTTP request failed with status $HTTP_STATUS"
+            echo "Response Body: $BODY"
+            exit 1
+          fi
+          
+          echo "Success: HTTP status $HTTP_STATUS"
+          echo "Response Body: $BODY"
