@@ -106,7 +106,7 @@ jobs:
           # 4. Send the request
           RESPONSE=$(curl -s --fail-with-body -w "\n%{http_code}" -X POST "https://foundryvtt.com/api/v1/packages/release" \
             -H "Content-Type: application/json" \
-            -H "Authorization: Bearer $FOUNDRY_API_TOKEN" \
+            -H "Authorization: $FOUNDRY_API_TOKEN" \
             -d "$PAYLOAD")
 
           HTTP_STATUS=$(echo "$RESPONSE" | tail -n1)
