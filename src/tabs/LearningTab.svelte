@@ -3,6 +3,7 @@
   import { ActorProxy } from "../actor-proxy";
   import { TabLogic } from "./tab-logic";
   import { LearningTab } from "./learning-tab";
+  import { ProjectEngine } from "../project-engine";
   import type { TimeUnit, ProjectTemplate } from "../types";
 
   let { actor } = $props<{ actor: any }>();
@@ -23,38 +24,40 @@
         return;
       }
 
-      const proxy = ActorProxy.forActor(actor);
-      const projects = proxy.projects;
-      projects.push({
-        id: foundry.utils.randomID(),
-        templateId: tpl.id,
-        progress: 0,
-        guidanceTierId: "",
-        isCompleted: false,
-      });
-      await proxy.setProjects(projects);
+      if (tpl.rewardType === "item") {
+        await ProjectEngine.initiateProject(actor, tpl, "");
+      } else {
+        const proxy = ActorProxy.forActor(actor);
+        const projects = proxy.projects;
+        projects.push({
+          id: foundry.utils.randomID(),
+          templateId: tpl.id,
+          progress: 0,
+          guidanceTierId: "",
+          isCompleted: false,
+        });
+        await proxy.setProjects(projects);
+      }
       selectedProjectId = "";
     }
   }
 
-  async function train(projectId: string, unitId: string) {
-    await TabLogic.processTraining(actor, projectId, unitId);
+  async function train(project: any, unitId: string) {
+    if (project.isItemBased) {
+      const item = actor.items.get(project.id);
+      if (item) await ProjectEngine.processTraining(item, unitId);
+    } else {
+      await TabLogic.processTraining(actor, project.id, unitId);
+    }
   }
 
-  async function abortProject(projectId: string) {
-    const proxy = ActorProxy.forActor(actor);
-    const projects = proxy.projects;
-    const project = projects.find((p: any) => p.id === projectId);
-
-    if (!project) return;
-
+  async function abortProject(project: any) {
     if (project.progress > 0 && !data.isGM) {
       ui.notifications?.warn("You cannot abort an in-progress project.");
       return;
     }
 
-    const tpl = Settings.projectTemplates.find((t) => t.id === project.templateId);
-    const projectName = tpl ? tpl.name : "Unknown Project";
+    const projectName = project.name || "Unknown Project";
 
     new foundry.appv1.api.Dialog({
       title: "Abort Project",
@@ -64,8 +67,15 @@
           icon: '<i class="fas fa-check"></i>',
           label: "Yes",
           callback: async () => {
-            const updatedProjects = projects.filter((p: any) => p.id !== projectId);
-            await proxy.setProjects(updatedProjects);
+            if (project.isItemBased) {
+              const item = actor.items.get(project.id);
+              if (item) await item.delete();
+            } else {
+              const proxy = ActorProxy.forActor(actor);
+              const projects = proxy.projects;
+              const updatedProjects = projects.filter((p: any) => p.id !== project.id);
+              await proxy.setProjects(updatedProjects);
+            }
           },
         },
         no: {
@@ -132,16 +142,25 @@
               {#if project.canAbort}
                 <button
                   class="delete-project tidy-button small"
-                  onclick={() => abortProject(project.id)}
+                  onclick={() => abortProject(project)}
                   title="Abort Project"
                 >
                   <i class="fas fa-trash"></i>
                 </button>
               {/if}
+              {#if project.isItemBased}
+                <button
+                  class="tidy-button small"
+                  onclick={() => actor.items.get(project.id)?.sheet.render(true)}
+                  title="Open Item Sheet"
+                >
+                  <i class="fas fa-edit"></i>
+                </button>
+              {/if}
               {#each data.timeUnits as tu}
                 <button
                   class="bulk-train tidy-button small"
-                  onclick={() => train(project.id, tu.id)}
+                  onclick={() => train(project, tu.id)}
                   title="Spend 1 {tu.name}"
                 >
                   <i class="fa-solid fa-plus"></i>

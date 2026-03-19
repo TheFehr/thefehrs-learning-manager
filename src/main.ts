@@ -14,6 +14,7 @@ import PartyTab from "./tabs/PartyTab.svelte";
 import LearningTab from "./tabs/LearningTab.svelte";
 import { migrateData } from "./migration";
 import { mount, unmount } from "svelte";
+import { ProjectEngine } from "./project-engine";
 
 export class TheFehrsLearningManager {
   static ID = "thefehrs-learning-manager" as const;
@@ -29,6 +30,14 @@ export class TheFehrsLearningManager {
       icon: "fas fa-cogs",
       type: LearningConfigApp,
       restricted: true,
+    });
+
+    Hooks.on("dnd5e.preUseActivity" as any, (activity: any, _config: any, _options: any) => {
+      const timeUnitId = activity.getFlag(Settings.ID, "timeUnitId");
+      if (timeUnitId) {
+        ProjectEngine.processTraining(activity.item, timeUnitId);
+        return false; // Stop standard execution
+      }
     });
 
     Hooks.once("tidy5e-sheet.ready" as any, (api: Tidy5eApi) => {

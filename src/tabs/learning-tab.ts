@@ -1,6 +1,7 @@
 import { Settings } from "../settings";
 import { ActorProxy } from "../actor-proxy";
 import { TabLogic } from "./tab-logic";
+import type { LearningProject } from "../types";
 
 export class LearningTab {
   static getData(actor: Actor) {
@@ -32,7 +33,7 @@ export class LearningTab {
       };
     });
 
-    const allProjects = proxy.projects
+    const flagProjects = proxy.projects
       .map((p: any) => {
         const tier = Settings.guidanceTiers.find((t) => t.id === p.guidanceTierId);
         const tpl = library.find((t) => t.id === p.templateId);
@@ -47,9 +48,40 @@ export class LearningTab {
           guidanceType: tier ? tier.name : "None",
           tierCostInfo: tier ? tier.costs : null,
           canAbort: p.progress === 0 || game.user?.isGM,
+          isItemBased: false,
         };
       })
       .filter((p: any) => p !== null);
+
+    const itemProjects = (actor.items as unknown as any[])
+      .filter(
+        (i) =>
+          i.getFlag(Settings.ID, "isLearningProject") || i.getFlag(Settings.ID, "isLearnedReward"),
+      )
+      .map((i) => {
+        const flags = i.getFlag(Settings.ID, "" as any) as any;
+        const projectData = flags.projectData as LearningProject;
+        const tpl = Settings.projectTemplates.find((t) => t.id === projectData.templateId);
+        if (!tpl) return null;
+
+        const tier = Settings.guidanceTiers.find((t) => t.id === projectData.guidanceTierId);
+
+        return {
+          ...projectData,
+          id: i.id,
+          name: i.name,
+          maxProgress: tpl.target,
+          percent: tpl.target > 0 ? Math.min((projectData.progress / tpl.target) * 100, 100) : 0,
+          isCompleted: projectData.isCompleted || flags.isLearnedReward,
+          guidanceType: tier ? tier.name : "None",
+          tierCostInfo: tier ? tier.costs : null,
+          canAbort: (projectData.progress === 0 && !flags.isLearnedReward) || game.user?.isGM,
+          isItemBased: true,
+        };
+      })
+      .filter((p) => p !== null);
+
+    const allProjects = [...flagProjects, ...itemProjects];
 
     return {
       formattedBank: TabLogic.formatTimeBank(bank.total, timeUnits),

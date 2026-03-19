@@ -1,7 +1,7 @@
 import { Settings } from "../settings";
 import { ActorProxy } from "../actor-proxy";
 import { TabLogic } from "./tab-logic";
-import type { DowntimeGroupActor, TimeUnit } from "../types";
+import type { DowntimeGroupActor, TimeUnit, LearningProject } from "../types";
 
 export class PartyTab {
   static getData(partyActor: DowntimeGroupActor) {
@@ -40,7 +40,7 @@ export class PartyTab {
     const bank = proxy.bank;
     const library = Settings.projectTemplates;
 
-    const projects = proxy.projects
+    const flagProjects = proxy.projects
       .map((p: any) => {
         const tier = Settings.guidanceTiers.find((t) => t.id === p.guidanceTierId);
         const tpl = library.find((t) => t.id === p.templateId);
@@ -54,9 +54,41 @@ export class PartyTab {
           progressPercentage:
             tpl.target > 0 ? Math.min(100, Math.round((p.progress / tpl.target) * 100)) : 0,
           canAbort: p.progress === 0 || game.user?.isGM,
+          isItemBased: false,
         };
       })
       .filter((p: any) => p !== null);
+
+    const itemProjects = (a.items as unknown as any[])
+      .filter(
+        (i) =>
+          i.getFlag(Settings.ID, "isLearningProject") || i.getFlag(Settings.ID, "isLearnedReward"),
+      )
+      .map((i) => {
+        const flags = i.getFlag(Settings.ID, "" as any) as any;
+        const projectData = flags.projectData as LearningProject;
+        const tpl = library.find((t) => t.id === projectData.templateId);
+        if (!tpl) return null;
+
+        const tier = Settings.guidanceTiers.find((t) => t.id === projectData.guidanceTierId);
+
+        return {
+          ...projectData,
+          id: i.id,
+          name: i.name,
+          maxProgress: tpl.target,
+          guidanceType: tier ? tier.name : "None",
+          progressPercentage:
+            tpl.target > 0
+              ? Math.min(100, Math.round((projectData.progress / tpl.target) * 100))
+              : 0,
+          canAbort: (projectData.progress === 0 && !flags.isLearnedReward) || game.user?.isGM,
+          isItemBased: true,
+        };
+      })
+      .filter((p) => p !== null);
+
+    const allProjects = [...flagProjects, ...itemProjects];
 
     return {
       id: proxy.id,
@@ -65,7 +97,7 @@ export class PartyTab {
       tokenImg: proxy.tokenImg,
       currency: proxy.currency,
       formattedBank: TabLogic.formatTimeBank(bank.total, timeUnits),
-      projects: projects.filter((p: any) => !p.isCompleted),
+      projects: allProjects.filter((p: any) => !p.isCompleted),
     };
   }
 

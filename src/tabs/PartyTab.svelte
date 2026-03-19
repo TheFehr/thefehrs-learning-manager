@@ -2,6 +2,7 @@
   import {Settings} from "../settings";
   import {ActorProxy} from "../actor-proxy";
   import {TabLogic} from "./tab-logic";
+  import {ProjectEngine} from "../project-engine";
   import type {DowntimeGroupActor, TimeUnit, ProjectTemplate} from "../types";
 
   let {members, tierOptions, isGM, actor} = $props<{
@@ -89,77 +90,92 @@
     }).render(true);
   }
 
-  async function updateGuidance(actorId: string, projectId: string, tierId: string) {
+  async function updateGuidance(actorId: string, project: any, tierId: string) {
     const targetActor = game.actors?.get(actorId) as Actor | undefined;
     if (!targetActor) return;
 
-    const proxy = ActorProxy.forActor(targetActor);
-    const projects = proxy.projects;
-    const p = projects.find((x) => x.id === projectId);
     const tiers = Settings.guidanceTiers;
     const tier = tiers.find((t) => t.id === tierId);
 
-    if (p) {
-      if (tierId && !tier) {
-        ui.notifications?.warn(`Guidance tier ${tierId} not found`);
-        return;
+    if (project.isItemBased) {
+      const item = targetActor.items.get(project.id);
+      if (item) {
+        await item.update({
+          "flags.thefehrs-learning-manager.projectData.guidanceTierId": tier?.id ?? "",
+        });
       }
-      p.guidanceTierId = tier?.id ?? "";
-      await proxy.setProjects(projects);
-    }
-  }
-
-  async function updateProgress(actorId: string, projectId: string, newProgress: number) {
-    if (!isGM) return;
-    const targetActor = game.actors?.get(actorId) as Actor | undefined;
-    if (!targetActor) return;
-
-    const proxy = ActorProxy.forActor(targetActor);
-    const projects = proxy.projects;
-    const p = projects.find((x) => x.id === projectId);
-
-    if (p) {
-      const tpl = Settings.projectTemplates.find((t) => t.id === p.templateId);
-      if (!tpl) return;
-
-      const progress = Math.max(0, Math.min(newProgress, tpl.target));
-      p.progress = progress;
-
-      if (p.progress >= tpl.target && !p.isCompleted) {
-        p.isCompleted = true;
-        try {
-          await TabLogic.grantProjectReward(targetActor, tpl);
-          await proxy.setProjects(projects);
-        } catch (error) {
-          p.isCompleted = false;
-          throw error;
-        }
-      } else {
+    } else {
+      const proxy = ActorProxy.forActor(targetActor);
+      const projects = proxy.projects;
+      const p = projects.find((x) => x.id === project.id);
+      if (p) {
+        p.guidanceTierId = tier?.id ?? "";
         await proxy.setProjects(projects);
       }
     }
   }
 
-  async function deleteProject(actorId: string, projectId: string) {
+  async function updateProgress(actorId: string, project: any, newProgress: number) {
+    if (!isGM) return;
+    const targetActor = game.actors?.get(actorId) as Actor | undefined;
+    if (!targetActor) return;
+
+    if (project.isItemBased) {
+      const item = targetActor.items.get(project.id);
+      if (item) {
+        const flags = item.getFlag(Settings.ID, "" as any) as any;
+        const projectData = flags.projectData;
+        const tpl = Settings.projectTemplates.find((t) => t.id === projectData.templateId);
+        if (!tpl) return;
+
+        projectData.progress = Math.max(0, Math.min(newProgress, tpl.target));
+        if (projectData.progress >= tpl.target && !projectData.isCompleted) {
+           await ProjectEngine.completeProject(item, tpl);
+        } else {
+          await item.update({ "flags.thefehrs-learning-manager.projectData": projectData });
+        }
+      }
+    } else {
+      const proxy = ActorProxy.forActor(targetActor);
+      const projects = proxy.projects;
+      const p = projects.find((x) => x.id === project.id);
+
+      if (p) {
+        const tpl = Settings.projectTemplates.find((t) => t.id === p.templateId);
+        if (!tpl) return;
+
+        const progress = Math.max(0, Math.min(newProgress, tpl.target));
+        p.progress = progress;
+
+        if (p.progress >= tpl.target && !p.isCompleted) {
+          p.isCompleted = true;
+          try {
+            await TabLogic.grantProjectReward(targetActor, tpl);
+            await proxy.setProjects(projects);
+          } catch (error) {
+            p.isCompleted = false;
+            throw error;
+          }
+        } else {
+          await proxy.setProjects(projects);
+        }
+      }
+    }
+  }
+
+  async function deleteProject(actorId: string, project: any) {
     const targetActor = game.actors?.get(actorId) as Actor | undefined;
     if (!targetActor || !targetActor.isOwner) {
       ui.notifications?.warn("You do not have permission to modify this actor's projects.");
       return;
     }
 
-    const proxy = ActorProxy.forActor(targetActor);
-    const projects = proxy.projects;
-    const project = projects.find((p: any) => p.id === projectId);
-
-    if (!project) return;
-
     if (project.progress > 0 && !isGM) {
       ui.notifications?.warn("You cannot abort an in-progress project.");
       return;
     }
 
-    const tpl = Settings.projectTemplates.find((t) => t.id === project.templateId);
-    const projectName = tpl ? tpl.name : "Unknown Project";
+    const projectName = project.name || "Unknown Project";
 
     new foundry.appv1.api.Dialog({
       title: "Abort Project",
@@ -169,8 +185,15 @@
           icon: '<i class="fas fa-check"></i>',
           label: "Yes",
           callback: async () => {
-            const updatedProjects = projects.filter((p: any) => p.id !== projectId);
-            await proxy.setProjects(updatedProjects);
+            if (project.isItemBased) {
+              const item = targetActor.items.get(project.id);
+              if (item) await item.delete();
+            } else {
+              const proxy = ActorProxy.forActor(targetActor);
+              const projects = proxy.projects;
+              const updatedProjects = projects.filter((p: any) => p.id !== project.id);
+              await proxy.setProjects(updatedProjects);
+            }
           },
         },
         no: {
@@ -301,7 +324,7 @@
                                                         onchange={(e) =>
                             updateProgress(
                               member.id,
-                              project.id,
+                              project,
                               parseInt(e.currentTarget.value) || 0,
                             )}
                                                         style="width: 50px; text-align: center; height: 1.25rem; z-index: 2;"
@@ -327,7 +350,7 @@
                                     <select
                                             class="update-project font-label-medium"
                                             value={project.guidanceTierId}
-                                            onchange={(e) => updateGuidance(member.id, project.id, e.currentTarget.value)}
+                                            onchange={(e) => updateGuidance(member.id, project, e.currentTarget.value)}
                                             style="width: 100%; height: 2rem;"
                                     >
                                         <option value="">-- No Tutor --</option>
@@ -347,7 +370,7 @@
                                                 class="delete-project party-edit-control tidy-button small"
                                                 title="Abort Project"
                                                 aria-label="Abort Project"
-                                                onclick={() => deleteProject(member.id, project.id)}
+                                                onclick={() => deleteProject(member.id, project)}
                                                 style="min-width: 2rem; padding: 2px 4px; color: var(--t5e-danger-color);"
                                         >
                                             <i class="fas fa-trash"></i>

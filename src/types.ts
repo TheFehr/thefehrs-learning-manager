@@ -84,6 +84,15 @@ declare global {
         projects: LearningProject[];
       };
     };
+    Item: {
+      "thefehrs-learning-manager": {
+        isLearningProject?: boolean;
+        isLearnedReward?: boolean;
+        projectData?: LearningProject;
+        stashedEffects?: any[];
+        stashedActivities?: any[];
+      };
+    };
   }
 }
 
