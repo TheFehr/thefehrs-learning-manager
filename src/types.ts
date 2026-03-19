@@ -46,6 +46,7 @@ export interface LearningProject {
   id: string;
   templateId: string;
   progress: number;
+  target: number;
   guidanceTierId: string;
   isCompleted: boolean;
 }
@@ -69,7 +70,6 @@ declare global {
     "thefehrs-learning-manager.rules": SystemRules;
     "thefehrs-learning-manager.timeUnits": TimeUnit[];
     "thefehrs-learning-manager.guidanceTiers": GuidanceTier[];
-    "thefehrs-learning-manager.projectTemplates": ProjectTemplate[];
     "thefehrs-learning-manager.allowedCompendiums": string[];
     "thefehrs-learning-manager.migrationVersion": number;
   }

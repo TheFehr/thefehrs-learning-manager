@@ -28,6 +28,7 @@ export class ProjectEngine {
       id: foundry.utils.randomID(),
       templateId: template.id,
       progress: 0,
+      target: template.target,
       guidanceTierId: guidanceTierId,
       isCompleted: false,
     };
@@ -104,6 +105,11 @@ export class ProjectEngine {
     const stashedActivities = itemData.system.activities || {};
     const stashedType = itemData.type;
 
+    const projectDataWithTarget: LearningProject = {
+      ...projectData,
+      target: projectData.target ?? template.target,
+    };
+
     const updateData = {
       ...itemData,
       type: projectData.isCompleted ? stashedType : "feat",
@@ -115,7 +121,7 @@ export class ProjectEngine {
       "flags.thefehrs-learning-manager": {
         isLearningProject: !projectData.isCompleted,
         isLearnedReward: projectData.isCompleted,
-        projectData: projectData,
+        projectData: projectDataWithTarget,
         stashedEffects: stashedEffects,
         stashedActivities: stashedActivities,
         stashedType: stashedType,
@@ -134,14 +140,14 @@ export class ProjectEngine {
   /**
    * Restores a project item to its original state upon completion.
    */
-  static async completeProject(item: Item, template: ProjectTemplate) {
+  static async completeProject(item: Item) {
     const flags = item.getFlag(Settings.ID, "" as any) as any;
     if (!flags?.isLearningProject) return;
 
     const projectData = {
       ...flags.projectData,
       isCompleted: true,
-      progress: template.target,
+      progress: flags.projectData.target,
     };
 
     const updateData = {
@@ -179,8 +185,6 @@ export class ProjectEngine {
     if (!flags?.isLearningProject) return;
 
     const projectData = flags.projectData as LearningProject;
-    const template = Settings.projectTemplates.find((t) => t.id === projectData.templateId);
-    if (!template) return ui.notifications?.warn("Project template missing!");
 
     const tu = Settings.timeUnits.find((u) => u.id === timeUnitId);
     if (!tu) return;
@@ -201,9 +205,9 @@ export class ProjectEngine {
     const { progressGained, roll } = await TabLogic.computeProgress(actor as any, rules, tier, tu);
 
     // Update state
-    projectData.progress = Math.min(projectData.progress + progressGained, template.target);
+    projectData.progress = Math.min(projectData.progress + progressGained, projectData.target);
     let completedNow = false;
-    if (projectData.progress >= template.target && !projectData.isCompleted) {
+    if (projectData.progress >= projectData.target && !projectData.isCompleted) {
       projectData.isCompleted = true;
       completedNow = true;
     }
@@ -215,7 +219,7 @@ export class ProjectEngine {
     await proxy.setBank({ total: bank.total - tu.ratio });
 
     if (completedNow) {
-      await this.completeProject(item, template);
+      await this.completeProject(item);
     } else {
       await item.update({
         flags: {
@@ -228,7 +232,7 @@ export class ProjectEngine {
 
     if (roll) {
       await roll.toMessage({
-        flavor: `${actor.name} tries to learn ${template.name} (DC ${rules.checkDC})`,
+        flavor: `${actor.name} tries to learn ${item.name} (DC ${rules.checkDC})`,
       });
     }
 

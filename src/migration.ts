@@ -4,7 +4,7 @@ import type { LearningProject } from "./types";
 
 export async function migrateData() {
   let version = Settings.migrationVersion;
-  if (version >= 4 || !game.user?.isGM) return;
+  if (version >= 5 || !game.user?.isGM) return;
 
   if (version < 1) {
     ui.notifications?.info("Migrating Downtime Engine projects to relational schema...");
@@ -52,6 +52,7 @@ export async function migrateData() {
               id: p.id,
               templateId: tpl.id,
               progress: p.progress || 0,
+              target: tpl.target,
               guidanceTierId: p.guidanceTierId || "",
               isCompleted: p.isCompleted || false,
             });
@@ -66,7 +67,10 @@ export async function migrateData() {
         }
       }
 
-      if (libraryUpdated) await Settings.setProjectTemplates(library);
+      if (libraryUpdated) {
+        // Use raw set if unregistered
+        await game.settings.set(Settings.ID, "projectTemplates", library);
+      }
       await Settings.setMigrationVersion(1);
       version = 1;
 
@@ -154,33 +158,84 @@ export async function migrateData() {
 
       if (totalProjects === 0) {
         await Settings.setMigrationVersion(4);
-        return;
-      }
+        version = 4;
+      } else {
+        let migratedCount = 0;
+        for (const actor of actors) {
+          const proxy = ActorProxy.forActor(actor);
+          const projects = proxy.projects;
+          if (!projects || projects.length === 0) continue;
 
-      let migratedCount = 0;
-      for (const actor of actors) {
-        const proxy = ActorProxy.forActor(actor);
-        const projects = proxy.projects;
-        if (!projects || projects.length === 0) continue;
-
-        for (const p of projects) {
-          const tpl = Settings.projectTemplates.find((t) => t.id === p.templateId);
-          if (tpl) {
-            await ProjectEngine.createProjectItem(actor, tpl, p);
+          for (const p of projects) {
+            const tpl = (game.settings.get(Settings.ID, "projectTemplates") as any[]).find(
+              (t) => t.id === p.templateId,
+            );
+            if (tpl) {
+              await ProjectEngine.createProjectItem(actor, tpl, p);
+            }
+            migratedCount++;
+            ui.notifications?.info(`Migrating projects: ${migratedCount}/${totalProjects}`, {
+              progress: migratedCount / totalProjects,
+            } as any);
           }
-          migratedCount++;
-          ui.notifications?.info(`Migrating projects: ${migratedCount}/${totalProjects}`, {
-            progress: migratedCount / totalProjects,
-          } as any);
+          await proxy.setProjects([]);
         }
-        await proxy.setProjects([]);
-      }
 
-      await Settings.setMigrationVersion(4);
-      ui?.notifications?.info(`Successfully migrated ${migratedCount} projects to native Items!`);
+        await Settings.setMigrationVersion(4);
+        version = 4;
+        ui?.notifications?.info(`Successfully migrated ${migratedCount} projects to native Items!`);
+      }
     } catch (error) {
       console.error("Downtime Engine migration to v4 failed:", error);
       ui?.notifications?.error("Migration to v4 failed. Please check the console for details.");
+    }
+  }
+
+  if (version < 5) {
+    ui.notifications?.info("Downtime Engine | Migrating template data to items...");
+    try {
+      // Fetch templates directly from settings (might be unregistered but data exists)
+      const templates = (game.settings.get(Settings.ID, "projectTemplates") as any[]) || [];
+      const actors = (game.actors || []) as any[];
+
+      let updatedCount = 0;
+      for (const actor of actors) {
+        // 1. Migrate item projects
+        const learningItems = actor.items.filter(
+          (i: any) =>
+            i.getFlag(Settings.ID, "isLearningProject") ||
+            i.getFlag(Settings.ID, "isLearnedReward"),
+        );
+
+        for (const item of learningItems) {
+          const flags = item.getFlag(Settings.ID, "" as any) as any;
+          const projectData = flags?.projectData;
+          if (projectData && typeof projectData.target === "undefined") {
+            const tpl = templates.find((t) => t.id === projectData.templateId);
+            if (tpl) {
+              projectData.target = tpl.target;
+              await item.update({
+                [`flags.${Settings.ID}.projectData`]: projectData,
+              });
+              updatedCount++;
+            }
+          }
+        }
+
+        // 2. Clear legacy actor projects
+        const proxy = ActorProxy.forActor(actor);
+        if (proxy.projects.length > 0) {
+          await proxy.setProjects([]);
+        }
+      }
+
+      await Settings.setMigrationVersion(5);
+      ui?.notifications?.info(
+        `Successfully migrated ${updatedCount} items to template-less model!`,
+      );
+    } catch (error) {
+      console.error("Downtime Engine migration to v5 failed:", error);
+      ui?.notifications?.error("Migration to v5 failed. Please check the console for details.");
     }
   }
 }

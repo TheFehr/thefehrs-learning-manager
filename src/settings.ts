@@ -1,4 +1,4 @@
-import type { SystemRules, GuidanceTier, ProjectTemplate, TimeUnit } from "./types";
+import type { SystemRules, GuidanceTier, TimeUnit } from "./types";
 
 export class Settings {
   static ID = "thefehrs-learning-manager" as const;
@@ -24,7 +24,11 @@ export class Settings {
   }
 
   static get projectTemplates(): ProjectTemplate[] {
-    return this.settings.get(this.ID, "projectTemplates") as any;
+    try {
+      return (this.settings.get(this.ID, "projectTemplates") as any) || [];
+    } catch {
+      return [];
+    }
   }
 
   static get allowedCompendiums(): string[] {
@@ -53,10 +57,6 @@ export class Settings {
 
   static async setGuidanceTiers(value: GuidanceTier[]): Promise<void> {
     await this.settings.set(this.ID, "guidanceTiers", value);
-  }
-
-  static async setProjectTemplates(value: ProjectTemplate[]): Promise<void> {
-    await this.settings.set(this.ID, "projectTemplates", value);
   }
 
   static async setAllowedCompendiums(value: string[]): Promise<void> {

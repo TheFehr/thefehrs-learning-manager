@@ -133,12 +133,6 @@ export class TheFehrsLearningManager {
       type: Array,
       default: guidanceTiers,
     });
-    Settings.register("projectTemplates", {
-      scope: "world",
-      config: false,
-      type: Array,
-      default: [],
-    });
     Settings.register("allowedCompendiums", {
       scope: "world",
       config: false,

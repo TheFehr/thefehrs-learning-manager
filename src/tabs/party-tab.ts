@@ -38,26 +38,6 @@ export class PartyTab {
     const proxy = ActorProxy.forActor(a);
 
     const bank = proxy.bank;
-    const library = Settings.projectTemplates;
-
-    const flagProjects = proxy.projects
-      .map((p: any) => {
-        const tier = Settings.guidanceTiers.find((t) => t.id === p.guidanceTierId);
-        const tpl = library.find((t) => t.id === p.templateId);
-        if (!tpl) return null;
-
-        return {
-          ...p,
-          name: tpl.name,
-          maxProgress: tpl.target,
-          guidanceType: tier ? tier.name : "None",
-          progressPercentage:
-            tpl.target > 0 ? Math.min(100, Math.round((p.progress / tpl.target) * 100)) : 0,
-          canAbort: p.progress === 0 || game.user?.isGM,
-          isItemBased: false,
-        };
-      })
-      .filter((p: any) => p !== null);
 
     const itemProjects = (a.items as unknown as any[])
       .filter(
@@ -67,8 +47,6 @@ export class PartyTab {
       .map((i) => {
         const flags = i.getFlag(Settings.ID, "" as any) as any;
         const projectData = flags.projectData as LearningProject;
-        const tpl = library.find((t) => t.id === projectData.templateId);
-        if (!tpl) return null;
 
         const tier = Settings.guidanceTiers.find((t) => t.id === projectData.guidanceTierId);
 
@@ -76,11 +54,11 @@ export class PartyTab {
           ...projectData,
           id: i.id,
           name: i.name,
-          maxProgress: tpl.target,
+          maxProgress: projectData.target,
           guidanceType: tier ? tier.name : "None",
           progressPercentage:
-            tpl.target > 0
-              ? Math.min(100, Math.round((projectData.progress / tpl.target) * 100))
+            projectData.target > 0
+              ? Math.min(100, Math.round((projectData.progress / projectData.target) * 100))
               : 0,
           canAbort: (projectData.progress === 0 && !flags.isLearnedReward) || game.user?.isGM,
           isItemBased: true,
@@ -88,7 +66,7 @@ export class PartyTab {
       })
       .filter((p) => p !== null);
 
-    const allProjects = [...flagProjects, ...itemProjects];
+    const allProjects = [...itemProjects];
 
     return {
       id: proxy.id,

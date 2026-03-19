@@ -66,6 +66,10 @@ export class ActorsCollection extends Array<any> {
   get = vi.fn((id: string) => this.find((a) => a.id === id));
 }
 
+export class PacksCollection extends Array<any> {
+  get = vi.fn((id: string) => this.find((p) => p.metadata.id === id));
+}
+
 globalThis.game = {
   settings: {
     register: vi.fn(),
@@ -75,7 +79,7 @@ globalThis.game = {
   },
   user: { isGM: false },
   actors: new ActorsCollection(),
-  packs: [],
+  packs: new PacksCollection(),
   ID: "thefehrs-learning-manager",
 } as any;
 
@@ -88,6 +92,7 @@ class MockActor {
   name = "Mock Actor";
   flags: any = {};
   system: any = {};
+  items: any[] = [];
 
   getFlag(scope: string, key: string) {
     return this.flags?.[scope]?.[key];

@@ -13,76 +13,70 @@ describe("LearningConfigApp", () => {
 
   describe("_prepareContext", () => {
     it("should return settings data", async () => {
-      vi.mocked(game.settings.get).mockImplementation((scope, key) => {
-        if (key === "rules") return { method: "roll" };
-        if (key === "timeUnits") return [{ id: "hr", ratio: 1 }];
+      vi.mocked(game.settings.get).mockImplementation((_scope, key) => {
+        if (key === "timeUnits") return [{ id: "tu1", name: "Unit 1", ratio: 5, isBulk: true }];
         if (key === "guidanceTiers") return [];
-        if (key === "projectTemplates") return [];
+        if (key === "rules") return { method: "direct" };
+        if (key === "allowedCompendiums") return [];
         return null;
       });
 
       const app = new LearningConfigApp();
-      // @ts-ignore
-      const context = await app._prepareContext();
+      const context = await (app as any)._prepareContext();
 
-      expect(context.rules.method).toBe("roll");
+      expect(context.rules.method).toBe("direct");
       expect(context.choices).toEqual({
         direct: "1 Base Unit = 1 Progress",
         roll: "Learning Check",
       });
       expect(context.timeUnits).toHaveLength(1);
-      expect(game.settings.get).toHaveBeenCalledTimes(5);
+      expect(game.settings.get).toHaveBeenCalledTimes(4);
     });
   });
 
   describe("saveFormData", () => {
     it("should expand form data and update settings", async () => {
+      const form = document.createElement("form");
+      form.innerHTML = `
+        <input name="rules.method" value="direct" />
+        <input name="timeUnits.tu1.id" value="tu1" />
+        <input name="timeUnits.tu1.name" value="Unit 1" />
+        <input name="timeUnits.tu1.ratio" value="5" />
+        <input name="timeUnits.tu1.isBulk" type="checkbox" checked />
+        <input name="tiers.t1.id" value="t1" />
+        <input name="tiers.t1.name" value="Tier 1" />
+        <input name="tiers.t1.modifier" value="2" />
+        <input name="tiers.t1.costs.tu1" value="10" />
+        <input name="tiers.t1.progress.tu1" value="1" />
+      `;
       const app = new LearningConfigApp();
-      const mockForm = document.createElement("form");
-      // @ts-ignore
-      app.element = mockForm;
+      (app as any).element = form;
 
-      const mockData = {
-        rules: { method: "direct" },
-        timeUnits: { "0": { id: "tu1", name: "Unit 1", ratio: "5", isBulk: "on" } },
-        tiers: {
-          "0": {
-            id: "t1",
-            name: "Tier 1",
-            modifier: "2",
-            costs: { tu1: "10" },
-            progress: { tu1: "1" },
-          },
-        },
-        projects: { "0": { id: "p1", target: "50", rewardType: "item" } },
-      };
+      await (app as any).saveFormData();
 
-      vi.mocked(foundry.utils.expandObject).mockReturnValue(mockData);
-
-      // @ts-ignore
-      await app.saveFormData();
-
-      expect(game.settings.set).toHaveBeenCalledWith("thefehrs-learning-manager", "rules", {
-        method: "direct",
-      });
+      expect(game.settings.set).toHaveBeenCalledWith(
+        "thefehrs-learning-manager",
+        "rules",
+        expect.objectContaining({ method: "direct" }),
+      );
       expect(game.settings.set).toHaveBeenCalledWith("thefehrs-learning-manager", "timeUnits", [
         { id: "tu1", name: "Unit 1", ratio: 5, isBulk: true },
       ]);
       expect(game.settings.set).toHaveBeenCalledWith("thefehrs-learning-manager", "guidanceTiers", [
         { id: "t1", name: "Tier 1", modifier: 2, costs: { tu1: 10 }, progress: { tu1: 1 } },
       ]);
-      expect(game.settings.set).toHaveBeenCalledWith(
-        "thefehrs-learning-manager",
-        "projectTemplates",
-        [{ id: "p1", target: 50, rewardType: "item", requirements: [] }],
-      );
     });
   });
 
   describe("Static actions", () => {
+    let app: LearningConfigApp;
+    beforeEach(() => {
+      app = new LearningConfigApp();
+      (app as any).element = document.createElement("form");
+      vi.spyOn(app, "render").mockImplementation(() => app);
+    });
+
     it("addTimeUnit should add a new unit and re-render", async () => {
-      const app = new LearningConfigApp();
-      app.render = vi.fn();
       vi.mocked(game.settings.get).mockReturnValue([]);
 
       await LearningConfigApp.addTimeUnit.call(app);
@@ -96,10 +90,9 @@ describe("LearningConfigApp", () => {
     });
 
     it("deleteTimeUnit should remove unit and re-render", async () => {
-      const app = new LearningConfigApp();
-      app.render = vi.fn();
+      const mockTarget = document.createElement("button");
+      mockTarget.dataset.id = "tu1";
       vi.mocked(game.settings.get).mockReturnValue([{ id: "tu1" }, { id: "tu2" }]);
-      const mockTarget = { dataset: { id: "tu1" } } as any;
 
       await LearningConfigApp.deleteTimeUnit.call(app, new Event("click"), mockTarget);
 
@@ -110,8 +103,6 @@ describe("LearningConfigApp", () => {
     });
 
     it("addTier should add a new tier and re-render", async () => {
-      const app = new LearningConfigApp();
-      app.render = vi.fn();
       vi.mocked(game.settings.get).mockReturnValue([]);
 
       await LearningConfigApp.addTier.call(app);
@@ -125,10 +116,9 @@ describe("LearningConfigApp", () => {
     });
 
     it("deleteTier should remove tier and re-render", async () => {
-      const app = new LearningConfigApp();
-      app.render = vi.fn();
+      const mockTarget = document.createElement("button");
+      mockTarget.dataset.id = "t1";
       vi.mocked(game.settings.get).mockReturnValue([{ id: "t1" }, { id: "t2" }]);
-      const mockTarget = { dataset: { id: "t1" } } as any;
 
       await LearningConfigApp.deleteTier.call(app, new Event("click"), mockTarget);
 
@@ -136,58 +126,6 @@ describe("LearningConfigApp", () => {
         { id: "t2" },
       ]);
       expect(app.render).toHaveBeenCalled();
-    });
-
-    it("addProject should add a new project and re-render", async () => {
-      const app = new LearningConfigApp();
-      app.render = vi.fn();
-      vi.mocked(game.settings.get).mockReturnValue([]);
-
-      await LearningConfigApp.addProject.call(app);
-
-      expect(game.settings.set).toHaveBeenCalledWith(
-        "thefehrs-learning-manager",
-        "projectTemplates",
-        expect.arrayContaining([expect.objectContaining({ name: "New Project" })]),
-      );
-      expect(app.render).toHaveBeenCalled();
-    });
-
-    it("deleteProject should remove project and re-render", async () => {
-      const app = new LearningConfigApp();
-      app.render = vi.fn();
-      vi.mocked(game.settings.get).mockReturnValue([
-        { id: "p1", rewardType: "item" },
-        { id: "p2", rewardType: "item" },
-      ]);
-      const mockTarget = { dataset: { id: "p1" } } as any;
-
-      // Ensure game.actors is an array and doesn't contain the project
-      game.actors = new ActorsCollection();
-
-      await LearningConfigApp.deleteProject.call(app, new Event("click"), mockTarget);
-
-      expect(game.settings.set).toHaveBeenCalledWith(
-        "thefehrs-learning-manager",
-        "projectTemplates",
-        [{ id: "p2", rewardType: "item" }],
-      );
-      expect(app.render).toHaveBeenCalled();
-    });
-
-    it("saveFormData should handle missing data gracefully", async () => {
-      const app = new LearningConfigApp();
-      const mockForm = document.createElement("form");
-      // @ts-ignore
-      app.element = mockForm;
-
-      vi.mocked(foundry.utils.expandObject).mockReturnValue({});
-
-      // @ts-ignore
-      await app.saveFormData();
-
-      // Should still call sets with defaults or empty arrays
-      expect(game.settings.set).toHaveBeenCalled();
     });
   });
 });

@@ -97,21 +97,11 @@
     const tiers = Settings.guidanceTiers;
     const tier = tiers.find((t) => t.id === tierId);
 
-    if (project.isItemBased) {
-      const item = targetActor.items.get(project.id);
-      if (item) {
-        await item.update({
-          "flags.thefehrs-learning-manager.projectData.guidanceTierId": tier?.id ?? "",
-        });
-      }
-    } else {
-      const proxy = ActorProxy.forActor(targetActor);
-      const projects = proxy.projects;
-      const p = projects.find((x) => x.id === project.id);
-      if (p) {
-        p.guidanceTierId = tier?.id ?? "";
-        await proxy.setProjects(projects);
-      }
+    const item = targetActor.items.get(project.id);
+    if (item) {
+      await item.update({
+        "flags.thefehrs-learning-manager.projectData.guidanceTierId": tier?.id ?? "",
+      });
     }
   }
 
@@ -120,45 +110,16 @@
     const targetActor = game.actors?.get(actorId) as Actor | undefined;
     if (!targetActor) return;
 
-    if (project.isItemBased) {
-      const item = targetActor.items.get(project.id);
-      if (item) {
-        const flags = item.getFlag(Settings.ID, "" as any) as any;
-        const projectData = flags.projectData;
-        const tpl = Settings.projectTemplates.find((t) => t.id === projectData.templateId);
-        if (!tpl) return;
+    const item = targetActor.items.get(project.id);
+    if (item) {
+      const flags = item.getFlag(Settings.ID, "" as any) as any;
+      const projectData = flags.projectData;
 
-        projectData.progress = Math.max(0, Math.min(newProgress, tpl.target));
-        if (projectData.progress >= tpl.target && !projectData.isCompleted) {
-           await ProjectEngine.completeProject(item, tpl);
-        } else {
-          await item.update({ "flags.thefehrs-learning-manager.projectData": projectData });
-        }
-      }
-    } else {
-      const proxy = ActorProxy.forActor(targetActor);
-      const projects = proxy.projects;
-      const p = projects.find((x) => x.id === project.id);
-
-      if (p) {
-        const tpl = Settings.projectTemplates.find((t) => t.id === p.templateId);
-        if (!tpl) return;
-
-        const progress = Math.max(0, Math.min(newProgress, tpl.target));
-        p.progress = progress;
-
-        if (p.progress >= tpl.target && !p.isCompleted) {
-          p.isCompleted = true;
-          try {
-            await TabLogic.grantProjectReward(targetActor, tpl);
-            await proxy.setProjects(projects);
-          } catch (error) {
-            p.isCompleted = false;
-            throw error;
-          }
-        } else {
-          await proxy.setProjects(projects);
-        }
+      projectData.progress = Math.max(0, Math.min(newProgress, projectData.target));
+      if (projectData.progress >= projectData.target && !projectData.isCompleted) {
+        await ProjectEngine.completeProject(item);
+      } else {
+        await item.update({ "flags.thefehrs-learning-manager.projectData": projectData });
       }
     }
   }
@@ -185,15 +146,8 @@
           icon: '<i class="fas fa-check"></i>',
           label: "Yes",
           callback: async () => {
-            if (project.isItemBased) {
-              const item = targetActor.items.get(project.id);
-              if (item) await item.delete();
-            } else {
-              const proxy = ActorProxy.forActor(targetActor);
-              const projects = proxy.projects;
-              const updatedProjects = projects.filter((p: any) => p.id !== project.id);
-              await proxy.setProjects(updatedProjects);
-            }
+            const item = targetActor.items.get(project.id);
+            if (item) await item.delete();
           },
         },
         no: {

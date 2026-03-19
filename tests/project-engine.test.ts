@@ -35,7 +35,6 @@ describe("ProjectEngine", () => {
 
     // Default mocks that can be overridden in specific tests
     vi.spyOn(Settings, "timeUnits", "get").mockReturnValue(timeUnits);
-    vi.spyOn(Settings, "projectTemplates", "get").mockReturnValue([template]);
     vi.spyOn(Settings, "rules", "get").mockReturnValue({ method: "direct" });
     vi.spyOn(Settings, "guidanceTiers", "get").mockReturnValue([]);
 
@@ -43,8 +42,6 @@ describe("ProjectEngine", () => {
       settings: {
         get: vi.fn().mockImplementation((_scope, key) => {
           if (key === "timeUnits") return timeUnits;
-          if (key === "projectTemplates") return [template];
-          if (key === "guidanceTiers") return [];
           if (key === "rules") return { method: "direct" };
           return null;
         }),
@@ -86,6 +83,7 @@ describe("ProjectEngine", () => {
               projectData: expect.objectContaining({
                 templateId: "tpl1",
                 progress: 0,
+                target: 10,
               }),
             }),
           }),
@@ -139,6 +137,7 @@ describe("ProjectEngine", () => {
         id: "p1",
         templateId: "tpl1",
         progress: 9,
+        target: 10,
         guidanceTierId: "",
         isCompleted: false,
       };
