@@ -11,6 +11,7 @@ import { LearningConfigApp } from "./settings-app";
 import { Settings } from "./settings";
 import { PartyTab as PartyTabLogic } from "./tabs/party-tab";
 import PartyTab from "./tabs/PartyTab.svelte";
+import { TabLogic } from "./tabs/tab-logic";
 import ItemTargetConfig from "./tabs/ItemTargetConfig.svelte";
 import { migrateData } from "./migration";
 import { mount, unmount } from "svelte";
@@ -56,26 +57,42 @@ export class TheFehrsLearningManager {
 
       if (!allowed.includes(packId)) return true;
 
-      // Check if dropped on our section or Group Sheet
-      // We can look at the event target if it exists
       const event = (window as any).event as DragEvent | undefined;
       const target = event?.target as HTMLElement | undefined;
 
       const isLearningSection = !!target?.closest('[data-tidy-section*="learningProject"]');
       const isGroupSheet = !!target?.closest(".thefehrs-party-tab");
+      const isFeaturesTab = !!target?.closest('[data-tidy-tab-id="features"]');
 
-      if (isLearningSection || isGroupSheet) {
+      if (isLearningSection || isGroupSheet || isFeaturesTab) {
+        let targetActor = actor;
+
+        if (isGroupSheet) {
+          const actorRow = target?.closest('[data-tidy-section-key^="actor-"]') as
+            | HTMLElement
+            | undefined;
+          const actorId = actorRow?.dataset.tidySectionKey?.replace("actor-", "");
+          if (actorId) {
+            const member = game.actors?.get(actorId);
+            if (member) targetActor = member;
+          }
+        }
+
+        if (targetActor.type === "group") {
+          return true;
+        }
+
         fromUuid(data.uuid).then((item) => {
           if (item instanceof Item) {
-            const flags = (item.getFlag(this.ID, "") as any) || {};
+            const flags = (item.getFlag(TheFehrsLearningManager.ID, "") as any) || {};
             const requirements = flags.projectData?.requirements || [];
-            const { eligible, reason } = TabLogic.meetsRequirements(actor, requirements);
+            const { eligible, reason } = TabLogic.meetsRequirements(targetActor, requirements);
 
             if (!eligible) {
               return ui.notifications?.warn(`Requirements not met for ${item.name}: ${reason}`);
             }
 
-            ProjectEngine.initiateProjectFromItem(actor, item);
+            ProjectEngine.initiateProjectFromItem(targetActor, item);
           }
         });
         return false; // Stop standard drop
