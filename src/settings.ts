@@ -27,6 +27,10 @@ export class Settings {
     return this.settings.get(this.ID, "projectTemplates") as any;
   }
 
+  static get allowedCompendiums(): string[] {
+    return (this.settings.get(this.ID, "allowedCompendiums") as any) || [];
+  }
+
   static register<T>(key: string, data: any): void {
     this.settings.register(this.ID, key as any, data);
   }
@@ -53,5 +57,9 @@ export class Settings {
 
   static async setProjectTemplates(value: ProjectTemplate[]): Promise<void> {
     await this.settings.set(this.ID, "projectTemplates", value);
+  }
+
+  static async setAllowedCompendiums(value: string[]): Promise<void> {
+    await this.settings.set(this.ID, "allowedCompendiums", value);
   }
 }

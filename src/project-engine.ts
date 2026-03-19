@@ -236,4 +236,29 @@ export class ProjectEngine {
       ui.notifications?.info("Training unsuccessful - no progress gained.");
     }
   }
+
+  /**
+   * Iterates through all actors and regenerates activities for all learning projects.
+   * Useful when time units change in settings.
+   */
+  static async syncAllProjectActivities() {
+    if (!game.user?.isGM) return;
+
+    ui.notifications?.info("Downtime Engine | Syncing project activities...");
+
+    const actors = (game.actors || []) as any[];
+    let updatedCount = 0;
+
+    for (const actor of actors) {
+      const learningItems = actor.items.filter((i: any) =>
+        i.getFlag(Settings.ID, "isLearningProject"),
+      );
+      for (const item of learningItems) {
+        await this.injectActivities(item);
+        updatedCount++;
+      }
+    }
+
+    ui.notifications?.info(`Downtime Engine | Synced activities for ${updatedCount} items.`);
+  }
 }

@@ -75,7 +75,12 @@ globalThis.game = {
   },
   user: { isGM: false },
   actors: new ActorsCollection(),
+  packs: [],
   ID: "thefehrs-learning-manager",
+} as any;
+
+globalThis.Handlebars = {
+  registerHelper: vi.fn(),
 } as any;
 
 class MockActor {

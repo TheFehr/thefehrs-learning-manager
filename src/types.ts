@@ -70,6 +70,7 @@ declare global {
     "thefehrs-learning-manager.timeUnits": TimeUnit[];
     "thefehrs-learning-manager.guidanceTiers": GuidanceTier[];
     "thefehrs-learning-manager.projectTemplates": ProjectTemplate[];
+    "thefehrs-learning-manager.allowedCompendiums": string[];
     "thefehrs-learning-manager.migrationVersion": number;
   }
 

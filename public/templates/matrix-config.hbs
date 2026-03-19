@@ -43,6 +43,26 @@
   </div>
   <hr />
 
+  <h3>Allowed Compendiums</h3>
+  <p class="notes">Select the item compendiums that are allowed for learning projects.</p>
+  <div
+    class="form-group"
+    style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; height: 150px; overflow-y: auto; border: 1px solid var(--t5e-faint-color); padding: 10px; border-radius: 4px;"
+  >
+    {{#each compendiums}}
+      <label style="display: flex; align-items: center; gap: 8px;">
+        <input
+          type="checkbox"
+          name="allowedCompendiums.{{key}}"
+          value="{{key}}"
+          {{checked (includes @root.allowedCompendiums key)}}
+        />
+        {{label}}
+      </label>
+    {{/each}}
+  </div>
+  <hr />
+
   <h3>Time Units</h3>
   <table class="tidy-table" style="font-size:0.8rem;">
     <tr>

@@ -5,6 +5,10 @@ import { ActorsCollection } from "./setup";
 describe("LearningConfigApp", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    (game.packs as any) = [
+      { metadata: { type: "Item", id: "pack1", label: "Pack 1" } },
+      { metadata: { type: "Actor", id: "pack2", label: "Pack 2" } },
+    ];
   });
 
   describe("_prepareContext", () => {
@@ -27,7 +31,7 @@ describe("LearningConfigApp", () => {
         roll: "Learning Check",
       });
       expect(context.timeUnits).toHaveLength(1);
-      expect(game.settings.get).toHaveBeenCalledTimes(4);
+      expect(game.settings.get).toHaveBeenCalledTimes(5);
     });
   });
 

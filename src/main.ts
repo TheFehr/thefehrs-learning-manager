@@ -22,6 +22,11 @@ export class TheFehrsLearningManager {
   static init() {
     this.registerSettings();
 
+    Handlebars.registerHelper("includes", function (array: any[], value: any) {
+      if (!Array.isArray(array)) return false;
+      return array.includes(value);
+    });
+
     (CONFIG as any).DND5E.featureTypes.learningProject = {
       label: "In-Progress Learning",
     };
@@ -108,6 +113,9 @@ export class TheFehrsLearningManager {
       config: false,
       type: Array,
       default: timeUnits,
+      onChange: () => {
+        ProjectEngine.syncAllProjectActivities();
+      },
     });
 
     const guidanceTiers: GuidanceTier[] = [
@@ -126,6 +134,12 @@ export class TheFehrsLearningManager {
       default: guidanceTiers,
     });
     Settings.register("projectTemplates", {
+      scope: "world",
+      config: false,
+      type: Array,
+      default: [],
+    });
+    Settings.register("allowedCompendiums", {
       scope: "world",
       config: false,
       type: Array,

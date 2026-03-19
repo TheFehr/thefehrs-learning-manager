@@ -35,11 +35,20 @@ export class LearningConfigApp extends HandlebarsApplicationMixin(ApplicationV2)
   };
 
   protected override async _prepareContext(): Promise<any> {
+    const compendiums = (game.packs as any)
+      .filter((p: any) => p.metadata.type === "Item")
+      .map((p: any) => ({
+        key: p.metadata.id,
+        label: `${p.metadata.label} [${p.metadata.id}]`,
+      }));
+
     return {
       rules: Settings.rules,
       timeUnits: Settings.timeUnits,
       tiers: Settings.guidanceTiers,
       projects: Settings.projectTemplates,
+      allowedCompendiums: Settings.allowedCompendiums,
+      compendiums,
       choices: {
         direct: "1 Base Unit = 1 Progress",
         roll: "Learning Check",
@@ -78,6 +87,11 @@ export class LearningConfigApp extends HandlebarsApplicationMixin(ApplicationV2)
     const data = foundry.utils.expandObject(Object.fromEntries(formData)) as any;
 
     if (data.rules) await Settings.setRules(data.rules as SystemRules);
+
+    const allowedCompendiums = Object.values(data.allowedCompendiums || {}).filter(
+      (v) => !!v,
+    ) as string[];
+    await Settings.setAllowedCompendiums(allowedCompendiums);
 
     const tuArray = Object.values(data.timeUnits || {}).map((tu: any) => ({
       ...tu,
