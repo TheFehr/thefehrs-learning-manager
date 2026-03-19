@@ -19,6 +19,7 @@ export class ProjectEngine {
 
     const flags = (rewardDoc.getFlag(Settings.ID, "") as any) || {};
     const target = flags.projectData?.target ?? 0;
+    const requirements = flags.projectData?.requirements ?? [];
 
     // Prepare item data for stashing
     const projectData: LearningProject = {
@@ -26,6 +27,7 @@ export class ProjectEngine {
       templateId: "", // Legacy, no longer used for library lookup
       progress: 0,
       target: target,
+      requirements: requirements,
       guidanceTierId: guidanceTierId,
       isCompleted: false,
     };

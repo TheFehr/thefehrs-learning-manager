@@ -59,7 +59,7 @@ describe("ProjectEngine", () => {
       const actor = new Actor() as any;
       const createdItem = new Item() as any;
       createdItem.getFlag.mockImplementation((scope: string, key: string) => {
-        if (key === "") return { projectData: { target: 10 } };
+        if (key === "") return { projectData: { target: 10, requirements: [] } };
         return null;
       });
       actor.createEmbeddedDocuments = vi.fn().mockResolvedValue([createdItem]);
@@ -74,7 +74,7 @@ describe("ProjectEngine", () => {
         effects: [],
       });
       rewardItem.getFlag.mockImplementation((scope: string, key: string) => {
-        if (key === "") return { projectData: { target: 10 } };
+        if (key === "") return { projectData: { target: 10, requirements: [] } };
         return null;
       });
 
@@ -93,6 +93,7 @@ describe("ProjectEngine", () => {
               projectData: expect.objectContaining({
                 progress: 0,
                 target: 10,
+                requirements: expect.any(Array),
               }),
             }),
           }),
@@ -137,7 +138,10 @@ describe("ProjectEngine", () => {
 
     it("should skip injection if target is 0", async () => {
       const item = new Item() as any;
-      item.getFlag.mockReturnValue({ target: 0 });
+      item.getFlag.mockImplementation((scope: string, key: string) => {
+        if (key === "") return { projectData: { target: 0 } };
+        return null;
+      });
 
       await ProjectEngine.injectActivities(item);
       expect(item.update).not.toHaveBeenCalled();

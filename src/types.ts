@@ -47,6 +47,7 @@ export interface LearningProject {
   templateId: string;
   progress: number;
   target: number;
+  requirements: ProjectRequirement[];
   guidanceTierId: string;
   isCompleted: boolean;
 }

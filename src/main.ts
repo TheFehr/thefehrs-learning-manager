@@ -67,6 +67,14 @@ export class TheFehrsLearningManager {
       if (isLearningSection || isGroupSheet) {
         fromUuid(data.uuid).then((item) => {
           if (item instanceof Item) {
+            const flags = (item.getFlag(this.ID, "") as any) || {};
+            const requirements = flags.projectData?.requirements || [];
+            const { eligible, reason } = TabLogic.meetsRequirements(actor, requirements);
+
+            if (!eligible) {
+              return ui.notifications?.warn(`Requirements not met for ${item.name}: ${reason}`);
+            }
+
             ProjectEngine.initiateProjectFromItem(actor, item);
           }
         });
