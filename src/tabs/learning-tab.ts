@@ -3,7 +3,17 @@ import { ActorProxy } from "../actor-proxy";
 import { TabLogic } from "./tab-logic";
 
 export class LearningTab {
-  static async getData(actor: Actor) {
+  static getData(actor: Actor) {
+    if (!actor) {
+      return {
+        formattedBank: "0",
+        timeUnits: [],
+        activeProjects: [],
+        completedProjects: [],
+        library: [],
+        isGM: game.user?.isGM,
+      };
+    }
     const proxy = ActorProxy.forActor(actor);
     const timeUnits = Settings.timeUnits;
     const bank = proxy.bank;

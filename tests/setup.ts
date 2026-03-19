@@ -17,7 +17,6 @@ globalThis.foundry = {
       ApplicationV2: class {
         render = vi.fn();
       },
-      HandlebarsApplicationMixin: (base: any) => base,
     },
   },
   utils: {
@@ -115,10 +114,6 @@ globalThis.ActiveEffect = class {} as any;
 globalThis.Hooks = {
   on: vi.fn(),
   once: vi.fn(),
-} as any;
-
-globalThis.Handlebars = {
-  registerHelper: vi.fn(),
 } as any;
 
 globalThis.ui = {

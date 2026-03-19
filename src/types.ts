@@ -115,36 +115,25 @@ export interface Tidy5eTabRenderParams {
   data: unknown;
 }
 
-export interface Tidy5eHandlebarsTabOptions {
-  title: string;
-  tabId: string;
-  path: string;
-  iconClass?: string;
-  getData?: (data: Tidy5eTabGetDataParams) => Promise<unknown> | unknown;
-  onRender?: (params: Tidy5eTabRenderParams) => void;
-}
-
-// Represents the instantiated tab object created by new api.models.HandlebarsTab()
 export interface Tidy5eRegisteredTab {
   tabId: string;
   // ... internal Tidy properties, strictly opaque to us
 }
 
-export interface Tidy5eSvelteTabOptions {
+export interface Tidy5eHtmlTabOptions {
   title: string;
   tabId: string;
-  component: any;
+  html: string;
   iconClass?: string;
   getData?: (data: Tidy5eTabGetDataParams) => Promise<unknown> | unknown;
   onRender?: (params: Tidy5eTabRenderParams) => void;
-  getContext?: (data: Tidy5eTabGetDataParams) => Promise<Record<string, any>> | Record<string, any>;
 }
 
 export interface Tidy5eApi {
   registerCharacterTab: (tab: Tidy5eRegisteredTab) => void;
   registerGroupTab: (tab: Tidy5eRegisteredTab) => void;
+  registerActorTab: (tab: Tidy5eRegisteredTab) => void;
   models: {
-    HandlebarsTab: new (options: Tidy5eHandlebarsTabOptions) => Tidy5eRegisteredTab;
-    SvelteTab: new (options: Tidy5eSvelteTabOptions) => Tidy5eRegisteredTab;
+    HtmlTab: new (options: Tidy5eHtmlTabOptions) => Tidy5eRegisteredTab;
   };
 }

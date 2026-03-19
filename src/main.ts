@@ -9,14 +9,16 @@ import type {
 } from "./types";
 import { LearningConfigApp } from "./settings-app";
 import { Settings } from "./settings";
-import { LearningTab } from "./tabs/learning-tab";
+import { LearningTab as LearningTabLogic } from "./tabs/learning-tab";
 import { PartyTab as PartyTabLogic } from "./tabs/party-tab";
 import PartyTab from "./tabs/PartyTab.svelte";
+import LearningTab from "./tabs/LearningTab.svelte";
 import { migrateData } from "./migration";
-import "./styles/module.scss";
+import { mount, unmount } from "svelte";
 
 export class TheFehrsLearningManager {
   static ID = "thefehrs-learning-manager" as const;
+  static svelteInstances = new Map<string | number, any>();
 
   static init() {
     this.registerSettings();
@@ -30,34 +32,73 @@ export class TheFehrsLearningManager {
       restricted: true,
     });
 
-    Hooks.on("tidy5e-sheet.ready" as any, (api: Tidy5eApi) => {
+    Hooks.once("tidy5e-sheet.ready" as any, (api: Tidy5eApi) => {
+      console.debug("Downtime Engine | Tidy5e API ready, registering tabs");
+
       api.registerCharacterTab(
-        new api.models.HandlebarsTab({
+        new api.models.HtmlTab({
           title: "Learning",
           iconClass: "fa-solid fa-book-open-cover",
           tabId: "thefehrs-learning-tab",
-          path: `modules/${this.ID}/templates/learning-tab.hbs`,
-          getData: async (data: Tidy5eTabGetDataParams) => await LearningTab.getData(data.actor),
+          html: '<div class="downtime-engine-svelte-root tidy5e-sheet tidy-sheet-body tab-content" style="height: 100%; display: flex; flex-direction: column;"></div>',
           onRender: (params: Tidy5eTabRenderParams) => {
-            const sheetActor = params.app.document || params.app.actor;
-            if (sheetActor) LearningTab.activateListeners(params.element, sheetActor);
+            const appId = params.app.appId;
+            const target = params.element.querySelector(".downtime-engine-svelte-root");
+            if (!target) return;
+
+            if (this.svelteInstances.has(appId)) {
+              unmount(this.svelteInstances.get(appId));
+              this.svelteInstances.delete(appId);
+            }
+
+            const actor = params.app.document || params.app.actor;
+            if (!actor) return;
+
+            const instance = mount(LearningTab, {
+              target: target,
+              props: { actor },
+            });
+
+            this.svelteInstances.set(appId, instance);
           },
         }),
       );
 
-      api.registerGroupTab(
-        new api.models.SvelteTab({
+      api.registerActorTab(
+        new api.models.HtmlTab({
           title: "Group Learning",
           iconClass: "fa-solid fa-book-open-cover",
           tabId: "thefehrs-party-tab",
-          component: PartyTab,
-          getContext: async (data: Tidy5eTabGetDataParams) => {
-            const actor = data.actor as DowntimeGroupActor;
-            const partyData = await PartyTabLogic.getData(actor);
-            return {
+          html: '<div class="downtime-engine-svelte-root tidy5e-sheet tidy-sheet-body tab-content" style="height: 100%; display: flex; flex-direction: column;"></div>',
+          onRender: (params: Tidy5eTabRenderParams) => {
+            const appId = params.app.appId;
+            const target = params.element.querySelector(".downtime-engine-svelte-root");
+            if (!target) return;
+
+            // Unmount existing instance to prevent duplicates and memory leaks
+            if (this.svelteInstances.has(appId)) {
+              unmount(this.svelteInstances.get(appId));
+              this.svelteInstances.delete(appId);
+            }
+
+            const actor = params.app.document || params.app.actor;
+            if (!actor) {
+              console.warn("Downtime Engine | Could not extract Actor for Party Tab");
+              return;
+            }
+
+            const partyData = PartyTabLogic.getData(actor as DowntimeGroupActor);
+            const props = {
               ...partyData,
               actor,
             };
+
+            const instance = mount(PartyTab, {
+              target: target,
+              props: props,
+            });
+
+            this.svelteInstances.set(appId, instance);
           },
         }),
       );
@@ -118,6 +159,14 @@ export class TheFehrsLearningManager {
 }
 
 Hooks.once("init", () => TheFehrsLearningManager.init());
+
+Hooks.on("closeApplication", (app: any) => {
+  if (TheFehrsLearningManager.svelteInstances.has(app.appId)) {
+    unmount(TheFehrsLearningManager.svelteInstances.get(app.appId));
+    TheFehrsLearningManager.svelteInstances.delete(app.appId);
+  }
+});
+
 Hooks.once("ready", async () => {
   console.debug("Downtime Engine | Initialized");
   await migrateData();

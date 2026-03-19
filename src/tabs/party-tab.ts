@@ -4,7 +4,14 @@ import { TabLogic } from "./tab-logic";
 import type { DowntimeGroupActor, TimeUnit } from "../types";
 
 export class PartyTab {
-  static async getData(partyActor: DowntimeGroupActor) {
+  static getData(partyActor: DowntimeGroupActor) {
+    if (!partyActor?.system) {
+      return {
+        members: [],
+        tierOptions: {},
+        isGM: game.user?.isGM,
+      };
+    }
     const rawMembers = partyActor.system.members || [];
     const timeUnits = Settings.timeUnits;
     const tiers = Settings.guidanceTiers;
