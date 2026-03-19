@@ -7,28 +7,25 @@ export class ProjectEngine {
    * Stashes an item as a learning project.
    * Wipes Active Effects and Activities, then appends the isLearningProject flag.
    */
-  static async initiateProject(
+  static async initiateProjectFromItem(
     actor: Actor,
-    template: ProjectTemplate,
-    guidanceTierId: string,
+    rewardDoc: Item,
+    guidanceTierId: string = "",
   ): Promise<Item | null> {
-    const rewardDoc = await fromUuid(template.rewardUuid as any);
-    if (!rewardDoc || !(rewardDoc instanceof Item)) {
-      ui.notifications?.error("Reward item not found or invalid type.");
-      return null;
-    }
-
     const itemData = rewardDoc.toObject();
     const stashedEffects = itemData.effects || [];
     const stashedActivities = itemData.system.activities || {};
     const stashedType = itemData.type;
 
+    const flags = (rewardDoc.getFlag(Settings.ID, "") as any) || {};
+    const target = flags.projectData?.target ?? 0;
+
     // Prepare item data for stashing
     const projectData: LearningProject = {
       id: foundry.utils.randomID(),
-      templateId: template.id,
+      templateId: "", // Legacy, no longer used for library lookup
       progress: 0,
-      target: template.target,
+      target: target,
       guidanceTierId: guidanceTierId,
       isCompleted: false,
     };
@@ -59,6 +56,14 @@ export class ProjectEngine {
    * Injects training activities into a project item based on world settings.
    */
   static async injectActivities(item: Item) {
+    const flags = (item.getFlag(Settings.ID, "") as any) || {};
+    const target = flags.projectData?.target ?? 0;
+
+    if (target <= 0) {
+      console.debug("Downtime Engine | Skipping activity injection for item with no target.");
+      return;
+    }
+
     const timeUnits = Settings.timeUnits;
     const activities: Record<string, any> = {};
 
@@ -185,6 +190,9 @@ export class ProjectEngine {
     if (!flags?.isLearningProject) return;
 
     const projectData = flags.projectData as LearningProject;
+    if (!projectData.target || projectData.target <= 0) {
+      return ui.notifications?.warn("This project is awaiting a GM-defined target progress.");
+    }
 
     const tu = Settings.timeUnits.find((u) => u.id === timeUnitId);
     if (!tu) return;

@@ -149,6 +149,7 @@ export interface Tidy5eCharacterFeatureSectionOptions {
 
 export interface Tidy5eApi {
   registerCharacterTab: (tab: Tidy5eRegisteredTab) => void;
+  registerItemTab: (tab: Tidy5eRegisteredTab) => void;
   registerGroupTab: (tab: Tidy5eRegisteredTab) => void;
   registerActorTab: (tab: Tidy5eRegisteredTab) => void;
   registerCharacterFeatureSection: (

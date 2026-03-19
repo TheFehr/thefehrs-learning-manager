@@ -37,6 +37,7 @@ describe("TheFehrsLearningManager", () => {
     it("should register settings, menus and tabs", () => {
       const api = {
         registerActorTab: vi.fn(),
+        registerItemTab: vi.fn(),
         models: {
           HtmlTab: class {
             constructor(public opts: any) {}

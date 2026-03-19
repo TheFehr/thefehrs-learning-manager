@@ -11,6 +11,7 @@ import { LearningConfigApp } from "./settings-app";
 import { Settings } from "./settings";
 import { PartyTab as PartyTabLogic } from "./tabs/party-tab";
 import PartyTab from "./tabs/PartyTab.svelte";
+import ItemTargetConfig from "./tabs/ItemTargetConfig.svelte";
 import { migrateData } from "./migration";
 import { mount, unmount } from "svelte";
 import { ProjectEngine } from "./project-engine";
@@ -48,6 +49,38 @@ export class TheFehrsLearningManager {
       }
     });
 
+    Hooks.on("dropActorSheetData", (actor: Actor, data: any) => {
+      if (data.type !== "Item" || !data.uuid) return true;
+
+      const isCompendium = data.uuid.startsWith("Compendium.");
+      if (!isCompendium) return true;
+
+      const parts = data.uuid.split(".");
+      const packId = `${parts[1]}.${parts[2]}`;
+      const allowed = Settings.allowedCompendiums;
+
+      if (!allowed.includes(packId)) return true;
+
+      // Check if dropped on our section or Group Sheet
+      // We can look at the event target if it exists
+      const event = (window as any).event as DragEvent | undefined;
+      const target = event?.target as HTMLElement | undefined;
+
+      const isLearningSection = !!target?.closest('[data-tidy-section*="learningProject"]');
+      const isGroupSheet = !!target?.closest(".thefehrs-party-tab");
+
+      if (isLearningSection || isGroupSheet) {
+        fromUuid(data.uuid).then((item) => {
+          if (item instanceof Item) {
+            ProjectEngine.initiateProjectFromItem(actor, item);
+          }
+        });
+        return false; // Stop standard drop
+      }
+
+      return true;
+    });
+
     Hooks.once("tidy5e-sheet.ready" as any, (api: Tidy5eApi) => {
       console.debug("Downtime Engine | Tidy5e API ready, registering tabs");
 
@@ -83,6 +116,37 @@ export class TheFehrsLearningManager {
             const instance = mount(PartyTab, {
               target: target,
               props: props,
+            });
+
+            this.svelteInstances.set(appId, instance);
+          },
+        }),
+      );
+
+      api.registerItemTab(
+        new api.models.HtmlTab({
+          title: "Learning",
+          iconClass: "fa-solid fa-book-open-cover",
+          tabId: `${this.ID}-item-target-config`,
+          html: '<div class="downtime-engine-svelte-root" style="height: 100%;"></div>',
+          onRender: (params: Tidy5eTabRenderParams) => {
+            if (!game.user?.isGM) return;
+
+            const appId = params.app.appId;
+            const target = params.element.querySelector(".downtime-engine-svelte-root");
+            if (!target) return;
+
+            if (this.svelteInstances.has(appId)) {
+              unmount(this.svelteInstances.get(appId));
+              this.svelteInstances.delete(appId);
+            }
+
+            const item = params.app.document || params.app.actor;
+            if (!item) return;
+
+            const instance = mount(ItemTargetConfig, {
+              target: target,
+              props: { item },
             });
 
             this.svelteInstances.set(appId, instance);

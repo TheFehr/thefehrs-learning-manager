@@ -115,11 +115,30 @@
       const flags = item.getFlag(Settings.ID, "" as any) as any;
       const projectData = flags.projectData;
 
-      projectData.progress = Math.max(0, Math.min(newProgress, projectData.target));
-      if (projectData.progress >= projectData.target && !projectData.isCompleted) {
+      projectData.progress = Math.max(0, Math.min(newProgress, projectData.target || 0));
+      if (projectData.target > 0 && projectData.progress >= projectData.target && !projectData.isCompleted) {
         await ProjectEngine.completeProject(item);
       } else {
         await item.update({ "flags.thefehrs-learning-manager.projectData": projectData });
+      }
+    }
+  }
+
+  async function updateTarget(actorId: string, project: any, newTarget: number) {
+    if (!isGM) return;
+    const targetActor = game.actors?.get(actorId) as Actor | undefined;
+    if (!targetActor) return;
+
+    const item = targetActor.items.get(project.id);
+    if (item) {
+      const flags = item.getFlag(Settings.ID, "" as any) as any;
+      const projectData = flags.projectData;
+      const oldTarget = projectData.target;
+      projectData.target = Math.max(0, newTarget);
+      await item.update({ "flags.thefehrs-learning-manager.projectData": projectData });
+
+      if (oldTarget <= 0 && projectData.target > 0) {
+        await ProjectEngine.injectActivities(item);
       }
     }
   }
@@ -264,36 +283,57 @@
                                         data-tidy-sheet-part="table-cell"
                                         style="--tidy-table-column-width: min(30%, 250px);"
                                 >
-                                    <div class="hp-column-content" style="width: 100%;">
-                                        <div
-                                                class="meter progress"
-                                                style="--bar-percentage: {project.progressPercentage}%; --bar-adjusted: 0%; --bar-adjusted-background: var(--t5e-color-hp-temp); --bar-adjusted-content: '';"
-                                        ></div>
-                                        <div class="flexrow progress-container">
-                                            {#if isGM && isEditMode}
-                                                <input
-                                                        type="number"
-                                                        class="update-project-progress"
-                                                        value={project.progress}
-                                                        onchange={(e) =>
-                            updateProgress(
-                              member.id,
-                              project,
-                              parseInt(e.currentTarget.value) || 0,
-                            )}
-                                                        style="width: 50px; text-align: center; height: 1.25rem; z-index: 2;"
-                                                />
-                                            {:else}
-                        <span class="font-data-medium color-text-default value progress-read-only"
-                        >{project.progress}</span
-                        >
-                                            {/if}
-                                            <span class="font-body-medium color-text-lightest separator">/</span>
-                                            <span class="font-label-medium color-text-default max"
-                                            >{project.maxProgress}</span
-                                            >
+                                    {#if project.maxProgress <= 0}
+                                        <div class="awaiting-target-badge font-label-medium">
+                                            <i class="fas fa-exclamation-circle"></i> Awaiting GM Target
                                         </div>
-                                    </div>
+                                    {:else}
+                                        <div class="hp-column-content" style="width: 100%;">
+                                            <div
+                                                    class="meter progress"
+                                                    style="--bar-percentage: {project.progressPercentage}%; --bar-adjusted: 0%; --bar-adjusted-background: var(--t5e-color-hp-temp); --bar-adjusted-content: '';"
+                                            ></div>
+                                            <div class="flexrow progress-container">
+                                                {#if isGM && isEditMode}
+                                                    <input
+                                                            type="number"
+                                                            class="update-project-progress"
+                                                            value={project.progress}
+                                                            onchange={(e) =>
+                                updateProgress(
+                                  member.id,
+                                  project,
+                                  parseInt(e.currentTarget.value) || 0,
+                                )}
+                                                            style="width: 50px; text-align: center; height: 1.25rem; z-index: 2;"
+                                                    />
+                                                {:else}
+                            <span class="font-data-medium color-text-default value progress-read-only"
+                            >{project.progress}</span
+                            >
+                                                {/if}
+                                                <span class="font-body-medium color-text-lightest separator">/</span>
+                                                {#if isGM && isEditMode}
+                                                    <input
+                                                            type="number"
+                                                            class="update-project-target"
+                                                            value={project.maxProgress}
+                                                            onchange={(e) =>
+                                updateTarget(
+                                  member.id,
+                                  project,
+                                  parseInt(e.currentTarget.value) || 0,
+                                )}
+                                                            style="width: 50px; text-align: center; height: 1.25rem; z-index: 2;"
+                                                    />
+                                                {:else}
+                                                    <span class="font-label-medium color-text-default max"
+                                                    >{project.maxProgress}</span
+                                                    >
+                                                {/if}
+                                            </div>
+                                        </div>
+                                    {/if}
                                 </div>
 
                                 <div
@@ -440,6 +480,18 @@
         width: 100%;
         position: relative;
         height: var(--meter-height, 1.5rem);
+      }
+
+      .awaiting-target-badge {
+        background: var(--t5e-warning-accent-color);
+        color: var(--t5e-color-inverse);
+        padding: 2px 8px;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 0.75rem;
+        white-space: nowrap;
       }
 
       .progress-container {
