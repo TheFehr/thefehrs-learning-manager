@@ -2,6 +2,13 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { migrateData } from "../src/migration";
 import { TheFehrsLearningManager } from "../src/main";
 import { ActorsCollection } from "./setup";
+import { ProjectEngine } from "../src/project-engine";
+
+vi.mock("../src/project-engine", () => ({
+  ProjectEngine: {
+    createProjectItem: vi.fn(),
+  },
+}));
 
 describe("Data Migration", () => {
   beforeEach(() => {
@@ -226,8 +233,8 @@ describe("Data Migration", () => {
     );
   });
 
-  it("should skip migration if version is already 3 or higher", async () => {
-    vi.mocked(game.settings.get).mockReturnValue(3);
+  it("should skip migration if version is already 4 or higher", async () => {
+    vi.mocked(game.settings.get).mockReturnValue(4);
 
     await migrateData();
 
@@ -237,6 +244,86 @@ describe("Data Migration", () => {
       "migrationVersion",
       expect.anything(),
     );
+  });
+
+  describe("v4 Migration (Flags to Items)", () => {
+    it("should convert flag projects to items and clear flags", async () => {
+      const timeUnits = [{ id: "hour", name: "Hour", short: "h", isBulk: false, ratio: 1 }];
+
+      vi.mocked(game.settings.get).mockImplementation((_scope, key) => {
+        if (key === "migrationVersion") return 3;
+        if (key === "timeUnits") return timeUnits;
+        if (key === "projectTemplates")
+          return [
+            {
+              id: "tpl1",
+              name: "Project 1",
+              target: 10,
+              rewardUuid: "Item.123",
+              rewardType: "item",
+              requirements: [],
+            },
+          ];
+        if (key === "guidanceTiers") return [];
+        return null;
+      });
+
+      const actor = new Actor() as any;
+      actor.id = "actor1";
+      actor.flags = {
+        [TheFehrsLearningManager.ID]: {
+          projects: [{ id: "p1", templateId: "tpl1", progress: 5, guidanceTierId: "" }],
+        },
+      };
+      (game.actors as any[]).push(actor);
+
+      // Mock fromUuid to return a base item for the template
+      global.fromUuid = vi.fn().mockResolvedValue({
+        toObject: () => ({ name: "Reward", system: { activities: {} }, effects: [] }),
+      });
+
+      // Mock compendium
+      game.packs = {
+        get: vi.fn().mockReturnValue({}),
+      } as any;
+
+      await migrateData();
+
+      // Should have created an item via ProjectEngine
+      expect(ProjectEngine.createProjectItem).toHaveBeenCalled();
+
+      // Should have cleared projects flag
+      expect(actor.setFlag).toHaveBeenCalledWith(TheFehrsLearningManager.ID, "projects", []);
+
+      // Should have updated version to 4
+      expect(game.settings.set).toHaveBeenCalledWith(
+        TheFehrsLearningManager.ID,
+        "migrationVersion",
+        4,
+      );
+    });
+
+    it("should create a compendium if it doesn't exist", async () => {
+      vi.mocked(game.settings.get).mockImplementation((_scope, key) => {
+        if (key === "migrationVersion") return 3;
+        if (key === "timeUnits") return [];
+        if (key === "projectTemplates") return [];
+        return null;
+      });
+
+      game.packs = {
+        get: vi.fn().mockReturnValue(undefined),
+      } as any;
+
+      await migrateData();
+
+      expect(CompendiumCollection.createCompendium).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: "ude-migration",
+          type: "Item",
+        }),
+      );
+    });
   });
 
   it("should skip migration if user is not GM", async () => {

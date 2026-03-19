@@ -4,7 +4,7 @@ import type { LearningProject } from "./types";
 
 export async function migrateData() {
   let version = Settings.migrationVersion;
-  if (version >= 3 || !game.user?.isGM) return;
+  if (version >= 4 || !game.user?.isGM) return;
 
   if (version < 1) {
     ui.notifications?.info("Migrating Downtime Engine projects to relational schema...");
