@@ -15,11 +15,12 @@ globalThis.foundry = {
   applications: {
     api: {
       ApplicationV2: class {
-        render = vi.fn();
+        async close(_options = {}) {}
       },
       HandlebarsApplicationMixin: (Base: any) => class extends Base {},
     },
   },
+  utils: {},
   utils: {
     randomID: vi.fn().mockReturnValue("randomid"),
     expandObject: vi.fn((obj: any) => {
@@ -156,3 +157,8 @@ globalThis.CONFIG = {
     featureTypes: {},
   },
 } as any;
+
+vi.mock("svelte", () => ({
+  mount: vi.fn(),
+  unmount: vi.fn(),
+}));

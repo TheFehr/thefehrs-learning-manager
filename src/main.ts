@@ -23,11 +23,6 @@ export class TheFehrsLearningManager {
   static init() {
     this.registerSettings();
 
-    Handlebars.registerHelper("includes", function (array: any[], value: any) {
-      if (!Array.isArray(array)) return false;
-      return array.includes(value);
-    });
-
     (CONFIG as any).DND5E.featureTypes.learningProject = {
       label: "In-Progress Learning",
     };
