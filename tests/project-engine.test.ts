@@ -201,4 +201,30 @@ describe("ProjectEngine", () => {
       );
     });
   });
+
+  describe("syncAllProjectActivities", () => {
+    it("should regenerate activities for all learning projects", async () => {
+      const item = new Item() as any;
+      item.getFlag.mockImplementation((scope: string, key: string) => {
+        if (key === "isLearningProject") return true;
+        if (key === "") return { projectData: { target: 10 } };
+        return null;
+      });
+
+      const actor = new Actor() as any;
+      actor.items = [item];
+      game.actors = [actor] as any;
+      game.user.isGM = true;
+
+      await ProjectEngine.syncAllProjectActivities();
+
+      expect(item.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          system: expect.objectContaining({
+            activities: expect.any(Object),
+          }),
+        }),
+      );
+    });
+  });
 });

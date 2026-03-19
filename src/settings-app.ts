@@ -14,6 +14,14 @@ export class LearningConfigApp extends ApplicationV2 {
 
   private svelteInstance: any = null;
 
+  protected override async _renderHTML(context: any, options: any): Promise<any> {
+    return ""; // Svelte handles the DOM
+  }
+
+  protected override _replaceHTML(result: any, content: HTMLElement, options: any): void {
+    // No-op, Svelte handles the content
+  }
+
   protected override _onRender(context: any, options: any) {
     const target = this.element.querySelector(".window-content") || this.element;
 
