@@ -7,8 +7,8 @@ export class Settings {
     return game.settings;
   }
 
-  static get migrationVersion(): number {
-    return (this.settings.get(this.ID, "migrationVersion") as any) || 0;
+  static get migrationVersion(): string {
+    return (this.settings.get(this.ID, "migrationVersion") as any)?.toString() || "0";
   }
 
   static get rules(): SystemRules {
@@ -43,7 +43,7 @@ export class Settings {
     this.settings.registerMenu(this.ID, key as any, data);
   }
 
-  static async setMigrationVersion(value: number): Promise<void> {
+  static async setMigrationVersion(value: string): Promise<void> {
     await this.settings.set(this.ID, "migrationVersion", value);
   }
 

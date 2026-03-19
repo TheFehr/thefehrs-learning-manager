@@ -2,14 +2,34 @@ import { Settings } from "./settings";
 import { ActorProxy } from "./actor-proxy";
 import type { LearningProject } from "./types";
 
+/**
+ * Compares two version strings (semver-like) or numbers.
+ * Returns true if v1 > v2.
+ */
+function isNewerVersion(v1: string | number, v2: string | number): boolean {
+  if (typeof v1 === "number" && typeof v2 === "number") return v1 > v2;
+
+  const s1 = String(v1).split(".");
+  const s2 = String(v2).split(".");
+
+  for (let i = 0; i < Math.max(s1.length, s2.length); i++) {
+    const n1 = parseInt(s1[i] || "0");
+    const n2 = parseInt(s2[i] || "0");
+    if (n1 > n2) return true;
+    if (n1 < n2) return false;
+  }
+  return false;
+}
+
 export async function migrateData() {
   let version = Settings.migrationVersion;
-  if (version >= 5 || !game.user?.isGM) return;
+  if (!game.user?.isGM) return;
 
-  if (version < 1) {
+  // v1: Relational Schema
+  if (!isNewerVersion(version, 0) && isNewerVersion("1.0.0", version)) {
     ui.notifications?.info("Migrating Downtime Engine projects to relational schema...");
     try {
-      const library = Settings.projectTemplates;
+      const library = (game.settings.get(Settings.ID, "projectTemplates") as any[]) || [];
       let libraryUpdated = false;
       const failures: { actorId: string; error: any }[] = [];
 
@@ -68,11 +88,10 @@ export async function migrateData() {
       }
 
       if (libraryUpdated) {
-        // Use raw set if unregistered
         await game.settings.set(Settings.ID, "projectTemplates", library);
       }
-      await Settings.setMigrationVersion(1);
-      version = 1;
+      await Settings.setMigrationVersion("1.0.0");
+      version = "1.0.0";
 
       if (failures.length > 0) {
         ui?.notifications?.warn(
@@ -88,7 +107,8 @@ export async function migrateData() {
     }
   }
 
-  if (version < 2) {
+  // v2: GP to CP costs
+  if (!isNewerVersion(version, "1.0.0") && isNewerVersion("1.1.0", version)) {
     ui.notifications?.info("Migrating Downtime Engine guidance costs from gp to cp...");
     try {
       const tiers = Settings.guidanceTiers;
@@ -105,16 +125,17 @@ export async function migrateData() {
       if (tiersUpdated) {
         await Settings.setGuidanceTiers(tiers);
       }
-      await Settings.setMigrationVersion(2);
-      version = 2;
+      await Settings.setMigrationVersion("1.1.0");
+      version = "1.1.0";
       ui?.notifications?.info("Downtime Engine guidance costs migrated to cp successfully!");
     } catch (error) {
-      console.error("Downtime Engine migration to v2 failed:", error);
-      ui?.notifications?.error("Migration to v2 failed. Please check the console for details.");
+      console.error("Downtime Engine migration to v1.1.0 failed:", error);
+      ui?.notifications?.error("Migration to v1.1.0 failed. Please check the console for details.");
     }
   }
 
-  if (version < 3) {
+  // v3: Default Crit Rules
+  if (!isNewerVersion(version, "1.1.0") && isNewerVersion("1.2.0", version)) {
     ui.notifications?.info("Migrating Downtime Engine critical hit rules...");
     try {
       const rules = Settings.rules || { method: "roll" };
@@ -123,17 +144,18 @@ export async function migrateData() {
         rules.critThreshold = 10;
         await Settings.setRules(rules);
       }
-      await Settings.setMigrationVersion(3);
-      version = 3;
+      await Settings.setMigrationVersion("1.2.0");
+      version = "1.2.0";
       ui?.notifications?.info("Downtime Engine critical hit rules migrated successfully!");
     } catch (error) {
-      console.error("Downtime Engine migration to v3 failed:", error);
-      ui?.notifications?.error("Migration to v3 failed. Please check the console for details.");
+      console.error("Downtime Engine migration to v1.2.0 failed:", error);
+      ui?.notifications?.error("Migration to v1.2.0 failed. Please check the console for details.");
     }
   }
 
-  if (version < 4) {
-    ui.notifications?.info("Migrating Downtime Engine projects to native Item documents...");
+  // 2.0.0: Native Items & Template-less Model (Merged v4 & v5)
+  if (!isNewerVersion(version, "1.2.0") && isNewerVersion("2.0.0", version)) {
+    ui.notifications?.info("Migrating Downtime Engine projects to native Items (v2.0.0)...");
     try {
       const { ProjectEngine } = await import("./project-engine");
       const compendiumLabel = "UDE Migration";
@@ -149,28 +171,29 @@ export async function migrateData() {
         })) as any;
       }
 
+      const templates = (game.settings.get(Settings.ID, "projectTemplates") as any[]) || [];
       const actors = (game.actors || []) as any[];
+
+      let migratedCount = 0;
       let totalProjects = 0;
+
+      // Count for progress bar
       for (const actor of actors) {
         const proxy = ActorProxy.forActor(actor);
         totalProjects += proxy.projects.length;
       }
 
-      if (totalProjects === 0) {
-        await Settings.setMigrationVersion(4);
-        version = 4;
-      } else {
-        let migratedCount = 0;
-        for (const actor of actors) {
-          const proxy = ActorProxy.forActor(actor);
-          const projects = proxy.projects;
-          if (!projects || projects.length === 0) continue;
+      for (const actor of actors) {
+        // Step 1: Migrate legacy actor projects to Items (former v4)
+        const proxy = ActorProxy.forActor(actor);
+        const projects = proxy.projects;
 
+        if (projects.length > 0) {
           for (const p of projects) {
-            const tpl = (game.settings.get(Settings.ID, "projectTemplates") as any[]).find(
-              (t) => t.id === p.templateId,
-            );
+            const tpl = templates.find((t) => t.id === p.templateId);
             if (tpl) {
+              // Ensure target is injected during creation (former v5)
+              p.target = p.target ?? tpl.target;
               await ProjectEngine.createProjectItem(actor, tpl, p);
             }
             migratedCount++;
@@ -181,26 +204,7 @@ export async function migrateData() {
           await proxy.setProjects([]);
         }
 
-        await Settings.setMigrationVersion(4);
-        version = 4;
-        ui?.notifications?.info(`Successfully migrated ${migratedCount} projects to native Items!`);
-      }
-    } catch (error) {
-      console.error("Downtime Engine migration to v4 failed:", error);
-      ui?.notifications?.error("Migration to v4 failed. Please check the console for details.");
-    }
-  }
-
-  if (version < 5) {
-    ui.notifications?.info("Downtime Engine | Migrating template data to items...");
-    try {
-      // Fetch templates directly from settings (might be unregistered but data exists)
-      const templates = (game.settings.get(Settings.ID, "projectTemplates") as any[]) || [];
-      const actors = (game.actors || []) as any[];
-
-      let updatedCount = 0;
-      for (const actor of actors) {
-        // 1. Migrate item projects
+        // Step 2: Ensure all existing Item-projects have targets (former v5 for already-v4-migrated items)
         const learningItems = actor.items.filter(
           (i: any) =>
             i.getFlag(Settings.ID, "isLearningProject") ||
@@ -217,25 +221,16 @@ export async function migrateData() {
               await item.update({
                 [`flags.${Settings.ID}.projectData`]: projectData,
               });
-              updatedCount++;
             }
           }
         }
-
-        // 2. Clear legacy actor projects
-        const proxy = ActorProxy.forActor(actor);
-        if (proxy.projects.length > 0) {
-          await proxy.setProjects([]);
-        }
       }
 
-      await Settings.setMigrationVersion(5);
-      ui?.notifications?.info(
-        `Successfully migrated ${updatedCount} items to template-less model!`,
-      );
+      await Settings.setMigrationVersion("2.0.0");
+      ui?.notifications?.info(`Successfully migrated to v2.0.0!`);
     } catch (error) {
-      console.error("Downtime Engine migration to v5 failed:", error);
-      ui?.notifications?.error("Migration to v5 failed. Please check the console for details.");
+      console.error("Downtime Engine migration to v2.0.0 failed:", error);
+      ui?.notifications?.error("Migration to v2.0.0 failed. Please check the console for details.");
     }
   }
 }
