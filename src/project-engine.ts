@@ -17,9 +17,9 @@ export class ProjectEngine {
     const stashedActivities = itemData.system.activities || {};
     const stashedType = itemData.type;
 
-    const flags = (rewardDoc.getFlag(Settings.ID, "") as any) || {};
-    const target = flags.projectData?.target ?? 0;
-    const requirements = flags.projectData?.requirements ?? [];
+    const projectDataFlags = (rewardDoc.getFlag(Settings.ID, "projectData") as any) || {};
+    const target = projectDataFlags.target ?? 0;
+    const requirements = projectDataFlags.requirements ?? [];
 
     // Prepare item data for stashing
     const projectData: LearningProject = {
@@ -59,38 +59,18 @@ export class ProjectEngine {
     console.debug(
       `Downtime Engine | Created embedded item "${created.name}" (ID: ${created.id}). Injecting activities...`,
     );
-    await this.injectActivities(created as any);
+    await this.injectActivities(created as any, projectData.target);
     return created as any;
   }
 
   /**
-   * Injects training activities into a project item based on world settings.
+   * Generates training activities data based on world settings.
    */
-  static async injectActivities(item: Item) {
-    const flags = (item.getFlag(Settings.ID, "") as any) || {};
-    const target = flags.projectData?.target ?? 0;
-
-    console.debug(`Downtime Engine | injectActivities for "${item.name}" (ID: ${item.id})`, {
-      target,
-      flags,
-    });
-
-    if (target <= 0) {
-      console.warn(
-        `Downtime Engine | Skipping activity injection for "${item.name}" - target is ${target}`,
-      );
-      return;
-    }
+  static getActivitiesData(target: number): any[] {
+    if (target <= 0) return [];
 
     const timeUnits = Settings.timeUnits;
-    console.debug(`Downtime Engine | Found ${timeUnits.length} time units in settings`);
-
-    if (timeUnits.length === 0) {
-      console.error("Downtime Engine | No time units configured in settings!");
-      return;
-    }
-
-    const activitiesData = timeUnits.map((tu) => ({
+    return timeUnits.map((tu) => ({
       type: "utility",
       name: `Train ${tu.name}`,
       img: "icons/skills/trades/book-writing-quill.webp",
@@ -111,6 +91,31 @@ export class ProjectEngine {
         },
       },
     }));
+  }
+
+  /**
+   * Injects training activities into a project item based on world settings.
+   */
+  static async injectActivities(item: Item, forceTarget?: number) {
+    const projectData = (item.getFlag(Settings.ID, "projectData") as any) || {};
+    const target = forceTarget ?? projectData.target ?? 0;
+
+    console.debug(`Downtime Engine | DEBUG: injectActivities call for "${item.name}"`, {
+      itemId: item.id,
+      itemType: item.type,
+      forceTarget,
+      extractedProjectData: projectData,
+    });
+
+    const activitiesData = this.getActivitiesData(target);
+
+    if (activitiesData.length === 0) {
+      console.warn(
+        `Downtime Engine | Skipping activity injection for "${item.name}" - target is ${target}. Full flag state:`,
+        (item as any).flags?.[Settings.ID],
+      );
+      return;
+    }
 
     console.debug(`Downtime Engine | Creating ${activitiesData.length} Activity documents...`);
     try {
@@ -177,7 +182,7 @@ export class ProjectEngine {
       console.debug(
         `Downtime Engine | Created project item "${created.name}" (ID: ${created.id}). Injecting activities...`,
       );
-      await this.injectActivities(created as any);
+      await this.injectActivities(created as any, projectDataWithTarget.target);
     }
     return created as any;
   }
@@ -186,24 +191,24 @@ export class ProjectEngine {
    * Restores a project item to its original state upon completion.
    */
   static async completeProject(item: Item) {
-    const flags = item.getFlag(Settings.ID, "" as any) as any;
-    if (!flags?.isLearningProject) return;
+    const isProject = item.getFlag(Settings.ID, "isLearningProject");
+    if (!isProject) return;
 
-    const projectData = {
-      ...flags.projectData,
-      isCompleted: true,
-      progress: flags.projectData.target,
-    };
+    const projectData = (item.getFlag(Settings.ID, "projectData") as any) || {};
 
     const updateData = {
-      type: flags.stashedType || item.type,
-      effects: flags.stashedEffects || [],
+      type: (item.getFlag(Settings.ID, "stashedType") as string) || item.type,
+      effects: (item.getFlag(Settings.ID, "stashedEffects") as any[]) || [],
       "system.type.value": null, // Will be overridden if stashedActivities restore it or if we restore system
-      "system.activities": flags.stashedActivities || {},
+      "system.activities": (item.getFlag(Settings.ID, "stashedActivities") as any) || {},
       "flags.thefehrs-learning-manager": {
         isLearningProject: false,
         isLearnedReward: true,
-        projectData,
+        projectData: {
+          ...projectData,
+          isCompleted: true,
+          progress: projectData.target,
+        },
         stashedEffects: null,
         stashedActivities: null,
         stashedType: null,
@@ -227,10 +232,10 @@ export class ProjectEngine {
     const actor = item.actor;
     if (!actor) return;
 
-    const flags = item.getFlag(Settings.ID, "" as any) as any;
-    if (!flags?.isLearningProject) return;
+    const isProject = item.getFlag(Settings.ID, "isLearningProject");
+    if (!isProject) return;
 
-    const projectData = flags.projectData as LearningProject;
+    const projectData = item.getFlag(Settings.ID, "projectData") as any as LearningProject;
     if (!projectData.target || projectData.target <= 0) {
       return ui.notifications?.warn("This project is awaiting a GM-defined target progress.");
     }

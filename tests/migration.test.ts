@@ -167,10 +167,10 @@ describe("Data Migration", () => {
 
       // Existing item-project without target (already partially migrated or from v4)
       const item = {
-        name: "Item Project",
+        name: "Test Item",
         getFlag: vi.fn().mockImplementation((scope, key) => {
           if (key === "isLearningProject") return true;
-          if (key === "") return { projectData: { templateId: "tpl1", progress: 2 } };
+          if (key === "projectData") return { templateId: "tpl1", progress: 5 };
           return null;
         }),
         update: vi.fn().mockResolvedValue({}),
@@ -178,11 +178,9 @@ describe("Data Migration", () => {
       actor.items = [item];
       (game.actors as any[]).push(actor);
 
-      global.fromUuid = vi
-        .fn()
-        .mockResolvedValue({
-          toObject: () => ({ name: "Reward", system: { activities: {} }, effects: [] }),
-        });
+      global.fromUuid = vi.fn().mockResolvedValue({
+        toObject: () => ({ name: "Reward", system: { activities: {} }, effects: [] }),
+      });
 
       await migrateData();
 

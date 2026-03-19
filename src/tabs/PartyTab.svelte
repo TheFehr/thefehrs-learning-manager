@@ -131,15 +131,22 @@
 
     const item = targetActor.items.get(project.id);
     if (item) {
-      const flags = item.getFlag(Settings.ID, "" as any) as any;
-      const projectData = flags.projectData;
+      const projectData = (item.getFlag(Settings.ID, "projectData") as any) || {};
       const oldTarget = projectData.target;
       projectData.target = Math.max(0, newTarget);
-      await item.update({ "flags.thefehrs-learning-manager.projectData": projectData });
+      console.debug(`Downtime Engine | updateTarget: Setting target to ${projectData.target} for ${item.name}`);
+      
+      const updateData: any = { "flags.thefehrs-learning-manager.projectData": projectData };
 
       if (oldTarget <= 0 && projectData.target > 0) {
-        await ProjectEngine.injectActivities(item);
+        console.debug(`Downtime Engine | target increased from 0 to ${projectData.target}. Generating activities...`);
+        const activitiesData = ProjectEngine.getActivitiesData(projectData.target);
+        if (activitiesData.length > 0) {
+           await item.createEmbeddedDocuments("Activity", activitiesData);
+        }
       }
+
+      await item.update(updateData);
     }
   }
 

@@ -60,7 +60,7 @@ describe("ProjectEngine", () => {
       const actor = new Actor() as any;
       const createdItem = new Item() as any;
       createdItem.getFlag.mockImplementation((scope: string, key: string) => {
-        if (key === "") return { projectData: { target: 10, requirements: [] } };
+        if (key === "projectData") return { target: 10, requirements: [] };
         return null;
       });
       actor.createEmbeddedDocuments = vi.fn().mockResolvedValue([createdItem]);
@@ -75,7 +75,7 @@ describe("ProjectEngine", () => {
         effects: [],
       });
       rewardItem.getFlag.mockImplementation((scope: string, key: string) => {
-        if (key === "") return { projectData: { target: 10, requirements: [] } };
+        if (key === "projectData") return { target: 10, requirements: [] };
         return null;
       });
 
@@ -112,7 +112,7 @@ describe("ProjectEngine", () => {
     it("should add training activities to the item", async () => {
       const item = new Item() as any;
       item.getFlag.mockImplementation((scope: string, key: string) => {
-        if (key === "") return { projectData: { target: 10 } };
+        if (key === "projectData") return { target: 10 };
         return null;
       });
 
@@ -139,7 +139,7 @@ describe("ProjectEngine", () => {
     it("should skip injection if target is 0", async () => {
       const item = new Item() as any;
       item.getFlag.mockImplementation((scope: string, key: string) => {
-        if (key === "") return { projectData: { target: 0 } };
+        if (key === "projectData") return { target: 0 };
         return null;
       });
 
@@ -172,14 +172,10 @@ describe("ProjectEngine", () => {
       item.type = "feat";
       item.getFlag = vi.fn().mockImplementation((_scope, key) => {
         if (key === "isLearningProject") return true;
-        if (key === "")
-          return {
-            isLearningProject: true,
-            projectData: { ...projectData },
-            stashedEffects: [],
-            stashedActivities: {},
-            stashedType: "weapon",
-          };
+        if (key === "projectData") return { ...projectData };
+        if (key === "stashedEffects") return [];
+        if (key === "stashedActivities") return {};
+        if (key === "stashedType") return "weapon";
         return null;
       });
       item.name = "Learning Item";
@@ -211,7 +207,7 @@ describe("ProjectEngine", () => {
       const item = new Item() as any;
       item.getFlag.mockImplementation((scope: string, key: string) => {
         if (key === "isLearningProject") return true;
-        if (key === "") return { projectData: { target: 10 } };
+        if (key === "projectData") return { target: 10 };
         return null;
       });
 
@@ -223,6 +219,19 @@ describe("ProjectEngine", () => {
       await ProjectEngine.syncAllProjectActivities();
 
       expect(item.createEmbeddedDocuments).toHaveBeenCalledWith("Activity", expect.any(Array));
+    });
+  });
+
+  describe("getActivitiesData", () => {
+    it("should return empty array for 0 target", () => {
+      const data = ProjectEngine.getActivitiesData(0);
+      expect(data).toHaveLength(0);
+    });
+
+    it("should return activities for positive target", () => {
+      vi.spyOn(Settings, "timeUnits", "get").mockReturnValue(timeUnits);
+      const data = ProjectEngine.getActivitiesData(10);
+      expect(data).toHaveLength(2);
     });
   });
 });

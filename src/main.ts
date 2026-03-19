@@ -87,8 +87,9 @@ export class TheFehrsLearningManager {
 
       fromUuid(data.uuid).then((item) => {
         if (item instanceof Item) {
-          const flags = (item.getFlag(TheFehrsLearningManager.ID, "") as any) || {};
-          const requirements = flags.projectData?.requirements || [];
+          const projectData =
+            (item.getFlag(TheFehrsLearningManager.ID, "projectData") as any) || {};
+          const requirements = projectData.requirements || [];
           const { eligible, reason } = TabLogic.meetsRequirements(targetActor, requirements);
 
           if (!eligible) {
@@ -98,7 +99,6 @@ export class TheFehrsLearningManager {
           ProjectEngine.initiateProjectFromItem(targetActor, item);
         }
       });
-
       return false; // Stop standard drop behavior completely
     });
 
@@ -150,9 +150,24 @@ export class TheFehrsLearningManager {
           iconClass: "fa-solid fa-book-open-cover",
           tabId: `${this.ID}-item-target-config`,
           html: '<div class="downtime-engine-svelte-root" style="height: 100%;"></div>',
-          onRender: (params: Tidy5eTabRenderParams) => {
-            if (!game.user?.isGM) return;
+          enabled: (params: any) => {
+            if (!game.user?.isGM) return false;
+            const item = params.app.document || params.app.actor;
+            if (!item) return false;
 
+            const isProject = item.getFlag(this.ID, "isLearningProject");
+            if (isProject) return true;
+
+            const uuid = item.uuid || "";
+            if (uuid.startsWith("Compendium.")) {
+              const parts = uuid.split(".");
+              const packId = `${parts[1]}.${parts[2]}`;
+              return Settings.allowedCompendiums.includes(packId);
+            }
+
+            return false;
+          },
+          onRender: (params: Tidy5eTabRenderParams) => {
             const appId = params.app.appId;
             const target = params.element.querySelector(".downtime-engine-svelte-root");
             if (!target) return;

@@ -42,14 +42,12 @@ describe("PartyTab", () => {
         name: "Learning Item",
         getFlag: vi.fn().mockImplementation((scope, key) => {
           if (key === "isLearningProject") return true;
-          if (key === "")
+          if (key === "projectData")
             return {
-              projectData: {
-                progress: 5,
-                target: 10,
-                guidanceTierId: "tier1",
-                isCompleted: false,
-              },
+              progress: 5,
+              target: 10,
+              guidanceTierId: "tier1",
+              isCompleted: false,
             };
           return null;
         }),

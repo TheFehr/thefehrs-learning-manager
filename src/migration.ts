@@ -212,8 +212,8 @@ export async function migrateData() {
         );
 
         for (const item of learningItems) {
-          const flags = item.getFlag(Settings.ID, "" as any) as any;
-          const projectData = flags?.projectData;
+          const projectData = item.getFlag(Settings.ID, "projectData") as any;
+          const isLearnedReward = item.getFlag(Settings.ID, "isLearnedReward");
           const updates: any = {};
 
           if (projectData && typeof projectData.target === "undefined") {
@@ -225,7 +225,7 @@ export async function migrateData() {
           }
 
           if (!item.getFlag("tidy5e-sheet", "section")) {
-            updates["flags.tidy5e-sheet.section"] = flags?.isLearnedReward
+            updates["flags.tidy5e-sheet.section"] = isLearnedReward
               ? "Completed Learning"
               : "In-Progress Learning";
           }

@@ -45,8 +45,8 @@ export class PartyTab {
           i.getFlag(Settings.ID, "isLearningProject") || i.getFlag(Settings.ID, "isLearnedReward"),
       )
       .map((i) => {
-        const flags = i.getFlag(Settings.ID, "" as any) as any;
-        const projectData = flags.projectData as LearningProject;
+        const projectData = (i.getFlag(Settings.ID, "projectData") as any) || {};
+        const isLearnedReward = i.getFlag(Settings.ID, "isLearnedReward");
 
         const tier = Settings.guidanceTiers.find((t) => t.id === projectData.guidanceTierId);
 
@@ -60,7 +60,7 @@ export class PartyTab {
             projectData.target > 0
               ? Math.min(100, Math.round((projectData.progress / projectData.target) * 100))
               : 0,
-          canAbort: (projectData.progress === 0 && !flags.isLearnedReward) || game.user?.isGM,
+          canAbort: (projectData.progress === 0 && !isLearnedReward) || game.user?.isGM,
           isItemBased: true,
         };
       })

@@ -6,6 +6,8 @@
 
   let targetValue = $state(0);
   let requirements = $state<ProjectRequirement[]>([]);
+  let isSaving = $state(false);
+  let initialized = false;
 
   const operatorChoices: Record<ComparisonOperator, string> = {
     "===": "Equal To",
@@ -17,19 +19,40 @@
     "includes": "Includes (Array/String)"
   };
 
-  // Initialize from item flags
+  // Initialize from item flags once
   $effect(() => {
+    if (initialized) return;
     const data = item.getFlag(Settings.ID, "projectData") || {};
     targetValue = data.target ?? 0;
     requirements = data.requirements ? JSON.parse(JSON.stringify(data.requirements)) : [];
+    initialized = true;
   });
 
-  async function saveConfig() {
-    await item.setFlag(Settings.ID, "projectData", {
-      target: targetValue,
-      requirements: requirements
-    });
-    ui.notifications?.info(`Learning configuration updated for ${item.name}`);
+  // Auto-save logic
+  $effect(() => {
+    if (!initialized) return;
+    
+    // De-referenced to track dependencies
+    const t = targetValue;
+    const r = JSON.parse(JSON.stringify(requirements));
+
+    const timeout = setTimeout(() => {
+      saveConfig(t, r);
+    }, 500);
+
+    return () => clearTimeout(timeout);
+  });
+
+  async function saveConfig(t: number, r: ProjectRequirement[]) {
+    isSaving = true;
+    try {
+      await item.setFlag(Settings.ID, "projectData", {
+        target: t,
+        requirements: r
+      });
+    } finally {
+      setTimeout(() => isSaving = false, 500);
+    }
   }
 
   function addRequirement() {
@@ -93,9 +116,13 @@
     </button>
   </section>
 
-  <button type="button" class="save-btn" onclick={saveConfig}>
-    <i class="fas fa-save"></i> Save Configuration
-  </button>
+  <footer class="auto-save-footer">
+    {#if isSaving}
+      <span class="saving-indicator"><i class="fas fa-spinner fa-spin"></i> Saving...</span>
+    {:else}
+      <span class="saved-indicator"><i class="fas fa-check"></i> All changes saved</span>
+    {/if}
+  </footer>
 </div>
 
 <style lang="scss">
@@ -150,18 +177,20 @@
       }
     }
 
-    .save-btn {
-      align-self: flex-start;
-      padding: 0.5rem 1rem;
-      background: var(--t5e-primary-accent-color);
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      margin-top: 1rem;
+    .auto-save-footer {
+      margin-top: auto;
+      padding-top: 1rem;
+      display: flex;
+      justify-content: flex-end;
+      font-size: 0.8rem;
+      opacity: 0.7;
 
-      &:hover {
-        filter: brightness(1.1);
+      .saving-indicator {
+        color: var(--t5e-primary-accent-color);
+      }
+
+      .saved-indicator {
+        color: var(--t5e-success-color);
       }
     }
 

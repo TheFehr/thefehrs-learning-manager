@@ -44,6 +44,7 @@ describe("TheFehrsLearningManager", () => {
 
   describe("init", () => {
     it("should register settings, menus and tabs", () => {
+      game.user.isGM = true;
       const api = {
         registerActorTab: vi.fn(),
         registerItemTab: vi.fn(),
@@ -65,6 +66,33 @@ describe("TheFehrsLearningManager", () => {
       if (tidyHook) {
         tidyHook[1](api);
         expect(api.registerActorTab).toHaveBeenCalled();
+
+        const itemTabCall = vi.mocked(api.registerItemTab).mock.calls[0][0];
+        const enabled = (itemTabCall as any).opts.enabled;
+
+        // Character project item
+        const projectItem = {
+          getFlag: vi.fn().mockImplementation((scope, key) => {
+            if (key === "isLearningProject") return true;
+            return null;
+          }),
+        };
+        expect(enabled({ app: { document: projectItem } })).toBe(true);
+
+        // Disallowed compendium item
+        const otherItem = {
+          uuid: "Compendium.secret.pack.Item.1",
+          getFlag: vi.fn().mockReturnValue(false),
+        };
+        vi.mocked(game.settings.get).mockReturnValue(["allowed.pack"]);
+        expect(enabled({ app: { document: otherItem } })).toBe(false);
+
+        // Allowed compendium item
+        const allowedItem = {
+          uuid: "Compendium.allowed.pack.Item.1",
+          getFlag: vi.fn().mockReturnValue(false),
+        };
+        expect(enabled({ app: { document: allowedItem } })).toBe(true);
       }
     });
   });
