@@ -45,7 +45,7 @@ export class TheFehrsLearningManager {
       }
     });
 
-    Hooks.on("dropActorSheetData", (actor: Actor, data: any) => {
+    Hooks.on("dropActorSheetData", (actor: Actor, sheet: any, data: any) => {
       if (data.type !== "Item" || !data.uuid) return true;
 
       const isCompendium = data.uuid.startsWith("Compendium.");
@@ -57,48 +57,49 @@ export class TheFehrsLearningManager {
 
       if (!allowed.includes(packId)) return true;
 
-      const event = (window as any).event as DragEvent | undefined;
-      const target = event?.target as HTMLElement | undefined;
+      // INTERCEPT: The item is from an allowed compendium.
+      // We will now handle this as a Learning Project initiation.
 
-      const isLearningSection = !!target?.closest('[data-tidy-section*="learningProject"]');
-      const isGroupSheet = !!target?.closest(".thefehrs-party-tab");
-      const isFeaturesTab = !!target?.closest('[data-tidy-tab-id="features"]');
+      let targetActor = actor;
 
-      if (isLearningSection || isGroupSheet || isFeaturesTab) {
-        let targetActor = actor;
+      if (actor.type === "group") {
+        const event = (window as any).event as DragEvent | undefined;
+        const target = event?.target as HTMLElement | undefined;
 
-        if (isGroupSheet) {
-          const actorRow = target?.closest('[data-tidy-section-key^="actor-"]') as
-            | HTMLElement
-            | undefined;
-          const actorId = actorRow?.dataset.tidySectionKey?.replace("actor-", "");
-          if (actorId) {
-            const member = game.actors?.get(actorId);
-            if (member) targetActor = member;
-          }
+        const actorRow = target?.closest('[data-tidy-section-key^="actor-"]') as
+          | HTMLElement
+          | undefined;
+        const sidebarEntry = target?.closest("[data-actor-id]") as HTMLElement | undefined;
+
+        const actorId =
+          actorRow?.dataset.tidySectionKey?.replace("actor-", "") || sidebarEntry?.dataset.actorId;
+
+        if (actorId) {
+          const member = game.actors?.get(actorId);
+          if (member) targetActor = member;
+        } else {
+          // It's a group actor but we didn't find a member to assign to.
+          // Still return false to prevent the "Only physical items" error
+          // from the standard drop handler.
+          return false;
         }
-
-        if (targetActor.type === "group") {
-          return true;
-        }
-
-        fromUuid(data.uuid).then((item) => {
-          if (item instanceof Item) {
-            const flags = (item.getFlag(TheFehrsLearningManager.ID, "") as any) || {};
-            const requirements = flags.projectData?.requirements || [];
-            const { eligible, reason } = TabLogic.meetsRequirements(targetActor, requirements);
-
-            if (!eligible) {
-              return ui.notifications?.warn(`Requirements not met for ${item.name}: ${reason}`);
-            }
-
-            ProjectEngine.initiateProjectFromItem(targetActor, item);
-          }
-        });
-        return false; // Stop standard drop
       }
 
-      return true;
+      fromUuid(data.uuid).then((item) => {
+        if (item instanceof Item) {
+          const flags = (item.getFlag(TheFehrsLearningManager.ID, "") as any) || {};
+          const requirements = flags.projectData?.requirements || [];
+          const { eligible, reason } = TabLogic.meetsRequirements(targetActor, requirements);
+
+          if (!eligible) {
+            return ui.notifications?.warn(`Requirements not met for ${item.name}: ${reason}`);
+          }
+
+          ProjectEngine.initiateProjectFromItem(targetActor, item);
+        }
+      });
+
+      return false; // Stop standard drop behavior completely
     });
 
     Hooks.once("tidy5e-sheet.ready" as any, (api: Tidy5eApi) => {

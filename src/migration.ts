@@ -214,14 +214,24 @@ export async function migrateData() {
         for (const item of learningItems) {
           const flags = item.getFlag(Settings.ID, "" as any) as any;
           const projectData = flags?.projectData;
+          const updates: any = {};
+
           if (projectData && typeof projectData.target === "undefined") {
             const tpl = templates.find((t) => t.id === projectData.templateId);
             if (tpl) {
               projectData.target = tpl.target;
-              await item.update({
-                [`flags.${Settings.ID}.projectData`]: projectData,
-              });
+              updates[`flags.${Settings.ID}.projectData`] = projectData;
             }
+          }
+
+          if (!item.getFlag("tidy5e-sheet", "section")) {
+            updates["flags.tidy5e-sheet.section"] = flags?.isLearnedReward
+              ? "Completed Learning"
+              : "In-Progress Learning";
+          }
+
+          if (Object.keys(updates).length > 0) {
+            await item.update(updates);
           }
         }
       }

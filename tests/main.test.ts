@@ -160,9 +160,9 @@ describe("TheFehrsLearningManager", () => {
       const dropHook = vi.mocked(Hooks.on).mock.calls.find((c) => c[0] === "dropActorSheetData");
 
       if (dropHook) {
-        const result = await dropHook[1](groupActor, data);
+        const mockSheet = { activeTab: "any-tab" }; // Should still work
+        const result = await dropHook[1](groupActor, mockSheet, data);
         expect(result).toBe(false); // Should stop standard drop
-
         // Wait for promise in hook
         await new Promise((resolve) => setTimeout(resolve, 0));
         expect(ProjectEngine.initiateProjectFromItem).toHaveBeenCalledWith(memberActor, item);

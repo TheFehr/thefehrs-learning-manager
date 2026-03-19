@@ -153,10 +153,6 @@ export interface Tidy5eApi {
   registerItemTab: (tab: Tidy5eRegisteredTab) => void;
   registerGroupTab: (tab: Tidy5eRegisteredTab) => void;
   registerActorTab: (tab: Tidy5eRegisteredTab) => void;
-  registerCharacterFeatureSection: (
-    sectionId: string,
-    options: Tidy5eCharacterFeatureSectionOptions,
-  ) => void;
   models: {
     HtmlTab: new (options: Tidy5eHtmlTabOptions) => Tidy5eRegisteredTab;
   };

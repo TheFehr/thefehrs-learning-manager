@@ -45,11 +45,20 @@ export class ProjectEngine {
         stashedActivities: stashedActivities,
         stashedType: stashedType,
       },
+      "flags.tidy5e-sheet.section": "In-Progress Learning",
     };
 
     const [created] = (await actor.createEmbeddedDocuments("Item", [updateData])) as any[];
-    if (!created) return null;
+    if (!created) {
+      console.error(
+        `Downtime Engine | Failed to create embedded item "${rewardDoc.name}" on actor ${actor.name}`,
+      );
+      return null;
+    }
 
+    console.debug(
+      `Downtime Engine | Created embedded item "${created.name}" (ID: ${created.id}). Injecting activities...`,
+    );
     await this.injectActivities(created as any);
     return created as any;
   }
@@ -61,37 +70,55 @@ export class ProjectEngine {
     const flags = (item.getFlag(Settings.ID, "") as any) || {};
     const target = flags.projectData?.target ?? 0;
 
+    console.debug(`Downtime Engine | injectActivities for "${item.name}" (ID: ${item.id})`, {
+      target,
+      flags,
+    });
+
     if (target <= 0) {
-      console.debug("Downtime Engine | Skipping activity injection for item with no target.");
+      console.warn(
+        `Downtime Engine | Skipping activity injection for "${item.name}" - target is ${target}`,
+      );
       return;
     }
 
     const timeUnits = Settings.timeUnits;
-    const activities: Record<string, any> = {};
+    console.debug(`Downtime Engine | Found ${timeUnits.length} time units in settings`);
 
-    for (const tu of timeUnits) {
-      const activityId = foundry.utils.randomID();
-      activities[activityId] = {
-        _id: activityId,
-        type: "utility",
-        name: `Train ${tu.name}`,
-        img: "icons/skills/trades/book-writing-quill.webp",
-        activation: { type: "special", value: 1, condition: "" },
-        consumption: {
-          targets: [],
-          scaling: { allowed: false, max: "" },
-        },
-        description: { chatFlavor: `Training: ${tu.name}` },
-        duration: { units: "inst", value: "" },
-        range: { units: "self", value: "" },
-        target: { template: { count: "", type: "" }, units: "", value: "" },
-        uses: { max: "", spent: 0, recovery: [] },
-        roll: { formula: "", name: "", prompt: false, visible: false },
-        "flags.thefehrs-learning-manager.timeUnitId": tu.id,
-      };
+    if (timeUnits.length === 0) {
+      console.error("Downtime Engine | No time units configured in settings!");
+      return;
     }
 
-    await item.update({ system: { activities } });
+    const activitiesData = timeUnits.map((tu) => ({
+      type: "utility",
+      name: `Train ${tu.name}`,
+      img: "icons/skills/trades/book-writing-quill.webp",
+      activation: { type: "special", value: 1, condition: "" },
+      consumption: {
+        targets: [],
+        scaling: { allowed: false, max: "" },
+      },
+      description: { chatFlavor: `Training: ${tu.name}` },
+      duration: { units: "inst", value: "" },
+      range: { units: "self", value: "" },
+      target: { template: { count: "", type: "" }, units: "", value: "" },
+      uses: { max: "", spent: 0, recovery: [] },
+      roll: { formula: "", name: "", prompt: false, visible: false },
+      flags: {
+        [Settings.ID]: {
+          timeUnitId: tu.id,
+        },
+      },
+    }));
+
+    console.debug(`Downtime Engine | Creating ${activitiesData.length} Activity documents...`);
+    try {
+      const created = await (item as any).createEmbeddedDocuments("Activity", activitiesData);
+      console.debug(`Downtime Engine | Successfully created ${created.length} activities.`);
+    } catch (err) {
+      console.error(`Downtime Engine | Failed to create activities for "${item.name}":`, err);
+    }
   }
 
   /**
@@ -133,12 +160,23 @@ export class ProjectEngine {
         stashedActivities: stashedActivities,
         stashedType: stashedType,
       },
+      "flags.tidy5e-sheet.section": projectData.isCompleted
+        ? "Completed Learning"
+        : "In-Progress Learning",
     };
 
     const [created] = (await actor.createEmbeddedDocuments("Item", [updateData])) as any[];
-    if (!created) return null;
+    if (!created) {
+      console.error(
+        `Downtime Engine | Failed to create embedded item for project data on actor ${actor.name}`,
+      );
+      return null;
+    }
 
     if (!projectData.isCompleted) {
+      console.debug(
+        `Downtime Engine | Created project item "${created.name}" (ID: ${created.id}). Injecting activities...`,
+      );
       await this.injectActivities(created as any);
     }
     return created as any;
@@ -170,6 +208,7 @@ export class ProjectEngine {
         stashedActivities: null,
         stashedType: null,
       },
+      "flags.tidy5e-sheet.section": "Completed Learning",
     };
 
     // If it's a feat, we might want to preserve the system.type.value if we had one?

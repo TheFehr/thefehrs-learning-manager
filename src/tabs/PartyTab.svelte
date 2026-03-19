@@ -179,7 +179,7 @@
   }
 </script>
 
-<div class="party-learning-container">
+<div class="party-learning-container thefehrs-party-tab">
     <aside class="sidebar expanded">
         {#if isGM}
             <div class="party-controls">
@@ -203,6 +203,7 @@
         {#each members as member}
             <div
                     class="actor-container"
+                    data-actor-id={member.id}
                     role="button"
                     tabindex="0"
                     onclick={() => openActorSheet(`Actor.${member.id}`)}

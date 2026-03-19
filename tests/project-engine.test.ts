@@ -31,6 +31,7 @@ describe("ProjectEngine", () => {
     global.Item = class {
       constructor() {}
       update = vi.fn().mockResolvedValue(this);
+      createEmbeddedDocuments = vi.fn().mockResolvedValue([]);
       getFlag = vi.fn();
       setFlag = vi.fn();
       name = "Mock Item";
@@ -100,7 +101,10 @@ describe("ProjectEngine", () => {
         ]),
       );
       expect(result).toBe(createdItem);
-      expect(createdItem.update).toHaveBeenCalled();
+      expect(createdItem.createEmbeddedDocuments).toHaveBeenCalledWith(
+        "Activity",
+        expect.any(Array),
+      );
     });
   });
 
@@ -112,24 +116,20 @@ describe("ProjectEngine", () => {
         return null;
       });
 
-      let callCount = 0;
-      vi.mocked(foundry.utils.randomID).mockImplementation(() => `id-${callCount++}`);
-
       vi.spyOn(Settings, "timeUnits", "get").mockReturnValue(timeUnits);
 
       await ProjectEngine.injectActivities(item);
 
-      const updateCall = vi.mocked(item.update).mock.calls[0][0];
-      const activities = updateCall.system.activities;
-      const activityEntries = Object.values(activities);
+      expect(item.createEmbeddedDocuments).toHaveBeenCalledWith("Activity", expect.any(Array));
+      const activitiesData = vi.mocked(item.createEmbeddedDocuments).mock.calls[0][1];
 
-      expect(activityEntries.length).toBe(2);
-      expect(activityEntries).toContainEqual(
+      expect(activitiesData.length).toBe(2);
+      expect(activitiesData).toContainEqual(
         expect.objectContaining({
           name: "Train Hour",
         }),
       );
-      expect(activityEntries).toContainEqual(
+      expect(activitiesData).toContainEqual(
         expect.objectContaining({
           name: "Train Day",
         }),
@@ -144,7 +144,7 @@ describe("ProjectEngine", () => {
       });
 
       await ProjectEngine.injectActivities(item);
-      expect(item.update).not.toHaveBeenCalled();
+      expect(item.createEmbeddedDocuments).not.toHaveBeenCalled();
     });
   });
 
@@ -222,13 +222,7 @@ describe("ProjectEngine", () => {
 
       await ProjectEngine.syncAllProjectActivities();
 
-      expect(item.update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          system: expect.objectContaining({
-            activities: expect.any(Object),
-          }),
-        }),
-      );
+      expect(item.createEmbeddedDocuments).toHaveBeenCalledWith("Activity", expect.any(Array));
     });
   });
 });
