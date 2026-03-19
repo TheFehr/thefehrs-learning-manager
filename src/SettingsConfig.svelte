@@ -219,10 +219,16 @@
             </div>
             <div class="grid-box">
               <span class="grid-label">Progress (if bulk)</span>
-              {#each timeUnits.filter(u => u.isBulk) as unit}
+              {#each timeUnits as unit}
                 <div class="grid-row">
-                  <label for="tier-{tier.id}-progress-{unit.id}">{unit.name}:</label>
-                  <input id="tier-{tier.id}-progress-{unit.id}" type="number" bind:value={tier.progress[unit.id]} min="0" />
+                  <label for="tier-{tier.id}-progress-{unit.id}" style={!unit.isBulk ? 'opacity: 0.5' : ''}>{unit.name}:</label>
+                  <input
+                    id="tier-{tier.id}-progress-{unit.id}"
+                    type="number"
+                    bind:value={tier.progress[unit.id]}
+                    min="0"
+                    disabled={!unit.isBulk}
+                  />
                 </div>
               {/each}
             </div>
