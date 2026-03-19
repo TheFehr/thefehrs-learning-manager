@@ -1,0 +1,384 @@
+<script lang="ts">
+  import { Settings } from "../settings";
+  import { ActorProxy } from "../actor-proxy";
+  import { TabLogic } from "./tab-logic";
+  import type { DowntimeGroupActor, TimeUnit, ProjectTemplate } from "../types";
+
+  let { members, tierOptions, isGM, actor } = $props<{
+    members: any[];
+    tierOptions: Record<string, string>;
+    isGM: boolean;
+    actor: Actor;
+  }>();
+
+  let isEditMode = $state(false);
+
+  async function openActorSheet(uuid: string) {
+    const doc = await fromUuid(uuid as any);
+    if (doc && (doc as any).sheet) {
+      (doc as any).sheet.render(true);
+    }
+  }
+
+  async function grantTime() {
+    if (!isGM) return;
+
+    const timeUnits = Settings.timeUnits;
+    const isParty = (actor.type as string) === "group";
+
+    // We need to re-map member data for the dialog or just use the passed members
+    // For simplicity and consistency with old code, we'll use the same logic
+    const templateData = { timeUnits, isParty, members };
+    const content = await renderTemplate(
+      `modules/thefehrs-learning-manager/templates/grant-time-dialog.hbs`,
+      templateData,
+    );
+
+    new foundry.appv1.api.Dialog({
+      title: "Modify Training Time",
+      content: content,
+      buttons: {
+        apply: {
+          label: "Apply Time",
+          icon: '<i class="fas fa-check"></i>',
+          callback: async (dialogHtml: JQuery | HTMLElement) => {
+            const htmlElement = dialogHtml instanceof HTMLElement ? dialogHtml : dialogHtml[0];
+            const form = htmlElement.querySelector("form");
+            if (!form) return;
+
+            const formData = new FormData(form);
+
+            let totalBase = 0;
+            timeUnits.forEach((tu) => {
+              totalBase += (parseInt(formData.get(`time_${tu.id}`) as string) || 0) * tu.ratio;
+            });
+
+            if (totalBase === 0) return ui.notifications?.warn("No time entered.");
+
+            const selectedIds = isParty
+              ? members.filter((m: any) => formData.has(`actor_${m.id}`)).map((m: any) => m.id)
+              : [actor.id];
+
+            if (selectedIds.length === 0)
+              return ui.notifications?.warn("No recipients selected.");
+
+            let successCount = 0;
+            for (const id of selectedIds) {
+              const a = game.actors?.get(id) as Actor | undefined;
+              if (!globalThis.Actor || !(a instanceof globalThis.Actor)) continue;
+              try {
+                const proxy = ActorProxy.forActor(a);
+                const bank = proxy.bank;
+                await proxy.setBank({ total: (bank.total || 0) + totalBase });
+                successCount++;
+              } catch (err) {
+                console.error(`Failed to update bank for actor ${id}:`, err);
+              }
+            }
+
+            const actionWord = totalBase > 0 ? "Granted" : "Deducted";
+            const preposition = totalBase > 0 ? "to" : "from";
+            const formattedTime = TabLogic.formatTimeBank(Math.abs(totalBase), timeUnits);
+
+            (ChatMessage.implementation as any).create({
+              speaker: { alias: "Downtime System" },
+              content: `${actionWord} <strong>${formattedTime}</strong> ${preposition} ${successCount} characters.`,
+            });
+          },
+        },
+      },
+      default: "apply",
+    }).render(true);
+  }
+
+  async function updateGuidance(actorId: string, projectId: string, tierId: string) {
+    const targetActor = game.actors?.get(actorId) as Actor | undefined;
+    if (!targetActor) return;
+
+    const proxy = ActorProxy.forActor(targetActor);
+    const projects = proxy.projects;
+    const p = projects.find((x) => x.id === projectId);
+    const tiers = Settings.guidanceTiers;
+    const tier = tiers.find((t) => t.id === tierId);
+
+    if (p) {
+      if (tierId && !tier) {
+        ui.notifications?.warn(`Guidance tier ${tierId} not found`);
+        return;
+      }
+      p.guidanceTierId = tier?.id ?? "";
+      await proxy.setProjects(projects);
+    }
+  }
+
+  async function updateProgress(actorId: string, projectId: string, newProgress: number) {
+    if (!isGM) return;
+    const targetActor = game.actors?.get(actorId) as Actor | undefined;
+    if (!targetActor) return;
+
+    const proxy = ActorProxy.forActor(targetActor);
+    const projects = proxy.projects;
+    const p = projects.find((x) => x.id === projectId);
+
+    if (p) {
+      const tpl = Settings.projectTemplates.find((t) => t.id === p.templateId);
+      if (!tpl) return;
+
+      const progress = Math.max(0, Math.min(newProgress, tpl.target));
+      p.progress = progress;
+
+      if (p.progress >= tpl.target && !p.isCompleted) {
+        p.isCompleted = true;
+        try {
+          await TabLogic.grantProjectReward(targetActor, tpl);
+          await proxy.setProjects(projects);
+        } catch (error) {
+          p.isCompleted = false;
+          // Re-throw or handle error as in original code? 
+          // Original code had a complex rollback for manual update too.
+          throw error;
+        }
+      } else {
+        await proxy.setProjects(projects);
+      }
+    }
+  }
+
+  async function deleteProject(actorId: string, projectId: string) {
+    const targetActor = game.actors?.get(actorId) as Actor | undefined;
+    if (!targetActor || !targetActor.isOwner) {
+      ui.notifications?.warn("You do not have permission to modify this actor's projects.");
+      return;
+    }
+
+    const proxy = ActorProxy.forActor(targetActor);
+    const projects = proxy.projects;
+    const project = projects.find((p: any) => p.id === projectId);
+
+    if (!project) return;
+
+    if (project.progress > 0 && !isGM) {
+      ui.notifications?.warn("You cannot abort an in-progress project.");
+      return;
+    }
+
+    const tpl = Settings.projectTemplates.find((t) => t.id === project.templateId);
+    const projectName = tpl ? tpl.name : "Unknown Project";
+
+    new foundry.appv1.api.Dialog({
+      title: "Abort Project",
+      content: `<p>Are you sure you want to abort the project <strong>${projectName}</strong> for <strong>${targetActor.name}</strong>?</p><p>Any progress will be lost.</p>`,
+      buttons: {
+        yes: {
+          icon: '<i class="fas fa-check"></i>',
+          label: "Yes",
+          callback: async () => {
+            const updatedProjects = projects.filter((p: any) => p.id !== projectId);
+            await proxy.setProjects(updatedProjects);
+          },
+        },
+        no: {
+          icon: '<i class="fas fa-times"></i>',
+          label: "No",
+        },
+      },
+      default: "no",
+    }).render(true);
+  }
+</script>
+
+<div class="party-learning-container">
+  <aside class="sidebar expanded">
+    {#if isGM}
+      <div
+        class="party-controls"
+        style="display: flex; gap: 10px; margin-bottom: 15px; padding: 10px;"
+      >
+        <button class="grant-time-btn tidy-button" style="flex: 1 1 0%;" onclick={grantTime}>
+          <i class="fa-solid fa-clock-rotate-left"></i>
+          Distribute Time
+        </button>
+        <button
+          aria-checked={isEditMode}
+          class="toggle-progress-edit"
+          role="switch"
+          style="display: flex; align-items: center; justify-content: center; cursor: pointer; padding: 5px; border-radius: 4px; background: rgba(0,0,0,0.1); width: 32px;"
+          title="Toggle Manual Progress Edit"
+          type="button"
+          onclick={() => (isEditMode = !isEditMode)}
+        >
+          <i class="thumb-icon fas {isEditMode ? 'fa-unlock' : 'fa-lock'} fa-fw"></i>
+        </button>
+      </div>
+    {/if}
+    {#each members as member}
+      <div
+        class="actor-container"
+        role="button"
+        tabindex="0"
+        onclick={() => openActorSheet(`Actor.${member.id}`)}
+        onkeydown={(e) => {
+          if (e.key === "Enter" || e.key === " ") {
+            e.preventDefault();
+            openActorSheet(`Actor.${member.id}`);
+          }
+        }}
+      >
+        <div class="actor-image-container flexshrink">
+          <div class="actor-image token">
+            <img src={member.tokenImg} alt={member.name} />
+          </div>
+        </div>
+        <div class="actor-name flexcol">
+          <h4 class="font-label-medium">{member.name}</h4>
+          <div class="separated-list">
+            <span
+              class="actor-time-bank"
+              style="font-size: 0.85rem; color: var(--t5e-secondary-color);"
+            >
+              <i class="fa-solid fa-piggy-bank"></i>
+              {member.formattedBank}
+            </span>
+          </div>
+        </div>
+      </div>
+    {/each}
+  </aside>
+
+  <div class="learning-main-content" style="flex: 1;">
+    {#each members as member}
+      <section
+        class="tidy-table"
+        data-tidy-sheet-part="item-table"
+        data-tidy-section-key="actor-{member.id}"
+      >
+        <header class="tidy-table-header-row theme-dark" data-tidy-sheet-part="table-header-row">
+          <div
+            class="tidy-table-header-cell header-label-cell primary"
+            data-tidy-sheet-part="table-header-cell"
+          >
+            <h3>{member.name}</h3>
+            <span class="table-header-count">{member.projects.length}</span>
+          </div>
+          <div
+            class="tidy-table-header-cell"
+            data-tidy-sheet-part="table-header-cell"
+            style="--tidy-table-column-width: min(30%, 250px);"
+          >
+            Progress
+          </div>
+          <div
+            class="tidy-table-header-cell"
+            data-tidy-sheet-part="table-header-cell"
+            style="--tidy-table-column-width: min(40%, 300px);"
+          >
+            Tutor/Guidance
+          </div>
+          <div
+            class="tidy-table-header-cell"
+            data-tidy-sheet-part="table-header-cell"
+            style="--tidy-table-column-width: 40px;"
+          ></div>
+        </header>
+
+        <div class="expandable expanded" role="presentation">
+          <div role="presentation" class="expandable-child-animation-wrapper">
+            <div class="item-table-body">
+              {#if member.projects.length}
+                {#each member.projects as project}
+                  <div class="tidy-table-row project-row">
+                    <div class="tidy-table-cell text-cell primary item-label flexcol">
+                      <span class="font-label-medium color-text-default">{project.name}</span>
+                    </div>
+
+                    <div
+                      class="tidy-table-cell"
+                      data-tidy-sheet-part="table-cell"
+                      style="--tidy-table-column-width: min(30%, 250px);"
+                    >
+                      <div class="hp-column-content" style="width: 100%;">
+                        <div
+                          class="meter progress"
+                          style="--bar-percentage: {project.progressPercentage}%; --bar-adjusted: 0%; --bar-adjusted-background: var(--t5e-color-hp-temp); --bar-adjusted-content: '';"
+                        ></div>
+                        <div class="flexrow progress-container">
+                          {#if isGM && isEditMode}
+                            <input
+                              type="number"
+                              class="update-project-progress"
+                              value={project.progress}
+                              onchange={(e) =>
+                                updateProgress(
+                                  member.id,
+                                  project.id,
+                                  parseInt(e.currentTarget.value) || 0,
+                                )}
+                              style="width: 50px; text-align: center; height: 1rem;"
+                            />
+                          {:else}
+                            <span class="font-data-medium color-text-default value progress-read-only"
+                              >{project.progress}</span
+                            >
+                          {/if}
+                          <span class="font-body-medium color-text-lightest separator">/</span>
+                          <span class="font-label-medium color-text-default max"
+                            >{project.maxProgress}</span
+                          >
+                        </div>
+                      </div>
+                    </div>
+
+                    <div
+                      class="tidy-table-cell"
+                      data-tidy-sheet-part="table-cell"
+                      style="--tidy-table-column-width: min(40%, 300px);"
+                    >
+                      <select
+                        class="update-project font-label-medium"
+                        value={project.guidanceTierId}
+                        onchange={(e) => updateGuidance(member.id, project.id, e.currentTarget.value)}
+                        style="width: 100%; height: 2rem;"
+                      >
+                        <option value="">-- No Tutor --</option>
+                        {#each Object.entries(tierOptions) as [id, label]}
+                          <option value={id}>{label}</option>
+                        {/each}
+                      </select>
+                    </div>
+
+                    <div
+                      class="tidy-table-cell"
+                      data-tidy-sheet-part="table-cell"
+                      style="--tidy-table-column-width: 40px; display: flex; justify-content: center; align-items: center;"
+                    >
+                      {#if project.canAbort && isEditMode}
+                        <button
+                          class="delete-project party-edit-control tidy-button small"
+                          title="Abort Project"
+                          aria-label="Abort Project"
+                          onclick={() => deleteProject(member.id, project.id)}
+                          style="min-width: 2rem; padding: 2px 4px; color: var(--t5e-danger-color);"
+                        >
+                          <i class="fas fa-trash"></i>
+                        </button>
+                      {/if}
+                    </div>
+                  </div>
+                {/each}
+              {:else}
+                <div class="tidy-table-row">
+                  <div
+                    class="tidy-table-cell text-cell primary item-label flexcol"
+                    style="font-style: italic; opacity: 0.5; text-align: center; justify-content: center; padding: 1rem;"
+                  >
+                    No active projects
+                  </div>
+                </div>
+              {/if}
+            </div>
+          </div>
+        </div>
+      </section>
+    {/each}
+  </div>
+</div>

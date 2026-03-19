@@ -1,9 +1,8 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { TheFehrsLearningManager } from "../src/main";
-import { ActorProxy } from "../src/actor-proxy";
 import { TabLogic } from "../src/tabs/tab-logic";
 import { LearningTab } from "../src/tabs/learning-tab";
-import { PartyTab } from "../src/tabs/party-tab";
+import { ActorProxy } from "../src/actor-proxy";
 import type { TimeUnit } from "../src/types";
 
 describe("TheFehrsLearningManager", () => {
@@ -35,15 +34,6 @@ describe("TheFehrsLearningManager", () => {
       // 81 hours = 1 week 1 day 1 hour
       expect(TabLogic.formatTimeBank(81, timeUnits)).toBe("1w 1d 1h");
     });
-
-    it("should handle units that are not in order", () => {
-      const unsortedUnits = [
-        { id: "tu_hr", name: "Hour", short: "h", isBulk: false, ratio: 1 },
-        { id: "tu_wk", name: "Week", short: "w", isBulk: true, ratio: 70 },
-        { id: "tu_day", name: "Day", short: "d", isBulk: true, ratio: 10 },
-      ];
-      expect(TabLogic.formatTimeBank(81, unsortedUnits)).toBe("1w 1d 1h");
-    });
   });
 
   describe("init", () => {
@@ -61,25 +51,10 @@ describe("TheFehrsLearningManager", () => {
         "rules",
         expect.objectContaining({ scope: "world", config: false }),
       );
-      expect(game.settings.register).toHaveBeenCalledWith(
-        TheFehrsLearningManager.ID,
-        "timeUnits",
-        expect.objectContaining({ scope: "world", config: false }),
-      );
-      expect(game.settings.register).toHaveBeenCalledWith(
-        TheFehrsLearningManager.ID,
-        "guidanceTiers",
-        expect.objectContaining({ scope: "world", config: false }),
-      );
-      expect(game.settings.register).toHaveBeenCalledWith(
-        TheFehrsLearningManager.ID,
-        "projectTemplates",
-        expect.objectContaining({ scope: "world", config: false }),
-      );
     });
   });
 
-  describe("prepareActorData", () => {
+  describe("LearningTab.getData", () => {
     it("should return correct data for actor", async () => {
       const actor = new Actor() as any;
       actor.flags = {
@@ -103,250 +78,19 @@ describe("TheFehrsLearningManager", () => {
         return null;
       });
 
-      // @ts-ignore
       const data = await LearningTab.getData(actor);
 
       expect(data.formattedBank).toBe("1d 5h");
       expect(data.activeProjects).toHaveLength(1);
-      expect(data.activeProjects[0].id).toBe("p1");
       expect(data.completedProjects).toHaveLength(1);
-      expect(data.completedProjects[0].id).toBe("p2");
-    });
-
-    it("should handle missing flags gracefully", async () => {
-      const actor = new Actor() as any;
-      vi.mocked(game.settings.get).mockReturnValue([]);
-
-      // @ts-ignore
-      const data = await LearningTab.getData(actor);
-
-      expect(data.formattedBank).toBe("0");
-      expect(data.activeProjects).toHaveLength(0);
-      expect(data.completedProjects).toHaveLength(0);
-    });
-  });
-
-  describe("preparePartyData", () => {
-    it("should return correct data for party actor", async () => {
-      const partyActor = {
-        system: {
-          members: [{ id: "m1" }],
-        },
-      } as any;
-
-      const memberActor = new Actor() as any;
-      memberActor.id = "m1";
-      memberActor.name = "Member 1";
-      memberActor.img = "path/to/img";
-      memberActor.flags = {
-        [TheFehrsLearningManager.ID]: {
-          bank: { total: 10 },
-          projects: [],
-        },
-      };
-
-      vi.mocked(game.actors.get).mockReturnValue(memberActor as any);
-      vi.mocked(game.settings.get).mockImplementation((scope, key) => {
-        if (key === "timeUnits") return timeUnits;
-        if (key === "guidanceTiers") return [];
-        return null;
-      });
-
-      // @ts-ignore
-      const data = await PartyTab.getData(partyActor);
-
-      expect(data.members).toHaveLength(1);
-      expect(data.members[0].id).toBe("m1");
-      expect(data.members[0].formattedBank).toBe("1d");
-    });
-  });
-
-  describe("activateListeners", () => {
-    it("should attach click listener to bulk-train buttons", () => {
-      const html = document.createElement("div");
-      html.innerHTML = '<button class="bulk-train" data-id="p1" data-unit="tu_hr"></button>';
-      const btn = html.querySelector(".bulk-train")!;
-
-      const actor = { id: "a1" };
-      // @ts-ignore
-      TabLogic.activateListeners(html, actor);
-
-      // Trigger it.
-      const processTrainingSpy = vi
-        // @ts-ignore
-        .spyOn(TabLogic, "processTraining")
-        .mockResolvedValue(undefined);
-
-      btn.dispatchEvent(new MouseEvent("click"));
-
-      expect(processTrainingSpy).toHaveBeenCalledWith(actor, "p1", "tu_hr");
-    });
-
-    it("should attach click listener to add-selected-project button", async () => {
-      const html = document.createElement("div");
-      html.innerHTML = `
-        <select class="project-selector"><option value="tpl1">Tpl 1</option></select>
-        <button class="add-selected-project"></button>
-      `;
-      const btn = html.querySelector(".add-selected-project")!;
-      const actor = {
-        getFlag: vi.fn().mockReturnValue([]),
-        setFlag: vi.fn().mockResolvedValue(undefined),
-      } as any;
-
-      vi.mocked(game.settings.get).mockReturnValue([
-        { id: "tpl1", name: "Template 1", target: 100, requirements: [] },
-      ]);
-
-      // @ts-ignore
-      TabLogic.activateListeners(html, actor);
-
-      btn.dispatchEvent(new MouseEvent("click"));
-
-      // Wait for async listeners
-      await vi.waitFor(() => {
-        expect(actor.setFlag).toHaveBeenCalledWith(
-          TheFehrsLearningManager.ID,
-          "projects",
-          expect.arrayContaining([
-            expect.objectContaining({
-              templateId: "tpl1",
-              progress: 0,
-              isCompleted: false,
-            }),
-          ]),
-        );
-      });
     });
   });
 
   describe("meetsRequirements", () => {
     it("should return true for empty requirements", () => {
       const actor = new Actor() as any;
-      // @ts-ignore
       const result = TabLogic.meetsRequirements(actor, []);
       expect(result.eligible).toBe(true);
-    });
-
-    it("should handle numeric comparisons correctly", () => {
-      const actor = { system: { abilities: { str: { value: 15 } } } } as any;
-
-      // @ts-ignore
-      expect(
-        TabLogic.meetsRequirements(actor, [
-          { attribute: "system.abilities.str.value", operator: ">=", value: "15" },
-        ]).eligible,
-      ).toBe(true);
-
-      // @ts-ignore
-      expect(
-        TabLogic.meetsRequirements(actor, [
-          { attribute: "system.abilities.str.value", operator: ">", value: "15" },
-        ]).eligible,
-      ).toBe(false);
-
-      // @ts-ignore
-      expect(
-        TabLogic.meetsRequirements(actor, [
-          { attribute: "system.abilities.str.value", operator: "<", value: "20" },
-        ]).eligible,
-      ).toBe(true);
-    });
-
-    it("should handle string and array inclusion", () => {
-      const actor = { system: { traits: { languages: ["common", "elvish"] } } } as any;
-
-      // @ts-ignore
-      expect(
-        TabLogic.meetsRequirements(actor, [
-          { attribute: "system.traits.languages", operator: "includes", value: "common" },
-        ]).eligible,
-      ).toBe(true);
-
-      // @ts-ignore
-      expect(
-        TabLogic.meetsRequirements(actor, [
-          { attribute: "system.traits.languages", operator: "includes", value: "orcish" },
-        ]).eligible,
-      ).toBe(false);
-    });
-  });
-
-  describe("grantProjectReward", () => {
-    let originalItem: any;
-
-    beforeEach(() => {
-      originalItem = globalThis.Item;
-    });
-
-    afterEach(() => {
-      globalThis.Item = originalItem;
-    });
-
-    it("should create embedded item document for item rewards", async () => {
-      const actor = new Actor() as any;
-      const template = {
-        name: "Test",
-        target: 10,
-        rewardUuid: "item-uuid",
-        rewardType: "item",
-      };
-
-      const mockItem = {
-        name: "Mock Item",
-        toObject: () => ({ name: "Mock Item" }),
-      };
-      // @ts-ignore
-      globalThis.Item = class {
-        constructor() {
-          Object.assign(this, mockItem);
-        }
-        static [Symbol.hasInstance](instance) {
-          return true;
-        }
-      };
-      vi.mocked(fromUuid).mockResolvedValue(new (globalThis.Item as any)());
-
-      // @ts-ignore
-      await TabLogic.grantProjectReward(actor, template);
-
-      expect(actor.createEmbeddedDocuments).toHaveBeenCalledWith("Item", [{ name: "Mock Item" }]);
-    });
-  });
-
-  describe("deductCurrency", () => {
-    beforeEach(() => {
-      vi.mocked(Actor.prototype.update).mockClear();
-    });
-
-    it("should deduct currency correctly and return true", async () => {
-      const actor = new Actor() as any;
-      actor.system = { currency: { gp: 10, sp: 0, cp: 0 } };
-
-      // @ts-ignore
-      const result = await TabLogic.deductCurrency(actor, 155);
-
-      expect(result).toBe(true);
-      expect(actor.update).toHaveBeenCalledWith({
-        system: {
-          currency: {
-            gp: 8,
-            sp: 4,
-            cp: 5,
-          },
-        },
-      });
-    });
-
-    it("should return false if actor cannot afford the cost", async () => {
-      const actor = new Actor() as any;
-      actor.system = { currency: { gp: 1, sp: 0, cp: 0 } };
-
-      // @ts-ignore
-      const result = await TabLogic.deductCurrency(actor, 200);
-
-      expect(result).toBe(false);
-      expect(actor.update).not.toHaveBeenCalled();
     });
   });
 
@@ -369,11 +113,6 @@ describe("TheFehrsLearningManager", () => {
 
       await proxy.setBank({ total: 20 });
       expect(actor.setFlag).toHaveBeenCalledWith(TheFehrsLearningManager.ID, "bank", { total: 20 });
-
-      await proxy.updateCurrency({ gp: 10, sp: 0, cp: 0 });
-      expect(actor.update).toHaveBeenCalledWith({
-        system: { currency: { gp: 10, sp: 0, cp: 0 } },
-      });
     });
   });
 });

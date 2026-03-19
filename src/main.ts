@@ -10,7 +10,8 @@ import type {
 import { LearningConfigApp } from "./settings-app";
 import { Settings } from "./settings";
 import { LearningTab } from "./tabs/learning-tab";
-import { PartyTab } from "./tabs/party-tab";
+import { PartyTab as PartyTabLogic } from "./tabs/party-tab";
+import PartyTab from "./tabs/PartyTab.svelte";
 import { migrateData } from "./migration";
 import "./styles/module.scss";
 
@@ -45,16 +46,18 @@ export class TheFehrsLearningManager {
       );
 
       api.registerGroupTab(
-        new api.models.HandlebarsTab({
+        new api.models.SvelteTab({
           title: "Group Learning",
           iconClass: "fa-solid fa-book-open-cover",
           tabId: "thefehrs-party-tab",
-          path: `modules/${this.ID}/templates/party-tab.hbs`,
-          getData: async (data: Tidy5eTabGetDataParams) =>
-            await PartyTab.getData(data.actor as DowntimeGroupActor),
-          onRender: (params: Tidy5eTabRenderParams) => {
-            const sheetActor = params.app.document || params.app.actor;
-            if (sheetActor) PartyTab.activateListeners(params.element, sheetActor);
+          component: PartyTab,
+          getContext: async (data: Tidy5eTabGetDataParams) => {
+            const actor = data.actor as DowntimeGroupActor;
+            const partyData = await PartyTabLogic.getData(actor);
+            return {
+              ...partyData,
+              actor,
+            };
           },
         }),
       );

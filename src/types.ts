@@ -130,10 +130,21 @@ export interface Tidy5eRegisteredTab {
   // ... internal Tidy properties, strictly opaque to us
 }
 
+export interface Tidy5eSvelteTabOptions {
+  title: string;
+  tabId: string;
+  component: any;
+  iconClass?: string;
+  getData?: (data: Tidy5eTabGetDataParams) => Promise<unknown> | unknown;
+  onRender?: (params: Tidy5eTabRenderParams) => void;
+  getContext?: (data: Tidy5eTabGetDataParams) => Promise<Record<string, any>> | Record<string, any>;
+}
+
 export interface Tidy5eApi {
   registerCharacterTab: (tab: Tidy5eRegisteredTab) => void;
   registerGroupTab: (tab: Tidy5eRegisteredTab) => void;
   models: {
     HandlebarsTab: new (options: Tidy5eHandlebarsTabOptions) => Tidy5eRegisteredTab;
+    SvelteTab: new (options: Tidy5eSvelteTabOptions) => Tidy5eRegisteredTab;
   };
 }

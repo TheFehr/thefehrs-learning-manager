@@ -1,5 +1,6 @@
 import { defineConfig } from "vite";
 import foundry from "vite-plugin-fvtt";
+import { svelte } from "@sveltejs/vite-plugin-svelte";
 
 export default defineConfig({
   build: {
@@ -11,5 +12,5 @@ export default defineConfig({
     emptyOutDir: true,
     sourcemap: true,
   },
-  plugins: [foundry()],
+  plugins: [svelte(), foundry()],
 });

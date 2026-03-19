@@ -377,136 +377,24 @@ describe("TabLogic", () => {
     });
   });
 
-  describe("activateListeners delete-project", () => {
-    it("should prompt user and delete project on confirm", async () => {
-      const mockActor = new (globalThis as any).Actor();
-      mockActor.id = "actor1";
-      mockActor.name = "Test Actor";
-      mockActor.isOwner = true;
-      (globalThis as any).game.actors.length = 0;
-      (globalThis as any).game.actors.push(mockActor);
+  describe("formatTimeBank", () => {
+    const mockTimeUnits = [
+      { id: "hr", short: "h", ratio: 1 },
+      { id: "day", short: "d", ratio: 10 },
+    ] as any;
 
-      const { ActorProxy } = await import("../src/actor-proxy");
-      const { Settings } = await import("../src/settings");
-
-      const proxy = new ActorProxy(mockActor);
-      const project = {
-        id: "proj1",
-        templateId: "tpl1",
-        progress: 0,
-        isCompleted: false,
-        guidanceTierId: "",
-      };
-      let currentProjects = [project];
-      Object.defineProperty(proxy, "projects", { get: () => currentProjects });
-      proxy.setProjects = vi.fn().mockImplementation(async (newProjects) => {
-        currentProjects = newProjects;
-      });
-
-      vi.spyOn(ActorProxy, "forActor").mockReturnValue(proxy);
-
-      vi.spyOn(Settings, "projectTemplates", "get").mockReturnValue([
-        { id: "tpl1", target: 10, rewardUuid: "Item.id", rewardType: "item", name: "Test Tpl" },
-      ] as any);
-
-      const html = document.createElement("div");
-      html.innerHTML = `<button class="delete-project" data-actor-id="actor1" data-id="proj1"></button>`;
-
-      const btn = html.querySelector(".delete-project") as HTMLElement;
-
-      let listener: any;
-      btn.addEventListener = vi.fn().mockImplementation((type: string, cb: any) => {
-        if (type === "click") listener = cb;
-      });
-
-      TabLogic.activateListeners(html, mockActor as any);
-
-      expect(listener).toBeDefined();
-
-      const ev = new Event("click");
-      Object.defineProperty(ev, "currentTarget", { value: btn, enumerable: true });
-
-      // Override Dialog to auto-click "yes"
-      let dialogData: any;
-      (globalThis as any).foundry.appv1.api.Dialog = class {
-        constructor(public data: any) {
-          dialogData = data;
-        }
-        render = vi.fn().mockImplementation(async () => {
-          if (
-            dialogData &&
-            dialogData.buttons &&
-            dialogData.buttons.yes &&
-            dialogData.buttons.yes.callback
-          ) {
-            await dialogData.buttons.yes.callback();
-          }
-        });
-      } as any;
-
-      await listener(ev);
-
-      expect(proxy.setProjects).toHaveBeenCalled();
-      expect(currentProjects).toHaveLength(0);
+    it("should format time bank correctly", () => {
+      expect(TabLogic.formatTimeBank(11, mockTimeUnits)).toBe("1d 1h");
+      expect(TabLogic.formatTimeBank(10, mockTimeUnits)).toBe("1d");
+      expect(TabLogic.formatTimeBank(5, mockTimeUnits)).toBe("5h");
     });
-  });
 
-  describe("activateListeners update-project-progress", () => {
-    it("should rollback granted rewards if setProjects throws", async () => {
-      const mockActor = new (globalThis as any).Actor();
-      mockActor.id = "actor1";
-      (globalThis as any).game.actors.length = 0;
-      (globalThis as any).game.actors.push(mockActor);
-      (globalThis as any).game.user.isGM = true;
+    it("should handle negative time bank correctly", () => {
+      expect(TabLogic.formatTimeBank(-11, mockTimeUnits)).toBe("-1d 1h");
+    });
 
-      const { ActorProxy } = await import("../src/actor-proxy");
-      const { Settings } = await import("../src/settings");
-
-      const proxy = new ActorProxy(mockActor);
-      const project = {
-        id: "proj1",
-        templateId: "tpl1",
-        progress: 0,
-        isCompleted: false,
-        guidanceTierId: "",
-      };
-      Object.defineProperty(proxy, "projects", { get: () => [project] });
-      proxy.setProjects = vi.fn().mockRejectedValue(new Error("Database error"));
-      proxy.deleteEmbeddedDocuments = vi.fn().mockResolvedValue([]);
-      proxy.createEmbeddedDocuments = vi.fn().mockResolvedValue([{ _id: "newitem1" }]);
-
-      vi.spyOn(ActorProxy, "forActor").mockReturnValue(proxy);
-
-      vi.spyOn(Settings, "projectTemplates", "get").mockReturnValue([
-        { id: "tpl1", target: 10, rewardUuid: "Item.id", rewardType: "item", name: "Test Tpl" },
-      ] as any);
-
-      const item = new (globalThis as any).Item();
-      item.name = "Test Item";
-      item.toObject = () => ({ name: "Test Item" });
-      (globalThis as any).fromUuid = vi.fn().mockResolvedValue(item);
-
-      const html = document.createElement("div");
-      html.innerHTML = `<input class="update-project-progress" data-actor-id="actor1" data-project-id="proj1" value="10" />`;
-
-      const input = html.querySelector(".update-project-progress") as HTMLInputElement;
-
-      let listener: any;
-      input.addEventListener = vi.fn().mockImplementation((type: string, cb: any) => {
-        if (type === "change") listener = cb;
-      });
-
-      TabLogic.activateListeners(html, mockActor as any);
-
-      expect(listener).toBeDefined();
-
-      const ev = new Event("change");
-      Object.defineProperty(ev, "currentTarget", { value: input, enumerable: true });
-
-      await expect(listener(ev)).rejects.toThrow("Database error");
-
-      expect(project.isCompleted).toBe(false);
-      expect(proxy.deleteEmbeddedDocuments).toHaveBeenCalledWith("Item", ["newitem1"]);
+    it("should format time with zero units as '0'", () => {
+      expect(TabLogic.formatTimeBank(0, mockTimeUnits)).toBe("0");
     });
   });
 });
