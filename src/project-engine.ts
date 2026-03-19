@@ -83,6 +83,45 @@ export class ProjectEngine {
   }
 
   /**
+   * Creates a project item for an actor from a template and existing project data.
+   */
+  static async createProjectItem(
+    actor: Actor,
+    template: ProjectTemplate,
+    projectData: LearningProject,
+  ): Promise<Item | null> {
+    const rewardDoc = await fromUuid(template.rewardUuid as any);
+    if (!rewardDoc || !(rewardDoc instanceof Item)) {
+      return null;
+    }
+
+    const itemData = rewardDoc.toObject();
+    const stashedEffects = itemData.effects || [];
+    const stashedActivities = itemData.system.activities || {};
+
+    const updateData = {
+      ...itemData,
+      effects: [],
+      "system.activities": {},
+      "flags.thefehrs-learning-manager": {
+        isLearningProject: !projectData.isCompleted,
+        isLearnedReward: projectData.isCompleted,
+        projectData: projectData,
+        stashedEffects: stashedEffects,
+        stashedActivities: stashedActivities,
+      },
+    };
+
+    const [created] = (await actor.createEmbeddedDocuments("Item", [updateData])) as any[];
+    if (!created) return null;
+
+    if (!projectData.isCompleted) {
+      await this.injectActivities(created as any);
+    }
+    return created as any;
+  }
+
+  /**
    * Restores a project item to its original state upon completion.
    */
   static async completeProject(item: Item, template: ProjectTemplate) {

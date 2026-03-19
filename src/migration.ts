@@ -127,4 +127,63 @@ export async function migrateData() {
       ui?.notifications?.error("Migration to v3 failed. Please check the console for details.");
     }
   }
+
+  if (version < 4) {
+    ui.notifications?.info("Migrating Downtime Engine projects to native Item documents...");
+    try {
+      const { ProjectEngine } = await import("./project-engine");
+      const compendiumLabel = "UDE Migration";
+      const compendiumName = "ude-migration";
+      const compendiumKey = `world.${compendiumName}`;
+
+      let pack = game.packs.get(compendiumKey);
+      if (!pack) {
+        pack = (await CompendiumCollection.createCompendium({
+          type: "Item",
+          label: compendiumLabel,
+          name: compendiumName,
+        })) as any;
+      }
+
+      const actors = (game.actors || []) as any[];
+      let totalProjects = 0;
+      for (const actor of actors) {
+        const proxy = ActorProxy.forActor(actor);
+        totalProjects += proxy.projects.length;
+      }
+
+      if (totalProjects === 0) {
+        await Settings.setMigrationVersion(4);
+        return;
+      }
+
+      let migratedCount = 0;
+      const bar = new SceneNavigation();
+
+      for (const actor of actors) {
+        const proxy = ActorProxy.forActor(actor);
+        const projects = proxy.projects;
+        if (!projects || projects.length === 0) continue;
+
+        for (const p of projects) {
+          const tpl = Settings.projectTemplates.find((t) => t.id === p.templateId);
+          if (tpl) {
+            await ProjectEngine.createProjectItem(actor, tpl, p);
+          }
+          migratedCount++;
+          (bar as any)._onLoad({
+            content: `Migrating projects: ${migratedCount}/${totalProjects}`,
+            pct: Math.round((migratedCount / totalProjects) * 100),
+          });
+        }
+        await proxy.setProjects([]);
+      }
+
+      await Settings.setMigrationVersion(4);
+      ui?.notifications?.info(`Successfully migrated ${migratedCount} projects to native Items!`);
+    } catch (error) {
+      console.error("Downtime Engine migration to v4 failed:", error);
+      ui?.notifications?.error("Migration to v4 failed. Please check the console for details.");
+    }
+  }
 }
