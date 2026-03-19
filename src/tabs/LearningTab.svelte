@@ -2,67 +2,13 @@
   import { Settings } from "../settings";
   import { ActorProxy } from "../actor-proxy";
   import { TabLogic } from "./tab-logic";
+  import { LearningTab } from "./learning-tab";
   import type { TimeUnit, ProjectTemplate } from "../types";
 
   let { actor } = $props<{ actor: any }>();
 
   // Reactive data derived from the actor
-  let data = $derived.by(() => {
-    if (!actor) {
-      return {
-        formattedBank: "0",
-        timeUnits: [],
-        activeProjects: [],
-        completedProjects: [],
-        library: [],
-        isGM: game.user?.isGM,
-      };
-    }
-    const proxy = ActorProxy.forActor(actor);
-    const timeUnits = Settings.timeUnits;
-    const bank = proxy.bank;
-
-    const library = Settings.projectTemplates.map((tpl) => {
-      const eligibility = TabLogic.meetsRequirements(actor, tpl.requirements || []);
-      const label = `${tpl.name} (${tpl.target})${!eligibility.eligible ? " - Locked" : ""}`;
-      return {
-        ...tpl,
-        isEligible: eligibility.eligible,
-        ineligibilityReason: eligibility.reason,
-        label,
-        disabled: !eligibility.eligible,
-        title: !eligibility.eligible ? eligibility.reason : "",
-      };
-    });
-
-    const allProjects = proxy.projects
-      .map((p: any) => {
-        const tier = Settings.guidanceTiers.find((t) => t.id === p.guidanceTierId);
-        const tpl = library.find((t) => t.id === p.templateId);
-        if (!tpl) return null;
-
-        return {
-          ...p,
-          name: tpl.name,
-          maxProgress: tpl.target,
-          percent: tpl.target > 0 ? Math.min((p.progress / tpl.target) * 100, 100) : 0,
-          isCompleted: p.progress >= tpl.target || p.isCompleted,
-          guidanceType: tier ? tier.name : "None",
-          tierCostInfo: tier ? tier.costs : null,
-          canAbort: p.progress === 0 || game.user?.isGM,
-        };
-      })
-      .filter((p: any) => p !== null);
-
-    return {
-      formattedBank: TabLogic.formatTimeBank(bank.total, timeUnits),
-      timeUnits,
-      activeProjects: allProjects.filter((p: any) => !p.isCompleted),
-      completedProjects: allProjects.filter((p: any) => p.isCompleted),
-      library,
-      isGM: game.user?.isGM,
-    };
-  });
+  let data = $derived(LearningTab.getData(actor));
 
   let selectedProjectId = $state("");
 
@@ -358,7 +304,6 @@
     }
   }
 
-  // Ensure Tidy 5e's global table styles apply to our elements
   :global {
     .tidy-table {
       display: flex !important;

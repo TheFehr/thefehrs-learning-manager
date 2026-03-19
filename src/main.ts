@@ -9,7 +9,6 @@ import type {
 } from "./types";
 import { LearningConfigApp } from "./settings-app";
 import { Settings } from "./settings";
-import { LearningTab as LearningTabLogic } from "./tabs/learning-tab";
 import { PartyTab as PartyTabLogic } from "./tabs/party-tab";
 import PartyTab from "./tabs/PartyTab.svelte";
 import LearningTab from "./tabs/LearningTab.svelte";

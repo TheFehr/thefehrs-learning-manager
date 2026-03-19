@@ -17,6 +17,7 @@ globalThis.foundry = {
       ApplicationV2: class {
         render = vi.fn();
       },
+      HandlebarsApplicationMixin: (Base: any) => class extends Base {},
     },
   },
   utils: {
