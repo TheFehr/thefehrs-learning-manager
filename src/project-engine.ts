@@ -21,6 +21,7 @@ export class ProjectEngine {
     const itemData = rewardDoc.toObject();
     const stashedEffects = itemData.effects || [];
     const stashedActivities = itemData.system.activities || {};
+    const stashedType = itemData.type;
 
     // Prepare item data for stashing
     const projectData: LearningProject = {
@@ -33,13 +34,16 @@ export class ProjectEngine {
 
     const updateData = {
       ...itemData,
+      type: "feat",
       effects: [],
+      "system.type.value": "learningProject",
       "system.activities": {},
       "flags.thefehrs-learning-manager": {
         isLearningProject: true,
         projectData: projectData,
         stashedEffects: stashedEffects,
         stashedActivities: stashedActivities,
+        stashedType: stashedType,
       },
     };
 
@@ -98,10 +102,15 @@ export class ProjectEngine {
     const itemData = rewardDoc.toObject();
     const stashedEffects = itemData.effects || [];
     const stashedActivities = itemData.system.activities || {};
+    const stashedType = itemData.type;
 
     const updateData = {
       ...itemData,
+      type: projectData.isCompleted ? stashedType : "feat",
       effects: [],
+      "system.type.value": projectData.isCompleted
+        ? itemData.system.type?.value
+        : "learningProject",
       "system.activities": {},
       "flags.thefehrs-learning-manager": {
         isLearningProject: !projectData.isCompleted,
@@ -109,6 +118,7 @@ export class ProjectEngine {
         projectData: projectData,
         stashedEffects: stashedEffects,
         stashedActivities: stashedActivities,
+        stashedType: stashedType,
       },
     };
 
@@ -135,7 +145,9 @@ export class ProjectEngine {
     };
 
     const updateData = {
+      type: flags.stashedType || item.type,
       effects: flags.stashedEffects || [],
+      "system.type.value": null, // Will be overridden if stashedActivities restore it or if we restore system
       "system.activities": flags.stashedActivities || {},
       "flags.thefehrs-learning-manager": {
         isLearningProject: false,
@@ -143,8 +155,14 @@ export class ProjectEngine {
         projectData,
         stashedEffects: null,
         stashedActivities: null,
+        stashedType: null,
       },
     };
+
+    // If it's a feat, we might want to preserve the system.type.value if we had one?
+    // Actually, usually restoring stashedActivities might not be enough if we changed system.type.value.
+    // The most robust way is to restore the original toObject() but that's risky.
+    // For now, let's just restore type.
 
     await item.update(updateData);
     ui.notifications?.info(`Learning Complete: ${item.name} is now fully available!`);

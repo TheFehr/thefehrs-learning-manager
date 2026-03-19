@@ -158,8 +158,6 @@ export async function migrateData() {
       }
 
       let migratedCount = 0;
-      const bar = new SceneNavigation();
-
       for (const actor of actors) {
         const proxy = ActorProxy.forActor(actor);
         const projects = proxy.projects;
@@ -171,10 +169,9 @@ export async function migrateData() {
             await ProjectEngine.createProjectItem(actor, tpl, p);
           }
           migratedCount++;
-          (bar as any)._onLoad({
-            content: `Migrating projects: ${migratedCount}/${totalProjects}`,
-            pct: Math.round((migratedCount / totalProjects) * 100),
-          });
+          ui.notifications?.info(`Migrating projects: ${migratedCount}/${totalProjects}`, {
+            progress: migratedCount / totalProjects,
+          } as any);
         }
         await proxy.setProjects([]);
       }

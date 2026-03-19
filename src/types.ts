@@ -91,6 +91,7 @@ declare global {
         projectData?: LearningProject;
         stashedEffects?: any[];
         stashedActivities?: any[];
+        stashedType?: string;
       };
     };
   }
@@ -138,10 +139,21 @@ export interface Tidy5eHtmlTabOptions {
   onRender?: (params: Tidy5eTabRenderParams) => void;
 }
 
+export interface Tidy5eCharacterFeatureSectionOptions {
+  label: string;
+  itemsFilter: (item: any) => boolean;
+  hasActions?: boolean;
+  showIfEmpty?: boolean;
+}
+
 export interface Tidy5eApi {
   registerCharacterTab: (tab: Tidy5eRegisteredTab) => void;
   registerGroupTab: (tab: Tidy5eRegisteredTab) => void;
   registerActorTab: (tab: Tidy5eRegisteredTab) => void;
+  registerCharacterFeatureSection: (
+    sectionId: string,
+    options: Tidy5eCharacterFeatureSectionOptions,
+  ) => void;
   models: {
     HtmlTab: new (options: Tidy5eHtmlTabOptions) => Tidy5eRegisteredTab;
   };

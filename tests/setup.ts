@@ -137,9 +137,12 @@ globalThis.ChatMessage = {
   create: vi.fn(),
 } as any;
 globalThis.fromUuid = vi.fn();
-globalThis.SceneNavigation = class {
-  _onLoad = vi.fn();
-} as any;
 globalThis.CompendiumCollection = {
   createCompendium: vi.fn(),
+} as any;
+
+globalThis.CONFIG = {
+  DND5E: {
+    featureTypes: {},
+  },
 } as any;

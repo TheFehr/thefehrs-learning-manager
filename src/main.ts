@@ -11,7 +11,6 @@ import { LearningConfigApp } from "./settings-app";
 import { Settings } from "./settings";
 import { PartyTab as PartyTabLogic } from "./tabs/party-tab";
 import PartyTab from "./tabs/PartyTab.svelte";
-import LearningTab from "./tabs/LearningTab.svelte";
 import { migrateData } from "./migration";
 import { mount, unmount } from "svelte";
 import { ProjectEngine } from "./project-engine";
@@ -22,6 +21,10 @@ export class TheFehrsLearningManager {
 
   static init() {
     this.registerSettings();
+
+    (CONFIG as any).DND5E.featureTypes.learningProject = {
+      label: "In-Progress Learning",
+    };
 
     Settings.registerMenu("configMenu", {
       name: "Downtime Engine Config",
@@ -42,35 +45,6 @@ export class TheFehrsLearningManager {
 
     Hooks.once("tidy5e-sheet.ready" as any, (api: Tidy5eApi) => {
       console.debug("Downtime Engine | Tidy5e API ready, registering tabs");
-
-      api.registerCharacterTab(
-        new api.models.HtmlTab({
-          title: "Learning",
-          iconClass: "fa-solid fa-book-open-cover",
-          tabId: "thefehrs-learning-tab",
-          html: '<div class="downtime-engine-svelte-root tidy5e-sheet tidy-sheet-body tab-content" style="height: 100%; display: flex; flex-direction: column;"></div>',
-          onRender: (params: Tidy5eTabRenderParams) => {
-            const appId = params.app.appId;
-            const target = params.element.querySelector(".downtime-engine-svelte-root");
-            if (!target) return;
-
-            if (this.svelteInstances.has(appId)) {
-              unmount(this.svelteInstances.get(appId));
-              this.svelteInstances.delete(appId);
-            }
-
-            const actor = params.app.document || params.app.actor;
-            if (!actor) return;
-
-            const instance = mount(LearningTab, {
-              target: target,
-              props: { actor },
-            });
-
-            this.svelteInstances.set(appId, instance);
-          },
-        }),
-      );
 
       api.registerActorTab(
         new api.models.HtmlTab({

@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { TheFehrsLearningManager } from "../src/main";
 import { TabLogic } from "../src/tabs/tab-logic";
-import { LearningTab } from "../src/tabs/learning-tab";
 import { ActorProxy } from "../src/actor-proxy";
 import type { TimeUnit } from "../src/types";
 
@@ -37,9 +36,28 @@ describe("TheFehrsLearningManager", () => {
   });
 
   describe("init", () => {
-    it("should register settings and menus", () => {
+    it("should register settings, menus and tabs", () => {
+      const api = {
+        registerActorTab: vi.fn(),
+        models: {
+          HtmlTab: class {
+            constructor(public opts: any) {}
+          },
+        },
+      };
+
       TheFehrsLearningManager.init();
       expect(game.settings.registerMenu).toHaveBeenCalled();
+      expect((CONFIG as any).DND5E.featureTypes.learningProject).toBeDefined();
+
+      // Trigger the Tidy5e hook
+      const tidyHook = vi
+        .mocked(Hooks.once)
+        .mock.calls.find((call) => call[0] === "tidy5e-sheet.ready");
+      if (tidyHook) {
+        tidyHook[1](api);
+        expect(api.registerActorTab).toHaveBeenCalled();
+      }
     });
   });
 
@@ -51,81 +69,6 @@ describe("TheFehrsLearningManager", () => {
         "rules",
         expect.objectContaining({ scope: "world", config: false }),
       );
-    });
-  });
-
-  describe("LearningTab.getData", () => {
-    it("should return correct data for actor", async () => {
-      const actor = new Actor() as any;
-      actor.items = [];
-      actor.flags = {
-        [TheFehrsLearningManager.ID]: {
-          bank: { total: 15 },
-          projects: [
-            { id: "p1", templateId: "tpl1", progress: 5, guidanceTierId: "" },
-            { id: "p2", templateId: "tpl2", progress: 10, guidanceTierId: "" },
-          ],
-        },
-      };
-
-      vi.mocked(game.settings.get).mockImplementation((_scope, key) => {
-        if (key === "timeUnits") return timeUnits;
-        if (key === "projectTemplates")
-          return [
-            { id: "tpl1", name: "Project 1", target: 10, requirements: [] },
-            { id: "tpl2", name: "Project 2", target: 10, requirements: [] },
-          ];
-        if (key === "guidanceTiers") return [];
-        return null;
-      });
-
-      const data = await LearningTab.getData(actor);
-
-      expect(data.formattedBank).toBe("1d 5h");
-      expect(data.activeProjects).toHaveLength(1);
-      expect(data.completedProjects).toHaveLength(1);
-    });
-
-    it("should include item-based projects", async () => {
-      const item = {
-        id: "i1",
-        name: "Item Project",
-        getFlag: vi.fn().mockImplementation((_scope, key) => {
-          if (key === "isLearningProject") return true;
-          if (key === "")
-            return {
-              projectData: {
-                id: "i1",
-                templateId: "tpl1",
-                progress: 2,
-                guidanceTierId: "",
-                isCompleted: false,
-              },
-            };
-          return null;
-        }),
-      };
-      const actor = new Actor() as any;
-      actor.items = [item];
-      actor.flags = {
-        [TheFehrsLearningManager.ID]: {
-          bank: { total: 0 },
-          projects: [],
-        },
-      };
-
-      vi.mocked(game.settings.get).mockImplementation((_scope, key) => {
-        if (key === "timeUnits") return timeUnits;
-        if (key === "projectTemplates")
-          return [{ id: "tpl1", name: "Project 1", target: 10, requirements: [] }];
-        if (key === "guidanceTiers") return [];
-        return null;
-      });
-
-      const data = await LearningTab.getData(actor);
-      expect(data.activeProjects).toHaveLength(1);
-      expect(data.activeProjects[0].name).toBe("Item Project");
-      expect(data.activeProjects[0].isItemBased).toBe(true);
     });
   });
 
