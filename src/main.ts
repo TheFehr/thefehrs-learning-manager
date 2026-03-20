@@ -152,7 +152,7 @@ export class TheFehrsLearningManager {
           html: '<div class="downtime-engine-svelte-root" style="height: 100%;"></div>',
           enabled: (params: any) => {
             if (!game.user?.isGM) return false;
-            const item = params.app.document || params.app.actor;
+            const item = params?.app?.document || params?.document || params?.app?.actor;
             if (!item) return false;
 
             const isProject = item.getFlag(this.ID, "isLearningProject");
