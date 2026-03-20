@@ -1,8 +1,9 @@
 .idea/
 .vite/
+external-types/
+external-dts/
 node_modules/
 dist/
 
 .env.foundryvtt.local
 .tool-versions
-

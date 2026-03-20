@@ -6,6 +6,7 @@ import type {
   DowntimeGroupActor,
   SystemRules,
   GuidanceTier,
+  OnRenderTabParams,
 } from "./types";
 import { LearningConfigApp } from "./settings-app";
 import { Settings } from "./settings";
@@ -16,6 +17,7 @@ import ItemTargetConfig from "./tabs/ItemTargetConfig.svelte";
 import { migrateData } from "./migration";
 import { mount, unmount } from "svelte";
 import { ProjectEngine } from "./project-engine";
+import { ProjectItem } from "./data/project-item";
 
 export class TheFehrsLearningManager {
   static ID = "thefehrs-learning-manager" as const;
@@ -87,8 +89,8 @@ export class TheFehrsLearningManager {
 
       fromUuid(data.uuid).then((item) => {
         if (item instanceof Item) {
-          const projectData =
-            (item.getFlag(TheFehrsLearningManager.ID, "projectData") as any) || {};
+          const itemProxy = new ProjectItem(item);
+          const projectData = itemProxy.projectData;
           const requirements = projectData.requirements || [];
           const { eligible, reason } = TabLogic.meetsRequirements(targetActor, requirements);
 
@@ -111,7 +113,7 @@ export class TheFehrsLearningManager {
           iconClass: "fa-solid fa-book-open-cover",
           tabId: "thefehrs-party-tab",
           html: '<div class="downtime-engine-svelte-root tidy5e-sheet tidy-sheet-body tab-content" style="height: 100%; display: flex; flex-direction: column;"></div>',
-          onRender: (params: Tidy5eTabRenderParams) => {
+          onRender: (params: OnRenderTabParams) => {
             const appId = params.app.id;
             const target = params.element.querySelector(".downtime-engine-svelte-root");
             if (!target) return;
@@ -135,7 +137,7 @@ export class TheFehrsLearningManager {
             };
 
             const instance = mount(PartyTab, {
-              target: target,
+              target: params.tabContentsElement,
               props: props,
             });
 
@@ -146,14 +148,15 @@ export class TheFehrsLearningManager {
 
       api.registerItemTab(
         new api.models.HtmlTab({
+          tabContentsClasses: ["downtime-engine-item-tab"],
           title: "Learning",
           iconClass: "fa-solid fa-book-open-cover",
           tabId: `${this.ID}-item-target-config`,
           html: '<div class="downtime-engine-svelte-root" style="height: 100%;"></div>',
-          enabled: (params: any) => {
+          enabled: (context: any) => {
             if (!game.user?.isGM) return false;
             const item =
-              params?.item || params?.document || params?.app?.document || params?.app?.actor;
+              context?.item || context?.document || context?.app?.document || context?.app?.actor;
             if (!item) return false;
 
             // Check if it's our custom "learning" type (feat subtype learningProject)
@@ -174,7 +177,7 @@ export class TheFehrsLearningManager {
 
             return false;
           },
-          onRender: (params: Tidy5eTabRenderParams) => {
+          onRender: (params) => {
             const appId = params.app.id;
             const target = params.element.querySelector(".downtime-engine-svelte-root");
             if (!target) return;
@@ -194,6 +197,53 @@ export class TheFehrsLearningManager {
 
             this.svelteInstances.set(appId, instance);
           },
+        }),
+      );
+
+      let html = (data: any) => {
+        // Tidy passes the document context in 'data'
+        const item = data.document || data.item;
+        const projectData = item?.getFlag(TheFehrsLearningManager.ID, "projectData");
+
+        console.debug(projectData, item);
+        if (!projectData || !projectData.target) return "";
+
+        const progress = projectData.progress || 0;
+        const target = projectData.target;
+        const percentage = Math.min(100, Math.max(0, (progress / target) * 100));
+
+        // Uses Tidy5e native CSS variables (--t5e-*) to match their specific themes
+        return `
+    <div class="learning-manager-progress-container" style="margin: 0.5rem 0 1rem 0; padding: 0.5rem; border: 1px solid var(--t5e-color-border); border-radius: 4px; background: var(--t5e-color-background-light);">
+      <div style="display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 4px; font-family: var(--t5e-font-family);">
+        <span>Training Progress</span>
+        <span>${progress} / ${target}</span>
+      </div>
+      <div style="width: 100%; height: 14px; background: var(--t5e-color-background-dark); border-radius: 7px; overflow: hidden; box-shadow: inset 0 1px 3px rgba(0,0,0,0.5);">
+        <div style="width: ${percentage}%; height: 100%; background: var(--color-level-success, #4caf50); transition: width 0.4s ease-in-out;"></div>
+      </div>
+    </div>
+  `;
+      };
+      let enabled = (data: any) => {
+        console.debug(data);
+        const item = data.document || data.item;
+        return !!item?.getFlag(TheFehrsLearningManager.ID, "isLearningProject");
+      };
+      api.registerItemContent(
+        new api.models.HtmlContent({
+          // 1. Build the HTML dynamically based on the current context data
+          html: html,
+          // 2. Tell Tidy exactly where to put it
+          injectParams: {
+            // selector: `[data-tab-contents-for="description"]`,
+            selector: `section.item-descriptions`,
+            position: "beforebegin",
+          },
+          // 3. Only render if it's actually a learning project
+          enabled: enabled,
+          // 4. Force Tidy to re-calculate this block whenever the sheet updates
+          renderScheme: "handlebars",
         }),
       );
     });

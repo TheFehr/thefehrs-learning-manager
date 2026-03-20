@@ -1,3 +1,5 @@
+import { Tidy5eSheetsApi } from "@tidy5e/api";
+
 export interface TimeUnit {
   id: string;
   name: string;
@@ -76,7 +78,7 @@ declare global {
   }
 
   interface HookConfig {
-    "tidy5e-sheet.ready": [api: Tidy5eApi];
+    "tidy5e-sheet.ready": [api: Tidy5eSheetsApi];
   }
 
   interface FlagConfig {
@@ -97,6 +99,105 @@ declare global {
       };
     };
   }
+}
+
+// --- DnD 5e Types ---
+export interface ItemActivity {
+  type: string;
+  activation: Activation;
+  consumption: Consumption;
+  description: Description;
+  duration: Duration;
+  effects: any[];
+  flags: Flags;
+  range: Range;
+  target: Target;
+  uses: Uses;
+  visibility: Visibility;
+  roll: Roll;
+  name: string;
+  _id: string;
+  sort: number;
+}
+
+export interface Activation {
+  type: string;
+  override: boolean;
+  condition: string;
+  value: number;
+}
+
+export interface Consumption {
+  scaling: Scaling;
+  spellSlot: boolean;
+  targets: any[];
+}
+
+export interface Scaling {
+  allowed: boolean;
+}
+
+export interface Description {
+  chatFlavor: string;
+}
+
+export interface Duration {
+  units: string;
+  concentration: boolean;
+  override: boolean;
+  special: string;
+}
+
+export interface Flags {}
+
+export interface Range {
+  units: string;
+  override: boolean;
+  special: string;
+}
+
+export interface Target {
+  template: Template;
+  affects: Affects;
+  override: boolean;
+  prompt: boolean;
+}
+
+export interface Template {
+  contiguous: boolean;
+  units: string;
+  type: string;
+}
+
+export interface Affects {
+  choice: boolean;
+  type: string;
+}
+
+export interface Uses {
+  spent: number;
+  recovery: any[];
+  max: string;
+}
+
+export interface Visibility {
+  level: Level;
+  requireAttunement: boolean;
+  requireIdentification: boolean;
+  requireMagic: boolean;
+  identifier: string;
+}
+
+export interface Level {
+  min: any;
+  max: any;
+}
+
+export interface Roll {
+  prompt: boolean;
+  visible: boolean;
+  name: string;
+  formula: string;
 }
 
 // --- Tidy 5e Sheets API Types ---
@@ -126,35 +227,4 @@ export interface Tidy5eTabRenderParams {
 
   /** The resolved data object returned by your getData function */
   data: unknown;
-}
-
-export interface Tidy5eRegisteredTab {
-  tabId: string;
-  // ... internal Tidy properties, strictly opaque to us
-}
-
-export interface Tidy5eHtmlTabOptions {
-  title: string;
-  tabId: string;
-  html: string;
-  iconClass?: string;
-  getData?: (data: Tidy5eTabGetDataParams) => Promise<unknown> | unknown;
-  onRender?: (params: Tidy5eTabRenderParams) => void;
-}
-
-export interface Tidy5eCharacterFeatureSectionOptions {
-  label: string;
-  itemsFilter: (item: any) => boolean;
-  hasActions?: boolean;
-  showIfEmpty?: boolean;
-}
-
-export interface Tidy5eApi {
-  registerCharacterTab: (tab: Tidy5eRegisteredTab) => void;
-  registerItemTab: (tab: Tidy5eRegisteredTab) => void;
-  registerGroupTab: (tab: Tidy5eRegisteredTab) => void;
-  registerActorTab: (tab: Tidy5eRegisteredTab) => void;
-  models: {
-    HtmlTab: new (options: Tidy5eHtmlTabOptions) => Tidy5eRegisteredTab;
-  };
 }

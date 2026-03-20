@@ -1,5 +1,5 @@
-import type { LearningProject, TimeBank, DowntimeActor } from "./types";
-import { Settings } from "./settings";
+import type { LearningProject, TimeBank, DowntimeActor } from "../types";
+import { Settings } from "../settings";
 
 export class ActorProxy {
   private actor: Actor;

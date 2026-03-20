@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { TheFehrsLearningManager } from "../src/main";
 import { TabLogic } from "../src/tabs/tab-logic";
-import { ActorProxy } from "../src/actor-proxy";
+import { ActorProxy } from "../src/data/actor-proxy";
 import { ProjectEngine } from "../src/project-engine";
 import type { TimeUnit } from "../src/types";
 

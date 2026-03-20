@@ -1,9 +1,10 @@
 <script lang="ts">
   import {Settings} from "../settings";
-  import {ActorProxy} from "../actor-proxy";
+  import {ActorProxy} from "../data/actor-proxy";
   import {TabLogic} from "./tab-logic";
   import {ProjectEngine} from "../project-engine";
   import type {DowntimeGroupActor, TimeUnit, ProjectTemplate} from "../types";
+  import {ProjectItem} from "../data/project-item";
 
   let {members, tierOptions, isGM, actor} = $props<{
     members: any[];
@@ -112,14 +113,14 @@
 
     const item = targetActor.items.get(project.id);
     if (item) {
-      const flags = item.getFlag(Settings.ID, "" as any) as any;
-      const projectData = flags.projectData;
+      const proxyItem = new ProjectItem(item);
+      const projectData = proxyItem.projectData;
 
       projectData.progress = Math.max(0, Math.min(newProgress, projectData.target || 0));
       if (projectData.target > 0 && projectData.progress >= projectData.target && !projectData.isCompleted) {
         await ProjectEngine.completeProject(item);
       } else {
-        await item.update({ "flags.thefehrs-learning-manager.projectData": projectData });
+        item.setProjectData(projectData);
       }
     }
   }

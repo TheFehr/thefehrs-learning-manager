@@ -1,6 +1,10 @@
 import { Settings } from "./settings";
-import { ActorProxy } from "./actor-proxy";
+import { ActorProxy } from "./data/actor-proxy";
 import type { LearningProject, ProjectTemplate, TimeUnit, GuidanceTier } from "./types";
+import { ProjectItem } from "./data/project-item";
+import { LearningActivityData } from "./data/learning-activity";
+import Document from "@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/abstract/document";
+import ModuleSubType = Document.ModuleSubType;
 
 export class ProjectEngine {
   /**
@@ -66,30 +70,81 @@ export class ProjectEngine {
   /**
    * Generates training activities data based on world settings.
    */
-  static getActivitiesData(target: number): any[] {
+  static getActivitiesData(target: number): LearningActivityData[] {
     if (target <= 0) return [];
 
     const timeUnits = Settings.timeUnits;
     return timeUnits.map((tu) => ({
       type: "utility",
-      name: `Train ${tu.name}`,
-      img: "icons/skills/trades/book-writing-quill.webp",
-      activation: { type: "special", value: 1, condition: "" },
-      consumption: {
-        targets: [],
-        scaling: { allowed: false, max: "" },
+      activation: {
+        type: "special",
+        override: false,
+        condition: "",
+        value: 1,
       },
-      description: { chatFlavor: `Training: ${tu.name}` },
-      duration: { units: "inst", value: "" },
-      range: { units: "self", value: "" },
-      target: { template: { count: "", type: "" }, units: "", value: "" },
-      uses: { max: "", spent: 0, recovery: [] },
-      roll: { formula: "", name: "", prompt: false, visible: false },
+      consumption: {
+        scaling: {
+          allowed: false,
+        },
+        spellSlot: true,
+        targets: [],
+      },
+      description: {
+        chatFlavor: `Training for ${tu.name}`,
+      },
+      duration: {
+        units: "perm",
+        concentration: false,
+        override: false,
+        special: "",
+      },
+      effects: [],
       flags: {
-        [Settings.ID]: {
+        [ProjectItem.ID]: {
           timeUnitId: tu.id,
+          learningTarget: target,
         },
       },
+      range: {
+        units: "self",
+        override: false,
+        special: "",
+      },
+      target: {
+        template: {
+          contiguous: false,
+          units: "ft",
+          type: "",
+        },
+        affects: {
+          choice: false,
+          type: "",
+        },
+        override: false,
+        prompt: false,
+      },
+      uses: {
+        spent: 0,
+        recovery: [],
+        max: "",
+      },
+      visibility: {
+        level: {
+          min: null,
+          max: null,
+        },
+        requireAttunement: false,
+        requireIdentification: false,
+        requireMagic: false,
+        identifier: "",
+      },
+      roll: {
+        prompt: false,
+        visible: false,
+        name: "",
+        formula: "",
+      },
+      name: `Train ${tu.name}`,
     }));
   }
 
@@ -97,7 +152,8 @@ export class ProjectEngine {
    * Injects training activities into a project item based on world settings.
    */
   static async injectActivities(item: Item, forceTarget?: number) {
-    const projectData = (item.getFlag(Settings.ID, "projectData") as any) || {};
+    const itemProxy = item as ProjectItem;
+    const projectData = itemProxy.getFlag(Settings.ID, "projectData");
     const target = forceTarget ?? projectData.target ?? 0;
 
     console.debug(`Downtime Engine | DEBUG: injectActivities call for "${item.name}"`, {
@@ -128,7 +184,9 @@ export class ProjectEngine {
 
       // Push directly into the D&D 5e System DataModel
       await item.update({ "system.activities": activityUpdates });
-      console.debug(`Downtime Engine | Successfully created ${activityUpdates.length} activities.`);
+      console.debug(
+        `Downtime Engine | Successfully created ${Object.keys(activityUpdates).length} activities.`,
+      );
     } catch (err) {
       console.error(`Downtime Engine | Failed to create activities for "${item.name}":`, err);
     }
@@ -201,11 +259,12 @@ export class ProjectEngine {
   static async completeProject(item: Item) {
     const isProject = item.getFlag(Settings.ID, "isLearningProject");
     if (!isProject) return;
+    const projectItem = item as ProjectItem;
 
-    const projectData = (item.getFlag(Settings.ID, "projectData") as any) || {};
+    const projectData = (projectItem.getFlag(Settings.ID, "projectData") as any) || {};
 
     const updateData = {
-      type: (item.getFlag(Settings.ID, "stashedType") as string) || item.type,
+      type: ((item.getFlag(Settings.ID, "stashedType") as string) || item.type) as ModuleSubType,
       effects: (item.getFlag(Settings.ID, "stashedEffects") as any[]) || [],
       "system.type.value": null, // Will be overridden if stashedActivities restore it or if we restore system
       "system.activities": (item.getFlag(Settings.ID, "stashedActivities") as any) || {},
@@ -223,11 +282,6 @@ export class ProjectEngine {
       },
       "flags.tidy5e-sheet.section": "Completed Learning",
     };
-
-    // If it's a feat, we might want to preserve the system.type.value if we had one?
-    // Actually, usually restoring stashedActivities might not be enough if we changed system.type.value.
-    // The most robust way is to restore the original toObject() but that's risky.
-    // For now, let's just restore type.
 
     await item.update(updateData);
     ui.notifications?.info(`Learning Complete: ${item.name} is now fully available!`);

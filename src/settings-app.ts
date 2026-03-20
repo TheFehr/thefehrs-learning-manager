@@ -1,4 +1,3 @@
-import { Settings } from "./settings";
 import SettingsConfig from "./SettingsConfig.svelte";
 import { mount, unmount } from "svelte";
 
@@ -22,7 +21,7 @@ export class LearningConfigApp extends ApplicationV2 {
     // No-op, Svelte handles the content
   }
 
-  protected override _onRender(context: any, options: any) {
+  protected override async _onRender(context, options) {
     const target = this.element.querySelector(".window-content") || this.element;
 
     if (this.svelteInstance) {

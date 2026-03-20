@@ -23,14 +23,6 @@ export class Settings {
     return this.settings.get(this.ID, "guidanceTiers") as any;
   }
 
-  static get projectTemplates(): ProjectTemplate[] {
-    try {
-      return (this.settings.get(this.ID, "projectTemplates") as any) || [];
-    } catch {
-      return [];
-    }
-  }
-
   static get allowedCompendiums(): string[] {
     return (this.settings.get(this.ID, "allowedCompendiums") as any) || [];
   }

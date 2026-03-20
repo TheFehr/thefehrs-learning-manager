@@ -1,5 +1,5 @@
 import { Settings } from "../settings";
-import { ActorProxy } from "../actor-proxy";
+import { ActorProxy } from "../data/actor-proxy";
 import { TabLogic } from "./tab-logic";
 import type { DowntimeGroupActor, TimeUnit, LearningProject } from "../types";
 

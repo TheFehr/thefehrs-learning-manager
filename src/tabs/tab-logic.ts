@@ -1,4 +1,4 @@
-import { ActorProxy } from "../actor-proxy";
+import { ActorProxy } from "../data/actor-proxy";
 import type { DowntimeActor, TimeUnit, ProjectRequirement, ComparisonOperator } from "../types";
 
 export class TabLogic {
