@@ -111,16 +111,24 @@ export class ProjectEngine {
 
     if (activitiesData.length === 0) {
       console.warn(
-        `Downtime Engine | Skipping activity injection for "${item.name}" - target is ${target}. Full flag state:`,
-        (item as any).flags?.[Settings.ID],
+        `Downtime Engine | Skipping activity injection for "${item.name}" - target is ${target}.`,
       );
       return;
     }
 
     console.debug(`Downtime Engine | Creating ${activitiesData.length} Activity documents...`);
     try {
-      const created = await (item as any).createEmbeddedDocuments("Activity", activitiesData);
-      console.debug(`Downtime Engine | Successfully created ${created.length} activities.`);
+      // Generate random IDs for the DataModel records and prep the update
+      const activityUpdates: Record<string, any> = {};
+
+      for (const activity of activitiesData) {
+        // Foundry's randomID() generates the 16-char string required for keys
+        activityUpdates[foundry.utils.randomID()] = activity;
+      }
+
+      // Push directly into the D&D 5e System DataModel
+      await item.update({ "system.activities": activityUpdates });
+      console.debug(`Downtime Engine | Successfully created ${activityUpdates.length} activities.`);
     } catch (err) {
       console.error(`Downtime Engine | Failed to create activities for "${item.name}":`, err);
     }

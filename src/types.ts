@@ -116,6 +116,7 @@ export interface Tidy5eTabRenderParams {
    * We extend Foundry's base Application to include the specific properties Tidy5e attaches.
    */
   app: Application & {
+    id: string;
     document?: Actor;
     actor?: Actor;
   };

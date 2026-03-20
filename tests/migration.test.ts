@@ -68,17 +68,11 @@ describe("Data Migration", () => {
 
     await migrateData();
 
-    expect(actor.setFlag).toHaveBeenCalledWith(
-      TheFehrsLearningManager.ID,
-      "projects",
-      expect.arrayContaining([
-        expect.objectContaining({ id: "p1", templateId: "tpl1", progress: 50 }),
-      ]),
-    );
+    expect(actor.setFlag).toHaveBeenCalledWith(TheFehrsLearningManager.ID, "projects", []);
     expect(game.settings.set).toHaveBeenCalledWith(
       TheFehrsLearningManager.ID,
       "migrationVersion",
-      "1.0.0",
+      "2.0.0",
     );
   });
 
@@ -197,6 +191,90 @@ describe("Data Migration", () => {
         }),
       );
 
+      expect(game.settings.set).toHaveBeenCalledWith(
+        TheFehrsLearningManager.ID,
+        "migrationVersion",
+        "2.0.0",
+      );
+    });
+  });
+
+  describe("Direct Migration (0 -> 2.0.0)", () => {
+    it("should perform a direct migration and reach the same state as incremental", async () => {
+      const initialTiers = [{ id: "t1", costs: { h: 1.5 } }];
+
+      vi.spyOn(Settings, "migrationVersion", "get").mockReturnValue("0");
+      vi.spyOn(Settings, "rules", "get").mockReturnValue({ method: "roll" } as any);
+      vi.mocked(game.settings.get).mockImplementation((_scope, key) => {
+        if (key === "migrationVersion") return "0";
+        if (key === "guidanceTiers") return initialTiers;
+        if (key === "projectTemplates") return [];
+        return null;
+      });
+
+      const actor = new Actor() as any;
+      actor.id = "actor1";
+      actor.flags = {
+        [TheFehrsLearningManager.ID]: {
+          projects: [
+            {
+              id: "p1",
+              name: "New Project",
+              progress: 10,
+              maxProgress: 100,
+              rewardUuid: "item1",
+              rewardType: "item",
+            },
+          ],
+        },
+      };
+      (game.actors as any[]).push(actor);
+
+      global.fromUuid = vi.fn().mockResolvedValue({
+        toObject: () => ({ name: "Reward", system: { activities: {} }, effects: [] }),
+      });
+
+      vi.mocked(game.settings.set).mockClear();
+      console.debug("Downtime Engine | Test: Starting migrateData");
+      await migrateData();
+      console.debug(
+        "Downtime Engine | Test: migrateData finished, set calls:",
+        game.settings.set.mock.calls,
+      );
+
+      // 1. Rules updated
+      expect(game.settings.set).toHaveBeenCalledWith(
+        TheFehrsLearningManager.ID,
+        "rules",
+        expect.objectContaining({
+          critDoubleStrategy: "never",
+          critThreshold: 10,
+        }),
+      );
+
+      // 2. Tiers updated (GP to CP)
+      expect(game.settings.set).toHaveBeenCalledWith(
+        TheFehrsLearningManager.ID,
+        "guidanceTiers",
+        expect.arrayContaining([
+          expect.objectContaining({ costs: { h: 150 }, _migratedToV2: true }),
+        ]),
+      );
+
+      // 3. Library updated
+      expect(game.settings.set).toHaveBeenCalledWith(
+        TheFehrsLearningManager.ID,
+        "projectTemplates",
+        expect.arrayContaining([expect.objectContaining({ name: "New Project", target: 100 })]),
+      );
+
+      // 4. Item created
+      expect(ProjectEngine.createProjectItem).toHaveBeenCalled();
+
+      // 5. Actor projects cleared
+      expect(actor.setFlag).toHaveBeenCalledWith(TheFehrsLearningManager.ID, "projects", []);
+
+      // 6. Version updated
       expect(game.settings.set).toHaveBeenCalledWith(
         TheFehrsLearningManager.ID,
         "migrationVersion",

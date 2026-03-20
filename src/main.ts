@@ -38,7 +38,7 @@ export class TheFehrsLearningManager {
     });
 
     Hooks.on("dnd5e.preUseActivity" as any, (activity: any, _config: any, _options: any) => {
-      const timeUnitId = activity.getFlag(Settings.ID, "timeUnitId");
+      const timeUnitId = activity.flags?.[Settings.ID]?.timeUnitId;
       if (timeUnitId) {
         ProjectEngine.processTraining(activity.item, timeUnitId);
         return false; // Stop standard execution
@@ -105,14 +105,14 @@ export class TheFehrsLearningManager {
     Hooks.once("tidy5e-sheet.ready" as any, (api: Tidy5eApi) => {
       console.debug("Downtime Engine | Tidy5e API ready, registering tabs");
 
-      api.registerActorTab(
+      api.registerGroupTab(
         new api.models.HtmlTab({
           title: "Group Learning",
           iconClass: "fa-solid fa-book-open-cover",
           tabId: "thefehrs-party-tab",
           html: '<div class="downtime-engine-svelte-root tidy5e-sheet tidy-sheet-body tab-content" style="height: 100%; display: flex; flex-direction: column;"></div>',
           onRender: (params: Tidy5eTabRenderParams) => {
-            const appId = params.app.appId;
+            const appId = params.app.id;
             const target = params.element.querySelector(".downtime-engine-svelte-root");
             if (!target) return;
 
@@ -152,12 +152,19 @@ export class TheFehrsLearningManager {
           html: '<div class="downtime-engine-svelte-root" style="height: 100%;"></div>',
           enabled: (params: any) => {
             if (!game.user?.isGM) return false;
-            const item = params?.app?.document || params?.document || params?.app?.actor;
+            const item =
+              params?.item || params?.document || params?.app?.document || params?.app?.actor;
             if (!item) return false;
 
+            // Check if it's our custom "learning" type (feat subtype learningProject)
+            // or if it has the explicit project flag
+            const isLearningType =
+              item.type === "feat" && (item as any).system?.type?.value === "learningProject";
             const isProject = item.getFlag(this.ID, "isLearningProject");
-            if (isProject) return true;
 
+            if (isLearningType || isProject) return true;
+
+            // Check if in allowed compendium
             const uuid = item.uuid || "";
             if (uuid.startsWith("Compendium.")) {
               const parts = uuid.split(".");
@@ -168,7 +175,7 @@ export class TheFehrsLearningManager {
             return false;
           },
           onRender: (params: Tidy5eTabRenderParams) => {
-            const appId = params.app.appId;
+            const appId = params.app.id;
             const target = params.element.querySelector(".downtime-engine-svelte-root");
             if (!target) return;
 
@@ -239,6 +246,12 @@ export class TheFehrsLearningManager {
       type: Array,
       default: [],
     });
+    Settings.register("projectTemplates", {
+      scope: "world",
+      config: false,
+      type: Array,
+      default: [],
+    });
     Settings.register("migrationVersion", {
       scope: "world",
       config: false,
@@ -251,9 +264,9 @@ export class TheFehrsLearningManager {
 Hooks.once("init", () => TheFehrsLearningManager.init());
 
 Hooks.on("closeApplication", (app: any) => {
-  if (TheFehrsLearningManager.svelteInstances.has(app.appId)) {
-    unmount(TheFehrsLearningManager.svelteInstances.get(app.appId));
-    TheFehrsLearningManager.svelteInstances.delete(app.appId);
+  if (TheFehrsLearningManager.svelteInstances.has(app.id)) {
+    unmount(TheFehrsLearningManager.svelteInstances.get(app.id));
+    TheFehrsLearningManager.svelteInstances.delete(app.id);
   }
 });
 

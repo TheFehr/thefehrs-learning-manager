@@ -48,6 +48,7 @@ describe("TheFehrsLearningManager", () => {
       const api = {
         registerActorTab: vi.fn(),
         registerItemTab: vi.fn(),
+        registerGroupTab: vi.fn(),
         models: {
           HtmlTab: class {
             constructor(public opts: any) {}
@@ -65,7 +66,7 @@ describe("TheFehrsLearningManager", () => {
         .mock.calls.find((call) => call[0] === "tidy5e-sheet.ready");
       if (tidyHook) {
         tidyHook[1](api);
-        expect(api.registerActorTab).toHaveBeenCalled();
+        expect(api.registerGroupTab).toHaveBeenCalled();
 
         const itemTabCall = vi.mocked(api.registerItemTab).mock.calls[0][0];
         const enabled = (itemTabCall as any).opts.enabled;
@@ -93,6 +94,33 @@ describe("TheFehrsLearningManager", () => {
           getFlag: vi.fn().mockReturnValue(false),
         };
         expect(enabled({ app: { document: allowedItem } })).toBe(true);
+
+        // Custom learning type (subtype learningProject)
+        const learningTypeItem = {
+          type: "feat",
+          system: { type: { value: "learningProject" } },
+          getFlag: vi.fn().mockReturnValue(false),
+          uuid: "Item.worlditem1",
+        };
+        expect(enabled({ app: { document: learningTypeItem } })).toBe(true);
+
+        // Check different parameter paths
+        expect(enabled({ item: learningTypeItem })).toBe(true);
+        expect(enabled({ document: learningTypeItem })).toBe(true);
+
+        // Non-GM user
+        game.user.isGM = false;
+        expect(enabled({ app: { document: learningTypeItem } })).toBe(false);
+
+        // Regular item (non-learning, non-compendium)
+        game.user.isGM = true;
+        const regularItem = {
+          type: "weapon",
+          system: { type: { value: "simpleM" } },
+          getFlag: vi.fn().mockReturnValue(false),
+          uuid: "Item.weapon1",
+        };
+        expect(enabled({ app: { document: regularItem } })).toBe(false);
       }
     });
   });

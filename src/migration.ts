@@ -22,8 +22,18 @@ function isNewerVersion(v1: string | number, v2: string | number): boolean {
 }
 
 export async function migrateData() {
-  let version = Settings.migrationVersion;
   if (!game.user?.isGM) return;
+
+  let version = Settings.migrationVersion;
+  console.debug("Downtime Engine | Migration: Current version", version);
+  const LATEST_VERSION = "2.0.0";
+  if (!isNewerVersion(LATEST_VERSION, version)) return;
+
+  if (version === "0" || !version) {
+    console.debug("Downtime Engine | Migration: Version is 0, running direct migration");
+    await migrateToV2Direct();
+    return;
+  }
 
   // v1: Relational Schema
   if (!isNewerVersion(version, 0) && isNewerVersion("1.0.0", version)) {
@@ -242,5 +252,108 @@ export async function migrateData() {
       console.error("Downtime Engine migration to v2.0.0 failed:", error);
       ui?.notifications?.error("Migration to v2.0.0 failed. Please check the console for details.");
     }
+  }
+}
+
+/**
+ * Direct migration from version 0 to 2.0.0.
+ */
+async function migrateToV2Direct() {
+  ui.notifications?.info("Downtime Engine: Performing direct migration to v2.0.0...");
+  try {
+    const { ProjectEngine } = await import("./project-engine");
+
+    // 1. Rules Migration (v3 equivalent)
+    const rules = Settings.rules || { method: "roll" };
+    console.debug("Downtime Engine | Migration: Initial rules", rules);
+    console.debug(
+      "Downtime Engine | Migration: Settings object check",
+      (Settings as any).settings === game.settings,
+    );
+    if (!rules.critDoubleStrategy) {
+      console.debug("Downtime Engine | Migration: Setting default crit rules");
+      rules.critDoubleStrategy = "never";
+      rules.critThreshold = 10;
+      console.debug("Downtime Engine | Migration: About to call Settings.setRules");
+      await Settings.setRules(rules);
+      console.debug("Downtime Engine | Migration: Settings.setRules finished");
+    }
+
+    // 2. Guidance Tiers Migration (v2 equivalent)
+    const tiers = Settings.guidanceTiers;
+    let tiersUpdated = false;
+    for (const tier of tiers) {
+      if (!tier._migratedToV2 && tier.costs) {
+        for (const key of Object.keys(tier.costs)) {
+          tier.costs[key] = Math.round(tier.costs[key] * 100);
+        }
+        tier._migratedToV2 = true;
+        tiersUpdated = true;
+      }
+    }
+    if (tiersUpdated) {
+      await Settings.setGuidanceTiers(tiers);
+    }
+
+    // 3. Library and Item Migration (v1 + v4 + v5 equivalent)
+    const library = (game.settings.get(Settings.ID, "projectTemplates") as any[]) || [];
+    let libraryUpdated = false;
+    const actors = (game.actors || []) as any[];
+
+    for (const actor of actors) {
+      const proxy = ActorProxy.forActor(actor);
+      const projects = (proxy.projects as any[]) || [];
+      if (projects.length === 0) continue;
+
+      for (const p of projects) {
+        // Find or create template (v1 logic)
+        let tpl = library.find(
+          (t) =>
+            t.id === p.templateId ||
+            (t.name === p.name &&
+              t.target === (p.maxProgress ?? 100) &&
+              t.rewardUuid === (p.rewardUuid || "") &&
+              t.rewardType === (p.rewardType || "item")),
+        );
+
+        if (!tpl) {
+          tpl = {
+            id: foundry.utils.randomID(),
+            name: p.name,
+            target: p.maxProgress ?? 100,
+            rewardUuid: p.rewardUuid || "",
+            rewardType: p.rewardType || "item",
+            requirements: [],
+          };
+          library.push(tpl);
+          libraryUpdated = true;
+        }
+
+        // Create native Item from template and project data (v4 + v5 logic)
+        const projectData: LearningProject = {
+          id: p.id,
+          templateId: tpl.id,
+          progress: p.progress || 0,
+          target: p.target ?? tpl.target,
+          guidanceTierId: p.guidanceTierId || "",
+          isCompleted: p.isCompleted || false,
+        };
+
+        await ProjectEngine.createProjectItem(actor, tpl, projectData);
+      }
+
+      // Clear legacy projects from actor
+      await proxy.setProjects([]);
+    }
+
+    if (libraryUpdated) {
+      await game.settings.set(Settings.ID, "projectTemplates", library);
+    }
+
+    await Settings.setMigrationVersion("2.0.0");
+    ui?.notifications?.info("Downtime Engine direct migration to v2.0.0 successful!");
+  } catch (error) {
+    console.error("Downtime Engine direct migration failed:", error);
+    ui?.notifications?.error("Direct migration failed. Please check the console for details.");
   }
 }
