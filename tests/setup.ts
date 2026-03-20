@@ -20,7 +20,6 @@ globalThis.foundry = {
       HandlebarsApplicationMixin: (Base: any) => class extends Base {},
     },
   },
-  utils: {},
   utils: {
     randomID: vi.fn().mockReturnValue("randomid"),
     expandObject: vi.fn((obj: any) => {

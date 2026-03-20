@@ -64,64 +64,64 @@ describe("TheFehrsLearningManager", () => {
       const tidyHook = vi
         .mocked(Hooks.once)
         .mock.calls.find((call) => call[0] === "tidy5e-sheet.ready");
-      if (tidyHook) {
+      expect(tidyHook).toBeDefined();
         tidyHook[1](api);
-        expect(api.registerGroupTab).toHaveBeenCalled();
+      expect(api.registerGroupTab).toHaveBeenCalled();
 
-        const itemTabCall = vi.mocked(api.registerItemTab).mock.calls[0][0];
-        const enabled = (itemTabCall as any).opts.enabled;
+      expect(api.registerItemTab).toHaveBeenCalled();
+      const itemTabCall = vi.mocked(api.registerItemTab).mock.calls[0][0];
+      const enabled = (itemTabCall as any).opts.enabled;
 
-        // Character project item
-        const projectItem = {
-          getFlag: vi.fn().mockImplementation((scope, key) => {
-            if (key === "isLearningProject") return true;
-            return null;
-          }),
-        };
-        expect(enabled({ app: { document: projectItem } })).toBe(true);
+      // Character project item
+      const projectItem = {
+        getFlag: vi.fn().mockImplementation((scope, key) => {
+          if (key === "isLearningProject") return true;
+          return null;
+        }),
+      };
+      expect(enabled({ app: { document: projectItem } })).toBe(true);
 
-        // Disallowed compendium item
-        const otherItem = {
-          uuid: "Compendium.secret.pack.Item.1",
-          getFlag: vi.fn().mockReturnValue(false),
-        };
-        vi.mocked(game.settings.get).mockReturnValue(["allowed.pack"]);
-        expect(enabled({ app: { document: otherItem } })).toBe(false);
+      // Disallowed compendium item
+      const otherItem = {
+        uuid: "Compendium.secret.pack.Item.1",
+        getFlag: vi.fn().mockReturnValue(false),
+      };
+      vi.mocked(game.settings.get).mockReturnValue(["allowed.pack"]);
+      expect(enabled({ app: { document: otherItem } })).toBe(false);
 
-        // Allowed compendium item
-        const allowedItem = {
-          uuid: "Compendium.allowed.pack.Item.1",
-          getFlag: vi.fn().mockReturnValue(false),
-        };
-        expect(enabled({ app: { document: allowedItem } })).toBe(true);
+      // Allowed compendium item
+      const allowedItem = {
+        uuid: "Compendium.allowed.pack.Item.1",
+        getFlag: vi.fn().mockReturnValue(false),
+      };
+      expect(enabled({ app: { document: allowedItem } })).toBe(true);
 
-        // Custom learning type (subtype learningProject)
-        const learningTypeItem = {
-          type: "feat",
-          system: { type: { value: "learningProject" } },
-          getFlag: vi.fn().mockReturnValue(false),
-          uuid: "Item.worlditem1",
-        };
-        expect(enabled({ app: { document: learningTypeItem } })).toBe(true);
+      // Custom learning type (subtype learningProject)
+      const learningTypeItem = {
+        type: "feat",
+        system: { type: { value: "learningProject" } },
+        getFlag: vi.fn().mockReturnValue(false),
+        uuid: "Item.worlditem1",
+      };
+      expect(enabled({ app: { document: learningTypeItem } })).toBe(true);
 
-        // Check different parameter paths
-        expect(enabled({ item: learningTypeItem })).toBe(true);
-        expect(enabled({ document: learningTypeItem })).toBe(true);
+      // Check different parameter paths
+      expect(enabled({ item: learningTypeItem })).toBe(true);
+      expect(enabled({ document: learningTypeItem })).toBe(true);
 
-        // Non-GM user
-        game.user.isGM = false;
-        expect(enabled({ app: { document: learningTypeItem } })).toBe(false);
+      // Non-GM user
+      game.user.isGM = false;
+      expect(enabled({ app: { document: learningTypeItem } })).toBe(false);
 
-        // Regular item (non-learning, non-compendium)
-        game.user.isGM = true;
-        const regularItem = {
-          type: "weapon",
-          system: { type: { value: "simpleM" } },
-          getFlag: vi.fn().mockReturnValue(false),
-          uuid: "Item.weapon1",
-        };
-        expect(enabled({ app: { document: regularItem } })).toBe(false);
-      }
+      // Regular item (non-learning, non-compendium)
+      game.user.isGM = true;
+      const regularItem = {
+        type: "weapon",
+        system: { type: { value: "simpleM" } },
+        getFlag: vi.fn().mockReturnValue(false),
+        uuid: "Item.weapon1",
+      };
+      expect(enabled({ app: { document: regularItem } })).toBe(false);
     });
   });
 
@@ -215,14 +215,12 @@ describe("TheFehrsLearningManager", () => {
       TheFehrsLearningManager.init();
       const dropHook = vi.mocked(Hooks.on).mock.calls.find((c) => c[0] === "dropActorSheetData");
 
-      if (dropHook) {
-        const mockSheet = { activeTab: "any-tab" }; // Should still work
-        const result = await dropHook[1](groupActor, mockSheet, data);
-        expect(result).toBe(false); // Should stop standard drop
-        // Wait for promise in hook
-        await new Promise((resolve) => setTimeout(resolve, 0));
-        expect(ProjectEngine.initiateProjectFromItem).toHaveBeenCalledWith(memberActor, item);
-      }
+      expect(dropHook).toBeDefined();
+      const mockSheet = { activeTab: "any-tab" };
+      const result = await dropHook![1](groupActor, mockSheet, data);
+      expect(result).toBe(false);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(ProjectEngine.initiateProjectFromItem).toHaveBeenCalledWith(memberActor, item);
     });
   });
 });
