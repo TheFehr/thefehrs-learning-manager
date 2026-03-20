@@ -1,3 +1,6 @@
 [submodule "externals/dnd5e"]
 	path = externals/dnd5e
 	url = https://github.com/foundryvtt/dnd5e
+[submodule "externals/tidy-5e"]
+	path = externals/tidy-5e
+	url = https://github.com/kgar/foundry-vtt-tidy-5e-sheets
