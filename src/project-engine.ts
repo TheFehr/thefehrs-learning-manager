@@ -64,9 +64,8 @@ export class ProjectEngine {
       },
     };
 
-    // @ts-expect-error - Complex embedded document data
     const [created] = await (actor as unknown as Actor5e).createEmbeddedDocuments("Item", [
-      updateData,
+      updateData as never,
     ]);
     if (!created) {
       console.error(
