@@ -63,8 +63,12 @@ export class LearningManager {
       config: false,
       type: Array,
       default: timeUnits,
-      onChange: () => {
-        ProjectEngine.syncAllProjectActivities();
+      onChange: async () => {
+        try {
+          await ProjectEngine.syncAllProjectActivities();
+        } catch (err) {
+          console.error("Downtime Engine | Failed to sync activities after time unit change:", err);
+        }
       },
     });
 
