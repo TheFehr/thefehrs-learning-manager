@@ -80,10 +80,51 @@
         try {
           const content = event.target?.result as string;
           const data = JSON.parse(content);
-          if (data.rules) rules = data.rules;
-          if (data.timeUnits) timeUnits = data.timeUnits;
-          if (data.guidanceTiers) guidanceTiers = data.guidanceTiers;
-          if (data.allowedCompendiums) allowedCompendiums = data.allowedCompendiums;
+          
+          // 1. Validate Rules
+          if (data.rules && typeof data.rules === "object") {
+            rules = {
+              method: data.rules.method === "roll" ? "roll" : "direct",
+              checkDC: typeof data.rules.checkDC === "number" ? data.rules.checkDC : 10,
+              checkFormula: typeof data.rules.checkFormula === "string" ? data.rules.checkFormula : "",
+              critDoubleStrategy: ["any", "all", "never"].includes(data.rules.critDoubleStrategy) 
+                ? data.rules.critDoubleStrategy 
+                : "never",
+              critThreshold: typeof data.rules.critThreshold === "number" ? data.rules.critThreshold : 20
+            };
+          }
+
+          // 2. Validate Time Units
+          if (Array.isArray(data.timeUnits)) {
+            timeUnits = data.timeUnits
+              .filter((tu: any) => tu && typeof tu.id === "string")
+              .map((tu: any) => ({
+                id: tu.id,
+                name: typeof tu.name === "string" ? tu.name : "New Unit",
+                short: typeof tu.short === "string" ? tu.short : "u",
+                isBulk: !!tu.isBulk,
+                ratio: typeof tu.ratio === "number" ? tu.ratio : 1
+              }));
+          }
+
+          // 3. Validate Guidance Tiers
+          if (Array.isArray(data.guidanceTiers)) {
+            guidanceTiers = data.guidanceTiers
+              .filter((gt: any) => gt && typeof gt.id === "string")
+              .map((gt: any) => ({
+                id: gt.id,
+                name: typeof gt.name === "string" ? gt.name : "New Tier",
+                modifier: typeof gt.modifier === "number" ? gt.modifier : 0,
+                costs: typeof gt.costs === "object" ? gt.costs : {},
+                progress: typeof gt.progress === "object" ? gt.progress : {}
+              }));
+          }
+
+          // 4. Validate Allowed Compendiums
+          if (Array.isArray(data.allowedCompendiums)) {
+            allowedCompendiums = data.allowedCompendiums.filter((c: any) => typeof c === "string");
+          }
+
           ui.notifications?.info("Downtime Engine | Settings imported. Click Save to persist.");
         } catch (err: unknown) {
           const error = err as Error;
