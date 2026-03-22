@@ -155,11 +155,8 @@
       const updateData = { "flags.thefehrs-learning-manager.projectData": projectData };
 
       if (oldTarget <= 0 && projectData.target > 0) {
-        console.debug(`Downtime Engine | target increased from 0 to ${projectData.target}. Generating activities...`);
-        const activitiesData = ProjectEngine.getActivitiesData(projectData.target);
-        if (activitiesData.length > 0) {
-           await item.update({ "system.activities": activitiesData } as any);
-        }
+        console.debug(`Downtime Engine | target increased from 0 to ${projectData.target}. Injecting activities...`);
+        await ProjectEngine.injectActivities((item as unknown) as Item5e, projectData.target);
       }
 
       await item.update(updateData);
