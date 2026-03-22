@@ -13,7 +13,7 @@ describe("TabLogic", () => {
       ) {}
       evaluate = vi.fn().mockResolvedValue({
         total: 15,
-        dice: [{ faces: 20, results: [{ result: 15 }] }],
+        dice: [{ faces: 20, results: [{ result: 15, active: true }] }],
         toMessage: vi.fn(),
       });
     } as any;
@@ -43,7 +43,7 @@ describe("TabLogic", () => {
       global.Roll = class {
         evaluate = vi.fn().mockResolvedValue({
           total: 10,
-          dice: [{ faces: 20, results: [{ result: 10 }] }],
+          dice: [{ faces: 20, results: [{ result: 10, active: true }] }],
         });
       } as any;
       const result = await TabLogic.computeProgress(actor, rules, tier, tu);
@@ -63,7 +63,7 @@ describe("TabLogic", () => {
       global.Roll = class {
         evaluate = vi.fn().mockResolvedValue({
           total: 20,
-          dice: [{ faces: 20, results: [{ result: 20 }] }],
+          dice: [{ faces: 20, results: [{ result: 20, active: true }] }],
         });
       } as any;
       const result = await TabLogic.computeProgress(actor, critRules, tier, tu);
@@ -76,13 +76,33 @@ describe("TabLogic", () => {
         evaluate = vi.fn().mockResolvedValue({
           total: 20,
           dice: [
-            { faces: 20, results: [{ result: 20 }] },
-            { faces: 20, results: [{ result: 10 }] },
+            { faces: 20, results: [{ result: 20, active: true }] },
+            { faces: 20, results: [{ result: 10, active: true }] },
           ],
         });
       } as any;
       const result = await TabLogic.computeProgress(actor, critRules, tier, tu);
       expect(result.progressGained).toBe(1); // One failed to crit
+    });
+
+    it("should ignore discarded dice results", async () => {
+      const critRules = { ...rules, critDoubleStrategy: "any", critThreshold: 20 };
+      global.Roll = class {
+        evaluate = vi.fn().mockResolvedValue({
+          total: 15, // Active is only 15
+          dice: [
+            {
+              faces: 20,
+              results: [
+                { result: 20, active: false }, // Discarded
+                { result: 15, active: true }, // Kept
+              ],
+            },
+          ],
+        });
+      } as any;
+      const result = await TabLogic.computeProgress(actor, critRules, tier, tu);
+      expect(result.progressGained).toBe(1); // Should not double, because 20 was discarded
     });
   });
 
