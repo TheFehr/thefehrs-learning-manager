@@ -26,6 +26,41 @@
     }
   }
 
+  async function processGrantTime(timeValues: Record<string, number>, selectedIds: string[]) {
+    const timeUnits = Settings.timeUnits;
+    let totalBase = 0;
+    timeUnits.forEach((tu) => {
+      totalBase += (timeValues[tu.id] || 0) * tu.ratio;
+    });
+
+    if (totalBase === 0) return ui.notifications?.warn("No time entered.");
+    if (selectedIds.length === 0) return ui.notifications?.warn("No recipients selected.");
+
+    let successCount = 0;
+    for (const id of selectedIds) {
+      const a = game.actors?.get(id);
+      if (!globalThis.Actor || !(a instanceof globalThis.Actor)) continue;
+      try {
+        const proxy = ActorProxy.forActor(a);
+        const bank = proxy.bank;
+        await proxy.setBank({total: (bank.total || 0) + totalBase});
+        successCount++;
+      } catch (err) {
+        console.error(`Failed to update bank for actor ${id}:`, err);
+      }
+    }
+
+    const actionWord = totalBase > 0 ? "Granted" : "Deducted";
+    const preposition = totalBase > 0 ? "to" : "from";
+    const formattedTime = TabLogic.formatTimeBank(Math.abs(totalBase), timeUnits);
+
+    const chatMessageClass = ChatMessage.implementation as unknown as { create: (data: object) => Promise<unknown> };
+    await chatMessageClass.create({
+      speaker: {alias: "Downtime System"},
+      content: `${actionWord} <strong>${formattedTime}</strong> ${preposition} ${successCount} characters.`,
+    });
+  }
+
   async function grantTime() {
     if (!isGM) return;
 
@@ -33,66 +68,30 @@
     const isParty = actor.type === "group";
 
     const container = document.createElement("div");
+    
+    let dialog: any;
     const svelteInstance = mount(GrantTimeDialog, {
       target: container,
       props: {
         timeUnits,
         isParty,
-        members
+        members,
+        onsubmit: (timeValues, selectedIds) => {
+          processGrantTime(timeValues, selectedIds);
+          dialog.close();
+        }
       }
     });
 
-    new foundry.appv1.api.Dialog({
+    dialog = new foundry.appv1.api.Dialog({
       title: "Modify Training Time",
       content: container,
       buttons: {
         apply: {
           label: "Apply Time",
           icon: '<i class="fas fa-check"></i>',
-          callback: async (dialogHtml: JQuery | HTMLElement) => {
-            const htmlElement = dialogHtml instanceof HTMLElement ? dialogHtml : dialogHtml[0];
-            const form = htmlElement.querySelector("form");
-            if (!form) return;
-
-            const formData = new FormData(form);
-
-            let totalBase = 0;
-            timeUnits.forEach((tu) => {
-              totalBase += (parseInt(formData.get(`time_${tu.id}`) as string) || 0) * tu.ratio;
-            });
-
-            if (totalBase === 0) return ui.notifications?.warn("No time entered.");
-
-            const selectedIds = isParty
-              ? members.filter((m) => formData.has(`actor_${m.id}`)).map((m) => m.id)
-              : [actor.id];
-
-            if (selectedIds.length === 0)
-              return ui.notifications?.warn("No recipients selected.");
-
-            let successCount = 0;
-            for (const id of selectedIds) {
-              const a = game.actors?.get(id);
-              if (!globalThis.Actor || !(a instanceof globalThis.Actor)) continue;
-              try {
-                const proxy = ActorProxy.forActor(a);
-                const bank = proxy.bank;
-                await proxy.setBank({total: (bank.total || 0) + totalBase});
-                successCount++;
-              } catch (err) {
-                console.error(`Failed to update bank for actor ${id}:`, err);
-              }
-            }
-
-            const actionWord = totalBase > 0 ? "Granted" : "Deducted";
-            const preposition = totalBase > 0 ? "to" : "from";
-            const formattedTime = TabLogic.formatTimeBank(Math.abs(totalBase), timeUnits);
-
-            const chatMessageClass = ChatMessage.implementation as unknown as { create: (data: object) => Promise<unknown> };
-            await chatMessageClass.create({
-              speaker: {alias: "Downtime System"},
-              content: `${actionWord} <strong>${formattedTime}</strong> ${preposition} ${successCount} characters.`,
-            });
+          callback: () => {
+            container.querySelector("form")?.requestSubmit();
           },
         },
       },
@@ -100,7 +99,9 @@
       close: () => {
         unmount(svelteInstance);
       }
-    }).render(true);
+    });
+    
+    dialog.render(true);
   }
 
   async function updateGuidance(actorId: string, project: ProjectMappedData, tierId: string) {
@@ -157,7 +158,7 @@
         console.debug(`Downtime Engine | target increased from 0 to ${projectData.target}. Generating activities...`);
         const activitiesData = ProjectEngine.getActivitiesData(projectData.target);
         if (activitiesData.length > 0) {
-           await item.createEmbeddedDocuments("Activity", activitiesData as never);
+           await item.update({ "system.activities": activitiesData } as any);
         }
       }
 

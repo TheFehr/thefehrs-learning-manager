@@ -2,15 +2,41 @@
   import type { TimeUnit } from "../../types.js";
   import type { MemberMappedData } from "../../party-tab.js";
 
-  let { timeUnits, isParty, members }: { timeUnits: TimeUnit[], isParty: boolean, members: MemberMappedData[] } = $props();
+  let { timeUnits, isParty, members, onsubmit }: { 
+    timeUnits: TimeUnit[], 
+    isParty: boolean, 
+    members: MemberMappedData[],
+    onsubmit: (timeValues: Record<string, number>, selectedIds: string[]) => void
+  } = $props();
+
+  let timeValues = $state<Record<string, number>>({});
+  let selectedIds = $state<string[]>(isParty ? members.map(m => m.id) : []);
+
+  // Initialize timeValues
+  timeUnits.forEach(tu => {
+    if (timeValues[tu.id] === undefined) timeValues[tu.id] = 0;
+  });
+
+  function handleSubmit(e: Event) {
+    e.preventDefault();
+    onsubmit(timeValues, selectedIds);
+  }
+
+  function toggleRecipient(id: string) {
+    if (selectedIds.includes(id)) {
+      selectedIds = selectedIds.filter(mid => mid !== id);
+    } else {
+      selectedIds = [...selectedIds, id];
+    }
+  }
 </script>
 
-<form class="thefehrs-grant-dialog">
+<form class="thefehrs-grant-dialog" onsubmit={handleSubmit}>
   <div class="time-inputs-grid">
     {#each timeUnits as tu}
       <div class="form-group">
         <label for="time_{tu.id}">{tu.name}s</label>
-        <input type="number" id="time_{tu.id}" name="time_{tu.id}" value="0" />
+        <input type="number" id="time_{tu.id}" bind:value={timeValues[tu.id]} min="0" />
       </div>
     {/each}
   </div>
@@ -21,13 +47,18 @@
     <div class="recipients-list">
       {#each members as m}
         <label class="recipient-row">
-          <input type="checkbox" name="actor_{m.id}" checked />
+          <input type="checkbox" 
+                 checked={selectedIds.includes(m.id)} 
+                 onchange={() => toggleRecipient(m.id)} />
           <img src={m.img} title={m.name} alt={m.name} height="50px" width="50px" />
           <span>{m.name}</span>
         </label>
       {/each}
     </div>
   {/if}
+  
+  <!-- Hidden submit button to allow triggering from outside via requestSubmit() -->
+  <button type="submit" style="display: none;"></button>
 </form>
 
 <style lang="scss">
