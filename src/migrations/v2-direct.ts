@@ -158,11 +158,11 @@ async function createProjectItem(
   const updateData = {
     ...itemData,
     type: projectData.isCompleted ? stashedType : "feat",
-    effects: [],
+    effects: projectData.isCompleted ? itemData.effects : [],
     "system.type.value": projectData.isCompleted
       ? (itemData.system as unknown as { type: { value: string } }).type?.value
       : "learning-project",
-    "system.activities": {},
+    "system.activities": projectData.isCompleted ? itemData.system.activities : {},
     "flags.thefehrs-learning-manager": {
       isLearningProject: !projectData.isCompleted,
       isLearnedReward: projectData.isCompleted,
