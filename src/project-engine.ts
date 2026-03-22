@@ -225,7 +225,8 @@ export class ProjectEngine {
     const updateData = {
       type: (item.getFlag("thefehrs-learning-manager", "stashedType") as string) || item.type,
       effects: (item.getFlag("thefehrs-learning-manager", "stashedEffects") as object[]) || [],
-      "system.type.value": null,
+      "system.type.value":
+        (item.getFlag("thefehrs-learning-manager", "stashedType") as string) || item.type,
       "system.activities":
         (item.getFlag("thefehrs-learning-manager", "stashedActivities") as object) || {},
       "flags.thefehrs-learning-manager": {

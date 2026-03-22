@@ -29,5 +29,8 @@
   },
   "lint-staged": {
     "**/*.{ts,json,js,scss,md}": "npm run fmt"
+  },
+  "engines": {
+    "node": ">=20.19.0"
   }
 }
