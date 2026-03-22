@@ -61,10 +61,12 @@ export async function migrateToV2Direct() {
     let libraryUpdated = false;
     const actors = (game.actors || []) as Actor[];
 
+    let allSuccessful = true;
     for (const actor of actors) {
       const projects = (actor.getFlag(SETTINGS_ID, "projects" as any) || []) as LegacyProject[];
       if (projects.length === 0) continue;
 
+      const remainingProjects: LegacyProject[] = [];
       for (const p of projects) {
         // Find or create template (v1 logic)
         let tpl = library.find(
@@ -99,19 +101,32 @@ export async function migrateToV2Direct() {
           isCompleted: p.isCompleted || false,
         };
 
-        await createProjectItem(actor as unknown as Actor5e, tpl, projectData);
+        const created = await createProjectItem(actor as unknown as Actor5e, tpl, projectData);
+        if (!created) {
+          console.warn(
+            `Downtime Engine | Migration: Failed to migrate project ${p.name || p.id} for actor ${actor.name}. Project will be preserved in legacy flags.`,
+          );
+          remainingProjects.push(p);
+          allSuccessful = false;
+        }
       }
 
-      // Clear legacy projects from actor
-      await actor.setFlag(SETTINGS_ID, "projects" as any, []);
+      // Update legacy projects flag with only those that failed to migrate
+      await actor.setFlag(SETTINGS_ID, "projects" as any, remainingProjects);
     }
 
     if (libraryUpdated) {
       await game.settings.set(SETTINGS_ID, "projectTemplates", library);
     }
 
-    await game.settings.set(SETTINGS_ID, "migrationVersion", "2.0.0");
-    ui?.notifications?.info("Downtime Engine direct migration to v2.0.0 successful!");
+    if (allSuccessful) {
+      await game.settings.set(SETTINGS_ID, "migrationVersion", "2.0.0");
+      ui?.notifications?.info("Downtime Engine direct migration to v2.0.0 successful!");
+    } else {
+      ui?.notifications?.warn(
+        "Downtime Engine | Direct migration partially failed. Some projects were preserved in legacy flags and will be retried later.",
+      );
+    }
   } catch (error) {
     console.error("Downtime Engine direct migration failed:", error);
     ui?.notifications?.error(
