@@ -24,12 +24,8 @@ describe("Data Migration Orchestrator", () => {
     vi.spyOn(v2Direct, "migrateToV2Direct").mockResolvedValue(undefined);
   });
 
-  it("should call migrateToV2Direct if version is 0 and has legacy projects", async () => {
+  it("should always call migrateToV2Direct if version is 0", async () => {
     vi.mocked(game.settings.get).mockReturnValue("0");
-    const actor = new Actor() as any;
-    actor.getFlag = vi.fn().mockReturnValue([{ id: "p1" }]);
-    game.actors = [actor] as any;
-
     await migrateData();
     expect(v2Direct.migrateToV2Direct).toHaveBeenCalled();
   });

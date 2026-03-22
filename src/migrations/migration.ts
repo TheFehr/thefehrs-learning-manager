@@ -12,15 +12,8 @@ export async function migrateData() {
 
   if (currentVersion === "0") {
     // New installation or very old version
-    // Check if we should do a direct migration to V2 if they have legacy flags
-    const hasLegacy = (game.actors || []).some(
-      (a) => (a as any).getFlag("thefehrs-learning-manager", "projects")?.length > 0,
-    );
-    if (hasLegacy) {
-      await migrateToV2Direct();
-    } else {
-      await game.settings.set(Settings.ID, "migrationVersion", "2.0.0");
-    }
+    // Always call direct migration to ensure settings/templates are normalized
+    await migrateToV2Direct();
     return;
   }
 
