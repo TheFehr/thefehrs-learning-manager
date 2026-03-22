@@ -20,12 +20,19 @@ describe("TabLogic", () => {
   });
 
   describe("computeProgress", () => {
-    const actor = {
-      getRollData: () => ({}),
-    } as any;
-    const rules = { method: "roll", checkDC: 15, checkFormula: "1d20" };
-    const tier = { modifier: 2, progress: { bulk1: 5 } };
-    const tu = { id: "hour", isBulk: false };
+    let actor: any;
+    let rules: any;
+    let tier: any;
+    let tu: any;
+
+    beforeEach(() => {
+      actor = {
+        getRollData: () => ({}),
+      } as any;
+      rules = { method: "roll", checkDC: 15, checkFormula: "1d20" };
+      tier = { modifier: 2, progress: { bulk1: 5 } };
+      tu = { id: "hour", isBulk: false };
+    });
 
     it("should return progress for bulk units", async () => {
       const bulkTu = { id: "bulk1", isBulk: true };
@@ -107,10 +114,14 @@ describe("TabLogic", () => {
   });
 
   describe("Currency management", () => {
-    const actor = {
-      update: vi.fn().mockResolvedValue({}),
-      system: { currency: { gp: 1, sp: 0, cp: 0 } },
-    } as any;
+    let actor: any;
+
+    beforeEach(() => {
+      actor = {
+        update: vi.fn().mockResolvedValue({}),
+        system: { currency: { gp: 1, sp: 0, cp: 0 } },
+      } as any;
+    });
 
     it("addCurrency should correctly add cp", async () => {
       await TabLogic.addCurrency(actor, 50); // Add 50cp
@@ -138,13 +149,17 @@ describe("TabLogic", () => {
   });
 
   describe("meetsRequirements", () => {
-    const actor = {
-      name: "Test",
-      system: {
-        attributes: { str: { value: 10 } },
-        traits: { languages: { value: ["common", "elvish"] } },
-      },
-    } as any;
+    let actor: any;
+
+    beforeEach(() => {
+      actor = {
+        name: "Test",
+        system: {
+          attributes: { str: { value: 10 } },
+          traits: { languages: { value: ["common", "elvish"] } },
+        },
+      } as any;
+    });
 
     it("should handle 'includes' operator for arrays", () => {
       const req = [
