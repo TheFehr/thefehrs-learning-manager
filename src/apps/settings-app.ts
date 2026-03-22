@@ -11,17 +11,17 @@ export class LearningConfigApp extends ApplicationV2 {
     position: { height: 600 },
   };
 
-  private svelteInstance: any = null;
+  private svelteInstance: Record<string, unknown> | null = null;
 
-  protected override async _renderHTML(context: any, options: any): Promise<any> {
+  protected override async _renderHTML(context: unknown, options: unknown): Promise<string> {
     return ""; // Svelte handles the DOM
   }
 
-  protected override _replaceHTML(result: any, content: HTMLElement, options: any): void {
+  protected override _replaceHTML(result: string, content: HTMLElement, options: unknown): void {
     // No-op, Svelte handles the content
   }
 
-  protected override async _onRender(context, options) {
+  protected override async _onRender(context: unknown, options: unknown) {
     const target = this.element.querySelector(".window-content") || this.element;
 
     if (this.svelteInstance) {
@@ -34,7 +34,7 @@ export class LearningConfigApp extends ApplicationV2 {
     });
   }
 
-  override async close(options: any = {}) {
+  override async close(options: object = {}) {
     if (this.svelteInstance) {
       unmount(this.svelteInstance);
       this.svelteInstance = null;

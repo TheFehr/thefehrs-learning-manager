@@ -1,13 +1,14 @@
 <script lang="ts">
-  import {Settings} from "../settings";
-  import {ActorProxy} from "../data/actor-proxy";
-  import {TabLogic} from "./tab-logic";
-  import {ProjectEngine} from "../project-engine";
-  import type {DowntimeGroupActor, TimeUnit, ProjectTemplate} from "../types";
-  import {ProjectItem} from "../data/project-item";
+  import {Settings} from "../../core/settings.js";
+  import {ActorProxy} from "../../actor-proxy.js";
+  import {TabLogic} from "../../tab-logic.js";
+  import {ProjectEngine} from "../../project-engine.js";
+  import type {ProjectItem} from "../../project-item.js";
+  import type {MemberMappedData, ProjectMappedData} from "../../party-tab.js";
+  import type {Item5e} from "../../types.js";
 
   let {members, tierOptions, isGM, actor} = $props<{
-    members: any[];
+    members: MemberMappedData[];
     tierOptions: Record<string, string>;
     isGM: boolean;
     actor: Actor;
@@ -16,9 +17,9 @@
   let isEditMode = $state(false);
 
   async function openActorSheet(uuid: string) {
-    const doc = await fromUuid(uuid as any);
-    if (doc && (doc as any).sheet) {
-      (doc as any).sheet.render(true);
+    const doc = await fromUuid(uuid);
+    if (doc && "sheet" in doc && doc.sheet) {
+      doc.sheet.render(true);
     }
   }
 
@@ -26,7 +27,7 @@
     if (!isGM) return;
 
     const timeUnits = Settings.timeUnits;
-    const isParty = (actor.type as string) === "group";
+    const isParty = actor.type === "group";
 
     const templateData = {timeUnits, isParty, members};
     const content = await renderTemplate(
@@ -56,7 +57,7 @@
             if (totalBase === 0) return ui.notifications?.warn("No time entered.");
 
             const selectedIds = isParty
-              ? members.filter((m: any) => formData.has(`actor_${m.id}`)).map((m: any) => m.id)
+              ? members.filter((m) => formData.has(`actor_${m.id}`)).map((m) => m.id)
               : [actor.id];
 
             if (selectedIds.length === 0)
@@ -64,7 +65,7 @@
 
             let successCount = 0;
             for (const id of selectedIds) {
-              const a = game.actors?.get(id) as Actor | undefined;
+              const a = game.actors?.get(id);
               if (!globalThis.Actor || !(a instanceof globalThis.Actor)) continue;
               try {
                 const proxy = ActorProxy.forActor(a);
@@ -80,7 +81,8 @@
             const preposition = totalBase > 0 ? "to" : "from";
             const formattedTime = TabLogic.formatTimeBank(Math.abs(totalBase), timeUnits);
 
-            (ChatMessage.implementation as any).create({
+            const chatMessageClass = ChatMessage.implementation as unknown as { create: (data: object) => Promise<unknown> };
+            await chatMessageClass.create({
               speaker: {alias: "Downtime System"},
               content: `${actionWord} <strong>${formattedTime}</strong> ${preposition} ${successCount} characters.`,
             });
@@ -91,8 +93,8 @@
     }).render(true);
   }
 
-  async function updateGuidance(actorId: string, project: any, tierId: string) {
-    const targetActor = game.actors?.get(actorId) as Actor | undefined;
+  async function updateGuidance(actorId: string, project: ProjectMappedData, tierId: string) {
+    const targetActor = game.actors?.get(actorId);
     if (!targetActor) return;
 
     const tiers = Settings.guidanceTiers;
@@ -101,49 +103,51 @@
     const item = targetActor.items.get(project.id);
     if (item) {
       await item.update({
-        "flags.thefehrs-learning-manager.projectData.guidanceTierId": tier?.id ?? "",
+        "flags.thefehrs-learning-manager.projectData.tutelageId": tier?.id ?? "",
       });
     }
   }
 
-  async function updateProgress(actorId: string, project: any, newProgress: number) {
+  async function updateProgress(actorId: string, project: ProjectMappedData, newProgress: number) {
     if (!isGM) return;
-    const targetActor = game.actors?.get(actorId) as Actor | undefined;
+    const targetActor = game.actors?.get(actorId);
     if (!targetActor) return;
 
     const item = targetActor.items.get(project.id);
     if (item) {
-      const proxyItem = new ProjectItem(item);
-      const projectData = proxyItem.projectData;
+      const proxyItem = (item as unknown) as ProjectItem;
+      const projectData = proxyItem.getFlag("thefehrs-learning-manager", "projectData");
 
       projectData.progress = Math.max(0, Math.min(newProgress, projectData.target || 0));
       if (projectData.target > 0 && projectData.progress >= projectData.target && !projectData.isCompleted) {
-        await ProjectEngine.completeProject(item);
+        await ProjectEngine.completeProject((item as unknown) as Item5e);
       } else {
-        item.setProjectData(projectData);
+        await item.update({
+          "flags.thefehrs-learning-manager.projectData": projectData
+        });
       }
     }
   }
 
-  async function updateTarget(actorId: string, project: any, newTarget: number) {
+  async function updateTarget(actorId: string, project: ProjectMappedData, newTarget: number) {
     if (!isGM) return;
-    const targetActor = game.actors?.get(actorId) as Actor | undefined;
+    const targetActor = game.actors?.get(actorId);
     if (!targetActor) return;
 
     const item = targetActor.items.get(project.id);
     if (item) {
-      const projectData = (item.getFlag(Settings.ID, "projectData") as any) || {};
+      const projectData = (item.getFlag("thefehrs-learning-manager", "projectData") as any) || {};
       const oldTarget = projectData.target;
       projectData.target = Math.max(0, newTarget);
       console.debug(`Downtime Engine | updateTarget: Setting target to ${projectData.target} for ${item.name}`);
       
-      const updateData: any = { "flags.thefehrs-learning-manager.projectData": projectData };
+      const updateData = { "flags.thefehrs-learning-manager.projectData": projectData };
 
       if (oldTarget <= 0 && projectData.target > 0) {
         console.debug(`Downtime Engine | target increased from 0 to ${projectData.target}. Generating activities...`);
         const activitiesData = ProjectEngine.getActivitiesData(projectData.target);
         if (activitiesData.length > 0) {
-           await item.createEmbeddedDocuments("Activity", activitiesData);
+           await item.createEmbeddedDocuments("Activity", activitiesData as never);
         }
       }
 
@@ -151,8 +155,8 @@
     }
   }
 
-  async function deleteProject(actorId: string, project: any) {
-    const targetActor = game.actors?.get(actorId) as Actor | undefined;
+  async function deleteProject(actorId: string, project: ProjectMappedData) {
+    const targetActor = game.actors?.get(actorId);
     if (!targetActor || !targetActor.isOwner) {
       ui.notifications?.warn("You do not have permission to modify this actor's projects.");
       return;
@@ -352,7 +356,7 @@
                                 >
                                     <select
                                             class="update-project font-label-medium"
-                                            value={project.guidanceTierId}
+                                            value={project.tutelageId}
                                             onchange={(e) => updateGuidance(member.id, project, e.currentTarget.value)}
                                             style="width: 100%; height: 2rem;"
                                     >

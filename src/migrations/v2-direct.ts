@@ -1,20 +1,45 @@
-import { ProjectEngine } from "../project-engine";
+import { ProjectEngine } from "../project-engine.js";
+import type { Actor5e, Item5e, SystemRules, GuidanceTier } from "../types.js";
+
+interface LegacyProject {
+  id?: string;
+  name?: string;
+  templateId?: string;
+  progress?: number;
+  maxProgress?: number;
+  target?: number;
+  rewardUuid?: string;
+  rewardType?: string;
+  guidanceTierId?: string;
+  isCompleted?: boolean;
+}
+
+interface ProjectTemplateLegacy {
+  id: string;
+  name: string;
+  target: number;
+  rewardUuid: string;
+  rewardType: string;
+  requirements: unknown[];
+}
 
 export async function migrateToV2Direct() {
   const SETTINGS_ID = "thefehrs-learning-manager";
   ui.notifications?.info("Downtime Engine: Performing direct migration to v2.0.0...");
   try {
     // 1. Rules Migration (v3 equivalent)
-
-    const rules = (game.settings.get(SETTINGS_ID, "rules") as any) || { method: "roll" };
-    if (!rules.critDoubleStrategy) {
-      rules.critDoubleStrategy = "never";
-      rules.critThreshold = 10;
-      await game.settings.set(SETTINGS_ID, "rules", rules);
+    const rules = game.settings.get(SETTINGS_ID, "rules") as unknown as SystemRules;
+    if (rules && !rules.critDoubleStrategy) {
+      const updatedRules = {
+        ...rules,
+        critDoubleStrategy: "never" as const,
+        critThreshold: 10,
+      };
+      await game.settings.set(SETTINGS_ID, "rules", updatedRules);
     }
 
     // 2. Guidance Tiers Migration (v2 equivalent)
-    const tiers = game.settings.get(SETTINGS_ID, "guidanceTiers") as any[];
+    const tiers = game.settings.get(SETTINGS_ID, "guidanceTiers") as unknown as GuidanceTier[];
     let tiersUpdated = false;
     for (const tier of tiers) {
       if (!tier._migratedToV2 && tier.costs) {
@@ -30,18 +55,20 @@ export async function migrateToV2Direct() {
     }
 
     // 3. Library and Item Migration (v1 + v4 + v5 equivalent)
-    const library = (game.settings.get(SETTINGS_ID, "projectTemplates") as any[]) || [];
+    const library =
+      (game.settings.get(SETTINGS_ID, "projectTemplates") as unknown as ProjectTemplateLegacy[]) ||
+      [];
     let libraryUpdated = false;
-    const actors = (game.actors || []) as any[];
+    const actors = (game.actors || []) as Actor[];
 
     for (const actor of actors) {
-      const projects = (actor.getFlag(SETTINGS_ID, "projects") || []) as any[];
+      const projects = (actor.getFlag(SETTINGS_ID, "projects" as any) || []) as LegacyProject[];
       if (projects.length === 0) continue;
 
       for (const p of projects) {
         // Find or create template (v1 logic)
         let tpl = library.find(
-          (t: any) =>
+          (t) =>
             t.id === p.templateId ||
             (t.name === p.name &&
               t.target === (p.maxProgress ?? 100) &&
@@ -51,8 +78,8 @@ export async function migrateToV2Direct() {
 
         if (!tpl) {
           tpl = {
-            id: (foundry.utils as any).randomID(),
-            name: p.name,
+            id: (foundry.utils as unknown as { randomID: () => string }).randomID(),
+            name: p.name || "Unknown Project",
             target: p.maxProgress ?? 100,
             rewardUuid: p.rewardUuid || "",
             rewardType: p.rewardType || "item",
@@ -68,15 +95,15 @@ export async function migrateToV2Direct() {
           templateId: tpl.id,
           progress: p.progress || 0,
           target: p.target ?? tpl.target,
-          guidanceTierId: p.guidanceTierId || "",
+          tutelageId: p.guidanceTierId || "",
           isCompleted: p.isCompleted || false,
         };
 
-        await createProjectItem(actor, tpl, projectData);
+        await createProjectItem(actor as unknown as Actor5e, tpl, projectData);
       }
 
       // Clear legacy projects from actor
-      await actor.setFlag(SETTINGS_ID, "projects", []);
+      await actor.setFlag(SETTINGS_ID, "projects" as any, []);
     }
 
     if (libraryUpdated) {
@@ -87,17 +114,23 @@ export async function migrateToV2Direct() {
     ui?.notifications?.info("Downtime Engine direct migration to v2.0.0 successful!");
   } catch (error) {
     console.error("Downtime Engine direct migration failed:", error);
-    ui?.notifications?.error("Direct migration failed. Please check the console for details.");
+    ui?.notifications?.error(
+      "Downtime Engine direct migration failed. Please check the console for details.",
+    );
     throw error;
   }
 }
 
-async function createProjectItem(actor: any, template: any, projectData: any) {
-  const SETTINGS_ID = "thefehrs-learning-manager";
-  const rewardDoc = await fromUuid(template.rewardUuid);
+async function createProjectItem(
+  actor: Actor5e,
+  template: ProjectTemplateLegacy,
+  projectData: LegacyProject,
+) {
+  const rewardDoc = await fromUuid(template.rewardUuid as any);
   if (!rewardDoc || !(rewardDoc instanceof Item)) return null;
 
-  const itemData = (rewardDoc as any).toObject();
+  const item5e = rewardDoc as unknown as Item5e;
+  const itemData = item5e.toObject();
   const stashedEffects = itemData.effects || [];
   const stashedActivities = itemData.system.activities || {};
   const stashedType = itemData.type;
@@ -111,7 +144,9 @@ async function createProjectItem(actor: any, template: any, projectData: any) {
     ...itemData,
     type: projectData.isCompleted ? stashedType : "feat",
     effects: [],
-    "system.type.value": projectData.isCompleted ? itemData.system.type?.value : "learningProject",
+    "system.type.value": projectData.isCompleted
+      ? (itemData.system as unknown as { type: { value: string } }).type?.value
+      : "learning-project",
     "system.activities": {},
     "flags.thefehrs-learning-manager": {
       isLearningProject: !projectData.isCompleted,
@@ -126,12 +161,17 @@ async function createProjectItem(actor: any, template: any, projectData: any) {
       : "In-Progress Learning",
   };
 
-  const [created] = (await actor.createEmbeddedDocuments("Item", [updateData])) as any[];
+  // @ts-expect-error - Complex embedded document data
+  const [created] = await (actor as unknown as Actor).createEmbeddedDocuments("Item", [updateData]);
   if (!created) return null;
 
+  const createdItem = created as unknown as Item;
   if (!projectData.isCompleted) {
-    console.debug(`Downtime Engine | Migration: Injecting activities for ${created.name}`);
-    await ProjectEngine.injectActivities(created as any, projectDataWithTarget.target);
+    console.debug(`Downtime Engine | Migration: Injecting activities for ${createdItem.name}`);
+    await ProjectEngine.injectActivities(
+      createdItem as unknown as Item5e,
+      projectDataWithTarget.target,
+    );
   }
 
   return created;

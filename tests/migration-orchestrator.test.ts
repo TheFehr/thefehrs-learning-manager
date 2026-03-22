@@ -1,7 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { migrateData } from "../src/migrations/migration";
-import { TheFehrsLearningManager } from "../src/old_main";
-import { ActorsCollection } from "./setup";
 import { Settings } from "../src/core/settings";
 
 import * as v1Relational from "../src/migrations/v1-relational";
@@ -19,24 +17,28 @@ describe("Data Migration Orchestrator", () => {
       return null;
     });
 
-    vi.spyOn(v1Relational, "migrateToV1").mockResolvedValue(undefined);
-    vi.spyOn(v1_1gpToCp, "migrateToV1_1").mockResolvedValue(undefined);
+    vi.spyOn(v1Relational, "migrateToV1Relational").mockResolvedValue(undefined);
+    vi.spyOn(v1_1gpToCp, "migrateV1_1GpToCp").mockResolvedValue(undefined);
     vi.spyOn(v1_2critRules, "migrateToV1_2").mockResolvedValue(undefined);
     vi.spyOn(v2NativeItems, "migrateToV2").mockResolvedValue(undefined);
     vi.spyOn(v2Direct, "migrateToV2Direct").mockResolvedValue(undefined);
   });
 
-  it("should call migrateToV2Direct if version is 0", async () => {
+  it("should call migrateToV2Direct if version is 0 and has legacy projects", async () => {
     vi.mocked(game.settings.get).mockReturnValue("0");
+    const actor = new Actor() as any;
+    actor.getFlag = vi.fn().mockReturnValue([{ id: "p1" }]);
+    game.actors = [actor] as any;
+
     await migrateData();
     expect(v2Direct.migrateToV2Direct).toHaveBeenCalled();
   });
 
-  it("should call migrateToV1 if version < 1.0.0", async () => {
+  it("should call all migrations if version < 1.0.0", async () => {
     vi.mocked(game.settings.get).mockReturnValue("0.0.0");
     await migrateData();
-    expect(v1Relational.migrateToV1).toHaveBeenCalled();
-    expect(v1_1gpToCp.migrateToV1_1).toHaveBeenCalled();
+    expect(v1Relational.migrateToV1Relational).toHaveBeenCalled();
+    expect(v1_1gpToCp.migrateV1_1GpToCp).toHaveBeenCalled();
     expect(v1_2critRules.migrateToV1_2).toHaveBeenCalled();
     expect(v2NativeItems.migrateToV2).toHaveBeenCalled();
   });
@@ -44,8 +46,8 @@ describe("Data Migration Orchestrator", () => {
   it("should call migrateToV2 if version is 1.2.0", async () => {
     vi.mocked(game.settings.get).mockReturnValue("1.2.0");
     await migrateData();
-    expect(v1Relational.migrateToV1).not.toHaveBeenCalled();
-    expect(v1_1gpToCp.migrateToV1_1).not.toHaveBeenCalled();
+    expect(v1Relational.migrateToV1Relational).not.toHaveBeenCalled();
+    expect(v1_1gpToCp.migrateV1_1GpToCp).not.toHaveBeenCalled();
     expect(v1_2critRules.migrateToV1_2).not.toHaveBeenCalled();
     expect(v2NativeItems.migrateToV2).toHaveBeenCalled();
   });

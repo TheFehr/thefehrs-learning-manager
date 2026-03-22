@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { migrateToV2Direct } from "../src/migrations/v2-direct";
-import { TheFehrsLearningManager } from "../src/old_main";
+import { LearningManager } from "../src/LearningManager";
 import { ActorsCollection } from "./setup";
 import { ProjectEngine } from "../src/project-engine";
 
@@ -15,7 +15,7 @@ describe("v2-direct migration", () => {
 
   it("should perform direct migration from 0 to 2.0.0", async () => {
     const initialTiers = [{ id: "t1", costs: { h: 1.5 } }];
-    vi.mocked(game.settings.get).mockImplementation((scope, key) => {
+    vi.mocked(game.settings.get).mockImplementation((_scope, key) => {
       if (key === "guidanceTiers") return initialTiers;
       if (key === "projectTemplates") return [];
       if (key === "rules") return { method: "roll" };
@@ -25,7 +25,7 @@ describe("v2-direct migration", () => {
     const actor = new Actor() as any;
     actor.id = "actor1";
     actor.flags = {
-      [TheFehrsLearningManager.ID]: {
+      [LearningManager.ID]: {
         projects: [
           {
             id: "p1",
@@ -56,24 +56,20 @@ describe("v2-direct migration", () => {
 
     // Rules
     expect(game.settings.set).toHaveBeenCalledWith(
-      TheFehrsLearningManager.ID,
+      LearningManager.ID,
       "rules",
       expect.objectContaining({ critDoubleStrategy: "never" }),
     );
     // Tiers
     expect(game.settings.set).toHaveBeenCalledWith(
-      TheFehrsLearningManager.ID,
+      LearningManager.ID,
       "guidanceTiers",
       expect.arrayContaining([expect.objectContaining({ costs: { h: 150 } })]),
     );
     // Item created & projects cleared
     expect(ProjectEngine.injectActivities).toHaveBeenCalled();
-    expect(actor.setFlag).toHaveBeenCalledWith(TheFehrsLearningManager.ID, "projects", []);
+    expect(actor.setFlag).toHaveBeenCalledWith(LearningManager.ID, "projects", []);
     // Version
-    expect(game.settings.set).toHaveBeenCalledWith(
-      TheFehrsLearningManager.ID,
-      "migrationVersion",
-      "2.0.0",
-    );
+    expect(game.settings.set).toHaveBeenCalledWith(LearningManager.ID, "migrationVersion", "2.0.0");
   });
 });

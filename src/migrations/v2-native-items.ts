@@ -1,4 +1,18 @@
-import { ProjectEngine } from "../project-engine";
+import { ProjectEngine } from "../project-engine.js";
+import type { Actor5e, Item5e } from "../types.js";
+
+interface LegacyProject {
+  id?: string;
+  name?: string;
+  templateId?: string;
+  progress?: number;
+  maxProgress?: number;
+  target?: number;
+  rewardUuid?: string;
+  rewardType?: string;
+  guidanceTierId?: string;
+  isCompleted?: boolean;
+}
 
 export async function migrateToV2() {
   const SETTINGS_ID = "thefehrs-learning-manager";
@@ -10,54 +24,59 @@ export async function migrateToV2() {
 
     let pack = game.packs.get(compendiumKey);
     if (!pack) {
-      pack = (await (CompendiumCollection as any).createCompendium({
+      pack = await (CompendiumCollection as any).createCompendium({
         type: "Item",
         label: compendiumLabel,
         name: compendiumName,
-      })) as any;
+      });
     }
 
-    const templates = (game.settings.get(SETTINGS_ID, "projectTemplates") as any[]) || [];
-    const actors = (game.actors || []) as any[];
+    const templates =
+      (game.settings.get(SETTINGS_ID, "projectTemplates") as unknown as any[]) || [];
+    const actors = (game.actors || []) as Actor[];
 
     let migratedCount = 0;
     let totalProjects = 0;
 
     // Count for progress bar
     for (const actor of actors) {
-      const projects = (actor.getFlag(SETTINGS_ID, "projects") || []) as any[];
+      const projects = (actor.getFlag(SETTINGS_ID, "projects" as any) || []) as any[];
       totalProjects += projects.length;
     }
 
     for (const actor of actors) {
       // Step 1: Migrate legacy actor projects to Items
-      const projects = (actor.getFlag(SETTINGS_ID, "projects") || []) as any[];
+      const projects = (actor.getFlag(SETTINGS_ID, "projects" as any) || []) as LegacyProject[];
 
       if (projects.length > 0) {
         for (const p of projects) {
           const tpl = templates.find((t: any) => t.id === p.templateId);
           if (tpl) {
-            p.target = p.target ?? tpl.target;
-            await createProjectItem(actor, tpl, p);
+            p.target = p.maxProgress ?? tpl.target;
+            await createProjectItem(actor as unknown as Actor5e, tpl, p);
           }
           migratedCount++;
           ui.notifications?.info(`Migrating projects: ${migratedCount}/${totalProjects}`, {
-            progress: migratedCount / totalProjects,
-          } as any);
+            progress: (migratedCount / totalProjects) as unknown as boolean,
+          });
         }
-        await actor.setFlag(SETTINGS_ID, "projects", []);
+        await actor.setFlag(SETTINGS_ID, "projects" as any, []);
       }
 
       // Step 2: Ensure all existing Item-projects have targets
       const learningItems = actor.items.filter(
-        (i: any) =>
-          i.getFlag(SETTINGS_ID, "isLearningProject") || i.getFlag(SETTINGS_ID, "isLearnedReward"),
+        (i) =>
+          i.getFlag("thefehrs-learning-manager", "isLearningProject") ||
+          i.getFlag("thefehrs-learning-manager", "isLearnedReward"),
       );
 
       for (const item of learningItems) {
-        const projectData = item.getFlag(SETTINGS_ID, "projectData") as any;
-        const isLearnedReward = item.getFlag(SETTINGS_ID, "isLearnedReward");
-        const updates: any = {};
+        const item5e = item as unknown as Item5e;
+        const projectData = item5e.getFlag("thefehrs-learning-manager", "projectData") as
+          | LegacyProject
+          | undefined;
+        const isLearnedReward = item5e.getFlag("thefehrs-learning-manager", "isLearnedReward");
+        const updates: Record<string, unknown> = {};
 
         if (projectData && typeof projectData.target === "undefined") {
           const tpl = templates.find((t: any) => t.id === projectData.templateId);
@@ -67,14 +86,14 @@ export async function migrateToV2() {
           }
         }
 
-        if (!item.getFlag("tidy5e-sheet", "section")) {
+        if (!item5e.getFlag("tidy5e-sheet", "section" as any)) {
           updates["flags.tidy5e-sheet.section"] = isLearnedReward
             ? "Completed Learning"
             : "In-Progress Learning";
         }
 
         if (Object.keys(updates).length > 0) {
-          await item.update(updates);
+          await item5e.update(updates);
         }
       }
     }
@@ -88,12 +107,16 @@ export async function migrateToV2() {
   }
 }
 
-async function createProjectItem(actor: any, template: any, projectData: any) {
-  const SETTINGS_ID = "thefehrs-learning-manager";
-  const rewardDoc = await fromUuid(template.rewardUuid);
+async function createProjectItem(
+  actor: Actor5e,
+  template: { rewardUuid: string; target: number },
+  projectData: LegacyProject,
+) {
+  const rewardDoc = await fromUuid(template.rewardUuid as any);
   if (!rewardDoc || !(rewardDoc instanceof Item)) return null;
 
-  const itemData = (rewardDoc as any).toObject();
+  const item5e = rewardDoc as unknown as Item5e;
+  const itemData = item5e.toObject();
   const stashedEffects = itemData.effects || [];
   const stashedActivities = itemData.system.activities || {};
   const stashedType = itemData.type;
@@ -107,7 +130,9 @@ async function createProjectItem(actor: any, template: any, projectData: any) {
     ...itemData,
     type: projectData.isCompleted ? stashedType : "feat",
     effects: [],
-    "system.type.value": projectData.isCompleted ? itemData.system.type?.value : "learningProject",
+    "system.type.value": projectData.isCompleted
+      ? (itemData.system as unknown as { type: { value: string } }).type?.value
+      : "learning-project",
     "system.activities": {},
     "flags.thefehrs-learning-manager": {
       isLearningProject: !projectData.isCompleted,
@@ -122,12 +147,17 @@ async function createProjectItem(actor: any, template: any, projectData: any) {
       : "In-Progress Learning",
   };
 
-  const [created] = (await actor.createEmbeddedDocuments("Item", [updateData])) as any[];
+  // @ts-expect-error - Complex embedded document data
+  const [created] = await (actor as unknown as Actor).createEmbeddedDocuments("Item", [updateData]);
   if (!created) return null;
 
+  const createdItem = created as unknown as Item;
   if (!projectData.isCompleted) {
-    console.debug(`Downtime Engine | Migration: Injecting activities for ${created.name}`);
-    await ProjectEngine.injectActivities(created as any, projectDataWithTarget.target);
+    console.debug(`Downtime Engine | Migration: Injecting activities for ${createdItem.name}`);
+    await ProjectEngine.injectActivities(
+      createdItem as unknown as Item5e,
+      projectDataWithTarget.target,
+    );
   }
 
   return created;

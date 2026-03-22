@@ -1,63 +1,43 @@
-import { Settings } from "../core/settings";
-import { migrateToV1 } from "./v1-relational";
-import { migrateToV1_1 } from "./v1_1-gp-to-cp";
-import { migrateToV1_2 } from "./v1_2-crit-rules";
-import { migrateToV2 } from "./v2-native-items";
-import { migrateToV2Direct } from "./v2-direct";
-
-/**
- * Compares two version strings (semver-like) or numbers.
- * Returns true if v1 > v2.
- */
-function isNewerVersion(v1: string | number, v2: string | number): boolean {
-  if (typeof v1 === "number" && typeof v2 === "number") return v1 > v2;
-
-  const s1 = String(v1).split(".");
-  const s2 = String(v2).split(".");
-
-  for (let i = 0; i < Math.max(s1.length, s2.length); i++) {
-    const n1 = parseInt(s1[i] || "0");
-    const n2 = parseInt(s2[i] || "0");
-    if (n1 > n2) return true;
-    if (n1 < n2) return false;
-  }
-  return false;
-}
+import { Settings } from "../core/settings.js";
+import { migrateToV1Relational } from "./v1-relational.js";
+import { migrateV1_1GpToCp } from "./v1_1-gp-to-cp.js";
+import { migrateToV1_2 } from "./v1_2-crit-rules.js";
+import { migrateToV2 } from "./v2-native-items.js";
+import { migrateToV2Direct } from "./v2-direct.js";
 
 export async function migrateData() {
   if (!game.user?.isGM) return;
 
-  let version = Settings.migrationVersion;
-  console.debug("Downtime Engine | Migration: Current version", version);
-  const LATEST_VERSION = "2.0.0";
-  if (!isNewerVersion(LATEST_VERSION, version)) return;
+  const currentVersion = Settings.migrationVersion;
 
-  if (version === "0" || !version) {
-    console.debug("Downtime Engine | Migration: Version is 0, running direct migration");
-    await migrateToV2Direct();
+  if (currentVersion === "0") {
+    // New installation or very old version
+    // Check if we should do a direct migration to V2 if they have legacy flags
+    const hasLegacy = (game.actors || []).some(
+      (a) => (a as any).getFlag("thefehrs-learning-manager", "projects")?.length > 0,
+    );
+    if (hasLegacy) {
+      await migrateToV2Direct();
+    } else {
+      await game.settings.set(Settings.ID, "migrationVersion", "2.0.0");
+    }
     return;
   }
 
-  // v1: Relational Schema (0 -> 1.0.0)
-  if (!isNewerVersion(version, 0) && isNewerVersion("1.0.0", version)) {
-    await migrateToV1();
-    version = "1.0.0";
+  if (isNewerVersion("1.1.0", currentVersion)) {
+    await migrateToV1Relational();
+    await migrateV1_1GpToCp();
   }
 
-  // v1.1: GP to CP costs (1.0.0 -> 1.1.0)
-  if (!isNewerVersion(version, "1.0.0") && isNewerVersion("1.1.0", version)) {
-    await migrateToV1_1();
-    version = "1.1.0";
-  }
-
-  // v1.2: Default Crit Rules (1.1.0 -> 1.2.0)
-  if (!isNewerVersion(version, "1.1.0") && isNewerVersion("1.2.0", version)) {
+  if (isNewerVersion("1.2.0", currentVersion)) {
     await migrateToV1_2();
-    version = "1.2.0";
   }
 
-  // 2.0.0: Native Items & Template-less Model (1.2.0 -> 2.0.0)
-  if (!isNewerVersion(version, "1.2.0") && isNewerVersion("2.0.0", version)) {
+  if (isNewerVersion("2.0.0", currentVersion)) {
     await migrateToV2();
   }
+}
+
+function isNewerVersion(newer: string, current: string): boolean {
+  return (foundry.utils as any).isNewerVersion(newer, current);
 }

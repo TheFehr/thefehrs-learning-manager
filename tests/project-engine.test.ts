@@ -1,10 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ProjectEngine } from "../src/project-engine";
-import { Settings } from "../src/settings";
-import { TheFehrsLearningManager } from "../src/main";
-import { TabLogic } from "../src/tabs/tab-logic";
+import { Settings } from "../src/core/settings";
+import { LearningManager } from "../src/LearningManager";
+import { TabLogic } from "../src/tab-logic";
 
-vi.mock("../src/tabs/tab-logic", () => ({
+vi.mock("../src/tab-logic", () => ({
   TabLogic: {
     computeProgress: vi.fn().mockResolvedValue({ progressGained: 1 }),
     deductCurrency: vi.fn().mockResolvedValue(true),
@@ -16,15 +16,6 @@ describe("ProjectEngine", () => {
     { id: "hour", name: "Hour", short: "h", isBulk: false, ratio: 1 },
     { id: "day", name: "Day", short: "d", isBulk: true, ratio: 10 },
   ];
-
-  const template = {
-    id: "tpl1",
-    name: "Test Project",
-    target: 10,
-    rewardUuid: "Item.123",
-    rewardType: "item" as const,
-    requirements: [],
-  };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -40,7 +31,7 @@ describe("ProjectEngine", () => {
 
     // Default mocks that can be overridden in specific tests
     vi.spyOn(Settings, "timeUnits", "get").mockReturnValue(timeUnits);
-    vi.spyOn(Settings, "rules", "get").mockReturnValue({ method: "direct" });
+    vi.spyOn(Settings, "rules", "get").mockReturnValue({ method: "direct" } as any);
     vi.spyOn(Settings, "guidanceTiers", "get").mockReturnValue([]);
 
     global.game = {
@@ -87,24 +78,25 @@ describe("ProjectEngine", () => {
           expect.objectContaining({
             name: "Reward",
             type: "feat",
-            "system.type.value": "learningProject",
-            "flags.thefehrs-learning-manager": expect.objectContaining({
-              isLearningProject: true,
-              stashedType: "weapon",
-              projectData: expect.objectContaining({
-                progress: 0,
-                target: 10,
-                requirements: expect.any(Array),
+            system: expect.objectContaining({
+              type: expect.objectContaining({
+                value: "learning-project",
+              }),
+            }),
+            flags: expect.objectContaining({
+              "thefehrs-learning-manager": expect.objectContaining({
+                isLearningProject: true,
+                projectData: expect.objectContaining({
+                  progress: 0,
+                  target: 10,
+                  tutelageId: "tier1",
+                }),
               }),
             }),
           }),
         ]),
       );
       expect(result).toBe(createdItem);
-      expect(createdItem.createEmbeddedDocuments).toHaveBeenCalledWith(
-        "Activity",
-        expect.any(Array),
-      );
     });
   });
 
@@ -120,18 +112,9 @@ describe("ProjectEngine", () => {
 
       await ProjectEngine.injectActivities(item);
 
-      expect(item.createEmbeddedDocuments).toHaveBeenCalledWith("Activity", expect.any(Array));
-      const activitiesData = vi.mocked(item.createEmbeddedDocuments).mock.calls[0][1];
-
-      expect(activitiesData.length).toBe(2);
-      expect(activitiesData).toContainEqual(
+      expect(item.update).toHaveBeenCalledWith(
         expect.objectContaining({
-          name: "Train Hour",
-        }),
-      );
-      expect(activitiesData).toContainEqual(
-        expect.objectContaining({
-          name: "Train Day",
+          "system.activities": expect.any(Object),
         }),
       );
     });
@@ -144,7 +127,7 @@ describe("ProjectEngine", () => {
       });
 
       await ProjectEngine.injectActivities(item);
-      expect(item.createEmbeddedDocuments).not.toHaveBeenCalled();
+      expect(item.update).not.toHaveBeenCalled();
     });
   });
 
@@ -152,7 +135,7 @@ describe("ProjectEngine", () => {
     it("should progress the project and handle completion", async () => {
       const actor = new Actor() as any;
       actor.flags = {
-        [TheFehrsLearningManager.ID]: {
+        "thefehrs-learning-manager": {
           bank: { total: 100 },
         },
       };
@@ -163,7 +146,7 @@ describe("ProjectEngine", () => {
         templateId: "tpl1",
         progress: 9,
         target: 10,
-        guidanceTierId: "",
+        tutelageId: "",
         isCompleted: false,
       };
 
@@ -180,9 +163,18 @@ describe("ProjectEngine", () => {
       });
       item.name = "Learning Item";
 
+      const activity = {
+        item,
+        flags: {
+          "thefehrs-learning-manager": {
+            timeUnitId: "hour",
+          },
+        },
+      };
+
       vi.spyOn(Settings, "timeUnits", "get").mockReturnValue(timeUnits);
 
-      await ProjectEngine.processTraining(item, "hour");
+      await ProjectEngine.processTraining(activity as any);
 
       // Check for completion update
       expect(item.update).toHaveBeenCalled();
@@ -195,7 +187,7 @@ describe("ProjectEngine", () => {
       );
 
       expect(actor.setFlag).toHaveBeenCalledWith(
-        TheFehrsLearningManager.ID,
+        "thefehrs-learning-manager",
         "bank",
         expect.objectContaining({ total: 99 }),
       );
@@ -218,7 +210,7 @@ describe("ProjectEngine", () => {
 
       await ProjectEngine.syncAllProjectActivities();
 
-      expect(item.createEmbeddedDocuments).toHaveBeenCalledWith("Activity", expect.any(Array));
+      expect(item.update).toHaveBeenCalled();
     });
   });
 

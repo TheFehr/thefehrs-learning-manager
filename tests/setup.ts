@@ -22,6 +22,16 @@ globalThis.foundry = {
   },
   utils: {
     randomID: vi.fn().mockReturnValue("randomid"),
+    isNewerVersion: vi.fn((newer: string, current: string) => {
+      if (newer === current) return false;
+      const n = newer.split(".").map(Number);
+      const c = current.split(".").map(Number);
+      for (let i = 0; i < Math.max(n.length, c.length); i++) {
+        if ((n[i] || 0) > (c[i] || 0)) return true;
+        if ((n[i] || 0) < (c[i] || 0)) return false;
+      }
+      return false;
+    }),
     expandObject: vi.fn((obj: any) => {
       const result: any = {};
       for (const [key, value] of Object.entries(obj)) {

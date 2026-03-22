@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { TabLogic } from "../src/tabs/tab-logic";
-import { TheFehrsLearningManager } from "../src/main";
+import { TabLogic } from "../src/tab-logic";
+import { TheFehrsLearningManager } from "../src/old_main";
 
 describe("TabLogic", () => {
   beforeEach(() => {

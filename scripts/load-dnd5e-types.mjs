@@ -5,8 +5,14 @@ import path from 'path';
 const srcDir = './externals/dnd5e/module';
 const destDir = './external-types/dnd5e/module';
 
+if (!fs.existsSync(srcDir)) {
+    throw new Error(
+        `Missing ${srcDir}. Run 'git submodule update --init --recursive' first.`
+    );
+}
+
 function processDirectory(dir) {
-    const entries = fs.readdirSync(dir, { withFileTypes: true });
+    const entries = fs.readdirSync(dir, {withFileTypes: true});
 
     for (const entry of entries) {
         const fullPath = path.join(dir, entry.name);
@@ -17,7 +23,7 @@ function processDirectory(dir) {
             const relativePath = path.relative(srcDir, fullPath);
             const destPath = path.join(destDir, relativePath);
 
-            fs.mkdirSync(path.dirname(destPath), { recursive: true });
+            fs.mkdirSync(path.dirname(destPath), {recursive: true});
 
             let content = fs.readFileSync(fullPath, 'utf-8');
 

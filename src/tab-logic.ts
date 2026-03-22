@@ -1,26 +1,34 @@
-import { ActorProxy } from "../data/actor-proxy";
-import type { DowntimeActor, TimeUnit, ProjectRequirement, ComparisonOperator } from "../types";
+import { ActorProxy } from "./actor-proxy.js";
+import type {
+  LearningActor,
+  TimeUnit,
+  ProjectRequirement,
+  ComparisonOperator,
+  SystemRules,
+  GuidanceTier,
+} from "./types.js";
 
 export class TabLogic {
   static async computeProgress(
-    actor: DowntimeActor,
-    rules: any,
-    tier: any,
-    tu: any,
-  ): Promise<{ progressGained: number; roll?: any }> {
+    actor: LearningActor,
+    rules: SystemRules,
+    tier: GuidanceTier | undefined,
+    tu: TimeUnit,
+  ): Promise<{ progressGained: number; roll?: Roll<any> }> {
     let progressGained = 0;
-    let roll: any = undefined;
+    let roll: Roll<any> | undefined = undefined;
 
     if (tu.isBulk) {
-      progressGained = tier.progress?.[tu.id] || 0;
-    } else if (rules.method === "roll") {
+      progressGained = tier?.progress?.[tu.id] || 0;
+    } else if (rules.method === "roll" && rules.checkFormula) {
       roll = await new Roll(
         rules.checkFormula,
         {
           ...actor.getRollData(),
-          tutelage: tier.modifier,
+          tutelage: tier?.modifier || 0,
         },
-        { target: rules.checkDC } as any,
+        // @ts-expect-error - Foundry Roll constructor accepts target in options
+        { target: rules.checkDC },
       ).evaluate();
 
       let multiplier = 1;
@@ -28,19 +36,18 @@ export class TabLogic {
       const threshold = rules.critThreshold ?? 20;
 
       if (strategy !== "never") {
-        const d20s = (roll.dice ?? []).filter((die: any) => die.faces === 20);
+        const d20s = (roll.dice ?? []).filter((die) => die.faces === 20);
         if (d20s.length > 0) {
           if (strategy === "any") {
-            if (d20s.some((die: any) => die.results?.some((r: any) => r.result >= threshold)))
-              multiplier = 2;
+            if (d20s.some((die) => die.results?.some((r) => r.result >= threshold))) multiplier = 2;
           } else if (strategy === "all") {
-            if (d20s.every((die: any) => die.results?.every((r: any) => r.result >= threshold)))
+            if (d20s.every((die) => die.results?.every((r) => r.result >= threshold)))
               multiplier = 2;
           }
         }
       }
 
-      if (roll.total >= rules.checkDC) progressGained = 1 * multiplier;
+      if (roll.total >= (rules.checkDC || 0)) progressGained = 1 * multiplier;
     } else {
       progressGained = 1;
     }

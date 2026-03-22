@@ -1,8 +1,12 @@
-export async function migrateToV1_1() {
+import type { GuidanceTier } from "../types.js";
+
+export async function migrateV1_1GpToCp() {
   const SETTINGS_ID = "thefehrs-learning-manager";
-  ui.notifications?.info("Migrating Downtime Engine guidance costs from gp to cp...");
   try {
-    const tiers = game.settings.get(SETTINGS_ID, "guidanceTiers") as any[];
+    const tiers = game.settings.get(
+      SETTINGS_ID,
+      "guidanceTiers" as any,
+    ) as unknown as GuidanceTier[];
     let tiersUpdated = false;
     for (const tier of tiers) {
       if (!tier._migratedToV2 && tier.costs) {
@@ -14,13 +18,9 @@ export async function migrateToV1_1() {
       }
     }
     if (tiersUpdated) {
-      await game.settings.set(SETTINGS_ID, "guidanceTiers", tiers);
+      await game.settings.set(SETTINGS_ID, "guidanceTiers" as any, tiers);
     }
-    await game.settings.set(SETTINGS_ID, "migrationVersion", "1.1.0");
-    ui?.notifications?.info("Downtime Engine guidance costs migrated to cp successfully!");
   } catch (error) {
-    console.error("Downtime Engine migration to v1.1.0 failed:", error);
-    ui?.notifications?.error("Migration to v1.1.0 failed. Please check the console for details.");
-    throw error;
+    console.error("Downtime Engine v1.1 migration failed:", error);
   }
 }

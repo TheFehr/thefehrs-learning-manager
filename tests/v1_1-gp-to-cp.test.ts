@@ -1,32 +1,27 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { migrateToV1_1 } from "../src/migrations/v1_1-gp-to-cp";
-import { TheFehrsLearningManager } from "../src/old_main";
+import { migrateV1_1GpToCp } from "../src/migrations/v1_1-gp-to-cp";
+import { LearningManager } from "../src/LearningManager";
 
 describe("v1_1-gp-to-cp migration", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    game.user.isGM = true;
   });
 
-  it("should migrate guidance costs from gp to cp", async () => {
-    const tiers = [{ id: "t1", name: "Tier 1", costs: { h: 1.5 } }];
-    vi.mocked(game.settings.get).mockImplementation((scope, key) => {
-      if (key === "guidanceTiers") return tiers;
-      return null;
-    });
+  it("should convert guidance tier costs from gold to copper", async () => {
+    const initialTiers = [{ id: "t1", name: "Tier 1", costs: { hour: 1, day: 10 } }];
+    vi.mocked(game.settings.get).mockReturnValue(initialTiers);
 
-    await migrateToV1_1();
+    await migrateV1_1GpToCp();
 
-    expect(game.settings.set).toHaveBeenCalledWith(TheFehrsLearningManager.ID, "guidanceTiers", [
-      expect.objectContaining({
-        costs: { h: 150 },
-        _migratedToV2: true,
-      }),
-    ]);
     expect(game.settings.set).toHaveBeenCalledWith(
-      TheFehrsLearningManager.ID,
-      "migrationVersion",
-      "1.1.0",
+      LearningManager.ID,
+      "guidanceTiers",
+      expect.arrayContaining([
+        expect.objectContaining({
+          costs: { hour: 100, day: 1000 },
+          _migratedToV2: true,
+        }),
+      ]),
     );
   });
 });

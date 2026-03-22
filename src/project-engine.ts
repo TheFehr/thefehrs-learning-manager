@@ -1,10 +1,12 @@
-import { Settings } from "./settings";
-import { ActorProxy } from "./data/actor-proxy";
-import type { LearningProject, ProjectTemplate, TimeUnit, GuidanceTier } from "./types";
-import { ProjectItem } from "./data/project-item";
-import { LearningActivityData } from "./data/learning-activity";
-import Document from "@league-of-foundry-developers/foundry-vtt-types/src/foundry/common/abstract/document";
-import ModuleSubType = Document.ModuleSubType;
+import { Settings } from "./core/settings.js";
+import { ActorProxy } from "./actor-proxy.js";
+import {
+  LearningActivityData,
+  LearningFeatType,
+  ProjectFlagData,
+  ProjectItem,
+} from "./project-item.js";
+import type { Actor5e, Item5e, ActivityData5e, LearningActor } from "./types.js";
 
 export class ProjectEngine {
   /**
@@ -14,45 +16,58 @@ export class ProjectEngine {
   static async initiateProjectFromItem(
     actor: Actor,
     rewardDoc: Item,
-    guidanceTierId: string = "",
-  ): Promise<Item | null> {
-    const itemData = rewardDoc.toObject();
+    tutelageId: string = "",
+  ): Promise<Item5e | null> {
+    const item5e = rewardDoc as unknown as Item5e;
+    const itemData = item5e.toObject();
     const stashedEffects = itemData.effects || [];
     const stashedActivities = itemData.system.activities || {};
-    const stashedType = itemData.type;
+    const stashedType = itemData.type || "";
 
-    const projectDataFlags = (rewardDoc.getFlag(Settings.ID, "projectData") as any) || {};
-    const target = projectDataFlags.target ?? 0;
-    const requirements = projectDataFlags.requirements ?? [];
+    const projectItem = rewardDoc as unknown as ProjectItem;
+    const projectDataFlags = projectItem.getFlag("thefehrs-learning-manager", "projectData");
+    const target = projectDataFlags?.target ?? 0;
+    const stashedRequirements = projectDataFlags?.requirements ?? [];
 
     // Prepare item data for stashing
-    const projectData: LearningProject = {
-      id: foundry.utils.randomID(),
-      templateId: "", // Legacy, no longer used for library lookup
+    const projectData: ProjectFlagData = {
       progress: 0,
       target: target,
-      requirements: requirements,
-      guidanceTierId: guidanceTierId,
-      isCompleted: false,
+      tutelageId: tutelageId,
+      isLearnedReward: false,
+      isLearningProject: true,
+      requirements: stashedRequirements,
+      stashedEffects,
+      stashedActivities,
+      stashedType,
     };
 
     const updateData = {
       ...itemData,
       type: "feat",
       effects: [],
-      "system.type.value": "learningProject",
-      "system.activities": {},
-      "flags.thefehrs-learning-manager": {
-        isLearningProject: true,
-        projectData: projectData,
-        stashedEffects: stashedEffects,
-        stashedActivities: stashedActivities,
-        stashedType: stashedType,
+      system: {
+        activities: {},
+        type: {
+          value: LearningFeatType,
+        },
       },
-      "flags.tidy5e-sheet.section": "In-Progress Learning",
+      flags: {
+        "thefehrs-learning-manager": {
+          projectData: projectData,
+          isLearningProject: true,
+          isLearnedReward: false,
+        },
+        "tidy5e-sheet": {
+          section: "In-Progress Learning",
+        },
+      },
     };
 
-    const [created] = (await actor.createEmbeddedDocuments("Item", [updateData])) as any[];
+    // @ts-expect-error - Complex embedded document data
+    const [created] = await (actor as unknown as Actor5e).createEmbeddedDocuments("Item", [
+      updateData,
+    ]);
     if (!created) {
       console.error(
         `Downtime Engine | Failed to create embedded item "${rewardDoc.name}" on actor ${actor.name}`,
@@ -60,21 +75,28 @@ export class ProjectEngine {
       return null;
     }
 
+    const createdItem = created as unknown as Item5e;
     console.debug(
-      `Downtime Engine | Created embedded item "${created.name}" (ID: ${created.id}). Injecting activities...`,
+      `Downtime Engine | Created embedded item "${(created as unknown as Item).name}" (ID: ${createdItem.id}). Injecting activities...`,
     );
-    await this.injectActivities(created as any, projectData.target);
-    return created as any;
+    await this.injectActivities(createdItem, projectData.target);
+    return createdItem;
   }
 
   /**
    * Generates training activities data based on world settings.
    */
-  static getActivitiesData(target: number): LearningActivityData[] {
+  static getActivitiesData(target: number): ActivityData5e[] {
     if (target <= 0) return [];
 
     const timeUnits = Settings.timeUnits;
     return timeUnits.map((tu) => ({
+      _id: "", // Will be assigned by foundry
+      img: "icons/svg/book.svg",
+      sort: 0,
+      override: false,
+      concentration: false,
+      prompt: false,
       type: "utility",
       activation: {
         type: "special",
@@ -83,16 +105,19 @@ export class ProjectEngine {
         value: 1,
       },
       consumption: {
+        value: "1",
         scaling: {
           allowed: false,
+          max: "",
         },
-        spellSlot: true,
+        spellSlot: false,
         targets: [],
       },
       description: {
         chatFlavor: `Training for ${tu.name}`,
       },
       duration: {
+        value: "1",
         units: "perm",
         concentration: false,
         override: false,
@@ -100,25 +125,32 @@ export class ProjectEngine {
       },
       effects: [],
       flags: {
-        [ProjectItem.ID]: {
+        "thefehrs-learning-manager": {
+          isLearningActivity: true,
           timeUnitId: tu.id,
-          learningTarget: target,
         },
       },
       range: {
+        value: "0",
         units: "self",
         override: false,
         special: "",
       },
       target: {
         template: {
+          count: "1",
+          size: "0",
+          width: "0",
+          height: "0",
           contiguous: false,
           units: "ft",
           type: "",
         },
         affects: {
+          count: "1",
           choice: false,
           type: "",
+          special: "",
         },
         override: false,
         prompt: false,
@@ -129,6 +161,7 @@ export class ProjectEngine {
         max: "",
       },
       visibility: {
+        identifier: "",
         level: {
           min: null,
           max: null,
@@ -136,13 +169,6 @@ export class ProjectEngine {
         requireAttunement: false,
         requireIdentification: false,
         requireMagic: false,
-        identifier: "",
-      },
-      roll: {
-        prompt: false,
-        visible: false,
-        name: "",
-        formula: "",
       },
       name: `Train ${tu.name}`,
     }));
@@ -151,130 +177,65 @@ export class ProjectEngine {
   /**
    * Injects training activities into a project item based on world settings.
    */
-  static async injectActivities(item: Item, forceTarget?: number) {
-    const itemProxy = item as ProjectItem;
-    const projectData = itemProxy.getFlag(Settings.ID, "projectData");
+  static async injectActivities(item: Item5e, forceTarget?: number) {
+    const itemProxy = item as unknown as ProjectItem;
+    const projectData = itemProxy.getFlag("thefehrs-learning-manager", "projectData");
     const target = forceTarget ?? projectData.target ?? 0;
-
-    console.debug(`Downtime Engine | DEBUG: injectActivities call for "${item.name}"`, {
-      itemId: item.id,
-      itemType: item.type,
-      forceTarget,
-      extractedProjectData: projectData,
-    });
 
     const activitiesData = this.getActivitiesData(target);
 
     if (activitiesData.length === 0) {
       console.warn(
-        `Downtime Engine | Skipping activity injection for "${item.name}" - target is ${target}.`,
+        `Downtime Engine | Skipping activity injection for "${(item as unknown as Item).name}" - target is ${target}.`,
       );
       return;
     }
 
-    console.debug(`Downtime Engine | Creating ${activitiesData.length} Activity documents...`);
     try {
-      // Generate random IDs for the DataModel records and prep the update
-      const activityUpdates: Record<string, any> = {};
+      const activityUpdates: Record<string, ActivityData5e> = {};
 
       for (const activity of activitiesData) {
-        // Foundry's randomID() generates the 16-char string required for keys
-        activityUpdates[foundry.utils.randomID()] = activity;
+        const id = (foundry.utils as unknown as { randomID: () => string }).randomID();
+        activity._id = id;
+        activityUpdates[id] = activity;
       }
 
-      // Push directly into the D&D 5e System DataModel
-      await item.update({ "system.activities": activityUpdates });
+      // @ts-expect-error - system.activities update
+      await (item as unknown as Item).update({ "system.activities": activityUpdates });
       console.debug(
         `Downtime Engine | Successfully created ${Object.keys(activityUpdates).length} activities.`,
       );
     } catch (err) {
-      console.error(`Downtime Engine | Failed to create activities for "${item.name}":`, err);
-    }
-  }
-
-  /**
-   * Creates a project item for an actor from a template and existing project data.
-   */
-  static async createProjectItem(
-    actor: Actor,
-    template: ProjectTemplate,
-    projectData: LearningProject,
-  ): Promise<Item | null> {
-    const rewardDoc = await fromUuid(template.rewardUuid as any);
-    if (!rewardDoc || !(rewardDoc instanceof Item)) {
-      return null;
-    }
-
-    const itemData = rewardDoc.toObject();
-    const stashedEffects = itemData.effects || [];
-    const stashedActivities = itemData.system.activities || {};
-    const stashedType = itemData.type;
-
-    const projectDataWithTarget: LearningProject = {
-      ...projectData,
-      target: projectData.target ?? template.target,
-    };
-
-    const updateData = {
-      ...itemData,
-      type: projectData.isCompleted ? stashedType : "feat",
-      effects: [],
-      "system.type.value": projectData.isCompleted
-        ? itemData.system.type?.value
-        : "learningProject",
-      "system.activities": {},
-      "flags.thefehrs-learning-manager": {
-        isLearningProject: !projectData.isCompleted,
-        isLearnedReward: projectData.isCompleted,
-        projectData: projectDataWithTarget,
-        stashedEffects: stashedEffects,
-        stashedActivities: stashedActivities,
-        stashedType: stashedType,
-      },
-      "flags.tidy5e-sheet.section": projectData.isCompleted
-        ? "Completed Learning"
-        : "In-Progress Learning",
-    };
-
-    const [created] = (await actor.createEmbeddedDocuments("Item", [updateData])) as any[];
-    if (!created) {
       console.error(
-        `Downtime Engine | Failed to create embedded item for project data on actor ${actor.name}`,
+        `Downtime Engine | Failed to create activities for "${(item as unknown as Item).name}":`,
+        err,
       );
-      return null;
     }
-
-    if (!projectData.isCompleted) {
-      console.debug(
-        `Downtime Engine | Created project item "${created.name}" (ID: ${created.id}). Injecting activities...`,
-      );
-      await this.injectActivities(created as any, projectDataWithTarget.target);
-    }
-    return created as any;
   }
 
   /**
    * Restores a project item to its original state upon completion.
    */
-  static async completeProject(item: Item) {
-    const isProject = item.getFlag(Settings.ID, "isLearningProject");
+  static async completeProject(item: Item5e) {
+    const isProject = item.getFlag("thefehrs-learning-manager", "isLearningProject");
     if (!isProject) return;
-    const projectItem = item as ProjectItem;
+    const projectItem = item as unknown as ProjectItem;
 
-    const projectData = (projectItem.getFlag(Settings.ID, "projectData") as any) || {};
+    const projectDataFlags = projectItem.getFlag("thefehrs-learning-manager", "projectData");
 
     const updateData = {
-      type: ((item.getFlag(Settings.ID, "stashedType") as string) || item.type) as ModuleSubType,
-      effects: (item.getFlag(Settings.ID, "stashedEffects") as any[]) || [],
-      "system.type.value": null, // Will be overridden if stashedActivities restore it or if we restore system
-      "system.activities": (item.getFlag(Settings.ID, "stashedActivities") as any) || {},
+      type: (item.getFlag("thefehrs-learning-manager", "stashedType") as string) || item.type,
+      effects: (item.getFlag("thefehrs-learning-manager", "stashedEffects") as object[]) || [],
+      "system.type.value": null,
+      "system.activities":
+        (item.getFlag("thefehrs-learning-manager", "stashedActivities") as object) || {},
       "flags.thefehrs-learning-manager": {
         isLearningProject: false,
         isLearnedReward: true,
         projectData: {
-          ...projectData,
+          ...projectDataFlags,
           isCompleted: true,
-          progress: projectData.target,
+          progress: projectDataFlags.target,
         },
         stashedEffects: null,
         stashedActivities: null,
@@ -283,33 +244,37 @@ export class ProjectEngine {
       "flags.tidy5e-sheet.section": "Completed Learning",
     };
 
-    await item.update(updateData);
-    ui.notifications?.info(`Learning Complete: ${item.name} is now fully available!`);
+    // @ts-expect-error - Complex document update
+    await (item as unknown as Item).update(updateData);
+    ui.notifications?.info(
+      `Learning Complete: ${(item as unknown as Item).name} is now fully available!`,
+    );
   }
 
   /**
    * Processes a training session for a project.
    */
-  static async processTraining(item: Item, timeUnitId: string) {
+  static async processTraining(learningActivity: LearningActivityData) {
+    const item = learningActivity.item;
+
     const actor = item.actor;
     if (!actor) return;
 
-    const isProject = item.getFlag(Settings.ID, "isLearningProject");
-    if (!isProject) return;
-
-    const projectData = item.getFlag(Settings.ID, "projectData") as any as LearningProject;
-    if (!projectData.target || projectData.target <= 0) {
+    const projectDataFlags = item.getFlag("thefehrs-learning-manager", "projectData");
+    if (!projectDataFlags.target || projectDataFlags.target <= 0) {
       return ui.notifications?.warn("This project is awaiting a GM-defined target progress.");
     }
 
+    const flags = learningActivity.flags["thefehrs-learning-manager"];
+    const timeUnitId = flags?.timeUnitId;
     const tu = Settings.timeUnits.find((u) => u.id === timeUnitId);
     if (!tu) return;
 
-    const proxy = ActorProxy.forActor(actor);
+    const proxy = ActorProxy.forActor(actor as unknown as Actor);
     const bank = proxy.bank;
     if (bank.total < tu.ratio) return ui.notifications?.warn(`Not enough time!`);
 
-    const tier = Settings.guidanceTiers.find((t) => t.id === projectData.guidanceTierId);
+    const tier = Settings.guidanceTiers.find((t) => t.id === projectDataFlags.tutelageId);
     const costCp = tier?.costs?.[tu.id] || 0;
     const cur = proxy.currency;
     const totalCp = cur.gp * 100 + cur.sp * 10 + cur.cp;
@@ -317,32 +282,36 @@ export class ProjectEngine {
     if (totalCp < costCp) return ui.notifications?.warn(`Need ${costCp}cp!`);
 
     const rules = Settings.rules;
-    const { TabLogic } = await import("./tabs/tab-logic");
-    const { progressGained, roll } = await TabLogic.computeProgress(actor as any, rules, tier, tu);
+    const { TabLogic } = await import("./tab-logic.js");
+    const { progressGained, roll } = await TabLogic.computeProgress(
+      actor as unknown as LearningActor,
+      rules,
+      tier,
+      tu,
+    );
 
     // Update state
-    projectData.progress = Math.min(projectData.progress + progressGained, projectData.target);
+    projectDataFlags.progress = Math.min(
+      projectDataFlags.progress + progressGained,
+      projectDataFlags.target,
+    );
     let completedNow = false;
-    if (projectData.progress >= projectData.target && !projectData.isCompleted) {
-      projectData.isCompleted = true;
+    if (projectDataFlags.progress >= projectDataFlags.target && !projectDataFlags.isCompleted) {
+      projectDataFlags.isCompleted = true;
       completedNow = true;
     }
 
     // Transactions
     if (costCp > 0) {
-      await TabLogic.deductCurrency(actor, costCp);
+      await TabLogic.deductCurrency(actor as unknown as Actor, costCp);
     }
     await proxy.setBank({ total: bank.total - tu.ratio });
 
     if (completedNow) {
-      await this.completeProject(item);
+      await this.completeProject(item as unknown as Item5e);
     } else {
-      await item.update({
-        flags: {
-          "thefehrs-learning-manager": {
-            projectData,
-          },
-        },
+      await (item as unknown as Item).update({
+        [`flags.${Settings.ID}.projectData`]: projectDataFlags,
       });
     }
 
@@ -366,13 +335,13 @@ export class ProjectEngine {
 
     ui.notifications?.info("Downtime Engine | Syncing project activities...");
 
-    const actors = (game.actors || []) as any[];
+    const actors = (game.actors || []) as unknown as Actor5e[];
     let updatedCount = 0;
 
     for (const actor of actors) {
-      const learningItems = actor.items.filter((i: any) =>
-        i.getFlag(Settings.ID, "isLearningProject"),
-      );
+      const learningItems = (actor as unknown as Actor).items.filter((i) =>
+        i.getFlag("thefehrs-learning-manager", "isLearningProject"),
+      ) as unknown as Item5e[];
       for (const item of learningItems) {
         await this.injectActivities(item);
         updatedCount++;

@@ -1,64 +1,36 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { migrateToV1 } from "../src/migrations/v1-relational";
-import { TheFehrsLearningManager } from "../src/old_main";
+import { migrateToV1Relational } from "../src/migrations/v1-relational";
+import { LearningManager } from "../src/LearningManager";
 import { ActorsCollection } from "./setup";
 
 describe("v1-relational migration", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     game.actors = new ActorsCollection();
-    game.user.isGM = true;
   });
 
-  it("should migrate legacy projects to relational schema", async () => {
-    const library: any[] = [];
-    vi.mocked(game.settings.get).mockImplementation((scope, key) => {
-      if (key === "projectTemplates") return library;
-      return null;
-    });
-
+  it("should create templates from legacy projects and link them", async () => {
     const actor = new Actor() as any;
     actor.flags = {
-      [TheFehrsLearningManager.ID]: {
+      [LearningManager.ID]: {
         projects: [
-          {
-            id: "p1",
-            name: "New Project",
-            progress: 10,
-            maxProgress: 100,
-            rewardUuid: "item1",
-            rewardType: "item",
-          },
+          { name: "Project 1", maxProgress: 100, rewardUuid: "uuid1", rewardType: "item" },
         ],
       },
     };
     (game.actors as any[]).push(actor);
 
-    await migrateToV1();
+    vi.mocked(game.settings.get).mockReturnValue([]);
 
-    expect(actor.setFlag).toHaveBeenCalledWith(
-      TheFehrsLearningManager.ID,
-      "projects",
-      expect.arrayContaining([
-        expect.objectContaining({
-          templateId: expect.any(String),
-        }),
-      ]),
-    );
+    await migrateToV1Relational();
+
     expect(game.settings.set).toHaveBeenCalledWith(
-      TheFehrsLearningManager.ID,
+      LearningManager.ID,
       "projectTemplates",
-      expect.arrayContaining([
-        expect.objectContaining({
-          name: "New Project",
-          target: 100,
-        }),
-      ]),
+      expect.arrayContaining([expect.objectContaining({ name: "Project 1", target: 100 })]),
     );
-    expect(game.settings.set).toHaveBeenCalledWith(
-      TheFehrsLearningManager.ID,
-      "migrationVersion",
-      "1.0.0",
-    );
+
+    const updatedProjects = vi.mocked(actor.setFlag).mock.calls[0][2];
+    expect(updatedProjects[0].templateId).toBeDefined();
   });
 });

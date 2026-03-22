@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { PartyTab } from "../src/tabs/party-tab";
-import { TheFehrsLearningManager } from "../src/main";
-import { Settings } from "../src/settings";
+import { PartyTab } from "../src/party-tab";
+import { LearningManager } from "../src/LearningManager";
+import { Settings } from "../src/core/settings";
 
 describe("PartyTab", () => {
   beforeEach(() => {
@@ -46,7 +46,7 @@ describe("PartyTab", () => {
             return {
               progress: 5,
               target: 10,
-              guidanceTierId: "tier1",
+              tutelageId: "tier1",
               isCompleted: false,
             };
           return null;

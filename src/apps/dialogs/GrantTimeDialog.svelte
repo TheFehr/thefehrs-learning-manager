@@ -1,7 +1,8 @@
 <script lang="ts">
-  import type { TimeUnit } from "../types";
+  import type { TimeUnit } from "../../types.js";
+  import type { MemberMappedData } from "../../party-tab.js";
 
-  let { timeUnits, isParty, members }: { timeUnits: TimeUnit[], isParty: boolean, members: any[] } = $props();
+  let { timeUnits, isParty, members }: { timeUnits: TimeUnit[], isParty: boolean, members: MemberMappedData[] } = $props();
 </script>
 
 <form class="thefehrs-grant-dialog">

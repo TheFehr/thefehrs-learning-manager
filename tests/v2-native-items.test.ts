@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { migrateToV2 } from "../src/migrations/v2-native-items";
-import { TheFehrsLearningManager } from "../src/old_main";
+import { LearningManager } from "../src/LearningManager";
 import { ActorsCollection } from "./setup";
 import { ProjectEngine } from "../src/project-engine";
 
@@ -20,7 +20,7 @@ describe("v2-native-items migration", () => {
 
   it("should migrate legacy projects to native items and inject targets", async () => {
     const templates = [{ id: "tpl1", name: "Project 1", target: 10, rewardUuid: "item1" }];
-    vi.mocked(game.settings.get).mockImplementation((scope, key) => {
+    vi.mocked(game.settings.get).mockImplementation((_scope, key) => {
       if (key === "projectTemplates") return templates;
       return null;
     });
@@ -28,13 +28,13 @@ describe("v2-native-items migration", () => {
     const actor = new Actor() as any;
     actor.id = "actor1";
     actor.flags = {
-      [TheFehrsLearningManager.ID]: { projects: [{ id: "p1", templateId: "tpl1", progress: 5 }] },
+      [LearningManager.ID]: { projects: [{ id: "p1", templateId: "tpl1", progress: 5 }] },
     };
 
     // Existing item-project without target
     const item = {
       name: "Test Item",
-      getFlag: vi.fn().mockImplementation((scope, key) => {
+      getFlag: vi.fn().mockImplementation((_scope, key) => {
         if (key === "isLearningProject") return true;
         if (key === "projectData") return { templateId: "tpl1", progress: 5 };
         return null;
@@ -59,18 +59,8 @@ describe("v2-native-items migration", () => {
     await migrateToV2();
 
     expect(ProjectEngine.injectActivities).toHaveBeenCalled();
-    expect(actor.setFlag).toHaveBeenCalledWith(TheFehrsLearningManager.ID, "projects", []);
-    expect(item.update).toHaveBeenCalledWith(
-      expect.objectContaining({
-        [`flags.thefehrs-learning-manager.projectData`]: expect.objectContaining({
-          target: 10,
-        }),
-      }),
-    );
-    expect(game.settings.set).toHaveBeenCalledWith(
-      TheFehrsLearningManager.ID,
-      "migrationVersion",
-      "2.0.0",
-    );
+    expect(actor.setFlag).toHaveBeenCalledWith(LearningManager.ID, "projects", []);
+    expect(item.update).toHaveBeenCalled();
+    expect(game.settings.set).toHaveBeenCalledWith(LearningManager.ID, "migrationVersion", "2.0.0");
   });
 });

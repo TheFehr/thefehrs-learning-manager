@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { Settings } from "./settings";
-  import type { SystemRules, TimeUnit, GuidanceTier } from "./types";
+  import { Settings } from "../core/settings.js";
+  import type { SystemRules, TimeUnit, GuidanceTier } from "../types.js";
 
   // State
   let rules = $state<SystemRules>(Settings.rules);
@@ -9,11 +9,11 @@
   let allowedCompendiums = $state<string[]>(Settings.allowedCompendiums);
 
   // Computed / Constant
-  const availablePacks = (game.packs as any)
-    .filter((p: any) => p.metadata.type === "Item")
-    .map((p: any) => ({
-      id: p.metadata.id,
-      label: p.metadata.label
+  const availablePacks = (game.packs as unknown as any[]) // foundry-vtt-types has complex CompendiumCollection
+    .filter((p) => (p as any).metadata.type === "Item")
+    .map((p) => ({
+      id: (p as any).metadata.id,
+      label: (p as any).metadata.label
     }));
 
   async function save() {
@@ -26,7 +26,7 @@
 
   function addTimeUnit() {
     timeUnits.push({
-      id: foundry.utils.randomID(),
+      id: (foundry.utils as unknown as { randomID: () => string }).randomID(),
       name: "New Unit",
       short: "u",
       isBulk: false,
@@ -40,7 +40,7 @@
 
   function addTier() {
     guidanceTiers.push({
-      id: foundry.utils.randomID(),
+      id: (foundry.utils as unknown as { randomID: () => string }).randomID(),
       name: "New Tier",
       modifier: 0,
       costs: {},
@@ -66,19 +66,23 @@
     const input = document.createElement("input");
     input.type = "file";
     input.accept = ".json";
-    input.onchange = (e: any) => {
-      const file = e.target.files[0];
+    input.onchange = (e: Event) => {
+      const target = e.target as HTMLInputElement;
+      if (!target.files?.length) return;
+      const file = target.files[0];
       const reader = new FileReader();
-      reader.onload = async (event: any) => {
+      reader.onload = async (event: ProgressEvent<FileReader>) => {
         try {
-          const data = JSON.parse(event.target.result);
+          const content = event.target?.result as string;
+          const data = JSON.parse(content);
           if (data.rules) rules = data.rules;
           if (data.timeUnits) timeUnits = data.timeUnits;
           if (data.guidanceTiers) guidanceTiers = data.guidanceTiers;
           if (data.allowedCompendiums) allowedCompendiums = data.allowedCompendiums;
           ui.notifications?.info("Downtime Engine | Settings imported. Click Save to persist.");
-        } catch (err: any) {
-          ui.notifications?.error("Failed to import settings: " + err.message);
+        } catch (err: unknown) {
+          const error = err as Error;
+          ui.notifications?.error("Failed to import settings: " + error.message);
         }
       };
       reader.readAsText(file);

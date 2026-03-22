@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { Settings } from "../settings";
-  import type { ProjectRequirement, ComparisonOperator } from "../types";
+  import { Settings } from "../../core/settings.js";
+  import type { ProjectRequirement, ComparisonOperator, Item5e } from "../../types.js";
 
-  let { item } = $props<{ item: any }>();
+  let { item } = $props<{ item: Item5e }>();
 
   let targetValue = $state(0);
   let requirements = $state<ProjectRequirement[]>([]);
@@ -22,9 +22,9 @@
   // Initialize from item flags once
   $effect(() => {
     if (initialized) return;
-    const data = item.getFlag(Settings.ID, "projectData") || {};
-    targetValue = data.target ?? 0;
-    requirements = data.requirements ? JSON.parse(JSON.stringify(data.requirements)) : [];
+    const data = item.getFlag("thefehrs-learning-manager", "projectData");
+    targetValue = data?.target ?? 0;
+    requirements = data?.requirements ? JSON.parse(JSON.stringify(data.requirements)) : [];
     initialized = true;
   });
 
@@ -46,7 +46,7 @@
   async function saveConfig(t: number, r: ProjectRequirement[]) {
     isSaving = true;
     try {
-      await item.setFlag(Settings.ID, "projectData", {
+      await item.setFlag("thefehrs-learning-manager", "projectData", {
         target: t,
         requirements: r
       });
@@ -57,7 +57,7 @@
 
   function addRequirement() {
     requirements.push({
-      id: foundry.utils.randomID(),
+      id: (foundry.utils as unknown as { randomID: () => string }).randomID(),
       attribute: "system.abilities.int.value",
       operator: ">=",
       value: "10"
