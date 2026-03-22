@@ -1,10 +1,11 @@
+import { ProjectEngine } from "../project-engine";
+
 export async function migrateToV2Direct() {
   const SETTINGS_ID = "thefehrs-learning-manager";
   ui.notifications?.info("Downtime Engine: Performing direct migration to v2.0.0...");
   try {
-    const { ProjectEngine } = await import("../project-engine");
-
     // 1. Rules Migration (v3 equivalent)
+
     const rules = (game.settings.get(SETTINGS_ID, "rules") as any) || { method: "roll" };
     if (!rules.critDoubleStrategy) {
       rules.critDoubleStrategy = "never";
@@ -129,8 +130,9 @@ async function createProjectItem(actor: any, template: any, projectData: any) {
   if (!created) return null;
 
   if (!projectData.isCompleted) {
-    const { ProjectEngine } = await import("../project-engine");
+    console.debug(`Downtime Engine | Migration: Injecting activities for ${created.name}`);
     await ProjectEngine.injectActivities(created as any, projectDataWithTarget.target);
   }
+
   return created;
 }

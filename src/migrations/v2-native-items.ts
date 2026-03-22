@@ -1,3 +1,5 @@
+import { ProjectEngine } from "../project-engine";
+
 export async function migrateToV2() {
   const SETTINGS_ID = "thefehrs-learning-manager";
   ui.notifications?.info("Migrating Downtime Engine projects to native Items (v2.0.0)...");
@@ -124,8 +126,9 @@ async function createProjectItem(actor: any, template: any, projectData: any) {
   if (!created) return null;
 
   if (!projectData.isCompleted) {
-    const { ProjectEngine } = await import("../project-engine");
+    console.debug(`Downtime Engine | Migration: Injecting activities for ${created.name}`);
     await ProjectEngine.injectActivities(created as any, projectDataWithTarget.target);
   }
+
   return created;
 }
