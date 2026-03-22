@@ -6,6 +6,9 @@
   import type {ProjectItem} from "../../project-item.js";
   import type {MemberMappedData, ProjectMappedData} from "../../party-tab.js";
   import type {Item5e} from "../../types.js";
+  import AbortProjectDialog from "../dialogs/AbortProjectDialog.svelte";
+  import GrantTimeDialog from "../dialogs/GrantTimeDialog.svelte";
+  import {mount, unmount} from "svelte";
 
   let {members, tierOptions, isGM, actor} = $props<{
     members: MemberMappedData[];
@@ -29,15 +32,19 @@
     const timeUnits = Settings.timeUnits;
     const isParty = actor.type === "group";
 
-    const templateData = {timeUnits, isParty, members};
-    const content = await renderTemplate(
-      `modules/thefehrs-learning-manager/templates/grant-time-dialog.hbs`,
-      templateData,
-    );
+    const container = document.createElement("div");
+    const svelteInstance = mount(GrantTimeDialog, {
+      target: container,
+      props: {
+        timeUnits,
+        isParty,
+        members
+      }
+    });
 
     new foundry.appv1.api.Dialog({
       title: "Modify Training Time",
-      content: content,
+      content: container,
       buttons: {
         apply: {
           label: "Apply Time",
@@ -90,6 +97,9 @@
         },
       },
       default: "apply",
+      close: () => {
+        unmount(svelteInstance);
+      }
     }).render(true);
   }
 
@@ -169,9 +179,18 @@
 
     const projectName = project.name || "Unknown Project";
 
+    const container = document.createElement("div");
+    const svelteInstance = mount(AbortProjectDialog, {
+      target: container,
+      props: {
+        projectName,
+        actorName: targetActor.name || "Unknown Actor"
+      }
+    });
+
     new foundry.appv1.api.Dialog({
       title: "Abort Project",
-      content: `<p>Are you sure you want to abort the project <strong>${projectName}</strong> for <strong>${targetActor.name}</strong>?</p><p>Any progress will be lost.</p>`,
+      content: container,
       buttons: {
         yes: {
           icon: '<i class="fas fa-check"></i>',
@@ -187,6 +206,9 @@
         },
       },
       default: "no",
+      close: () => {
+        unmount(svelteInstance);
+      }
     }).render(true);
   }
 </script>
