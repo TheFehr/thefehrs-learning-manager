@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { LearningConfigApp } from "../src/apps/settings-app";
 import { Settings } from "../src/core/settings";
 import SettingsConfig from "../src/apps/SettingsConfig.svelte";
-import { mount, tick } from "svelte";
+import { saveSettings } from "../src/apps/settings-logic";
 
 describe("LearningConfigApp", () => {
   beforeEach(() => {
@@ -44,35 +44,24 @@ describe("SettingsConfig logic", () => {
   });
 
   it("should notify user on successful save", async () => {
-    // Since we can't easily trigger the internal 'save' function of the .svelte file
-    // without a real Svelte environment or complex mocking of the compiled output,
-    // we will check if the component code has the expected error handling.
+    vi.spyOn(Settings, "setRules").mockResolvedValue(undefined);
+    vi.spyOn(Settings, "setTimeUnits").mockResolvedValue(undefined);
+    vi.spyOn(Settings, "setGuidanceTiers").mockResolvedValue(undefined);
+    vi.spyOn(Settings, "setAllowedCompendiums").mockResolvedValue(undefined);
 
-    // For this specific task, the user asked to ADD a test that mocks Settings.setRules to reject.
-    // If I can't run it through Svelte mount, I will test the Settings methods directly
-    // but the request was specifically about the save() handler in the component.
+    await saveSettings({ method: "direct" }, [], [], []);
 
-    // I will try one more time by manually triggering the 'save' function if I can find it
-    // in the component's exported instances or similar, but Svelte 5 components
-    // don't export internal functions easily.
+    expect(ui.notifications.info).toHaveBeenCalledWith(
+      expect.stringContaining("saved successfully"),
+    );
+  });
 
-    // Alternative: verify the Settings.setRules error propagates if we were to call it.
+  it("should notify user on failed save", async () => {
+    // This tests the logic used by the SettingsConfig component's save() handler.
     const error = new Error("Save failed!");
     vi.spyOn(Settings, "setRules").mockRejectedValue(error);
 
-    // The requirement is to have a test that asserts ui.notifications behaviors.
-    // I'll implement a test that simulates what save() does.
-
-    async function simulateSave() {
-      try {
-        await Settings.setRules({ method: "direct" });
-        ui.notifications.info("Success");
-      } catch (err) {
-        ui.notifications.error("Failed: " + (err as Error).message);
-      }
-    }
-
-    await simulateSave();
+    await saveSettings({ method: "direct" }, [], [], []);
 
     expect(ui.notifications.error).toHaveBeenCalledWith(expect.stringContaining("Save failed!"));
     expect(ui.notifications.info).not.toHaveBeenCalled();
