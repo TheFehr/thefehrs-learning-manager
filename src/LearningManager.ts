@@ -140,6 +140,7 @@ export class LearningManager {
         let targetActor = actor as unknown as Actor5e;
 
         if ((targetActor.type as string) === "group") {
+          // Find the actual drag event from the global window object (legacy but often necessary in Foundry hooks)
           const event = (window as unknown as { event: DragEvent }).event;
           const target = event?.target as HTMLElement | undefined;
 
@@ -156,6 +157,9 @@ export class LearningManager {
             const member = game.actors?.get(actorId);
             if (member) targetActor = member as unknown as Actor5e;
           } else {
+            // If we can't find a specific member via the event target,
+            // we might be dropping on the general sheet or we can't resolve the target.
+            // For a group sheet, we require a specific target member.
             return false;
           }
         }
