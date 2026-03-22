@@ -1,13 +1,15 @@
 <script lang="ts">
   import { Settings } from "../../core/settings.js";
   import type { ProjectRequirement, ComparisonOperator, Item5e } from "../../types.js";
+  import { untrack } from "svelte";
 
   let { item } = $props<{ item: Item5e }>();
 
   let targetValue = $state(0);
   let requirements = $state<ProjectRequirement[]>([]);
   let isSaving = $state(false);
-  let initialized = false;
+  let initialized = $state(false);
+  let initialSnapshot = $state<string>("");
 
   const operatorChoices: Record<ComparisonOperator, string> = {
     "===": "Equal To",
@@ -21,23 +23,31 @@
 
   // Initialize from item flags once
   $effect(() => {
-    if (initialized) return;
+    if (untrack(() => initialized)) return;
     const data = item.getFlag("thefehrs-learning-manager", "projectData");
     targetValue = data?.target ?? 0;
     requirements = data?.requirements ? JSON.parse(JSON.stringify(data.requirements)) : [];
+    
+    initialSnapshot = JSON.stringify({ target: targetValue, requirements });
     initialized = true;
   });
 
   // Auto-save logic
   $effect(() => {
-    if (!initialized) return;
-    
-    // De-referenced to track dependencies
+    // Track targetValue and requirements
     const t = targetValue;
-    const r = JSON.parse(JSON.stringify(requirements));
+    const r = requirements;
+    
+    const isInit = untrack(() => initialized);
+    if (!isInit) return;
+
+    const currentSnapshot = JSON.stringify({ target: t, requirements: r });
+    const snap = untrack(() => initialSnapshot);
+    
+    if (currentSnapshot === snap) return;
 
     const timeout = setTimeout(() => {
-      saveConfig(t, r);
+      saveConfig(t, JSON.parse(JSON.stringify(r)));
     }, 500);
 
     return () => clearTimeout(timeout);
@@ -50,6 +60,7 @@
         target: t,
         requirements: r
       });
+      initialSnapshot = JSON.stringify({ target: t, requirements: r });
     } finally {
       setTimeout(() => isSaving = false, 500);
     }
