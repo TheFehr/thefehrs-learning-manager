@@ -41,7 +41,8 @@ export async function migrateToV1Relational() {
             t.name === p.name &&
             t.target === (p.maxProgress ?? 100) &&
             t.rewardUuid === (p.rewardUuid || "") &&
-            t.rewardType === (p.rewardType || "item"),
+            t.rewardType === (p.rewardType || "item") &&
+            JSON.stringify(t.requirements || []) === JSON.stringify(p.requirements || []),
         );
 
         if (!tpl) {
