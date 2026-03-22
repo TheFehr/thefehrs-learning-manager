@@ -191,18 +191,29 @@ export class ProjectEngine {
     }
 
     try {
-      const activityUpdates: Record<string, ActivityData5e> = {};
+      const activityUpdates: Record<string, any> = {};
 
+      // 1. Identify and mark for removal any existing learning activities
+      const existingActivities = (item.system as any).activities;
+      if (existingActivities && typeof existingActivities.forEach === "function") {
+        existingActivities.forEach((activity: any) => {
+          if (activity.flags?.["thefehrs-learning-manager"]?.isLearningActivity) {
+            activityUpdates[`-=${activity.id}`] = null;
+          }
+        });
+      }
+
+      // 2. Add the new activities
       for (const activity of activitiesData) {
         const id = (foundry.utils as unknown as { randomID: () => string }).randomID();
         activity._id = id;
         activityUpdates[id] = activity;
       }
 
-      // @ts-expect-error - system.activities update
+      // @ts-expect-error - complex activities update
       await (item as unknown as Item).update({ "system.activities": activityUpdates });
       console.debug(
-        `Downtime Engine | Successfully created ${Object.keys(activityUpdates).length} activities.`,
+        `Downtime Engine | Successfully synced activities for "${(item as unknown as Item).name}".`,
       );
     } catch (err) {
       console.error(
