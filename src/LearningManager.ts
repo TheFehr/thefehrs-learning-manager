@@ -164,31 +164,41 @@ export class LearningManager {
           }
         }
 
-        fromUuid(data.uuid as unknown as `Item.${string}`).then((item) => {
-          if (item && "system" in item) {
-            const item5e = item as unknown as Item5e;
-            const itemProxy = item5e as unknown as ProjectItem;
-            const projectFlagData = projectData(itemProxy);
-            const requirements = projectFlagData.requirements || [];
-            const { eligible, reason } = TabLogic.meetsRequirements(
-              targetActor as unknown as Actor,
-              requirements,
-            );
+        fromUuid(data.uuid as unknown as `Item.${string}`)
+          .then(async (item) => {
+            if (item && "system" in item) {
+              const item5e = item as unknown as Item5e;
+              const itemProxy = item5e as unknown as ProjectItem;
+              const projectFlagData = projectData(itemProxy);
+              const requirements = projectFlagData.requirements || [];
+              const { eligible, reason } = TabLogic.meetsRequirements(
+                targetActor as unknown as Actor,
+                requirements,
+              );
 
-            if (!eligible) {
-              return ui.notifications?.warn(`Requirements not met for ${item5e.name}: ${reason}`);
+              if (!eligible) {
+                ui.notifications?.warn(`Requirements not met for ${item5e.name}: ${reason}`);
+                return;
+              }
+
+              await ProjectEngine.initiateProjectFromItem(
+                targetActor as unknown as Actor,
+                item5e as unknown as Item,
+              );
             }
-
-            ProjectEngine.initiateProjectFromItem(
-              targetActor as unknown as Actor,
-              item5e as unknown as Item,
+          })
+          .catch((err) => {
+            console.error(
+              `Downtime Engine | Failed to initiate project for item ${data.uuid} on actor ${targetActor.name}:`,
+              err,
             );
-          }
-        });
+            ui.notifications?.error(
+              `Downtime Engine | Failed to initiate project: ${err instanceof Error ? err.message : String(err)}`,
+            );
+          });
         return false;
       },
     );
-
     // @ts-expect-error - tidy5e system hook
     Hooks.once("tidy5e-sheet.ready", (api: Tidy5eApi) => {
       this.registerTidyTabs(api);
