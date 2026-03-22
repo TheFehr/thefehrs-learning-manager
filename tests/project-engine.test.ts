@@ -27,6 +27,7 @@ describe("ProjectEngine", () => {
       setFlag = vi.fn();
       name = "Mock Item";
       toObject = vi.fn();
+      system = { activities: {} };
     } as any;
 
     // Default mocks that can be overridden in specific tests
@@ -174,8 +175,9 @@ describe("ProjectEngine", () => {
 
       vi.spyOn(Settings, "timeUnits", "get").mockReturnValue(timeUnits);
 
-      await ProjectEngine.processTraining(activity as any);
+      const result = await ProjectEngine.processTraining(activity as any);
 
+      expect(result).toBe(true);
       // Check for completion update
       expect(item.update).toHaveBeenCalled();
       const lastUpdate = vi.mocked(item.update).mock.lastCall![0];
@@ -190,6 +192,94 @@ describe("ProjectEngine", () => {
         "thefehrs-learning-manager",
         "bank",
         expect.objectContaining({ total: 99 }),
+      );
+    });
+
+    it("should whisper the roll to the player and GM", async () => {
+      const actor = new Actor() as any;
+      actor.flags = {
+        "thefehrs-learning-manager": {
+          bank: { total: 100 },
+        },
+      };
+      actor.system = { currency: { gp: 10, sp: 0, cp: 0 } };
+
+      const item = new Item() as any;
+      item.actor = actor;
+      item.getFlag = vi.fn().mockReturnValue({ target: 10, progress: 0 });
+
+      const activity = {
+        item,
+        flags: {
+          "thefehrs-learning-manager": {
+            timeUnitId: "hour",
+          },
+        },
+      };
+
+      const mockRoll = {
+        toMessage: vi.fn(),
+      };
+
+      vi.mocked(TabLogic.computeProgress).mockResolvedValueOnce({
+        progressGained: 1,
+        roll: mockRoll as any,
+      });
+
+      vi.spyOn(Settings, "rules", "get").mockReturnValue({
+        method: "roll",
+        rollMode: "blindroll",
+        checkDC: 10,
+      } as any);
+
+      await ProjectEngine.processTraining(activity as any);
+
+      expect(mockRoll.toMessage).toHaveBeenCalledWith(
+        expect.objectContaining({ flavor: expect.any(String) }),
+        expect.objectContaining({ rollMode: "blindroll" }),
+      );
+    });
+
+    it("should notify user with reason on failed training", async () => {
+      const actor = new Actor() as any;
+      actor.flags = {
+        "thefehrs-learning-manager": {
+          bank: { total: 100 },
+        },
+      };
+      actor.system = { currency: { gp: 10, sp: 0, cp: 0 } };
+
+      const projectData = {
+        target: 10,
+        progress: 0,
+        tutelageId: "",
+      };
+
+      const item = new Item() as any;
+      item.actor = actor;
+      item.getFlag = vi.fn().mockImplementation((_scope, key) => {
+        if (key === "projectData") return { ...projectData };
+        return null;
+      });
+
+      const activity = {
+        item,
+        flags: {
+          "thefehrs-learning-manager": {
+            timeUnitId: "hour",
+          },
+        },
+      };
+
+      vi.mocked(TabLogic.computeProgress).mockResolvedValueOnce({
+        progressGained: 0,
+        reason: "Mock failure reason",
+      });
+
+      await ProjectEngine.processTraining(activity as any);
+
+      expect(ui.notifications.info).toHaveBeenCalledWith(
+        "Training unsuccessful: Mock failure reason",
       );
     });
   });

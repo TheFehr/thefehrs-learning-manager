@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { TabLogic } from "../src/tab-logic";
-import { TheFehrsLearningManager } from "../src/old_main";
+import { LearningManager } from "../src/LearningManager";
 
 describe("TabLogic", () => {
   beforeEach(() => {
@@ -48,6 +48,14 @@ describe("TabLogic", () => {
       } as any;
       const result = await TabLogic.computeProgress(actor, rules, tier, tu);
       expect(result.progressGained).toBe(0);
+      expect(result.reason).toBe("Roll total 10 failed to meet DC 15.");
+    });
+
+    it("should return a reason on zero bulk progress", async () => {
+      const bulkTu = { id: "no_progress_unit", name: "Month", isBulk: true };
+      const result = await TabLogic.computeProgress(actor, rules, undefined, bulkTu as any);
+      expect(result.progressGained).toBe(0);
+      expect(result.reason).toBe('Tutelage tier "None" provides no progress for Months.');
     });
 
     it("should handle 'any' crit strategy", async () => {

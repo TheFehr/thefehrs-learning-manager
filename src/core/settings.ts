@@ -19,7 +19,9 @@ export class Settings {
 
   static get timeUnits(): TimeUnit[] {
     // @ts-expect-error - Foundry settings return type is not perfectly matching augmentation
-    return this.settings.get(this.ID, "timeUnits");
+    const units = this.settings.get(this.ID, "timeUnits");
+    console.debug("Downtime Engine | Retrieved Time Units:", units);
+    return units;
   }
 
   static get guidanceTiers(): GuidanceTier[] {

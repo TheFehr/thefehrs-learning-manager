@@ -80,6 +80,7 @@ export interface TimeUnit {
 
 export interface SystemRules {
   method: "direct" | "roll";
+  rollMode?: string;
   checkDC?: number;
   checkFormula?: string;
   critDoubleStrategy?: "any" | "all" | "never";
@@ -123,6 +124,9 @@ declare global {
   interface CONFIG {
     DND5E: {
       featureTypes: Record<string, { label: string }>;
+    };
+    Dice: {
+      rollModes: Record<string, string | { label: string }>;
     };
   }
 

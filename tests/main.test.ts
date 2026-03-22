@@ -52,6 +52,7 @@ describe("LearningManager", () => {
         registerItemTab: vi.fn(),
         registerGroupTab: vi.fn(),
         registerItemContent: vi.fn(),
+        registerCharacterContent: vi.fn(),
         models: {
           HtmlTab: class {
             constructor(public opts: any) {}

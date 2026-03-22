@@ -14,12 +14,21 @@ export class TabLogic {
     rules: SystemRules,
     tier: GuidanceTier | undefined,
     tu: TimeUnit,
-  ): Promise<{ progressGained: number; roll?: Roll<any> }> {
+  ): Promise<{ progressGained: number; roll?: Roll<any>; reason?: string }> {
     let progressGained = 0;
     let roll: Roll<any> | undefined = undefined;
+    let reason: string | undefined = undefined;
 
     if (tu.isBulk) {
       progressGained = tier?.progress?.[tu.id] || 0;
+      if (progressGained === 0) {
+        reason = `Tutelage tier "${tier?.name || "None"}" provides no progress for ${tu.name}s.`;
+      }
+      console.debug("Downtime Engine | Bulk Progress:", {
+        unitId: tu.id,
+        tierProgress: tier?.progress,
+        gained: progressGained,
+      });
     } else if (rules.method === "roll" && rules.checkFormula) {
       roll = await new Roll(
         rules.checkFormula,
@@ -47,11 +56,15 @@ export class TabLogic {
         }
       }
 
-      if (roll.total >= (rules.checkDC || 0)) progressGained = 1 * multiplier;
+      if (roll.total >= (rules.checkDC || 0)) {
+        progressGained = 1 * multiplier;
+      } else {
+        reason = `Roll total ${roll.total} failed to meet DC ${rules.checkDC}.`;
+      }
     } else {
       progressGained = 1;
     }
-    return { progressGained, roll };
+    return { progressGained, roll, reason };
   }
 
   static async addCurrency(actor: Actor, amountCp: number) {

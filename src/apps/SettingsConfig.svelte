@@ -85,6 +85,7 @@
           if (data.rules && typeof data.rules === "object") {
             rules = {
               method: data.rules.method === "roll" ? "roll" : "direct",
+              rollMode: typeof data.rules.rollMode === "string" ? data.rules.rollMode : "gmroll",
               checkDC: typeof data.rules.checkDC === "number" ? data.rules.checkDC : 10,
               checkFormula: typeof data.rules.checkFormula === "string" ? data.rules.checkFormula : "",
               critDoubleStrategy: ["any", "all", "never"].includes(data.rules.critDoubleStrategy) 
@@ -162,6 +163,16 @@
       <select id="rule-method" bind:value={rules.method}>
         <option value="direct">1 Base Unit = 1 Progress</option>
         <option value="roll">Learning Check</option>
+      </select>
+    </div>
+
+    <div class="form-group">
+      <label for="rule-roll-mode">Roll Mode</label>
+      <select id="rule-roll-mode" bind:value={rules.rollMode}>
+        {#each Object.entries(CONFIG.Dice.rollModes) as [key, value]}
+          {@const label = typeof value === 'object' && value !== null && 'label' in value ? value.label : value}
+          <option value={key}>{game.i18n.localize(label)}</option>
+        {/each}
       </select>
     </div>
 

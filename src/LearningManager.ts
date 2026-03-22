@@ -46,6 +46,7 @@ export class LearningManager {
   private static registerSettings() {
     const rules: SystemRules = {
       method: "direct",
+      rollMode: "gmroll",
     };
     Settings.register("rules", {
       scope: "world",
@@ -116,11 +117,11 @@ export class LearningManager {
 
   private static registerHooks() {
     // @ts-expect-error - dnd5e system hook
-    Hooks.on("dnd5e.preUseActivity", (activity: LearningActivityData) => {
+    Hooks.on("dnd5e.preUseActivity", async (activity: LearningActivityData) => {
       // Check if this is a learning activity
       if (activity.flags?.[LearningManager.ID]?.isLearningActivity) {
-        ProjectEngine.processTraining(activity);
-        return false; // stop standard execution
+        const success = await ProjectEngine.processTraining(activity);
+        if (success) return false; // stop standard execution
       }
     });
 

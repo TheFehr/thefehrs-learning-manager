@@ -264,44 +264,53 @@ export class ProjectEngine {
 
   /**
    * Processes a training session for a project.
+   * @param learningActivity The activity data to process.
+   * @returns A promise that resolves to true if the training was processed successfully, false otherwise.
    */
-  static async processTraining(learningActivity: LearningActivityData) {
+  static async processTraining(learningActivity: LearningActivityData): Promise<boolean> {
     const item = learningActivity.item;
 
     const actor = item.actor;
-    if (!actor) return;
+    if (!actor) return false;
 
     const projectDataFlags = item.getFlag("thefehrs-learning-manager", "projectData");
     if (!projectDataFlags.target || projectDataFlags.target <= 0) {
-      return ui.notifications?.warn("This project is awaiting a GM-defined target progress.");
+      ui.notifications?.warn("This project is awaiting a GM-defined target progress.");
+      return false;
     }
 
     const flags = learningActivity.flags["thefehrs-learning-manager"];
     const timeUnitId = flags?.timeUnitId;
     const tu = Settings.timeUnits.find((u) => u.id === timeUnitId);
-    if (!tu) return;
+    if (!tu) return false;
 
     const proxy = ActorProxy.forActor(actor as unknown as Actor);
     const bank = proxy.bank;
-    if (bank.total < tu.ratio) return ui.notifications?.warn(`Not enough time!`);
+    if (bank.total < tu.ratio) {
+      ui.notifications?.warn(`Not enough time!`);
+      return false;
+    }
 
     const tier = Settings.guidanceTiers.find((t) => t.id === projectDataFlags.tutelageId);
     const costCp = tier?.costs?.[tu.id] || 0;
     const cur = proxy.currency;
     const totalCp = cur.gp * 100 + cur.sp * 10 + cur.cp;
 
-    if (totalCp < costCp) return ui.notifications?.warn(`Need ${costCp}cp!`);
+    if (totalCp < costCp) {
+      ui.notifications?.warn(`Need ${costCp}cp!`);
+      return false;
+    }
 
     const { TabLogic } = await import("./tab-logic.js");
 
     // Transactions - Deduct currency first
     if (costCp > 0) {
       const success = await TabLogic.deductCurrency(actor as unknown as Actor, costCp);
-      if (!success) return; // TabLogic.deductCurrency handles the warning
+      if (!success) return false; // TabLogic.deductCurrency handles the warning
     }
 
     const rules = Settings.rules;
-    const { progressGained, roll } = await TabLogic.computeProgress(
+    const { progressGained, roll, reason } = await TabLogic.computeProgress(
       actor as unknown as LearningActor,
       rules,
       tier,
@@ -331,14 +340,22 @@ export class ProjectEngine {
     }
 
     if (roll) {
-      await roll.toMessage({
-        flavor: `${actor.name} tries to learn ${item.name} (DC ${rules.checkDC})`,
-      });
+      await roll.toMessage(
+        {
+          flavor: `${actor.name} tries to learn ${item.name} (DC ${rules.checkDC})`,
+        },
+        { rollMode: rules.rollMode || "gmroll" },
+      );
     }
 
     if (progressGained === 0) {
-      ui.notifications?.info("Training unsuccessful - no progress gained.");
+      const msg = reason
+        ? `Training unsuccessful: ${reason}`
+        : "Training unsuccessful - no progress gained.";
+      ui.notifications?.info(msg);
     }
+
+    return true;
   }
 
   /**

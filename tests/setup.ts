@@ -87,6 +87,9 @@ globalThis.game = {
     get: vi.fn(),
     set: vi.fn(),
   },
+  i18n: {
+    localize: vi.fn((key: string) => key),
+  },
   user: { isGM: false },
   actors: new ActorsCollection(),
   packs: new PacksCollection(),
@@ -164,6 +167,14 @@ globalThis.CompendiumCollection = {
 globalThis.CONFIG = {
   DND5E: {
     featureTypes: {},
+  },
+  Dice: {
+    rollModes: {
+      publicroll: "CHAT.RollPublic",
+      gmroll: "CHAT.RollPrivate",
+      blindroll: "CHAT.RollBlind",
+      selfroll: "CHAT.RollSelf",
+    },
   },
 } as any;
 
