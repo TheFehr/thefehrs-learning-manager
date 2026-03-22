@@ -49,18 +49,31 @@ export async function migrateToV2() {
       const projects = (actor.getFlag(SETTINGS_ID, "projects" as any) || []) as LegacyProject[];
 
       if (projects.length > 0) {
+        const remainingProjects: LegacyProject[] = [];
         for (const p of projects) {
           const tpl = templates.find((t: any) => t.id === p.templateId);
+          let success = false;
           if (tpl) {
             p.target = p.maxProgress ?? tpl.target;
-            await createProjectItem(actor as unknown as Actor5e, tpl, p);
+            const created = await createProjectItem(actor as unknown as Actor5e, tpl, p);
+            if (created) {
+              success = true;
+            }
           }
-          migratedCount++;
-          ui.notifications?.info(`Migrating projects: ${migratedCount}/${totalProjects}`, {
-            progress: (migratedCount / totalProjects) as unknown as boolean,
-          });
+
+          if (success) {
+            migratedCount++;
+            ui.notifications?.info(`Migrating projects: ${migratedCount}/${totalProjects}`, {
+              progress: (migratedCount / totalProjects) as unknown as boolean,
+            });
+          } else {
+            console.warn(
+              `Downtime Engine | Migration: Failed to migrate project ${p.name || p.id} for actor ${actor.name}. Template found: ${!!tpl}. Project preserved.`,
+            );
+            remainingProjects.push(p);
+          }
         }
-        await actor.setFlag(SETTINGS_ID, "projects" as any, []);
+        await actor.setFlag(SETTINGS_ID, "projects" as any, remainingProjects);
       }
 
       // Step 2: Ensure all existing Item-projects have targets
