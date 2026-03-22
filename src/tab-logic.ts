@@ -55,6 +55,9 @@ export class TabLogic {
   }
 
   static async addCurrency(actor: Actor, amountCp: number) {
+    if (amountCp < 0) {
+      return this.deductCurrency(actor, -amountCp);
+    }
     const proxy = ActorProxy.forActor(actor);
     const cur = proxy.currency;
     let totalCp = cur.gp * 100 + cur.sp * 10 + cur.cp;
