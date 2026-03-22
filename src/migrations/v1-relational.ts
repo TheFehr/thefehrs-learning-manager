@@ -68,5 +68,6 @@ export async function migrateToV1Relational() {
     }
   } catch (error) {
     console.error("Downtime Engine relational migration failed:", error);
+    throw error;
   }
 }
