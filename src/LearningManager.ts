@@ -22,6 +22,7 @@ import { mount, unmount } from "svelte";
 import PartyTab from "./apps/tabs/PartyTab.svelte";
 import { PartyTab as PartyTabLogic } from "./party-tab.js";
 import ItemTargetConfig from "./apps/tabs/ItemTargetConfig.svelte";
+import TimeBankBar from "./apps/components/TimeBankBar.svelte";
 
 export class LearningManager {
   static ID = "thefehrs-learning-manager" as const;
@@ -335,6 +336,41 @@ export class LearningManager {
           return !!item?.getFlag("thefehrs-learning-manager", "isLearningProject");
         },
         renderScheme: "handlebars",
+      }),
+    );
+
+    api.registerCharacterContent(
+      new api.models.HtmlContent({
+        html: '<div class="downtime-engine-time-bank-bar-root"></div>',
+        injectParams: {
+          selector: '[data-tab-contents-for="features"]',
+          position: "beforeend",
+        },
+        enabled: (data: { document?: Actor5e; actor?: Actor5e }) => {
+          const actor = data.document || data.actor;
+          return (actor as any)?.type === "character";
+        },
+        onRender: (params: any) => {
+          const app = params.app as { id: string; document?: Actor; actor?: Actor };
+          const appId = `time-bank-bar-${app.id}`;
+          const target = params.element?.querySelector(".downtime-engine-time-bank-bar-root");
+          if (!target) return;
+
+          if (this.svelteInstances.has(appId)) {
+            unmount(this.svelteInstances.get(appId)!);
+            this.svelteInstances.delete(appId);
+          }
+
+          const actor = app.document || app.actor;
+          if (!actor) return;
+
+          const instance = mount(TimeBankBar, {
+            target: target as HTMLElement,
+            props: { actor: actor as unknown as Actor5e },
+          });
+
+          this.svelteInstances.set(appId, instance);
+        },
       }),
     );
   }
