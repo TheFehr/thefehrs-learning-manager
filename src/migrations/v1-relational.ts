@@ -38,7 +38,7 @@ export async function migrateToV1Relational() {
 
         let tpl = library.find(
           (t) =>
-            t.name === p.name &&
+            t.name === (p.name || "Unknown Project") &&
             t.target === (p.maxProgress ?? 100) &&
             t.rewardUuid === (p.rewardUuid || "") &&
             t.rewardType === (p.rewardType || "item") &&
