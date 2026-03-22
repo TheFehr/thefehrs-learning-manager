@@ -22,5 +22,6 @@ export async function migrateV1_1GpToCp() {
     }
   } catch (error) {
     console.error("Downtime Engine v1.1 migration failed:", error);
+    throw error;
   }
 }
