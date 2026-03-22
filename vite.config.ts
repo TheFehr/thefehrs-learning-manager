@@ -23,12 +23,6 @@ export default defineConfig({
       formats: ["es"],
       fileName: "main",
     },
-    rollupOptions: {
-      output: {
-        entryFileNames: "main.js",
-        assetFileNames: (asset) => (asset.name?.endsWith(".css") ? "main.css" : "[name][extname]"),
-      },
-    },
     emptyOutDir: true,
     sourcemap: true,
   },
