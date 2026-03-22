@@ -112,7 +112,7 @@
     <p class="notes">Players must meet these criteria to start learning this item.</p>
     
     <div class="requirements-list">
-      {#each requirements as req}
+      {#each requirements as req (req.id)}
         <div class="requirement-row">
           <input type="text" bind:value={req.attribute} placeholder="Attribute Path" title="e.g. system.abilities.str.value" />
           <select bind:value={req.operator}>
