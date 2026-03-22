@@ -281,8 +281,15 @@ export class ProjectEngine {
 
     if (totalCp < costCp) return ui.notifications?.warn(`Need ${costCp}cp!`);
 
-    const rules = Settings.rules;
     const { TabLogic } = await import("./tab-logic.js");
+
+    // Transactions - Deduct currency first
+    if (costCp > 0) {
+      const success = await TabLogic.deductCurrency(actor as unknown as Actor, costCp);
+      if (!success) return; // TabLogic.deductCurrency handles the warning
+    }
+
+    const rules = Settings.rules;
     const { progressGained, roll } = await TabLogic.computeProgress(
       actor as unknown as LearningActor,
       rules,
@@ -301,10 +308,7 @@ export class ProjectEngine {
       completedNow = true;
     }
 
-    // Transactions
-    if (costCp > 0) {
-      await TabLogic.deductCurrency(actor as unknown as Actor, costCp);
-    }
+    // Deduct time from bank
     await proxy.setBank({ total: bank.total - tu.ratio });
 
     if (completedNow) {
