@@ -15,10 +15,15 @@
   }
 
   async function updateTime(unit: TimeUnit, newValue: string) {
-    const val = parseInt(newValue) || 0;
+    const val = Number(newValue);
+    if (!Number.isFinite(val) || Number.isNaN(val)) {
+      ui.notifications?.warn(`Invalid time value: ${newValue}`);
+      return;
+    }
+
     const currentVal = getTimeValue(unit, bank.total);
     const diff = (val - currentVal) * unit.ratio;
-    
+
     if (diff !== 0) {
       await proxy.setBank({ total: bank.total + diff });
     }
@@ -40,11 +45,13 @@
             {unit.short.toUpperCase()}
         </i>
         <input 
-          type="text" 
+          type="number" 
           class="currency-item uninput" 
           value={getTimeValue(unit, bank.total)}
           onchange={(e) => updateTime(unit, e.currentTarget.value)}
           placeholder="0"
+          min="0"
+          step="1"
         />
         <span class="denomination">{unit.short}</span>
       </label>
