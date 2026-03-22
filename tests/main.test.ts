@@ -220,7 +220,7 @@ describe("LearningManager", () => {
       const mockSheet = { activeTab: "any-tab" };
       await dropHook![1](groupActor, mockSheet, data);
       await new Promise((resolve) => setTimeout(resolve, 0));
-      expect(ProjectEngine.initiateProjectFromItem).toHaveBeenCalled();
+      expect(ProjectEngine.initiateProjectFromItem).toHaveBeenCalledWith(memberActor, item);
     });
   });
 });
