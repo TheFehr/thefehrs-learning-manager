@@ -8,6 +8,7 @@
   let targetValue = $state(0);
   let requirements = $state<ProjectRequirement[]>([]);
   let isSaving = $state(false);
+  let saveError = $state<string | null>(null);
   let initialized = $state(false);
   let initialSnapshot = $state<string>("");
 
@@ -55,12 +56,17 @@
 
   async function saveConfig(t: number, r: ProjectRequirement[]) {
     isSaving = true;
+    saveError = null;
     try {
       await item.setFlag("thefehrs-learning-manager", "projectData", {
         target: t,
         requirements: r
       });
       initialSnapshot = JSON.stringify({ target: t, requirements: r });
+    } catch (err) {
+      console.error("Downtime Engine | Failed to save item configuration:", err);
+      saveError = err instanceof Error ? err.message : String(err);
+      ui.notifications?.error("Downtime Engine | Failed to save configuration: " + saveError);
     } finally {
       setTimeout(() => isSaving = false, 500);
     }
@@ -130,6 +136,8 @@
   <footer class="auto-save-footer">
     {#if isSaving}
       <span class="saving-indicator"><i class="fas fa-spinner fa-spin"></i> Saving...</span>
+    {:else if saveError}
+      <span class="error-indicator"><i class="fas fa-exclamation-triangle"></i> Save Failed</span>
     {:else}
       <span class="saved-indicator"><i class="fas fa-check"></i> All changes saved</span>
     {/if}
@@ -202,6 +210,10 @@
 
       .saved-indicator {
         color: var(--t5e-success-color);
+      }
+
+      .error-indicator {
+        color: var(--t5e-danger-color);
       }
     }
 
