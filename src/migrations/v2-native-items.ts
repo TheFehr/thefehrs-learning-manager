@@ -37,6 +37,7 @@ export async function migrateToV2() {
 
     let migratedCount = 0;
     let totalProjects = 0;
+    let allSuccessful = true;
 
     // Count for progress bar
     for (const actor of actors) {
@@ -71,6 +72,7 @@ export async function migrateToV2() {
               `Downtime Engine | Migration: Failed to migrate project ${p.name || p.id} for actor ${actor.name}. Template found: ${!!tpl}. Project preserved.`,
             );
             remainingProjects.push(p);
+            allSuccessful = false;
           }
         }
         await actor.setFlag(SETTINGS_ID, "projects" as any, remainingProjects);
@@ -111,8 +113,14 @@ export async function migrateToV2() {
       }
     }
 
-    await game.settings.set(SETTINGS_ID, "migrationVersion", "2.0.0");
-    ui?.notifications?.info(`Successfully migrated to v2.0.0!`);
+    if (allSuccessful) {
+      await game.settings.set(SETTINGS_ID, "migrationVersion", "2.0.0");
+      ui?.notifications?.info(`Successfully migrated to v2.0.0!`);
+    } else {
+      ui?.notifications?.warn(
+        "Downtime Engine | Migration to native Items partially failed. Some projects were preserved in legacy flags and will be retried later.",
+      );
+    }
   } catch (error) {
     console.error("Downtime Engine migration to v2.0.0 failed:", error);
     ui?.notifications?.error("Migration to v2.0.0 failed. Please check the console for details.");

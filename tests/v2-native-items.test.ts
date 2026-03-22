@@ -63,4 +63,32 @@ describe("v2-native-items migration", () => {
     expect(item.update).toHaveBeenCalled();
     expect(game.settings.set).toHaveBeenCalledWith(LearningManager.ID, "migrationVersion", "2.0.0");
   });
+
+  it("should NOT complete migration if some projects fail to migrate", async () => {
+    const templates = [{ id: "tpl1", name: "Project 1", target: 10, rewardUuid: "item1" }];
+    vi.mocked(game.settings.get).mockImplementation((_scope, key) => {
+      if (key === "projectTemplates") return templates;
+      return null;
+    });
+
+    const actor = new Actor() as any;
+    actor.id = "actor1";
+    actor.flags = {
+      [LearningManager.ID]: { projects: [{ id: "p1", templateId: "tpl-missing", progress: 5 }] },
+    };
+    actor.items = [];
+    (game.actors as any[]).push(actor);
+
+    await migrateToV2();
+
+    expect(actor.setFlag).toHaveBeenCalledWith(LearningManager.ID, "projects", [
+      expect.objectContaining({ id: "p1" }),
+    ]);
+    expect(game.settings.set).not.toHaveBeenCalledWith(
+      LearningManager.ID,
+      "migrationVersion",
+      "2.0.0",
+    );
+    expect(ui.notifications.warn).toHaveBeenCalledWith(expect.stringContaining("partially failed"));
+  });
 });
