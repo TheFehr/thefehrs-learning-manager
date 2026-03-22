@@ -22,4 +22,20 @@ describe("v1_2-crit-rules migration", () => {
       }),
     );
   });
+
+  it("should add critThreshold if critDoubleStrategy is already set", async () => {
+    const initialRules = { method: "roll", critDoubleStrategy: "any" };
+    vi.mocked(game.settings.get).mockReturnValue(initialRules);
+
+    await migrateToV1_2();
+
+    expect(game.settings.set).toHaveBeenCalledWith(
+      LearningManager.ID,
+      "rules",
+      expect.objectContaining({
+        critDoubleStrategy: "any",
+        critThreshold: 10,
+      }),
+    );
+  });
 });
