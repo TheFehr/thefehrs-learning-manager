@@ -170,4 +170,6 @@ globalThis.CONFIG = {
 vi.mock("svelte", () => ({
   mount: vi.fn(),
   unmount: vi.fn(),
+  tick: vi.fn().mockResolvedValue(undefined),
+  untrack: vi.fn((fn: any) => fn()),
 }));

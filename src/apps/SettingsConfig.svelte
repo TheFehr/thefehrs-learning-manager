@@ -17,11 +17,16 @@
     }));
 
   async function save() {
-    await Settings.setRules(rules);
-    await Settings.setTimeUnits(timeUnits);
-    await Settings.setGuidanceTiers(guidanceTiers);
-    await Settings.setAllowedCompendiums(allowedCompendiums);
-    ui.notifications?.info("Downtime Engine | Settings saved successfully.");
+    try {
+      await Settings.setRules(rules);
+      await Settings.setTimeUnits(timeUnits);
+      await Settings.setGuidanceTiers(guidanceTiers);
+      await Settings.setAllowedCompendiums(allowedCompendiums);
+      ui.notifications?.info("Downtime Engine | Settings saved successfully.");
+    } catch (err) {
+      console.error("Downtime Engine | Failed to save settings:", err);
+      ui.notifications?.error("Downtime Engine | Failed to save settings: " + (err instanceof Error ? err.message : String(err)));
+    }
   }
 
   function addTimeUnit() {
