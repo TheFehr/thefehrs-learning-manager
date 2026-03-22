@@ -81,21 +81,27 @@
           dialog.close();
         }
       }
-    });
+    }) as unknown as { submit: () => void };
 
-    dialog = new foundry.appv1.api.Dialog({
-      title: "Modify Training Time",
-      content: container,
-      buttons: {
-        apply: {
-          label: "Apply Time",
-          icon: '<i class="fas fa-check"></i>',
-          callback: () => {
-            container.querySelector("form")?.requestSubmit();
-          },
-        },
+    // @ts-expect-error - DialogV2 is modern API
+    dialog = new foundry.applications.api.DialogV2({
+      window: { 
+        title: "Modify Training Time",
+        classes: ["thefehrs-learning-manager-dialog"]
       },
-      default: "apply",
+      content: container as HTMLDivElement,
+      buttons: [{
+        action: "apply",
+        label: "Apply Time",
+        icon: 'fas fa-check',
+        default: true,
+        callback: () => {
+          svelteInstance.submit();
+        }
+      }],
+      position: {
+        width: 400
+      },
       close: () => {
         unmount(svelteInstance);
       }
@@ -186,24 +192,30 @@
       }
     });
 
-    new foundry.appv1.api.Dialog({
-      title: "Abort Project",
-      content: container,
-      buttons: {
-        yes: {
-          icon: '<i class="fas fa-check"></i>',
-          label: "Yes",
-          callback: async () => {
-            const item = targetActor.items.get(project.id);
-            if (item) await item.delete();
-          },
-        },
-        no: {
-          icon: '<i class="fas fa-times"></i>',
-          label: "No",
-        },
+    // @ts-expect-error - DialogV2 is modern API
+    new foundry.applications.api.DialogV2({
+      window: { 
+        title: "Abort Project",
+        classes: ["thefehrs-learning-manager-dialog"]
       },
-      default: "no",
+      content: container as HTMLDivElement,
+      buttons: [{
+        action: "yes",
+        icon: 'fas fa-check',
+        label: "Yes",
+        default: true,
+        callback: async () => {
+          const item = targetActor.items.get(project.id);
+          if (item) await item.delete();
+        },
+      }, {
+        action: "no",
+        icon: 'fas fa-times',
+        label: "No",
+      }],
+      position: {
+        width: 400
+      },
       close: () => {
         unmount(svelteInstance);
       }
