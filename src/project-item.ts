@@ -19,10 +19,15 @@ export type ProjectFlagData = {
   tutelageId?: string;
   progress: number;
   target: number;
+  followUpProjectId?: string;
   requirements?: ProjectRequirement[];
   stashedType?: string;
   stashedEffects?: unknown[];
   stashedActivities?: object;
+  stashedName?: string;
+  stashedDescription?: string;
+  stashedSystem?: object;
+  stashedSourceUuid?: string;
 };
 
 export const ProjectItem = {

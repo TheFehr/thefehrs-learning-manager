@@ -1,4 +1,4 @@
-import type { TimeBank, LearningActor, LearningProject, Actor5e } from "./types.js";
+import type { TimeBank, LearningActor, LearningProject, Actor5e, Item5e } from "./types.js";
 import { Settings } from "./core/settings.js";
 
 export class ActorProxy {
@@ -34,6 +34,26 @@ export class ActorProxy {
 
   get projects(): LearningProject[] {
     return this.actor.getFlag("thefehrs-learning-manager", "projects") || [];
+  }
+
+  getMappedProjects() {
+    return (this.actor.items as unknown as Item5e[])
+      .filter((i) => i.getFlag("thefehrs-learning-manager", "isLearningProject"))
+      .map((i) => {
+        const projectData = i.getFlag("thefehrs-learning-manager", "projectData");
+        const tier = Settings.guidanceTiers.find((t) => t.id === projectData?.tutelageId);
+        return {
+          id: i.id,
+          name: i.name,
+          progress: projectData?.progress ?? 0,
+          target: projectData?.target ?? 0,
+          percentage:
+            projectData && projectData.target > 0
+              ? Math.min(100, Math.round((projectData.progress / projectData.target) * 100))
+              : 0,
+          tutelageName: tier?.name ?? "None",
+        };
+      });
   }
 
   async setProjects(projects: LearningProject[]): Promise<Actor> {

@@ -7,11 +7,15 @@
 
   let proxy = $derived(ActorProxy.forActor(actor));
   let bank = $derived(proxy.bank);
-  let timeUnits = $derived(Settings.timeUnits);
+  let sortedUnits = $derived([...Settings.timeUnits].sort((a, b) => b.ratio - a.ratio));
 
   function getTimeValue(unit: TimeUnit, total: number) {
-    // Show how many of this unit fits in the total
-    return Math.floor(total / unit.ratio);
+    let remaining = total;
+    for (const u of sortedUnits) {
+      if (u.id === unit.id) return Math.floor(remaining / u.ratio);
+      remaining %= u.ratio;
+    }
+    return 0;
   }
 
   async function updateTime(unit: TimeUnit, newValue: string) {
@@ -39,7 +43,7 @@
   </div>
 
   <div class="currency-container flexrow flex1">
-    {#each [...timeUnits].sort((a, b) => b.ratio - a.ratio) as unit}
+    {#each sortedUnits as unit}
       <label class="input-group">
         <i class="time-unit-icon {unit.id}" aria-label={unit.name} title={unit.name}>
             {unit.short.toUpperCase()}

@@ -117,11 +117,23 @@ export class LearningManager {
 
   private static registerHooks() {
     // @ts-expect-error - dnd5e system hook
-    Hooks.on("dnd5e.preUseActivity", async (activity: LearningActivityData) => {
+    Hooks.on("dnd5e.preUseItem", (item: Item5e, config: any) => {
+      if (item.getFlag("thefehrs-learning-manager", "isLearningProject")) {
+        if (config) {
+          config.createMessage = false;
+        }
+      }
+    });
+
+    // @ts-expect-error - dnd5e system hook
+    Hooks.on("dnd5e.preUseActivity", (activity: LearningActivityData) => {
       // Check if this is a learning activity
       if (activity.flags?.[LearningManager.ID]?.isLearningActivity) {
-        const success = await ProjectEngine.processTraining(activity);
-        if (success) return false; // stop standard execution
+        // We handle the training async but must return false synchronously to stop dnd5e's default use flow
+        ProjectEngine.processTraining(activity).catch((err) => {
+          console.error("Downtime Engine | Training failed:", err);
+        });
+        return false; // stop standard execution
       }
     });
 
@@ -301,42 +313,6 @@ export class LearningManager {
 
           this.svelteInstances.set(appId, instance);
         },
-      }),
-    );
-
-    api.registerItemContent(
-      new api.models.HtmlContent({
-        html: (data: { document?: Item5e; item?: Item5e }) => {
-          const item = data.document || data.item;
-          const projectDataFlags = item?.getFlag("thefehrs-learning-manager", "projectData");
-
-          if (!projectDataFlags || !projectDataFlags.target) return "";
-
-          const progress = projectDataFlags.progress || 0;
-          const target = projectDataFlags.target;
-          const percentage = Math.min(100, Math.max(0, (progress / target) * 100));
-
-          return `
-      <div class="learning-manager-progress-container" style="margin: 0.5rem 0 1rem 0; padding: 0.5rem; border: 1px solid var(--t5e-color-border); border-radius: 4px; background: var(--t5e-color-background-light);">
-        <div style="display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 4px; font-family: var(--t5e-font-family);">
-          <span>Training Progress</span>
-          <span>${progress} / ${target}</span>
-        </div>
-        <div style="width: 100%; height: 14px; background: var(--t5e-color-background-dark); border-radius: 7px; overflow: hidden; box-shadow: inset 0 1px 3px rgba(0,0,0,0.5);">
-          <div style="width: ${percentage}%; height: 100%; background: var(--color-level-success, #4caf50); transition: width 0.4s ease-in-out;"></div>
-        </div>
-      </div>
-    `;
-        },
-        injectParams: {
-          selector: `section.item-descriptions`,
-          position: "beforebegin",
-        },
-        enabled: (data: { document?: Item5e; item?: Item5e }) => {
-          const item = data.document || data.item;
-          return !!item?.getFlag("thefehrs-learning-manager", "isLearningProject");
-        },
-        renderScheme: "handlebars",
       }),
     );
 

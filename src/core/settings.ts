@@ -8,30 +8,25 @@ export class Settings {
   }
 
   static get migrationVersion(): string {
-    // @ts-expect-error - Foundry settings return type is not perfectly matching augmentation
-    return this.settings.get(this.ID, "migrationVersion");
+    return this.settings.get(this.ID, "migrationVersion") as any as string;
   }
 
   static get rules(): SystemRules {
-    // @ts-expect-error - Foundry settings return type is not perfectly matching augmentation
-    return this.settings.get(this.ID, "rules");
+    return this.settings.get(this.ID, "rules") as any as SystemRules;
   }
 
   static get timeUnits(): TimeUnit[] {
-    // @ts-expect-error - Foundry settings return type is not perfectly matching augmentation
-    const units = this.settings.get(this.ID, "timeUnits");
+    const units = this.settings.get(this.ID, "timeUnits") as any as TimeUnit[];
     console.debug("Downtime Engine | Retrieved Time Units:", units);
     return units;
   }
 
   static get guidanceTiers(): GuidanceTier[] {
-    // @ts-expect-error - Foundry settings return type is not perfectly matching augmentation
-    return this.settings.get(this.ID, "guidanceTiers");
+    return this.settings.get(this.ID, "guidanceTiers") as any as GuidanceTier[];
   }
 
   static get allowedCompendiums(): string[] {
-    // @ts-expect-error - Foundry settings return type is not perfectly matching augmentation
-    return this.settings.get(this.ID, "allowedCompendiums") || [];
+    return (this.settings.get(this.ID, "allowedCompendiums") as any as string[]) || [];
   }
 
   static register(key: string, data: unknown): void {

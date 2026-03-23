@@ -8,7 +8,12 @@ import { migrateToV2Direct } from "./v2-direct.js";
 export async function migrateData() {
   if (!game.user?.isGM) return;
 
-  const currentVersion = Settings.migrationVersion;
+  let currentVersion = Settings.migrationVersion;
+
+  // Normalize legacy integer versions > 0 to 1.2.0 so only the v2 migration runs.
+  if (/^\d+$/.test(currentVersion) && currentVersion !== "0") {
+    currentVersion = "1.2.0";
+  }
 
   if (currentVersion === "0") {
     // New installation or very old version

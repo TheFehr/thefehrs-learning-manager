@@ -180,4 +180,78 @@ describe("TabLogic", () => {
       expect(result.reason).toContain("system.attributes.str.value > 15");
     });
   });
+
+  describe("formatCurrency", () => {
+    it("should format 125 cp as 1gp 2sp 5cp", () => {
+      expect(TabLogic.formatCurrency(125)).toBe("1gp 2sp 5cp");
+    });
+
+    it("should format 50 cp as 5sp", () => {
+      expect(TabLogic.formatCurrency(50)).toBe("5sp");
+    });
+
+    it("should format 5 cp as 5cp", () => {
+      expect(TabLogic.formatCurrency(5)).toBe("5cp");
+    });
+
+    it("should format 0 cp as 0cp", () => {
+      expect(TabLogic.formatCurrency(0)).toBe("0cp");
+    });
+
+    it("should format 100 cp as 1gp", () => {
+      expect(TabLogic.formatCurrency(100)).toBe("1gp");
+    });
+
+    it("should format negative amounts", () => {
+      expect(TabLogic.formatCurrency(-125)).toBe("-1gp 2sp 5cp");
+    });
+  });
+
+  describe("calculateTotalBaseTime", () => {
+    const timeUnits = [
+      { id: "hour", name: "Hour", short: "h", isBulk: false, ratio: 1 },
+      { id: "day", name: "Day", short: "d", isBulk: true, ratio: 10 },
+    ] as any[];
+
+    it("should return 0 if no time is entered", () => {
+      const result = TabLogic.calculateTotalBaseTime({}, timeUnits);
+      expect(result).toBe(0);
+    });
+
+    it("should correctly calculate total base time for numbers", () => {
+      const result = TabLogic.calculateTotalBaseTime({ hour: 5, day: 2 }, timeUnits);
+      expect(result).toBe(25); // 5*1 + 2*10
+    });
+
+    it("should correctly calculate total base time for strings", () => {
+      const result = TabLogic.calculateTotalBaseTime(
+        { hour: "5" as any, day: "2" as any },
+        timeUnits,
+      );
+      expect(result).toBe(25);
+    });
+
+    it("should handle mixed numeric and string values", () => {
+      const result = TabLogic.calculateTotalBaseTime({ hour: "10" as any, day: 1 }, timeUnits);
+      expect(result).toBe(20);
+    });
+
+    it("should handle null or undefined values by treating them as 0", () => {
+      const result = TabLogic.calculateTotalBaseTime(
+        { hour: null as any, day: undefined as any },
+        timeUnits,
+      );
+      expect(result).toBe(0);
+    });
+
+    it("should ignore NaN values", () => {
+      const result = TabLogic.calculateTotalBaseTime({ hour: "abc" as any, day: 1 }, timeUnits);
+      expect(result).toBe(10);
+    });
+
+    it("should handle empty or partial timeValues", () => {
+      const result = TabLogic.calculateTotalBaseTime({ day: 3 }, timeUnits);
+      expect(result).toBe(30);
+    });
+  });
 });

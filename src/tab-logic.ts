@@ -172,4 +172,32 @@ export class TabLogic {
     const formatted = parts.length > 0 ? parts.join(" ") : "0";
     return isNegative ? `-${formatted}` : formatted;
   }
+
+  static formatCurrency(amountCp: number): string {
+    const isNegative = amountCp < 0;
+    let remaining = Math.abs(amountCp);
+    const gp = Math.floor(remaining / 100);
+    remaining %= 100;
+    const sp = Math.floor(remaining / 10);
+    const cp = remaining % 10;
+
+    const parts = [];
+    if (gp > 0) parts.push(`${gp}gp`);
+    if (sp > 0) parts.push(`${sp}sp`);
+    if (cp > 0 || parts.length === 0) parts.push(`${cp}cp`);
+
+    const formatted = parts.join(" ");
+    return isNegative ? `-${formatted}` : formatted;
+  }
+
+  static calculateTotalBaseTime(timeValues: Record<string, number>, timeUnits: TimeUnit[]): number {
+    let totalBase = 0;
+    timeUnits.forEach((tu) => {
+      const val = Number(timeValues[tu.id] || 0);
+      if (!isNaN(val)) {
+        totalBase += val * tu.ratio;
+      }
+    });
+    return totalBase;
+  }
 }

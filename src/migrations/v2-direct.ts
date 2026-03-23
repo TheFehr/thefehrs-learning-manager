@@ -82,6 +82,7 @@ export async function migrateToV2Direct() {
         // Create native Item from template and project data
         const projectData = {
           id: p.id,
+          name: p.name || tpl.name,
           templateId: tpl.id,
           progress: p.progress || 0,
           target: p.target ?? tpl.target,

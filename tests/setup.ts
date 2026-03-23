@@ -100,12 +100,16 @@ globalThis.Handlebars = {
   registerHelper: vi.fn(),
 } as any;
 
+export class EmbeddedCollection extends Array<any> {
+  get = vi.fn((id: string) => this.find((i) => i.id === id || i._id === id));
+}
+
 class MockActor {
   id = "mock-id";
   name = "Mock Actor";
   flags: any = {};
   system: any = {};
-  items: any[] = [];
+  items = new EmbeddedCollection();
 
   getFlag(scope: string, key: string) {
     return this.flags?.[scope]?.[key];
@@ -123,7 +127,20 @@ class MockActor {
   }
 
   async createEmbeddedDocuments(type: string, data: any[]) {
-    return data.map((d) => ({ ...d, id: foundry.utils.randomID() }));
+    const created = data.map((d) => ({
+      ...d,
+      id: d.id || d._id || foundry.utils.randomID(),
+      actor: this,
+      getFlag: (scope: string, key: string) =>
+        d.flags?.[scope]?.[key] ?? d[`flags.${scope}.${key}`],
+      update: vi.fn().mockImplementation(async (upd) => foundry.utils.mergeObject(d, upd)),
+      delete: vi.fn(),
+      displayCard: vi.fn(),
+    }));
+    if (type === "Item") {
+      this.items.push(...created);
+    }
+    return created;
   }
 }
 vi.spyOn(MockActor.prototype, "setFlag");
@@ -132,8 +149,37 @@ vi.spyOn(MockActor.prototype, "createEmbeddedDocuments");
 
 globalThis.Actor = MockActor as any;
 
-globalThis.Item = class {} as any;
-globalThis.ActiveEffect = class {} as any;
+class MockItem {
+  id = "mock-item-id";
+  name = "Mock Item";
+  type = "feat";
+  img = "";
+  system = { description: { value: "" }, activities: new EmbeddedCollection() };
+  flags = {};
+  actor = null;
+
+  toObject() {
+    return JSON.parse(JSON.stringify(this));
+  }
+  getFlag(scope: string, key: string) {
+    return (this.flags as any)[scope]?.[key];
+  }
+  async update(data: any) {
+    foundry.utils.mergeObject(this, data);
+    return this;
+  }
+  displayCard = vi.fn();
+}
+globalThis.Item = MockItem as any;
+
+class MockActiveEffect {
+  id = "mock-effect-id";
+  name = "Mock Effect";
+  toObject() {
+    return JSON.parse(JSON.stringify(this));
+  }
+}
+globalThis.ActiveEffect = MockActiveEffect as any;
 
 globalThis.Hooks = {
   on: vi.fn(),

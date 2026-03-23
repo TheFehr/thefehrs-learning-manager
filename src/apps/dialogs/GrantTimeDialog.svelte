@@ -9,17 +9,16 @@
     onsubmit: (timeValues: Record<string, number>, selectedIds: string[]) => void
   } = $props();
 
-  let timeValues = $state<Record<string, number>>({});
+  let timeValuesArray = $state(timeUnits.map(tu => ({ id: tu.id, name: tu.name, value: 0 })));
   let selectedIds = $state<string[]>(isParty ? members.map(m => m.id) : []);
-
-  // Initialize timeValues
-  timeUnits.forEach(tu => {
-    if (timeValues[tu.id] === undefined) timeValues[tu.id] = 0;
-  });
 
   // Exported function to be called by the parent
   export function submit() {
-    onsubmit($state.snapshot(timeValues), $state.snapshot(selectedIds));
+    const values: Record<string, number> = {};
+    for (const tu of timeValuesArray) {
+      values[tu.id] = Number(tu.value) || 0;
+    }
+    onsubmit(values, $state.snapshot(selectedIds));
   }
 
   function toggleRecipient(id: string) {
@@ -33,11 +32,16 @@
 
 <div class="thefehrs-grant-dialog">
   <div class="time-inputs-grid">
-    {#each timeUnits as tu}
+    {#each timeValuesArray as tu, i}
       <div class="form-group">
         <label for="time_{tu.id}">{tu.name}s</label>
         <div class="form-fields">
-            <input type="number" id="time_{tu.id}" bind:value={timeValues[tu.id]} min="0" />
+            <input 
+              type="number" 
+              id="time_{tu.id}" 
+              bind:value={timeValuesArray[i].value}
+              min="0" 
+            />
         </div>
       </div>
     {/each}

@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "generate-types": "node scripts/generate-external-types.mjs",
     "build": "tsc && vite build",
     "fmt": "oxfmt --no-error-on-unmatched-pattern",
     "fmt:check": "oxfmt --check",

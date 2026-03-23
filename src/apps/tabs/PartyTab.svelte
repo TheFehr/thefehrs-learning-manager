@@ -3,7 +3,7 @@
   import {ActorProxy} from "../../actor-proxy.js";
   import {TabLogic} from "../../tab-logic.js";
   import {ProjectEngine} from "../../project-engine.js";
-  import type {ProjectItem} from "../../project-item.js";
+  import type {ProjectItem, ProjectFlagData} from "../../project-item.js";
   import type {MemberMappedData, ProjectMappedData} from "../../party-tab.js";
   import type {Item5e} from "../../types.js";
   import AbortProjectDialog from "../dialogs/AbortProjectDialog.svelte";
@@ -28,10 +28,7 @@
 
   async function processGrantTime(timeValues: Record<string, number>, selectedIds: string[]) {
     const timeUnits = Settings.timeUnits;
-    let totalBase = 0;
-    timeUnits.forEach((tu) => {
-      totalBase += (timeValues[tu.id] || 0) * tu.ratio;
-    });
+    const totalBase = TabLogic.calculateTotalBaseTime(timeValues, timeUnits);
 
     if (totalBase === 0) return ui.notifications?.warn("No time entered.");
     if (selectedIds.length === 0) return ui.notifications?.warn("No recipients selected.");
@@ -67,47 +64,49 @@
     const timeUnits = Settings.timeUnits;
     const isParty = actor.type === "group";
 
-    const container = document.createElement("div");
+    let svelteInstance: any;
     
-    let dialog: any;
-    const svelteInstance = mount(GrantTimeDialog, {
-      target: container,
-      props: {
-        timeUnits,
-        isParty,
-        members,
-        onsubmit: (timeValues, selectedIds) => {
-          processGrantTime(timeValues, selectedIds);
-          dialog.close();
-        }
-      }
-    }) as unknown as { submit: () => void };
-
     // @ts-expect-error - DialogV2 is modern API
-    dialog = new foundry.applications.api.DialogV2({
+    const dialog = new foundry.applications.api.DialogV2({
       window: { 
         title: "Modify Training Time",
         classes: ["thefehrs-learning-manager-dialog"]
       },
-      content: container as HTMLDivElement,
+      content: '<div class="thefehrs-learning-manager-svelte-root"></div>',
       buttons: [{
         action: "apply",
         label: "Apply Time",
         icon: 'fas fa-check',
         default: true,
-        callback: () => {
-          svelteInstance.submit();
+        callback: (event: any, button: any, dialogInstance: any) => {
+          if (svelteInstance) svelteInstance.submit();
         }
       }],
       position: {
         width: 400
       },
       close: () => {
-        unmount(svelteInstance);
+        if (svelteInstance) unmount(svelteInstance);
       }
     });
     
-    dialog.render(true);
+    await dialog.render(true);
+    
+    const target = dialog.element.querySelector(".thefehrs-learning-manager-svelte-root");
+    if (target) {
+      svelteInstance = mount(GrantTimeDialog, {
+        target: target as HTMLElement,
+        props: {
+          timeUnits,
+          isParty,
+          members,
+          onsubmit: (timeValues, selectedIds) => {
+            processGrantTime(timeValues, selectedIds);
+            dialog.close();
+          }
+        }
+      });
+    }
   }
 
   async function updateGuidance(actorId: string, project: ProjectMappedData, tierId: string) {
@@ -139,9 +138,7 @@
       if (projectData.target > 0 && projectData.progress >= projectData.target && !projectData.isCompleted) {
         await ProjectEngine.completeProject((item as unknown) as Item5e);
       } else {
-        await item.update({
-          "flags.thefehrs-learning-manager.projectData": projectData
-        });
+        await ProjectEngine.updateItemWithProgress((item as unknown) as Item5e, projectData);
       }
     }
   }
@@ -153,19 +150,17 @@
 
     const item = targetActor.items.get(project.id);
     if (item) {
-      const projectData = (item.getFlag("thefehrs-learning-manager", "projectData") as any) || {};
+      const projectData = (item.getFlag("thefehrs-learning-manager", "projectData") as ProjectFlagData) || {};
       const oldTarget = projectData.target;
       projectData.target = Math.max(0, newTarget);
       console.debug(`Downtime Engine | updateTarget: Setting target to ${projectData.target} for ${item.name}`);
       
-      const updateData = { "flags.thefehrs-learning-manager.projectData": projectData };
-
       if (oldTarget <= 0 && projectData.target > 0) {
         console.debug(`Downtime Engine | target increased from 0 to ${projectData.target}. Injecting activities...`);
         await ProjectEngine.injectActivities((item as unknown) as Item5e, projectData.target);
       }
 
-      await item.update(updateData);
+      await ProjectEngine.updateItemWithProgress((item as unknown) as Item5e, projectData);
     }
   }
 

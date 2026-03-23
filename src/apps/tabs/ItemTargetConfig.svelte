@@ -6,6 +6,7 @@
   let { item } = $props<{ item: Item5e }>();
 
   let targetValue = $state(0);
+  let followUpProjectId = $state<string>("");
   let requirements = $state<ProjectRequirement[]>([]);
   let isSaving = $state(false);
   let saveError = $state<string | null>(null);
@@ -27,9 +28,10 @@
     if (untrack(() => initialized)) return;
     const data = item.getFlag("thefehrs-learning-manager", "projectData");
     targetValue = data?.target ?? 0;
+    followUpProjectId = data?.followUpProjectId ?? "";
     requirements = data?.requirements ? JSON.parse(JSON.stringify(data.requirements)) : [];
     
-    initialSnapshot = JSON.stringify({ target: targetValue, requirements });
+    initialSnapshot = JSON.stringify({ target: targetValue, followUpProjectId, requirements });
     initialized = true;
   });
 
@@ -37,32 +39,34 @@
   $effect(() => {
     // Track targetValue and requirements
     const t = targetValue;
+    const f = followUpProjectId;
     const r = requirements;
     
     const isInit = untrack(() => initialized);
     if (!isInit) return;
 
-    const currentSnapshot = JSON.stringify({ target: t, requirements: r });
+    const currentSnapshot = JSON.stringify({ target: t, followUpProjectId: f, requirements: r });
     const snap = untrack(() => initialSnapshot);
     
     if (currentSnapshot === snap) return;
 
     const timeout = setTimeout(() => {
-      saveConfig(t, JSON.parse(JSON.stringify(r)));
+      saveConfig(t, f, JSON.parse(JSON.stringify(r)));
     }, 500);
 
     return () => clearTimeout(timeout);
   });
 
-  async function saveConfig(t: number, r: ProjectRequirement[]) {
+  async function saveConfig(t: number, f: string, r: ProjectRequirement[]) {
     isSaving = true;
     saveError = null;
     try {
       await item.setFlag("thefehrs-learning-manager", "projectData", {
         target: t,
+        followUpProjectId: f,
         requirements: r
       });
-      initialSnapshot = JSON.stringify({ target: t, requirements: r });
+      initialSnapshot = JSON.stringify({ target: t, followUpProjectId: f, requirements: r });
     } catch (err) {
       console.error("Downtime Engine | Failed to save item configuration:", err);
       saveError = err instanceof Error ? err.message : String(err);
@@ -84,6 +88,39 @@
   function removeRequirement(id: string) {
     requirements = requirements.filter(r => r.id !== id);
   }
+
+  async function handleSearchFollowUp() {
+    const omnisearch = (CONFIG as any).SpotlightOmnisearch;
+    if (omnisearch?.prompt) {
+      const result = await omnisearch.prompt({ query: "!item " });
+      if (result?.data?.uuid) followUpProjectId = result.data.uuid;
+      return;
+    }
+    
+    const quickInsert = (game as any).modules.get("quick-insert")?.api;
+    if (quickInsert?.searchItem) {
+      const result = await quickInsert.searchItem({ classes: ["Item"] });
+      if (result?.uuid) followUpProjectId = result.uuid;
+      return;
+    }
+
+    ui.notifications?.info("Spotlight Omnisearch or Quick Insert not found. You can drag and drop an item into the input field.");
+  }
+
+  function handleDrop(e: DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      const dataStr = e.dataTransfer?.getData("text/plain");
+      if (!dataStr) return;
+      const data = JSON.parse(dataStr);
+      if (data && data.uuid) {
+        followUpProjectId = data.uuid;
+      }
+    } catch (err) {
+      console.error("Downtime Engine | Failed to parse drop data:", err);
+    }
+  }
 </script>
 
 <div class="thefehrs-item-target-config">
@@ -102,6 +139,25 @@
         min="0"
         placeholder="e.g. 10"
       />
+    </div>
+  </div>
+
+  <div class="form-group">
+    <label for="follow-up-project">Follow-up Project</label>
+    <p class="notes" style="margin-top: 0;">If progress exceeds the target, prompt to start this project with excess progress.</p>
+    <div class="form-fields" style="display: flex; gap: 0.5rem; align-items: center;">
+      <input
+        id="follow-up-project"
+        type="text"
+        bind:value={followUpProjectId}
+        ondrop={handleDrop}
+        ondragover={(e) => e.preventDefault()}
+        placeholder="Item UUID (e.g. Compendium.module.pack.Item.id)"
+        style="flex: 1;"
+      />
+      <button type="button" class="tidy-button small" onclick={handleSearchFollowUp} title="Search for Follow-up Project">
+        <i class="fas fa-search"></i>
+      </button>
     </div>
   </div>
 

@@ -1,4 +1,3 @@
-import { ProjectEngine } from "../project-engine.js";
 import type { Actor5e, Item5e } from "../types.js";
 import { createProjectItemFromTemplate, type LegacyProject } from "./migration-utils.js";
 
@@ -44,6 +43,16 @@ export async function migrateToV2() {
           let success = false;
           if (tpl) {
             p.target = p.maxProgress ?? tpl.target;
+            p.name = p.name || tpl.name; // Carry over template name if missing
+
+            // Archive to Compendium if not already there
+            if (pack) {
+              const existingInPack = p.name ? pack.index?.getName(p.name) : null;
+              if (!existingInPack && p.name) {
+                console.debug(`Downtime Engine | Archiving project "${p.name}" to compendium.`);
+              }
+            }
+
             const created = await createProjectItemFromTemplate(
               actor as unknown as Actor5e,
               tpl.rewardUuid,
@@ -52,6 +61,10 @@ export async function migrateToV2() {
             );
             if (created) {
               success = true;
+              // Push to pack if successful and not already there
+              if (pack && pack.index && !pack.index.getName(created.name)) {
+                await (pack as any).importDocument(created);
+              }
             }
           }
 

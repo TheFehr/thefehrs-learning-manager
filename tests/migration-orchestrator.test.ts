@@ -54,4 +54,13 @@ describe("Data Migration Orchestrator", () => {
     expect(v2Direct.migrateToV2Direct).not.toHaveBeenCalled();
     expect(v2NativeItems.migrateToV2).not.toHaveBeenCalled();
   });
+
+  it("should normalize legacy integer versions > 0 to 1.2.0 and only call migrateToV2", async () => {
+    vi.mocked(game.settings.get).mockReturnValue("3");
+    await migrateData();
+    expect(v1Relational.migrateToV1Relational).not.toHaveBeenCalled();
+    expect(v1_1gpToCp.migrateV1_1GpToCp).not.toHaveBeenCalled();
+    expect(v1_2critRules.migrateToV1_2).not.toHaveBeenCalled();
+    expect(v2NativeItems.migrateToV2).toHaveBeenCalled();
+  });
 });
