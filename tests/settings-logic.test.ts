@@ -62,6 +62,20 @@ describe("settings-logic", () => {
       expect(validated.guidanceTiers?.[0]._migratedToV2).toBe(true);
       expect(validated.guidanceTiers?.[1]._migratedToV2).toBe(false);
     });
+
+    it("should only accept boolean for isBulk in timeUnits", () => {
+      const data = {
+        timeUnits: [
+          { id: "h", isBulk: true },
+          { id: "d", isBulk: "truthy-string" },
+          { id: "w", isBulk: 1 },
+        ],
+      };
+      const validated = validateSettings(data);
+      expect(validated.timeUnits?.[0].isBulk).toBe(true);
+      expect(validated.timeUnits?.[1].isBulk).toBe(false);
+      expect(validated.timeUnits?.[2].isBulk).toBe(false);
+    });
   });
 
   describe("saveSettings rollback", () => {

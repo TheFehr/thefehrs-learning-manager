@@ -142,7 +142,7 @@ export function validateSettings(data: any) {
         id: unit.id,
         name: typeof unit.name === "string" ? unit.name : "New Unit",
         short: typeof unit.short === "string" ? unit.short : "u",
-        isBulk: !!unit.isBulk,
+        isBulk: typeof unit.isBulk === "boolean" ? unit.isBulk : false,
         ratio: Number.isFinite(unit.ratio) ? unit.ratio : 1,
       }));
   }
