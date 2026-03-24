@@ -65,7 +65,11 @@ export async function saveSettings(
     return;
   }
 
-  ui.notifications?.info("Downtime Engine | Settings saved successfully.");
+  try {
+    ui.notifications?.info("Downtime Engine | Settings saved successfully.");
+  } catch (notificationErr) {
+    console.warn("Downtime Engine | Settings saved, but notification failed:", notificationErr);
+  }
 }
 
 interface PackLike {
