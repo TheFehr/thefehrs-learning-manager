@@ -41,7 +41,7 @@
     <aside class="sidebar expanded">
         {#if isGM}
             <div class="party-controls">
-                <button class="grant-time-btn tidy-button" style="flex: 1 1 0%;" onclick={grantTime}>
+                <button type="button" class="grant-time-btn tidy-button" style="flex: 1 1 0%;" onclick={grantTime}>
                     <i class="fa-solid fa-clock-rotate-left"></i>
                     Distribute Time
                 </button>
@@ -221,6 +221,7 @@
                                 >
                                     {#if project.canAbort && isEditMode}
                                         <button
+                                                type="button"
                                                 class="delete-project party-edit-control tidy-button small"
                                                 title="Abort Project"
                                                 aria-label="Abort Project"
