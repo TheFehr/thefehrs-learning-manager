@@ -203,6 +203,7 @@
                                     <select
                                             class="update-project font-label-medium"
                                             value={project.tutelageId}
+                                            disabled={!isGM}
                                             onchange={(e) => updateGuidance(member.id, project, e.currentTarget.value)}
                                             style="width: 100%; height: 2rem;"
                                     >
