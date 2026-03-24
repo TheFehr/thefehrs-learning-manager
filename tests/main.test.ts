@@ -120,7 +120,6 @@ describe("LearningManager", () => {
       expect(enabled({ item: learningTypeItem })).toBe(true);
 
       // Check different parameter paths
-      expect(enabled({ item: learningTypeItem })).toBe(true);
       expect(enabled({ document: learningTypeItem })).toBe(true);
 
       // Non-GM user
