@@ -96,7 +96,7 @@ export function getAvailablePacks() {
 const isPlainObject = (obj: any) => obj !== null && typeof obj === "object" && !Array.isArray(obj);
 
 const sanitizeNumericRecord = (obj: any) => {
-  if (!isPlainObject(obj)) return {};
+  if (!isPlainObject(obj)) return null;
   return Object.entries(obj).reduce((acc: Record<string, number>, [key, val]) => {
     if (typeof val === "number" && Number.isFinite(val)) {
       acc[key] = val;
@@ -116,12 +116,12 @@ export function validateSettings(data: any) {
     allowedCompendiums?: string[];
   } = {};
 
-  if (!data || typeof data !== "object" || Array.isArray(data)) {
+  if (!isPlainObject(data)) {
     return result;
   }
 
   // 1. Validate Rules
-  if (data.rules && typeof data.rules === "object") {
+  if (isPlainObject(data.rules)) {
     result.rules = {
       method: data.rules.method === "roll" ? "roll" : "direct",
       rollMode: typeof data.rules.rollMode === "string" ? data.rules.rollMode : "gmroll",
@@ -155,8 +155,8 @@ export function validateSettings(data: any) {
         id: tier.id,
         name: typeof tier.name === "string" ? tier.name : "New Tier",
         modifier: Number.isFinite(tier.modifier) ? tier.modifier : 0,
-        costs: sanitizeNumericRecord(tier.costs),
-        progress: sanitizeNumericRecord(tier.progress),
+        costs: sanitizeNumericRecord(tier.costs) ?? {},
+        progress: sanitizeNumericRecord(tier.progress) ?? {},
         _migratedToV2: typeof tier._migratedToV2 === "boolean" ? tier._migratedToV2 : false,
       }));
   }
