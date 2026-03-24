@@ -14,7 +14,13 @@ const LEVELS: Record<NotificationLevel, number> = {
 export class Logger {
   private static get currentLevel(): number {
     const level = Settings.rules.notificationLevel || "info";
-    return LEVELS[level];
+    if (typeof LEVELS[level] === "number") {
+      return LEVELS[level];
+    }
+    console.warn(
+      `Downtime Engine | Invalid notification level "${level}" - falling back to "info".`,
+    );
+    return LEVELS.info;
   }
 
   static info(message: string, uiOnly = false) {
