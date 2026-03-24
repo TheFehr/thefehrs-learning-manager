@@ -84,7 +84,7 @@ interface PackLike {
  * Returns a list of available Item compendiums.
  */
 export function getAvailablePacks() {
-  const packs = game.packs as unknown as PackLike[];
+  const packs = (game.packs as any).contents as PackLike[];
   return packs
     .filter((pack) => pack.metadata.type === "Item")
     .map((pack) => ({
