@@ -32,7 +32,6 @@ export async function saveSettings(
     guidanceTiersUpdated = true;
     await Settings.setAllowedCompendiums(allowedCompendiums);
     allowedCompendiumsUpdated = true;
-    ui.notifications?.info("Downtime Engine | Settings saved successfully.");
   } catch (err) {
     console.error("Downtime Engine | Failed to save settings, rolling back:", err);
 
@@ -51,7 +50,10 @@ export async function saveSettings(
       "Downtime Engine | Failed to save settings: " +
         (err instanceof Error ? err.message : String(err)),
     );
+    return;
   }
+
+  ui.notifications?.info("Downtime Engine | Settings saved successfully.");
 }
 
 interface PackLike {
