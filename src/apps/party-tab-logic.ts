@@ -195,6 +195,12 @@ export class PartyTabLogic {
       );
 
       if (oldTarget !== projectData.target) {
+        if (projectData.target > 0 && projectData.progress >= projectData.target) {
+          await ProjectEngine.updateItemWithProgress(item as unknown as Item5e, projectData);
+          await ProjectEngine.completeProject(item as unknown as Item5e);
+          return;
+        }
+
         console.debug(
           `Downtime Engine | target changed from ${oldTarget} to ${projectData.target}. Syncing activities...`,
         );
