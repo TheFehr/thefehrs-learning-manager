@@ -18,21 +18,31 @@ export async function saveSettings(
     allowedCompendiums: structuredClone(Settings.allowedCompendiums),
   };
 
+  let rulesUpdated = false;
+  let timeUnitsUpdated = false;
+  let guidanceTiersUpdated = false;
+  let allowedCompendiumsUpdated = false;
+
   try {
     await Settings.setRules(rules);
+    rulesUpdated = true;
     await Settings.setTimeUnits(timeUnits);
+    timeUnitsUpdated = true;
     await Settings.setGuidanceTiers(guidanceTiers);
+    guidanceTiersUpdated = true;
     await Settings.setAllowedCompendiums(allowedCompendiums);
+    allowedCompendiumsUpdated = true;
     ui.notifications?.info("Downtime Engine | Settings saved successfully.");
   } catch (err) {
     console.error("Downtime Engine | Failed to save settings, rolling back:", err);
 
-    // Rollback to original settings
+    // Rollback to original settings only for those that were successfully updated
     try {
-      await Settings.setRules(originalSettings.rules);
-      await Settings.setTimeUnits(originalSettings.timeUnits);
-      await Settings.setGuidanceTiers(originalSettings.guidanceTiers);
-      await Settings.setAllowedCompendiums(originalSettings.allowedCompendiums);
+      if (rulesUpdated) await Settings.setRules(originalSettings.rules);
+      if (timeUnitsUpdated) await Settings.setTimeUnits(originalSettings.timeUnits);
+      if (guidanceTiersUpdated) await Settings.setGuidanceTiers(originalSettings.guidanceTiers);
+      if (allowedCompendiumsUpdated)
+        await Settings.setAllowedCompendiums(originalSettings.allowedCompendiums);
     } catch (rollbackErr) {
       console.error("Downtime Engine | Critical failure: Rollback also failed:", rollbackErr);
     }
