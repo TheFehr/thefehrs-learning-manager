@@ -36,15 +36,27 @@ export async function saveSettings(
     console.error("Downtime Engine | Failed to save settings, rolling back:", err);
 
     // Rollback to original settings only for those that were successfully updated
-    try {
-      if (rulesUpdated) await Settings.setRules(originalSettings.rules);
-      if (timeUnitsUpdated) await Settings.setTimeUnits(originalSettings.timeUnits);
-      if (guidanceTiersUpdated) await Settings.setGuidanceTiers(originalSettings.guidanceTiers);
-      if (allowedCompendiumsUpdated)
-        await Settings.setAllowedCompendiums(originalSettings.allowedCompendiums);
-    } catch (rollbackErr) {
-      console.error("Downtime Engine | Critical failure: Rollback also failed:", rollbackErr);
-    }
+    const rollback = async (fn: () => Promise<void>, label: string) => {
+      try {
+        await fn();
+      } catch (rollbackErr) {
+        console.error(`Downtime Engine | Rollback failed for ${label}:`, rollbackErr);
+      }
+    };
+
+    if (rulesUpdated) await rollback(() => Settings.setRules(originalSettings.rules), "rules");
+    if (timeUnitsUpdated)
+      await rollback(() => Settings.setTimeUnits(originalSettings.timeUnits), "timeUnits");
+    if (guidanceTiersUpdated)
+      await rollback(
+        () => Settings.setGuidanceTiers(originalSettings.guidanceTiers),
+        "guidanceTiers",
+      );
+    if (allowedCompendiumsUpdated)
+      await rollback(
+        () => Settings.setAllowedCompendiums(originalSettings.allowedCompendiums),
+        "allowedCompendiums",
+      );
 
     ui.notifications?.error(
       "Downtime Engine | Failed to save settings: " +
