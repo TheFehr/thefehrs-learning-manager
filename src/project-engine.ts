@@ -373,22 +373,19 @@ export class ProjectEngine {
     }
 
     // Restore from stashed system, overriding activities with our deletions
-    const stashedSystem =
-      (item.getFlag("thefehrs-learning-manager", "stashedSystem" as any) as object) || {};
+    const stashedSystem = projectDataFlags.stashedSystem || {};
     const restoredSystem = {
       ...stashedSystem,
       activities: {
-        ...(item.getFlag("thefehrs-learning-manager", "stashedActivities" as any) as object),
+        ...(projectDataFlags.stashedActivities || {}),
         ...activityUpdates,
       },
     };
 
     const updateData = {
       name: projectDataFlags.stashedName || (item as unknown as Item).name,
-      type:
-        (item.getFlag("thefehrs-learning-manager", "stashedType" as any) as string) || item.type,
-      effects:
-        (item.getFlag("thefehrs-learning-manager", "stashedEffects" as any) as object[]) || [],
+      type: projectDataFlags.stashedType || item.type,
+      effects: projectDataFlags.stashedEffects || [],
       system: restoredSystem,
       ...completedFlags,
     };

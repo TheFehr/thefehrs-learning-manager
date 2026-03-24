@@ -209,6 +209,9 @@ describe("ProjectEngine", () => {
       const projectDataFlags = {
         stashedSourceUuid: "Compendium.missing.uuid",
         stashedName: "Stashed Name",
+        stashedType: "weapon",
+        stashedSystem: { original: true },
+        stashedActivities: { act3: {} },
         target: 10,
         progress: 10,
         isCompleted: false,
@@ -233,9 +236,6 @@ describe("ProjectEngine", () => {
       item.getFlag = vi.fn().mockImplementation((scope: string, key: string) => {
         if (key === "isLearningProject") return true;
         if (key === "projectData") return projectDataFlags;
-        if (key === "stashedSystem") return { original: true };
-        if (key === "stashedType") return "weapon";
-        if (key === "stashedActivities") return { act3: {} };
         return null;
       });
 
@@ -274,12 +274,13 @@ describe("ProjectEngine", () => {
       actor.system = { currency: { gp: 10, sp: 0, cp: 0 } };
 
       const projectData = {
-        id: "p1",
-        templateId: "tpl1",
         progress: 9,
         target: 10,
         tutelageId: "tier1",
         isCompleted: false,
+        stashedEffects: [],
+        stashedActivities: {},
+        stashedType: "weapon",
       };
 
       const item = new Item() as any;
@@ -288,9 +289,6 @@ describe("ProjectEngine", () => {
       item.getFlag = vi.fn().mockImplementation((_scope, key) => {
         if (key === "isLearningProject") return true;
         if (key === "projectData") return { ...projectData };
-        if (key === "stashedEffects") return [];
-        if (key === "stashedActivities") return {};
-        if (key === "stashedType") return "weapon";
         return null;
       });
       item.name = "Learning Item";
