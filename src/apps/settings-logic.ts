@@ -75,6 +75,19 @@ export function getAvailablePacks() {
     }));
 }
 
+const isPlainObject = (obj: any) => obj !== null && typeof obj === "object" && !Array.isArray(obj);
+
+const sanitizeNumericRecord = (obj: any) => {
+  if (!isPlainObject(obj)) return {};
+  return Object.entries(obj).reduce((acc: Record<string, number>, [key, val]) => {
+    const num = Number(val);
+    if (Number.isFinite(num)) {
+      acc[key] = num;
+    }
+    return acc;
+  }, {});
+};
+
 /**
  * Validates and normalizes imported settings data.
  */
@@ -121,19 +134,14 @@ export function validateSettings(data: any) {
   if (Array.isArray(data.guidanceTiers)) {
     result.guidanceTiers = data.guidanceTiers
       .filter((tier: any) => tier && typeof tier.id === "string")
-      .map((tier: any) => {
-        const isPlainObject = (obj: any) =>
-          obj !== null && typeof obj === "object" && !Array.isArray(obj);
-
-        return {
-          id: tier.id,
-          name: typeof tier.name === "string" ? tier.name : "New Tier",
-          modifier: typeof tier.modifier === "number" ? tier.modifier : 0,
-          costs: isPlainObject(tier.costs) ? tier.costs : {},
-          progress: isPlainObject(tier.progress) ? tier.progress : {},
-          _migratedToV2: typeof tier._migratedToV2 === "boolean" ? tier._migratedToV2 : false,
-        };
-      });
+      .map((tier: any) => ({
+        id: tier.id,
+        name: typeof tier.name === "string" ? tier.name : "New Tier",
+        modifier: typeof tier.modifier === "number" ? tier.modifier : 0,
+        costs: sanitizeNumericRecord(tier.costs),
+        progress: sanitizeNumericRecord(tier.progress),
+        _migratedToV2: typeof tier._migratedToV2 === "boolean" ? tier._migratedToV2 : false,
+      }));
   }
 
   // 4. Validate Allowed Compendiums
