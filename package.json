@@ -29,7 +29,7 @@
     "vitest": "^4.1.0"
   },
   "lint-staged": {
-    "**/*.{ts,json,js,scss,md}": "npm run fmt"
+    "**/*.{ts,json,js,scss,md,mjs}": "npm run fmt"
   },
   "engines": {
     "node": ">=20.19.0"
