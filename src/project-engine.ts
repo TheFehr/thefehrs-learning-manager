@@ -336,7 +336,7 @@ export class ProjectEngine {
           `Learning Complete: ${(created as unknown as Item).name} is now fully available!`,
         );
         if (typeof (created as any).displayCard === "function") {
-          await (created as any).displayCard();
+          await (created as any).displayCard({ rollMode: Settings.rules.rollMode });
         }
         return;
       }
@@ -386,7 +386,7 @@ export class ProjectEngine {
       `Learning Complete: ${(item as unknown as Item).name} is now fully available!`,
     );
     if (typeof (item as any).displayCard === "function") {
-      await (item as any).displayCard();
+      await (item as any).displayCard({ rollMode: Settings.rules.rollMode });
     }
   }
 
@@ -420,7 +420,23 @@ export class ProjectEngine {
     }
 
     const tier = Settings.guidanceTiers.find((t) => t.id === projectDataFlags.tutelageId);
-    const costCp = tier?.costs?.[tu.id] || 0;
+    if (!tier) {
+      ui.notifications?.warn("Please select a tutelage tier for this project.");
+      return false;
+    }
+
+    // If it's a bulk unit, ensure the tier actually provides progress for it
+    if (tu.isBulk) {
+      const bulkProgress = tier.progress?.[tu.id] || 0;
+      if (bulkProgress <= 0) {
+        ui.notifications?.warn(
+          `The "${tier.name}" tier provides no progress for ${tu.name} sessions.`,
+        );
+        return false;
+      }
+    }
+
+    const costCp = tier.costs?.[tu.id] || 0;
     const cur = proxy.currency;
     const totalCp = cur.gp * 100 + cur.sp * 10 + cur.cp;
 
@@ -538,7 +554,7 @@ export class ProjectEngine {
       // Ensure we have the latest document instance before displaying the card
       const freshItem = (actor as unknown as Actor).items.get(item.id) as unknown as Item5e;
       if (freshItem && typeof (freshItem as any).displayCard === "function") {
-        await (freshItem as any).displayCard();
+        await (freshItem as any).displayCard({ rollMode: rules.rollMode });
       }
     }
 

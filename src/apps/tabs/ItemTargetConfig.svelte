@@ -2,6 +2,7 @@
   import { Settings } from "../../core/settings.js";
   import type { ProjectRequirement, ComparisonOperator, Item5e } from "../../types.js";
   import { untrack } from "svelte";
+  import { ItemConfigLogic } from "../item-config-logic.js";
 
   let { item } = $props<{ item: Item5e }>();
 
@@ -37,40 +38,30 @@
 
   // Auto-save logic
   $effect(() => {
-    // Track targetValue and requirements
-    const t = targetValue;
-    const f = followUpProjectId;
-    const r = requirements;
+    const target = targetValue;
+    const followUpId = followUpProjectId;
+    const reqs = requirements;
     
-    const isInit = untrack(() => initialized);
-    if (!isInit) return;
+    if (!untrack(() => initialized)) return;
 
-    const currentSnapshot = JSON.stringify({ target: t, followUpProjectId: f, requirements: r });
-    const snap = untrack(() => initialSnapshot);
-    
-    if (currentSnapshot === snap) return;
+    const currentSnapshot = JSON.stringify({ target, followUpProjectId: followUpId, requirements: reqs });
+    if (currentSnapshot === untrack(() => initialSnapshot)) return;
 
     const timeout = setTimeout(() => {
-      saveConfig(t, f, JSON.parse(JSON.stringify(r)));
+      saveConfig(target, followUpId, JSON.parse(JSON.stringify(reqs)));
     }, 500);
 
     return () => clearTimeout(timeout);
   });
 
-  async function saveConfig(t: number, f: string, r: ProjectRequirement[]) {
+  async function saveConfig(target: number, followUpId: string, reqs: ProjectRequirement[]) {
     isSaving = true;
     saveError = null;
     try {
-      await item.setFlag("thefehrs-learning-manager", "projectData", {
-        target: t,
-        followUpProjectId: f,
-        requirements: r
-      });
-      initialSnapshot = JSON.stringify({ target: t, followUpProjectId: f, requirements: r });
+      await ItemConfigLogic.saveConfig(item, target, followUpId, reqs);
+      initialSnapshot = JSON.stringify({ target, followUpProjectId: followUpId, requirements: reqs });
     } catch (err) {
-      console.error("Downtime Engine | Failed to save item configuration:", err);
       saveError = err instanceof Error ? err.message : String(err);
-      ui.notifications?.error("Downtime Engine | Failed to save configuration: " + saveError);
     } finally {
       setTimeout(() => isSaving = false, 500);
     }
@@ -90,36 +81,13 @@
   }
 
   async function handleSearchFollowUp() {
-    const omnisearch = (CONFIG as any).SpotlightOmnisearch;
-    if (omnisearch?.prompt) {
-      const result = await omnisearch.prompt({ query: "!item " });
-      if (result?.data?.uuid) followUpProjectId = result.data.uuid;
-      return;
-    }
-    
-    const quickInsert = (game as any).modules.get("quick-insert")?.api;
-    if (quickInsert?.searchItem) {
-      const result = await quickInsert.searchItem({ classes: ["Item"] });
-      if (result?.uuid) followUpProjectId = result.uuid;
-      return;
-    }
-
-    ui.notifications?.info("Spotlight Omnisearch or Quick Insert not found. You can drag and drop an item into the input field.");
+    const uuid = await ItemConfigLogic.searchFollowUp();
+    if (uuid) followUpProjectId = uuid;
   }
 
   function handleDrop(e: DragEvent) {
-    e.preventDefault();
-    e.stopPropagation();
-    try {
-      const dataStr = e.dataTransfer?.getData("text/plain");
-      if (!dataStr) return;
-      const data = JSON.parse(dataStr);
-      if (data && data.uuid) {
-        followUpProjectId = data.uuid;
-      }
-    } catch (err) {
-      console.error("Downtime Engine | Failed to parse drop data:", err);
-    }
+    const uuid = ItemConfigLogic.handleDrop(e);
+    if (uuid) followUpProjectId = uuid;
   }
 </script>
 

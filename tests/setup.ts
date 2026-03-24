@@ -18,6 +18,9 @@ globalThis.foundry = {
         async close(_options = {}) {}
       },
       HandlebarsApplicationMixin: (Base: any) => class extends Base {},
+      DialogV2: {
+        confirm: vi.fn().mockResolvedValue(true),
+      },
     },
   },
   utils: {

@@ -2,6 +2,7 @@
   import { Settings } from "../../core/settings.js";
   import { ActorProxy } from "../../actor-proxy.js";
   import type { Actor5e, TimeUnit } from "../../types.js";
+  import { TimeBankLogic } from "../time-bank-logic.js";
 
   let { actor }: { actor: Actor5e } = $props();
 
@@ -10,27 +11,11 @@
   let sortedUnits = $derived([...Settings.timeUnits].sort((a, b) => b.ratio - a.ratio));
 
   function getTimeValue(unit: TimeUnit, total: number) {
-    let remaining = total;
-    for (const u of sortedUnits) {
-      if (u.id === unit.id) return Math.floor(remaining / u.ratio);
-      remaining %= u.ratio;
-    }
-    return 0;
+    return TimeBankLogic.getTimeValue(unit, total, sortedUnits);
   }
 
   async function updateTime(unit: TimeUnit, newValue: string) {
-    const val = Number(newValue);
-    if (!Number.isFinite(val) || Number.isNaN(val)) {
-      ui.notifications?.warn(`Invalid time value: ${newValue}`);
-      return;
-    }
-
-    const currentVal = getTimeValue(unit, bank.total);
-    const diff = (val - currentVal) * unit.ratio;
-
-    if (diff !== 0) {
-      await proxy.setBank({ total: bank.total + diff });
-    }
+    await TimeBankLogic.updateTime(unit, newValue, proxy, bank.total, sortedUnits);
   }
 </script>
 

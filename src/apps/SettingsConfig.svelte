@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Settings } from "../core/settings.js";
   import type { SystemRules, TimeUnit, GuidanceTier } from "../types.js";
-  import { saveSettings } from "./settings-logic.js";
+  import { saveSettings, getAvailablePacks, validateSettings } from "./settings-logic.js";
 
   // State
   let rules = $state<SystemRules>(Settings.rules);
@@ -10,12 +10,7 @@
   let allowedCompendiums = $state<string[]>(Settings.allowedCompendiums);
 
   // Computed / Constant
-  const availablePacks = (game.packs as unknown as any[]) // foundry-vtt-types has complex CompendiumCollection
-    .filter((p) => (p as any).metadata.type === "Item")
-    .map((p) => ({
-      id: (p as any).metadata.id,
-      label: (p as any).metadata.label
-    }));
+  const availablePacks = getAvailablePacks();
 
   async function save() {
     await saveSettings(rules, timeUnits, guidanceTiers, allowedCompendiums);
@@ -72,51 +67,12 @@
         try {
           const content = event.target?.result as string;
           const data = JSON.parse(content);
+          const validated = validateSettings(data);
           
-          // 1. Validate Rules
-          if (data.rules && typeof data.rules === "object") {
-            rules = {
-              method: data.rules.method === "roll" ? "roll" : "direct",
-              rollMode: typeof data.rules.rollMode === "string" ? data.rules.rollMode : "gmroll",
-              checkDC: typeof data.rules.checkDC === "number" ? data.rules.checkDC : 10,
-              checkFormula: typeof data.rules.checkFormula === "string" ? data.rules.checkFormula : "",
-              critDoubleStrategy: ["any", "all", "never"].includes(data.rules.critDoubleStrategy) 
-                ? data.rules.critDoubleStrategy 
-                : "never",
-              critThreshold: typeof data.rules.critThreshold === "number" ? data.rules.critThreshold : 20
-            };
-          }
-
-          // 2. Validate Time Units
-          if (Array.isArray(data.timeUnits)) {
-            timeUnits = data.timeUnits
-              .filter((tu: any) => tu && typeof tu.id === "string")
-              .map((tu: any) => ({
-                id: tu.id,
-                name: typeof tu.name === "string" ? tu.name : "New Unit",
-                short: typeof tu.short === "string" ? tu.short : "u",
-                isBulk: !!tu.isBulk,
-                ratio: typeof tu.ratio === "number" ? tu.ratio : 1
-              }));
-          }
-
-          // 3. Validate Guidance Tiers
-          if (Array.isArray(data.guidanceTiers)) {
-            guidanceTiers = data.guidanceTiers
-              .filter((gt: any) => gt && typeof gt.id === "string")
-              .map((gt: any) => ({
-                id: gt.id,
-                name: typeof gt.name === "string" ? gt.name : "New Tier",
-                modifier: typeof gt.modifier === "number" ? gt.modifier : 0,
-                costs: typeof gt.costs === "object" ? gt.costs : {},
-                progress: typeof gt.progress === "object" ? gt.progress : {}
-              }));
-          }
-
-          // 4. Validate Allowed Compendiums
-          if (Array.isArray(data.allowedCompendiums)) {
-            allowedCompendiums = data.allowedCompendiums.filter((c: any) => typeof c === "string");
-          }
+          if (validated.rules) rules = validated.rules;
+          if (validated.timeUnits) timeUnits = validated.timeUnits;
+          if (validated.guidanceTiers) guidanceTiers = validated.guidanceTiers;
+          if (validated.allowedCompendiums) allowedCompendiums = validated.allowedCompendiums;
 
           ui.notifications?.info("Downtime Engine | Settings imported. Click Save to persist.");
         } catch (err: unknown) {

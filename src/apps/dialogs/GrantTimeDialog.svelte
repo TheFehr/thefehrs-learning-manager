@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { TimeUnit } from "../../types.js";
   import type { MemberMappedData } from "../../party-tab.js";
+  import { GrantTimeLogic } from "../grant-time-logic.js";
 
   let { timeUnits, isParty, members, onsubmit }: { 
     timeUnits: TimeUnit[], 
@@ -14,31 +15,24 @@
 
   // Exported function to be called by the parent
   export function submit() {
-    const values: Record<string, number> = {};
-    for (const tu of timeValuesArray) {
-      values[tu.id] = Number(tu.value) || 0;
-    }
+    const values = GrantTimeLogic.prepareSubmitData(timeValuesArray);
     onsubmit(values, $state.snapshot(selectedIds));
   }
 
   function toggleRecipient(id: string) {
-    if (selectedIds.includes(id)) {
-      selectedIds = selectedIds.filter(mid => mid !== id);
-    } else {
-      selectedIds = [...selectedIds, id];
-    }
+    selectedIds = GrantTimeLogic.toggleRecipient(id, selectedIds);
   }
 </script>
 
 <div class="thefehrs-grant-dialog">
   <div class="time-inputs-grid">
-    {#each timeValuesArray as tu, i}
+    {#each timeValuesArray as timeEntry, i}
       <div class="form-group">
-        <label for="time_{tu.id}">{tu.name}s</label>
+        <label for="time_{timeEntry.id}">{timeEntry.name}s</label>
         <div class="form-fields">
             <input 
               type="number" 
-              id="time_{tu.id}" 
+              id="time_{timeEntry.id}" 
               bind:value={timeValuesArray[i].value}
               min="0" 
             />
@@ -51,13 +45,13 @@
     <hr />
     <h4 class="section-title">Select Recipients</h4>
     <div class="recipients-list">
-      {#each members as m}
+      {#each members as member}
         <label class="recipient-row">
           <input type="checkbox" 
-                 checked={selectedIds.includes(m.id)} 
-                 onchange={() => toggleRecipient(m.id)} />
-          <img src={m.tokenImg || m.img} title={m.name} alt={m.name} height="32px" width="40px" />
-          <span>{m.name}</span>
+                 checked={selectedIds.includes(member.id)} 
+                 onchange={() => toggleRecipient(member.id)} />
+          <img src={member.tokenImg || member.img} title={member.name} alt={member.name} height="32px" width="40px" />
+          <span>{member.name}</span>
         </label>
       {/each}
     </div>

@@ -8,6 +8,7 @@ vi.mock("../src/tab-logic", () => ({
   TabLogic: {
     computeProgress: vi.fn().mockResolvedValue({ progressGained: 1 }),
     deductCurrency: vi.fn().mockResolvedValue(true),
+    formatCurrency: vi.fn().mockReturnValue("1gp"),
   },
 }));
 
@@ -15,6 +16,16 @@ describe("ProjectEngine", () => {
   const timeUnits = [
     { id: "hour", name: "Hour", short: "h", isBulk: false, ratio: 1 },
     { id: "day", name: "Day", short: "d", isBulk: true, ratio: 10 },
+  ];
+
+  const guidanceTiers = [
+    {
+      id: "tier1",
+      name: "Tier 1",
+      modifier: 2,
+      costs: { hour: 1, day: 10 },
+      progress: { hour: 1, day: 10 },
+    },
   ];
 
   beforeEach(() => {
@@ -33,13 +44,14 @@ describe("ProjectEngine", () => {
     // Default mocks that can be overridden in specific tests
     vi.spyOn(Settings, "timeUnits", "get").mockReturnValue(timeUnits);
     vi.spyOn(Settings, "rules", "get").mockReturnValue({ method: "direct" } as any);
-    vi.spyOn(Settings, "guidanceTiers", "get").mockReturnValue([]);
+    vi.spyOn(Settings, "guidanceTiers", "get").mockReturnValue(guidanceTiers);
 
     global.game = {
       settings: {
         get: vi.fn().mockImplementation((_scope, key) => {
           if (key === "timeUnits") return timeUnits;
           if (key === "rules") return { method: "direct" };
+          if (key === "guidanceTiers") return guidanceTiers;
           return null;
         }),
       },
@@ -52,7 +64,7 @@ describe("ProjectEngine", () => {
       const actor = new Actor() as any;
       const createdItem = new Item() as any;
       createdItem.getFlag.mockImplementation((scope: string, key: string) => {
-        if (key === "projectData") return { target: 10, requirements: [] };
+        if (key === "projectData") return { target: 10, requirements: [], tutelageId: "tier1" };
         return null;
       });
       actor.createEmbeddedDocuments = vi.fn().mockResolvedValue([createdItem]);
@@ -113,7 +125,7 @@ describe("ProjectEngine", () => {
     it("should add training activities to the item", async () => {
       const item = new Item() as any;
       item.getFlag.mockImplementation((scope: string, key: string) => {
-        if (key === "projectData") return { target: 10 };
+        if (key === "projectData") return { target: 10, tutelageId: "tier1" };
         return null;
       });
 
@@ -131,7 +143,7 @@ describe("ProjectEngine", () => {
     it("should skip injection if target is 0", async () => {
       const item = new Item() as any;
       item.getFlag.mockImplementation((scope: string, key: string) => {
-        if (key === "projectData") return { target: 0 };
+        if (key === "projectData") return { target: 0, tutelageId: "tier1" };
         return null;
       });
 
@@ -152,6 +164,7 @@ describe("ProjectEngine", () => {
         target: 10,
         progress: 10,
         isCompleted: false,
+        tutelageId: "tier1",
       };
 
       const item = new Item() as any;
@@ -199,6 +212,7 @@ describe("ProjectEngine", () => {
         target: 10,
         progress: 10,
         isCompleted: false,
+        tutelageId: "tier1",
       };
 
       const item = new Item() as any;
@@ -264,7 +278,7 @@ describe("ProjectEngine", () => {
         templateId: "tpl1",
         progress: 9,
         target: 10,
-        tutelageId: "",
+        tutelageId: "tier1",
         isCompleted: false,
       };
 
@@ -324,7 +338,7 @@ describe("ProjectEngine", () => {
       const item = new Item() as any;
       item.actor = actor;
       item.system = { description: { value: "" } };
-      item.getFlag = vi.fn().mockReturnValue({ target: 10, progress: 0 });
+      item.getFlag = vi.fn().mockReturnValue({ target: 10, progress: 0, tutelageId: "tier1" });
 
       const activity = {
         item,
@@ -370,7 +384,7 @@ describe("ProjectEngine", () => {
       const projectData = {
         target: 10,
         progress: 0,
-        tutelageId: "",
+        tutelageId: "tier1",
       };
 
       const item = new Item() as any;
@@ -402,6 +416,32 @@ describe("ProjectEngine", () => {
       );
     });
 
+    it("should fail and not deduct time if no tutelage tier is selected", async () => {
+      const actor = new Actor() as any;
+      actor.flags = { "thefehrs-learning-manager": { bank: { total: 100 } } };
+
+      const item = new Item() as any;
+      item.actor = actor;
+      item.getFlag = vi.fn().mockReturnValue({ target: 10, progress: 0, tutelageId: "" });
+
+      const activity = {
+        item,
+        flags: { "thefehrs-learning-manager": { timeUnitId: "hour" } },
+      };
+
+      const result = await ProjectEngine.processTraining(activity as any);
+
+      expect(result).toBe(false);
+      expect(ui.notifications.warn).toHaveBeenCalledWith(
+        "Please select a tutelage tier for this project.",
+      );
+      expect(actor.setFlag).not.toHaveBeenCalledWith(
+        "thefehrs-learning-manager",
+        "bank",
+        expect.any(Object),
+      );
+    });
+
     it("should not duplicate progress indicators in name and description", async () => {
       const actor = new Actor() as any;
       actor.flags = { "thefehrs-learning-manager": { bank: { total: 100 } } };
@@ -419,7 +459,7 @@ describe("ProjectEngine", () => {
       const projectData = {
         progress: 5,
         target: 10,
-        tutelageId: "",
+        tutelageId: "tier1",
         stashedName: "Project",
         stashedDescription: "Real Content",
       };
