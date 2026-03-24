@@ -509,10 +509,13 @@ export class ProjectEngine {
           projectDataFlags.followUpProjectId as any,
         )) as unknown as Item5e | null;
         if (followUpItem && "getFlag" in followUpItem) {
+          const escapedItemName = (foundry.utils as any).escapeHTML(item.name);
+          const escapedFollowUpName = (foundry.utils as any).escapeHTML((followUpItem as any).name);
+
           const proceed = await (foundry.applications.api as any).DialogV2.confirm({
             window: { title: "Learning Progress Exceeded" },
-            content: `<p>You generated <strong>${excessProgress}</strong> more progress than needed to complete <strong>${item.name}</strong>.</p>
-                      <p>Would you like to immediately apply it towards the follow-up project: <strong>${(followUpItem as any).name}</strong>?</p>`,
+            content: `<p>You generated <strong>${excessProgress}</strong> more progress than needed to complete <strong>${escapedItemName}</strong>.</p>
+                      <p>Would you like to immediately apply it towards the follow-up project: <strong>${escapedFollowUpName}</strong>?</p>`,
             rejectClose: false,
           });
 
@@ -530,9 +533,7 @@ export class ProjectEngine {
 
             if (!eligible) {
               ui.notifications?.warn(
-                `Could not start follow-up project: Requirements not met for ${
-                  (followUpItem as any).name
-                }: ${reqReason}`,
+                `Could not start follow-up project: Requirements not met for ${escapedFollowUpName}: ${reqReason}`,
               );
             } else {
               const newItem = await this.initiateProjectFromItem(
