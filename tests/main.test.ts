@@ -64,6 +64,13 @@ describe("LearningManager", () => {
       };
 
       LearningManager.init();
+      expect(game.settings.register).toHaveBeenCalledWith(
+        "thefehrs-learning-manager",
+        "rules",
+        expect.objectContaining({
+          default: expect.objectContaining({ notificationLevel: "info" }),
+        }),
+      );
       expect(game.settings.registerMenu).toHaveBeenCalled();
       expect((CONFIG as any).DND5E.featureTypes["learning-project"]).toBeDefined();
 

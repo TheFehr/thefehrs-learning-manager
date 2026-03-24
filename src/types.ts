@@ -78,6 +78,8 @@ export interface TimeUnit {
   ratio: number;
 }
 
+export type NotificationLevel = "none" | "error" | "info" | "debug";
+
 export interface SystemRules {
   method: "direct" | "roll";
   rollMode?: string;
@@ -85,6 +87,7 @@ export interface SystemRules {
   checkFormula?: string;
   critDoubleStrategy?: "any" | "all" | "never";
   critThreshold?: number;
+  notificationLevel?: NotificationLevel;
 }
 
 export interface GuidanceTier {

@@ -47,6 +47,7 @@ export class LearningManager {
     const rules: SystemRules = {
       method: "direct",
       rollMode: "gmroll",
+      notificationLevel: "info",
     };
     Settings.register("rules", {
       scope: "world",

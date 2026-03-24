@@ -1,5 +1,6 @@
 import { Settings } from "../core/settings.js";
-import type { SystemRules, TimeUnit, GuidanceTier } from "../types.js";
+import { Logger } from "../core/notifications.js";
+import type { SystemRules, TimeUnit, GuidanceTier, NotificationLevel } from "../types.js";
 
 /**
  * Shared save logic for the Downtime Engine settings.
@@ -33,7 +34,7 @@ export async function saveSettings(
     await Settings.setAllowedCompendiums(allowedCompendiums);
     allowedCompendiumsUpdated = true;
   } catch (err) {
-    console.error("Downtime Engine | Failed to save settings, rolling back:", err);
+    Logger.error("Failed to save settings, rolling back:", err);
 
     // Rollback to original settings only for those that were successfully updated
     const rollback = async (fn: () => Promise<void>, label: string) => {
@@ -58,18 +59,11 @@ export async function saveSettings(
         "allowedCompendiums",
       );
 
-    ui.notifications?.error(
-      "Downtime Engine | Failed to save settings: " +
-        (err instanceof Error ? err.message : String(err)),
-    );
+    Logger.error("Failed to save settings: " + (err instanceof Error ? err.message : String(err)));
     return;
   }
 
-  try {
-    ui.notifications?.info("Downtime Engine | Settings saved successfully.");
-  } catch (notificationErr) {
-    console.warn("Downtime Engine | Settings saved, but notification failed:", notificationErr);
-  }
+  Logger.info("Settings saved successfully.", true);
 }
 
 interface PackLike {
@@ -131,6 +125,9 @@ export function validateSettings(data: any) {
         ? data.rules.critDoubleStrategy
         : "never",
       critThreshold: Number.isFinite(data.rules.critThreshold) ? data.rules.critThreshold : 20,
+      notificationLevel: ["none", "error", "info", "debug"].includes(data.rules.notificationLevel)
+        ? data.rules.notificationLevel
+        : "info",
     };
   }
 

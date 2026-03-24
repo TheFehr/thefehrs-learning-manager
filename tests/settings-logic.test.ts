@@ -76,6 +76,26 @@ describe("settings-logic", () => {
       expect(validated.timeUnits?.[1].isBulk).toBe(false);
       expect(validated.timeUnits?.[2].isBulk).toBe(false);
     });
+
+    it("should only accept valid notificationLevel in rules", () => {
+      const data = {
+        rules: {
+          notificationLevel: "debug",
+          method: "direct",
+        },
+      };
+      const validated = validateSettings(data);
+      expect(validated.rules?.notificationLevel).toBe("debug");
+
+      const invalidData = {
+        rules: {
+          notificationLevel: "invalid",
+          method: "direct",
+        },
+      };
+      const validatedInvalid = validateSettings(invalidData);
+      expect(validatedInvalid.rules?.notificationLevel).toBe("info");
+    });
   });
 
   describe("saveSettings rollback", () => {
