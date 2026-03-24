@@ -25,7 +25,7 @@ export class Logger {
         console.error("Logger | UI notification failed:", err);
       }
     }
-    if (!uiOnly) console.log(`Downtime Engine | ${message}`);
+    if (!uiOnly) console.info(`Downtime Engine | ${message}`);
   }
 
   static error(message: string, err?: unknown) {
