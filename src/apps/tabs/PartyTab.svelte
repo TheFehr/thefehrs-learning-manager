@@ -142,7 +142,7 @@
                                         data-tidy-sheet-part="table-cell"
                                         style="--tidy-table-column-width: min(30%, 250px);"
                                 >
-                                    {#if project.maxProgress <= 0}
+                                    {#if project.maxProgress <= 0 && !(isGM && isEditMode)}
                                         <div class="awaiting-target-badge font-label-medium">
                                             <i class="fas fa-exclamation-circle"></i> Awaiting GM Target
                                         </div>
