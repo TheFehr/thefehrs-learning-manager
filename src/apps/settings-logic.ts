@@ -54,15 +54,24 @@ export async function saveSettings(
   }
 }
 
+interface PackLike {
+  metadata: {
+    type: string;
+    id: string;
+    label: string;
+  };
+}
+
 /**
  * Returns a list of available Item compendiums.
  */
 export function getAvailablePacks() {
-  return (game.packs as unknown as any[])
-    .filter((pack) => (pack as any).metadata.type === "Item")
+  const packs = game.packs as unknown as PackLike[];
+  return packs
+    .filter((pack) => pack.metadata.type === "Item")
     .map((pack) => ({
-      id: (pack as any).metadata.id,
-      label: (pack as any).metadata.label,
+      id: pack.metadata.id,
+      label: pack.metadata.label,
     }));
 }
 
