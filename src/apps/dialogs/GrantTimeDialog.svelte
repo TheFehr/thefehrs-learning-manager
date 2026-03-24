@@ -50,8 +50,7 @@
           <input type="checkbox" 
                  checked={selectedIds.includes(member.id)} 
                  onchange={() => toggleRecipient(member.id)} />
-          <img src={member.tokenImg || member.img} title={member.name} alt={member.name} height="32px" width="40px" />
-          <span>{member.name}</span>
+          <img src={member.tokenImg || member.img || 'modules/thefehrs-learning-manager/mystery-man.svg'} title={member.name} alt={member.name} height="32px" width="40px" />          <span>{member.name}</span>
         </label>
       {/each}
     </div>

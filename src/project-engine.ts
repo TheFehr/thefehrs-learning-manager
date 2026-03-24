@@ -127,9 +127,11 @@ export class ProjectEngine {
     // 2. Remove by class (fallback if comments are gone or mangled)
     const classRegex =
       /<[^>]*class="[^"]*learning-manager-progress-container[^"]*"[^>]*>[\s\S]*?<\/[^>]*>/g;
-    while (classRegex.test(clean)) {
+    let lastClean: string;
+    do {
+      lastClean = clean;
       clean = clean.replace(classRegex, "");
-    }
+    } while (clean !== lastClean);
 
     return clean.trim();
   }
@@ -231,7 +233,15 @@ export class ProjectEngine {
   static async injectActivities(item: Item5e, forceTarget?: number) {
     const itemProxy = item as unknown as ProjectItem;
     const projectData = itemProxy.getFlag("thefehrs-learning-manager", "projectData");
-    const target = forceTarget ?? projectData.target ?? 0;
+
+    const target = forceTarget ?? projectData?.target ?? 0;
+
+    if (!projectData && forceTarget === undefined) {
+      console.warn(
+        `Downtime Engine | Cannot inject activities for "${(item as unknown as Item).name}" - missing projectData flag.`,
+      );
+      return;
+    }
 
     const activitiesData = this.getActivitiesData(target);
 
@@ -286,6 +296,7 @@ export class ProjectEngine {
     if (!actor) return;
 
     const projectDataFlags = projectItem.getFlag("thefehrs-learning-manager", "projectData");
+    if (!projectDataFlags) return;
     const stashedSourceUuid = projectDataFlags.stashedSourceUuid;
 
     let sourceItem: Item5e | null = null;

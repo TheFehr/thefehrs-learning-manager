@@ -116,7 +116,13 @@ export class PartyTabLogic {
   /**
    * Updates the tutelage tier for a project.
    */
-  static async updateGuidance(actorId: string, project: ProjectMappedData, tierId: string) {
+  static async updateGuidance(
+    actorId: string,
+    project: ProjectMappedData,
+    tierId: string,
+    isGM: boolean,
+  ) {
+    if (!isGM) return;
     const targetActor = game.actors?.get(actorId) as unknown as Actor5e;
     if (!targetActor) return;
 
@@ -148,6 +154,7 @@ export class PartyTabLogic {
     if (item) {
       const proxyItem = item as unknown as ProjectItem;
       const projectData = proxyItem.getFlag("thefehrs-learning-manager", "projectData");
+      if (!projectData) return;
 
       projectData.progress = Math.max(0, Math.min(newProgress, projectData.target || 0));
       if (

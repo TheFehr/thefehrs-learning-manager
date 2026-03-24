@@ -80,7 +80,7 @@ export class ActorsCollection extends Array<any> {
 }
 
 export class PacksCollection extends Array<any> {
-  get = vi.fn((id: string) => this.find((p) => p.metadata.id === id));
+  get = vi.fn((id: string) => this.find((p) => p.metadata?.id === id));
 }
 
 globalThis.game = {
@@ -130,16 +130,22 @@ class MockActor {
   }
 
   async createEmbeddedDocuments(type: string, data: any[]) {
-    const created = data.map((d) => ({
-      ...d,
-      id: d.id || d._id || foundry.utils.randomID(),
-      actor: this,
-      getFlag: (scope: string, key: string) =>
-        d.flags?.[scope]?.[key] ?? d[`flags.${scope}.${key}`],
-      update: vi.fn().mockImplementation(async (upd) => foundry.utils.mergeObject(d, upd)),
-      delete: vi.fn(),
-      displayCard: vi.fn(),
-    }));
+    const created = data.map((d) => {
+      const createdItem: any = {
+        ...d,
+        id: d.id || d._id || foundry.utils.randomID(),
+        actor: this,
+        getFlag: (scope: string, key: string) =>
+          d.flags?.[scope]?.[key] ?? d[`flags.${scope}.${key}`],
+        update: vi.fn(),
+        delete: vi.fn(),
+        displayCard: vi.fn(),
+      };
+      createdItem.update.mockImplementation(async (upd: any) =>
+        foundry.utils.mergeObject(createdItem, upd),
+      );
+      return createdItem;
+    });
     if (type === "Item") {
       this.items.push(...created);
     }

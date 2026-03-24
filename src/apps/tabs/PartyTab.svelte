@@ -21,7 +21,7 @@
   }
 
   function updateGuidance(actorId: string, project: ProjectMappedData, tierId: string) {
-    PartyTabLogic.updateGuidance(actorId, project, tierId);
+    PartyTabLogic.updateGuidance(actorId, project, tierId, isGM);
   }
 
   function updateProgress(actorId: string, project: ProjectMappedData, newProgress: number) {
@@ -74,7 +74,7 @@
             >
                 <div class="actor-image-container flexshrink">
                     <div class="actor-image token">
-                        <img src={member.tokenImg} alt={member.name}/>
+                        <img src={member.tokenImg || member.img || 'modules/thefehrs-learning-manager/mystery-man.svg'} alt={member.name}/>
                     </div>
                 </div>
                 <div class="actor-name flexcol">

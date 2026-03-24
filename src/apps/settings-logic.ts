@@ -10,6 +10,14 @@ export async function saveSettings(
   guidanceTiers: GuidanceTier[],
   allowedCompendiums: string[],
 ) {
+  // Snapshot current settings for potential rollback
+  const originalSettings = {
+    rules: Settings.rules,
+    timeUnits: Settings.timeUnits,
+    guidanceTiers: Settings.guidanceTiers,
+    allowedCompendiums: Settings.allowedCompendiums,
+  };
+
   try {
     await Settings.setRules(rules);
     await Settings.setTimeUnits(timeUnits);
@@ -17,7 +25,18 @@ export async function saveSettings(
     await Settings.setAllowedCompendiums(allowedCompendiums);
     ui.notifications?.info("Downtime Engine | Settings saved successfully.");
   } catch (err) {
-    console.error("Downtime Engine | Failed to save settings:", err);
+    console.error("Downtime Engine | Failed to save settings, rolling back:", err);
+
+    // Rollback to original settings
+    try {
+      await Settings.setRules(originalSettings.rules);
+      await Settings.setTimeUnits(originalSettings.timeUnits);
+      await Settings.setGuidanceTiers(originalSettings.guidanceTiers);
+      await Settings.setAllowedCompendiums(originalSettings.allowedCompendiums);
+    } catch (rollbackErr) {
+      console.error("Downtime Engine | Critical failure: Rollback also failed:", rollbackErr);
+    }
+
     ui.notifications?.error(
       "Downtime Engine | Failed to save settings: " +
         (err instanceof Error ? err.message : String(err)),
@@ -47,6 +66,10 @@ export function validateSettings(data: any) {
     guidanceTiers?: GuidanceTier[];
     allowedCompendiums?: string[];
   } = {};
+
+  if (!data || typeof data !== "object" || Array.isArray(data)) {
+    return result;
+  }
 
   // 1. Validate Rules
   if (data.rules && typeof data.rules === "object") {
@@ -79,13 +102,19 @@ export function validateSettings(data: any) {
   if (Array.isArray(data.guidanceTiers)) {
     result.guidanceTiers = data.guidanceTiers
       .filter((tier: any) => tier && typeof tier.id === "string")
-      .map((tier: any) => ({
-        id: tier.id,
-        name: typeof tier.name === "string" ? tier.name : "New Tier",
-        modifier: typeof tier.modifier === "number" ? tier.modifier : 0,
-        costs: typeof tier.costs === "object" ? tier.costs : {},
-        progress: typeof tier.progress === "object" ? tier.progress : {},
-      }));
+      .map((tier: any) => {
+        const isPlainObject = (obj: any) =>
+          obj !== null && typeof obj === "object" && !Array.isArray(obj);
+
+        return {
+          id: tier.id,
+          name: typeof tier.name === "string" ? tier.name : "New Tier",
+          modifier: typeof tier.modifier === "number" ? tier.modifier : 0,
+          costs: isPlainObject(tier.costs) ? tier.costs : {},
+          progress: isPlainObject(tier.progress) ? tier.progress : {},
+          _migratedToV2: typeof tier._migratedToV2 === "boolean" ? tier._migratedToV2 : false,
+        };
+      });
   }
 
   // 4. Validate Allowed Compendiums
