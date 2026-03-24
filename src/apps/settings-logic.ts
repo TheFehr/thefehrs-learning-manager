@@ -94,9 +94,8 @@ const isPlainObject = (obj: any) => obj !== null && typeof obj === "object" && !
 const sanitizeNumericRecord = (obj: any) => {
   if (!isPlainObject(obj)) return {};
   return Object.entries(obj).reduce((acc: Record<string, number>, [key, val]) => {
-    const num = Number(val);
-    if (Number.isFinite(num)) {
-      acc[key] = num;
+    if (typeof val === "number" && Number.isFinite(val)) {
+      acc[key] = val;
     }
     return acc;
   }, {});
