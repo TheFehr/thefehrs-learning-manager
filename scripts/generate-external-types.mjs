@@ -25,7 +25,9 @@ async function main() {
       console.warn("Tidy5e tsc extraction reported some errors, continuing...");
     }
 
-    console.log("4. Sanitizing and injecting // @ts-nocheck into all generated .d.ts and .d.mts files...");
+    console.log(
+      "4. Sanitizing and injecting // @ts-nocheck into all generated .d.ts and .d.mts files...",
+    );
     const dtsDir = "./external-dts";
     if (fs.existsSync(dtsDir)) {
       sanitizeAndNocheck(dtsDir);
@@ -48,15 +50,15 @@ function sanitizeAndNocheck(dir) {
       sanitizeAndNocheck(fullPath);
     } else if (entry.name.endsWith(".d.ts") || entry.name.endsWith(".d.mts")) {
       let content = fs.readFileSync(fullPath, "utf-8");
-      
+
       // Fix syntax errors like ": number;" which happen on empty property names
       const originalContent = content;
       content = content.replace(/^(\s+):\s+number;/gm, "$1// [Sanitized]: number;");
-      
+
       if (!content.includes("// @ts-nocheck")) {
         content = "// @ts-nocheck\n" + content;
       }
-      
+
       if (content !== originalContent) {
         fs.writeFileSync(fullPath, content);
       }
