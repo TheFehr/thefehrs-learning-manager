@@ -122,12 +122,12 @@ export function validateSettings(data: any) {
     result.rules = {
       method: data.rules.method === "roll" ? "roll" : "direct",
       rollMode: typeof data.rules.rollMode === "string" ? data.rules.rollMode : "gmroll",
-      checkDC: typeof data.rules.checkDC === "number" ? data.rules.checkDC : 10,
+      checkDC: Number.isFinite(data.rules.checkDC) ? data.rules.checkDC : 10,
       checkFormula: typeof data.rules.checkFormula === "string" ? data.rules.checkFormula : "",
       critDoubleStrategy: ["any", "all", "never"].includes(data.rules.critDoubleStrategy)
         ? data.rules.critDoubleStrategy
         : "never",
-      critThreshold: typeof data.rules.critThreshold === "number" ? data.rules.critThreshold : 20,
+      critThreshold: Number.isFinite(data.rules.critThreshold) ? data.rules.critThreshold : 20,
     };
   }
 
@@ -140,7 +140,7 @@ export function validateSettings(data: any) {
         name: typeof unit.name === "string" ? unit.name : "New Unit",
         short: typeof unit.short === "string" ? unit.short : "u",
         isBulk: !!unit.isBulk,
-        ratio: typeof unit.ratio === "number" ? unit.ratio : 1,
+        ratio: Number.isFinite(unit.ratio) ? unit.ratio : 1,
       }));
   }
 
@@ -151,7 +151,7 @@ export function validateSettings(data: any) {
       .map((tier: any) => ({
         id: tier.id,
         name: typeof tier.name === "string" ? tier.name : "New Tier",
-        modifier: typeof tier.modifier === "number" ? tier.modifier : 0,
+        modifier: Number.isFinite(tier.modifier) ? tier.modifier : 0,
         costs: sanitizeNumericRecord(tier.costs),
         progress: sanitizeNumericRecord(tier.progress),
         _migratedToV2: typeof tier._migratedToV2 === "boolean" ? tier._migratedToV2 : false,
