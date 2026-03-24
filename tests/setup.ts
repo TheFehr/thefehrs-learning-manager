@@ -136,7 +136,7 @@ class MockActor {
         id: d.id || d._id || foundry.utils.randomID(),
         actor: this,
         getFlag: (scope: string, key: string) =>
-          d.flags?.[scope]?.[key] ?? d[`flags.${scope}.${key}`],
+          createdItem.flags?.[scope]?.[key] ?? createdItem[`flags.${scope}.${key}`],
         update: vi.fn(),
         delete: vi.fn(),
         displayCard: vi.fn(),
