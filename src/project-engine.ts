@@ -245,13 +245,6 @@ export class ProjectEngine {
 
     const activitiesData = this.getActivitiesData(target);
 
-    if (activitiesData.length === 0) {
-      console.warn(
-        `Downtime Engine | Skipping activity injection for "${(item as unknown as Item).name}" - target is ${target}.`,
-      );
-      return;
-    }
-
     try {
       const activityUpdates: Record<string, any> = {};
 
@@ -265,18 +258,26 @@ export class ProjectEngine {
         });
       }
 
-      // 2. Add the new activities
-      for (const activity of activitiesData) {
-        const id = (foundry.utils as unknown as { randomID: () => string }).randomID();
-        activity._id = id;
-        activityUpdates[id] = activity;
+      if (activitiesData.length === 0) {
+        console.debug(
+          `Downtime Engine | Clearing activities for "${(item as unknown as Item).name}" (target is ${target}).`,
+        );
+      } else {
+        // 2. Add the new activities
+        for (const activity of activitiesData) {
+          const id = (foundry.utils as unknown as { randomID: () => string }).randomID();
+          activity._id = id;
+          activityUpdates[id] = activity;
+        }
       }
 
-      // @ts-expect-error - complex activities update
-      await (item as unknown as Item).update({ "system.activities": activityUpdates });
-      console.debug(
-        `Downtime Engine | Successfully synced activities for "${(item as unknown as Item).name}".`,
-      );
+      if (Object.keys(activityUpdates).length > 0) {
+        // @ts-expect-error - complex activities update
+        await (item as unknown as Item).update({ "system.activities": activityUpdates });
+        console.debug(
+          `Downtime Engine | Successfully synced activities for "${(item as unknown as Item).name}".`,
+        );
+      }
     } catch (err) {
       console.error(
         `Downtime Engine | Failed to create activities for "${(item as unknown as Item).name}":`,
