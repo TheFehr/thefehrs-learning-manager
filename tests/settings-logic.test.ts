@@ -103,7 +103,8 @@ describe("settings-logic", () => {
       expect(setTimeUnitsSpy).toHaveBeenCalled();
 
       // Should NOT have tried to set guidanceTiers or allowedCompendiums
-      expect(setGuidanceTiersSpy).not.toHaveBeenCalledWith([], expect.anything()); // wait, it was never called in the first place
+      expect(setGuidanceTiersSpy).not.toHaveBeenCalled();
+      expect(setAllowedCompendiumsSpy).not.toHaveBeenCalled();
 
       // Rollback should only happen for rules
       // Note: the first call was for the save, the second for rollback
