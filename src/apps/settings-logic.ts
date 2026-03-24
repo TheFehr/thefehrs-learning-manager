@@ -12,10 +12,10 @@ export async function saveSettings(
 ) {
   // Snapshot current settings for potential rollback
   const originalSettings = {
-    rules: Settings.rules,
-    timeUnits: Settings.timeUnits,
-    guidanceTiers: Settings.guidanceTiers,
-    allowedCompendiums: Settings.allowedCompendiums,
+    rules: structuredClone(Settings.rules),
+    timeUnits: structuredClone(Settings.timeUnits),
+    guidanceTiers: structuredClone(Settings.guidanceTiers),
+    allowedCompendiums: structuredClone(Settings.allowedCompendiums),
   };
 
   try {
