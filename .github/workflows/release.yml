@@ -18,10 +18,13 @@ concurrency:
 jobs:
   test:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
+          persist-credentials: false
           submodules: recursive
 
       - name: Setup Node.js
@@ -46,6 +49,9 @@ jobs:
     needs: test
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
+    concurrency:
+      group: latest-beta
+      cancel-in-progress: true
     permissions:
       contents: write
 
@@ -212,5 +218,4 @@ jobs:
           fi
 
           echo "Success: HTTP status $HTTP_STATUS"
-          echo "Response Body: $BODY"
           echo "Response Body: $BODY"
