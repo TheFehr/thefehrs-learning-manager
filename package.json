@@ -16,7 +16,6 @@
     "@league-of-foundry-developers/foundry-vtt-types": "^13.345.1",
     "@release-it/bumper": "^7.0.5",
     "@sveltejs/vite-plugin-svelte": "^7.0.0",
-    "@types/handlebars": "^4.0.40",
     "happy-dom": "^20.8.3",
     "husky": "^9.1.7",
     "lint-staged": "^16.3.2",
