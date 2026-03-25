@@ -3,15 +3,21 @@
     "target": "ESNext",
     "module": "ESNext",
     "moduleResolution": "Bundler",
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "strict": false,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "allowJs": true,
     "declaration": true,
     "emitDeclarationOnly": true,
-    "skipLibCheck": true,
+    "types": ["@league-of-foundry-developers/foundry-vtt-types"],
     "outDir": "./external-dts/tidy-5e",
-    "baseUrl": ".",
+    "baseUrl": "./externals/tidy-5e",
     "paths": {
-      "@tidy5e/*": ["./externals/tidy-5e/src/*"]
+      "@tidy5e/*": ["./src/*"],
+      "src/*": ["./src/*"]
     }
   },
-  "include": ["externals/tidy-5e/src/**/*.ts"],
-  "exclude": ["externals/tidy-5e/src/**/*.svelte.ts"]
+  "include": ["src/**/*.ts", "../../src/svelte-shims.d.ts"],
+  "exclude": ["src/**/*.svelte.ts"]
 }
