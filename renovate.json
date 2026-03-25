@@ -3,6 +3,5 @@
   "extends": ["config:recommended"],
   "git-submodules": {
     "enabled": true
-  },
-  "schedule": ["daily"]
+  }
 }
