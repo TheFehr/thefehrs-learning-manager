@@ -1,3 +1,5 @@
 declare module "*.svelte" {
-  export { SvelteComponent as default } from "svelte";
+  import { SvelteComponent } from "svelte";
+  /** @deprecated Use `mount` instead */
+  export default class extends SvelteComponent<any, any, any> {}
 }
