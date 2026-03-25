@@ -235,31 +235,15 @@ export class LearningManager {
         tabId: "thefehrs-party-tab",
         html: '<div class="downtime-engine-svelte-root tidy5e-sheet tidy-sheet-body tab-content" style="height: 100%; display: flex; flex-direction: column;"></div>',
         onRender: (params: OnRenderTabParams) => {
-          const app = params.app as { id: string; document?: Actor; actor?: Actor };
-          const appId = app.id;
-          const target = params.tabContentsElement.querySelector(".downtime-engine-svelte-root");
-          if (!target) return;
-
-          if (this.svelteInstances.has(appId)) {
-            unmount(this.svelteInstances.get(appId)!);
-            this.svelteInstances.delete(appId);
-          }
-
-          const actor = app.document || app.actor;
-          if (!actor) return;
-
-          const partyData = PartyTabLogic.getData(actor as unknown as DowntimeGroupActor);
-          const props = {
-            ...partyData,
-            actor,
-          };
-
-          const instance = mount(PartyTab, {
-            target: target as HTMLElement,
-            props: props,
-          });
-
-          this.svelteInstances.set(appId, instance);
+          this.renderSvelte(
+            params,
+            ".downtime-engine-svelte-root",
+            PartyTab,
+            (actor: DowntimeGroupActor) => {
+              const partyData = PartyTabLogic.getData(actor);
+              return { ...partyData, actor };
+            },
+          );
         },
       }),
     );
@@ -294,25 +278,12 @@ export class LearningManager {
           return false;
         },
         onRender: (params: OnRenderTabParams) => {
-          const app = params.app as { id: string; document?: Item; actor?: Item };
-          const appId = app.id;
-          const target = params.element.querySelector(".downtime-engine-svelte-root");
-          if (!target) return;
-
-          if (this.svelteInstances.has(appId)) {
-            unmount(this.svelteInstances.get(appId)!);
-            this.svelteInstances.delete(appId);
-          }
-
-          const item = app.document || app.actor;
-          if (!item) return;
-
-          const instance = mount(ItemTargetConfig, {
-            target: target as HTMLElement,
-            props: { item: item as unknown as Item5e },
-          });
-
-          this.svelteInstances.set(appId, instance);
+          this.renderSvelte(
+            params,
+            ".downtime-engine-svelte-root",
+            ItemTargetConfig,
+            (item: Item5e) => ({ item }),
+          );
         },
       }),
     );
@@ -329,27 +300,42 @@ export class LearningManager {
           return (actor as any)?.type === "character";
         },
         onRender: (params: any) => {
-          const app = params.app as { id: string; document?: Actor; actor?: Actor };
-          const appId = `time-bank-bar-${app.id}`;
-          const target = params.element?.querySelector(".downtime-engine-time-bank-bar-root");
-          if (!target) return;
-
-          if (this.svelteInstances.has(appId)) {
-            unmount(this.svelteInstances.get(appId)!);
-            this.svelteInstances.delete(appId);
-          }
-
-          const actor = app.document || app.actor;
-          if (!actor) return;
-
-          const instance = mount(TimeBankBar, {
-            target: target as HTMLElement,
-            props: { actor: actor as unknown as Actor5e },
-          });
-
-          this.svelteInstances.set(appId, instance);
+          this.renderSvelte(
+            params,
+            ".downtime-engine-time-bank-bar-root",
+            TimeBankBar,
+            (actor: Actor5e) => ({ actor }),
+            `time-bank-bar-${params.app.id}`,
+          );
         },
       }),
     );
+  }
+
+  private static renderSvelte(
+    params: { app: any; element?: HTMLElement; tabContentsElement?: HTMLElement },
+    selector: string,
+    Component: any,
+    getProps: (doc: any) => any,
+    customAppId?: string,
+  ) {
+    const appId = customAppId || params.app.id;
+    const target = (params.tabContentsElement || params.element)?.querySelector(selector);
+    if (!target) return;
+
+    if (this.svelteInstances.has(appId)) {
+      unmount(this.svelteInstances.get(appId)!);
+      this.svelteInstances.delete(appId);
+    }
+
+    const doc = params.app.document || params.app.actor;
+    if (!doc) return;
+
+    const instance = mount(Component, {
+      target: target as HTMLElement,
+      props: getProps(doc),
+    });
+
+    this.svelteInstances.set(appId, instance);
   }
 }
