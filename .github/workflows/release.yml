@@ -32,30 +32,9 @@ jobs:
           node-version: "20"
           cache: "npm"
 
-      - name: Calculate Submodule Hashes
-        run: git submodule status > .submodules-hash
-
-      - name: Cache Node Modules and Generated Types
-        id: cache-build
-        uses: actions/cache@v4
-        with:
-          path: |
-            node_modules
-            external-types
-            external-dts
-          key: ${{ runner.os }}-node20-build-${{ hashFiles('package-lock.json', 'scripts/**', '.submodules-hash') }}
-
-      - name: Checkout Submodules
-        if: steps.cache-build.outputs.cache-hit != 'true'
-        run: git submodule update --init --recursive
-
-      - name: Install dependencies
-        if: steps.cache-build.outputs.cache-hit != 'true'
-        run: npm ci
-
-      - name: Extract external types
-        if: steps.cache-build.outputs.cache-hit != 'true'
-        run: npm run generate-types
+      - name: Setup and Cache
+        id: setup-and-cache
+        uses: ./.github/actions/setup-and-cache
 
       - name: Check Formatting
         run: npm run fmt:check
@@ -86,30 +65,9 @@ jobs:
           node-version: "20"
           cache: "npm"
 
-      - name: Calculate Submodule Hashes
-        run: git submodule status > .submodules-hash
-
-      - name: Cache Node Modules and Generated Types
-        id: cache-build
-        uses: actions/cache@v4
-        with:
-          path: |
-            node_modules
-            external-types
-            external-dts
-          key: ${{ runner.os }}-node20-build-${{ hashFiles('package-lock.json', 'scripts/**', '.submodules-hash') }}
-
-      - name: Checkout Submodules
-        if: steps.cache-build.outputs.cache-hit != 'true'
-        run: git submodule update --init --recursive
-
-      - name: Install dependencies
-        if: steps.cache-build.outputs.cache-hit != 'true'
-        run: npm ci
-
-      - name: Extract external types
-        if: steps.cache-build.outputs.cache-hit != 'true'
-        run: npm run generate-types
+      - name: Setup and Cache
+        id: setup-and-cache
+        uses: ./.github/actions/setup-and-cache
 
       - name: Build the module
         run: npm run build
