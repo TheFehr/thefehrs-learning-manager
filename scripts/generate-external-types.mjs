@@ -11,16 +11,16 @@ async function main() {
     console.log("1. Extracting dnd5e types...");
     execSync("node scripts/load-dnd5e-types.mjs", { stdio: "inherit" });
 
-    console.log("2. Generating dnd5e declarations (tsconfig.extract.json)...");
+    console.log("2. Generating dnd5e declarations (tsconfig.dnd5e.json)...");
     try {
-      execSync("npx tsc -p tsconfig.extract.json", { stdio: "inherit" });
+      execSync("npx tsc -p tsconfig.dnd5e.json", { stdio: "inherit" });
     } catch (e) {
       console.warn("Foundry dnd5e tsc extraction reported some errors (expected), continuing...");
     }
 
-    console.log("3. Generating Tidy5e declarations (tsconfig.tidy.json)...");
+    console.log("3. Generating Tidy5e declarations (tsconfig.tidy5e.json)...");
     try {
-      execSync("npx tsc -p tsconfig.tidy.json", { stdio: "inherit" });
+      execSync("npx tsc -p tsconfig.tidy5e.json", { stdio: "inherit" });
     } catch (e) {
       console.warn("Tidy5e tsc extraction reported some errors, continuing...");
     }
