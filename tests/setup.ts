@@ -15,13 +15,26 @@ globalThis.foundry = {
   applications: {
     api: {
       ApplicationV2: class {
-        render = vi.fn();
+        async close(_options = {}) {}
       },
-      HandlebarsApplicationMixin: (base: any) => base,
+      HandlebarsApplicationMixin: (Base: any) => class extends Base {},
+      DialogV2: {
+        confirm: vi.fn().mockResolvedValue(true),
+      },
     },
   },
   utils: {
     randomID: vi.fn().mockReturnValue("randomid"),
+    isNewerVersion: vi.fn((newer: string, current: string) => {
+      if (newer === current) return false;
+      const n = newer.split(".").map(Number);
+      const c = current.split(".").map(Number);
+      for (let i = 0; i < Math.max(n.length, c.length); i++) {
+        if ((n[i] || 0) > (c[i] || 0)) return true;
+        if ((n[i] || 0) < (c[i] || 0)) return false;
+      }
+      return false;
+    }),
     expandObject: vi.fn((obj: any) => {
       const result: any = {};
       for (const [key, value] of Object.entries(obj)) {
@@ -66,6 +79,10 @@ export class ActorsCollection extends Array<any> {
   get = vi.fn((id: string) => this.find((a) => a.id === id));
 }
 
+export class PacksCollection extends Array<any> {
+  get = vi.fn((id: string) => this.find((p) => p.metadata?.id === id));
+}
+
 globalThis.game = {
   settings: {
     register: vi.fn(),
@@ -73,16 +90,29 @@ globalThis.game = {
     get: vi.fn(),
     set: vi.fn(),
   },
+  i18n: {
+    localize: vi.fn((key: string) => key),
+  },
   user: { isGM: false },
   actors: new ActorsCollection(),
+  packs: new PacksCollection(),
   ID: "thefehrs-learning-manager",
 } as any;
+
+globalThis.Handlebars = {
+  registerHelper: vi.fn(),
+} as any;
+
+export class EmbeddedCollection extends Array<any> {
+  get = vi.fn((id: string) => this.find((i) => i.id === id || i._id === id));
+}
 
 class MockActor {
   id = "mock-id";
   name = "Mock Actor";
   flags: any = {};
   system: any = {};
+  items = new EmbeddedCollection();
 
   getFlag(scope: string, key: string) {
     return this.flags?.[scope]?.[key];
@@ -100,7 +130,26 @@ class MockActor {
   }
 
   async createEmbeddedDocuments(type: string, data: any[]) {
-    return data.map((d) => ({ ...d, id: foundry.utils.randomID() }));
+    const created = data.map((d) => {
+      const createdItem: any = {
+        ...d,
+        id: d.id || d._id || foundry.utils.randomID(),
+        actor: this,
+        getFlag: (scope: string, key: string) =>
+          createdItem.flags?.[scope]?.[key] ?? createdItem[`flags.${scope}.${key}`],
+        update: vi.fn(),
+        delete: vi.fn(),
+        displayCard: vi.fn(),
+      };
+      createdItem.update.mockImplementation(async (upd: any) =>
+        foundry.utils.mergeObject(createdItem, upd),
+      );
+      return createdItem;
+    });
+    if (type === "Item") {
+      this.items.push(...created);
+    }
+    return created;
   }
 }
 vi.spyOn(MockActor.prototype, "setFlag");
@@ -109,16 +158,41 @@ vi.spyOn(MockActor.prototype, "createEmbeddedDocuments");
 
 globalThis.Actor = MockActor as any;
 
-globalThis.Item = class {} as any;
-globalThis.ActiveEffect = class {} as any;
+class MockItem {
+  id = "mock-item-id";
+  name = "Mock Item";
+  type = "feat";
+  img = "";
+  system = { description: { value: "" }, activities: new EmbeddedCollection() };
+  flags = {};
+  actor = null;
+
+  toObject() {
+    return JSON.parse(JSON.stringify(this));
+  }
+  getFlag(scope: string, key: string) {
+    return (this.flags as any)[scope]?.[key];
+  }
+  async update(data: any) {
+    foundry.utils.mergeObject(this, data);
+    return this;
+  }
+  displayCard = vi.fn();
+}
+globalThis.Item = MockItem as any;
+
+class MockActiveEffect {
+  id = "mock-effect-id";
+  name = "Mock Effect";
+  toObject() {
+    return JSON.parse(JSON.stringify(this));
+  }
+}
+globalThis.ActiveEffect = MockActiveEffect as any;
 
 globalThis.Hooks = {
   on: vi.fn(),
   once: vi.fn(),
-} as any;
-
-globalThis.Handlebars = {
-  registerHelper: vi.fn(),
 } as any;
 
 globalThis.ui = {
@@ -141,3 +215,27 @@ globalThis.ChatMessage = {
   create: vi.fn(),
 } as any;
 globalThis.fromUuid = vi.fn();
+globalThis.CompendiumCollection = {
+  createCompendium: vi.fn(),
+} as any;
+
+globalThis.CONFIG = {
+  DND5E: {
+    featureTypes: {},
+  },
+  Dice: {
+    rollModes: {
+      publicroll: "CHAT.RollPublic",
+      gmroll: "CHAT.RollPrivate",
+      blindroll: "CHAT.RollBlind",
+      selfroll: "CHAT.RollSelf",
+    },
+  },
+} as any;
+
+vi.mock("svelte", () => ({
+  mount: vi.fn(),
+  unmount: vi.fn(),
+  tick: vi.fn().mockResolvedValue(undefined),
+  untrack: vi.fn((fn: any) => fn()),
+}));

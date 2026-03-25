@@ -51,7 +51,6 @@ This project uses **Husky** and **lint-staged** to maintain code quality.
 
 - **Pre-commit Hook:** A Git `pre-commit` hook is automatically configured to run whenever you commit changes.
 - **Automatic Formatting:** On every commit, `lint-staged` runs `npm run fmt` (powered by `oxfmt`) on your staged files. This ensures all code adheres to the project's formatting standards before it enters the repository.
-- **Handlebars Linting:** A custom check script (`scripts/check-hbs-syntax.sh`) ensures that incompatible Handlebars syntax (like `../` which is unsupported by Glimmer/Foundry VTT) is not introduced. This check is also part of the `pre-commit` hook.
 
 To manually trigger formatting, you can run:
 

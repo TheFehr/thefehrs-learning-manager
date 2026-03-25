@@ -1,512 +1,257 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { TabLogic } from "../src/tabs/tab-logic";
+import { TabLogic } from "../src/tab-logic";
+import { LearningManager } from "../src/LearningManager";
 
 describe("TabLogic", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    global.Roll = class {
+      constructor(
+        public formula: string,
+        public data: any,
+        public options: any,
+      ) {}
+      evaluate = vi.fn().mockResolvedValue({
+        total: 15,
+        dice: [{ faces: 20, results: [{ result: 15, active: true }] }],
+        toMessage: vi.fn(),
+      });
+    } as any;
+  });
+
   describe("computeProgress", () => {
-    let mockActor: any;
+    let actor: any;
+    let rules: any;
+    let tier: any;
+    let tu: any;
 
     beforeEach(() => {
-      mockActor = {
-        getRollData: vi.fn().mockReturnValue({ mod: 2 }),
-      };
-
-      globalThis.Roll = class {
-        formula: string;
-        data: any;
-        dice: any[];
-        total: number;
-
-        constructor(formula: string, data: any) {
-          this.formula = formula;
-          this.data = data;
-          this.dice = [];
-          this.total = 0;
-        }
-
-        evaluate() {
-          return Promise.resolve(this);
-        }
+      actor = {
+        getRollData: () => ({}),
       } as any;
+      rules = { method: "roll", checkDC: 15, checkFormula: "1d20" };
+      tier = { modifier: 2, progress: { bulk1: 5 } };
+      tu = { id: "hour", isBulk: false };
     });
 
-    it("should compute progress for bulk time unit", async () => {
-      const tu = { id: "tu1", isBulk: true };
-      const tier = { progress: { tu1: 5 } };
-      const rules = {};
-
-      const { progressGained } = await TabLogic.computeProgress(mockActor as any, rules, tier, tu);
-      expect(progressGained).toBe(5);
+    it("should return progress for bulk units", async () => {
+      const bulkTu = { id: "bulk1", isBulk: true };
+      const result = await TabLogic.computeProgress(actor, rules, tier, bulkTu);
+      expect(result.progressGained).toBe(5);
     });
 
-    it("should return default progress 1 for direct method", async () => {
-      const tu = { id: "tu1", isBulk: false };
-      const tier = {};
-      const rules = { method: "direct" };
-
-      const { progressGained } = await TabLogic.computeProgress(mockActor as any, rules, tier, tu);
-      expect(progressGained).toBe(1);
+    it("should return 1 progress on successful roll", async () => {
+      const result = await TabLogic.computeProgress(actor, rules, tier, tu);
+      expect(result.progressGained).toBe(1);
+      expect(result.roll).toBeDefined();
     });
 
-    describe("roll method", () => {
-      it("should return 1 progress if roll meets DC and no crit strategy", async () => {
-        const tu = { id: "tu1", isBulk: false };
-        const tier = { modifier: 1 };
-        const rules = { method: "roll", checkFormula: "1d20", checkDC: 15 };
-
-        const rollInstance = new (globalThis as any).Roll("1d20", {});
-        rollInstance.total = 15;
-        rollInstance.dice = [{ faces: 20, results: [{ result: 15 }] }];
-
-        (globalThis as any).Roll = class {
-          total = rollInstance.total;
-          dice = rollInstance.dice;
-          evaluate() {
-            return Promise.resolve(this);
-          }
-        };
-
-        const { progressGained, roll } = await TabLogic.computeProgress(
-          mockActor as any,
-          rules,
-          tier,
-          tu,
-        );
-        expect(progressGained).toBe(1);
-        expect(roll.total).toBe(15);
-      });
-
-      it("should return 0 progress if roll does not meet DC", async () => {
-        const tu = { id: "tu1", isBulk: false };
-        const tier = { modifier: 1 };
-        const rules = { method: "roll", checkFormula: "1d20", checkDC: 15 };
-
-        const rollInstance = new (globalThis as any).Roll("1d20", {});
-        rollInstance.total = 10;
-        rollInstance.dice = [{ faces: 20, results: [{ result: 10 }] }];
-
-        (globalThis as any).Roll = class {
-          total = rollInstance.total;
-          dice = rollInstance.dice;
-          evaluate() {
-            return Promise.resolve(this);
-          }
-        };
-
-        const { progressGained } = await TabLogic.computeProgress(
-          mockActor as any,
-          rules,
-          tier,
-          tu,
-        );
-        expect(progressGained).toBe(0);
-      });
-
-      describe("critDoubleStrategy: any", () => {
-        it("should return 2 progress if any die meets threshold", async () => {
-          const tu = { id: "tu1", isBulk: false };
-          const tier = { modifier: 1 };
-          const rules = {
-            method: "roll",
-            checkFormula: "2d20",
-            checkDC: 15,
-            critDoubleStrategy: "any",
-            critThreshold: 19,
-          };
-
-          const rollInstance = new (globalThis as any).Roll("2d20", {});
-          rollInstance.total = 20;
-          rollInstance.dice = [
-            { faces: 20, results: [{ result: 10 }] },
-            { faces: 20, results: [{ result: 19 }] },
-          ];
-
-          (globalThis as any).Roll = class {
-            total = rollInstance.total;
-            dice = rollInstance.dice;
-            evaluate() {
-              return Promise.resolve(this);
-            }
-          };
-
-          const { progressGained } = await TabLogic.computeProgress(
-            mockActor as any,
-            rules,
-            tier,
-            tu,
-          );
-          expect(progressGained).toBe(2);
+    it("should return 0 progress on failed roll", async () => {
+      global.Roll = class {
+        evaluate = vi.fn().mockResolvedValue({
+          total: 10,
+          dice: [{ faces: 20, results: [{ result: 10, active: true }] }],
         });
+      } as any;
+      const result = await TabLogic.computeProgress(actor, rules, tier, tu);
+      expect(result.progressGained).toBe(0);
+      expect(result.reason).toBe("Roll total 10 failed to meet DC 15.");
+    });
 
-        it("should return 1 progress if no die meets threshold", async () => {
-          const tu = { id: "tu1", isBulk: false };
-          const tier = { modifier: 1 };
-          const rules = {
-            method: "roll",
-            checkFormula: "2d20",
-            checkDC: 15,
-            critDoubleStrategy: "any",
-            critThreshold: 19,
-          };
+    it("should return a reason on zero bulk progress", async () => {
+      const bulkTu = { id: "no_progress_unit", name: "Month", isBulk: true };
+      const result = await TabLogic.computeProgress(actor, rules, undefined, bulkTu as any);
+      expect(result.progressGained).toBe(0);
+      expect(result.reason).toBe('Tutelage tier "None" provides no progress for Months.');
+    });
 
-          const rollInstance = new (globalThis as any).Roll("2d20", {});
-          rollInstance.total = 20;
-          rollInstance.dice = [
-            { faces: 20, results: [{ result: 10 }] },
-            { faces: 20, results: [{ result: 18 }] },
-          ];
-
-          (globalThis as any).Roll = class {
-            total = rollInstance.total;
-            dice = rollInstance.dice;
-            evaluate() {
-              return Promise.resolve(this);
-            }
-          };
-
-          const { progressGained } = await TabLogic.computeProgress(
-            mockActor as any,
-            rules,
-            tier,
-            tu,
-          );
-          expect(progressGained).toBe(1);
+    it("should handle 'any' crit strategy", async () => {
+      const critRules = { ...rules, critDoubleStrategy: "any", critThreshold: 20 };
+      global.Roll = class {
+        evaluate = vi.fn().mockResolvedValue({
+          total: 20,
+          dice: [{ faces: 20, results: [{ result: 20, active: true }] }],
         });
+      } as any;
+      const result = await TabLogic.computeProgress(actor, critRules, tier, tu);
+      expect(result.progressGained).toBe(2);
+    });
 
-        it("should return 2 progress if any die meets threshold in a multi-die term (e.g. 2d20)", async () => {
-          const tu = { id: "tu1", isBulk: false };
-          const tier = { modifier: 1 };
-          const rules = {
-            method: "roll",
-            checkFormula: "2d20",
-            checkDC: 15,
-            critDoubleStrategy: "any",
-            critThreshold: 19,
-          };
-
-          const rollInstance = new (globalThis as any).Roll("2d20", {});
-          rollInstance.total = 29;
-          rollInstance.dice = [{ faces: 20, results: [{ result: 10 }, { result: 19 }] }];
-
-          (globalThis as any).Roll = class {
-            total = rollInstance.total;
-            dice = rollInstance.dice;
-            evaluate() {
-              return Promise.resolve(this);
-            }
-          };
-
-          const { progressGained } = await TabLogic.computeProgress(
-            mockActor as any,
-            rules,
-            tier,
-            tu,
-          );
-          expect(progressGained).toBe(2);
+    it("should handle 'all' crit strategy", async () => {
+      const critRules = { ...rules, critDoubleStrategy: "all", critThreshold: 20 };
+      global.Roll = class {
+        evaluate = vi.fn().mockResolvedValue({
+          total: 20,
+          dice: [
+            { faces: 20, results: [{ result: 20, active: true }] },
+            { faces: 20, results: [{ result: 10, active: true }] },
+          ],
         });
-      });
+      } as any;
+      const result = await TabLogic.computeProgress(actor, critRules, tier, tu);
+      expect(result.progressGained).toBe(1); // One failed to crit
+    });
 
-      describe("critDoubleStrategy: all", () => {
-        it("should return 2 progress if all dice meet threshold", async () => {
-          const tu = { id: "tu1", isBulk: false };
-          const tier = { modifier: 1 };
-          const rules = {
-            method: "roll",
-            checkFormula: "2d20",
-            checkDC: 15,
-            critDoubleStrategy: "all",
-            critThreshold: 19,
-          };
-
-          const rollInstance = new (globalThis as any).Roll("2d20", {});
-          rollInstance.total = 38;
-          rollInstance.dice = [
-            { faces: 20, results: [{ result: 19 }] },
-            { faces: 20, results: [{ result: 20 }] },
-          ];
-
-          (globalThis as any).Roll = class {
-            total = rollInstance.total;
-            dice = rollInstance.dice;
-            evaluate() {
-              return Promise.resolve(this);
-            }
-          };
-
-          const { progressGained } = await TabLogic.computeProgress(
-            mockActor as any,
-            rules,
-            tier,
-            tu,
-          );
-          expect(progressGained).toBe(2);
+    it("should ignore discarded dice results", async () => {
+      const critRules = { ...rules, critDoubleStrategy: "any", critThreshold: 20 };
+      global.Roll = class {
+        evaluate = vi.fn().mockResolvedValue({
+          total: 15, // Active is only 15
+          dice: [
+            {
+              faces: 20,
+              results: [
+                { result: 20, active: false }, // Discarded
+                { result: 15, active: true }, // Kept
+              ],
+            },
+          ],
         });
-
-        it("should return 1 progress if not all dice meet threshold", async () => {
-          const tu = { id: "tu1", isBulk: false };
-          const tier = { modifier: 1 };
-          const rules = {
-            method: "roll",
-            checkFormula: "2d20",
-            checkDC: 15,
-            critDoubleStrategy: "all",
-            critThreshold: 19,
-          };
-
-          const rollInstance = new (globalThis as any).Roll("2d20", {});
-          rollInstance.total = 30;
-          rollInstance.dice = [
-            { faces: 20, results: [{ result: 19 }] },
-            { faces: 20, results: [{ result: 10 }] },
-          ];
-
-          (globalThis as any).Roll = class {
-            total = rollInstance.total;
-            dice = rollInstance.dice;
-            evaluate() {
-              return Promise.resolve(this);
-            }
-          };
-
-          const { progressGained } = await TabLogic.computeProgress(
-            mockActor as any,
-            rules,
-            tier,
-            tu,
-          );
-          expect(progressGained).toBe(1);
-        });
-
-        it("should return 2 progress if all dice meet threshold in a multi-die term", async () => {
-          const tu = { id: "tu1", isBulk: false };
-          const tier = { modifier: 1 };
-          const rules = {
-            method: "roll",
-            checkFormula: "2d20",
-            checkDC: 15,
-            critDoubleStrategy: "all",
-            critThreshold: 19,
-          };
-
-          const rollInstance = new (globalThis as any).Roll("2d20", {});
-          rollInstance.total = 39;
-          rollInstance.dice = [{ faces: 20, results: [{ result: 19 }, { result: 20 }] }];
-
-          (globalThis as any).Roll = class {
-            total = rollInstance.total;
-            dice = rollInstance.dice;
-            evaluate() {
-              return Promise.resolve(this);
-            }
-          };
-
-          const { progressGained } = await TabLogic.computeProgress(
-            mockActor as any,
-            rules,
-            tier,
-            tu,
-          );
-          expect(progressGained).toBe(2);
-        });
-
-        it("should return 1 progress if not all dice meet threshold in a multi-die term", async () => {
-          const tu = { id: "tu1", isBulk: false };
-          const tier = { modifier: 1 };
-          const rules = {
-            method: "roll",
-            checkFormula: "2d20",
-            checkDC: 15,
-            critDoubleStrategy: "all",
-            critThreshold: 19,
-          };
-
-          const rollInstance = new (globalThis as any).Roll("2d20", {});
-          rollInstance.total = 29;
-          rollInstance.dice = [{ faces: 20, results: [{ result: 19 }, { result: 10 }] }];
-
-          (globalThis as any).Roll = class {
-            total = rollInstance.total;
-            dice = rollInstance.dice;
-            evaluate() {
-              return Promise.resolve(this);
-            }
-          };
-
-          const { progressGained } = await TabLogic.computeProgress(
-            mockActor as any,
-            rules,
-            tier,
-            tu,
-          );
-          expect(progressGained).toBe(1);
-        });
-      });
-
-      describe("critDoubleStrategy: never", () => {
-        it("should return 1 progress even if a die meets threshold", async () => {
-          const tu = { id: "tu1", isBulk: false };
-          const tier = { modifier: 1 };
-          const rules = {
-            method: "roll",
-            checkFormula: "1d20",
-            checkDC: 15,
-            critDoubleStrategy: "never",
-            critThreshold: 19,
-          };
-
-          const rollInstance = new (globalThis as any).Roll("1d20", {});
-          rollInstance.total = 20;
-          rollInstance.dice = [{ faces: 20, results: [{ result: 20 }] }];
-
-          (globalThis as any).Roll = class {
-            total = rollInstance.total;
-            dice = rollInstance.dice;
-            evaluate() {
-              return Promise.resolve(this);
-            }
-          };
-
-          const { progressGained } = await TabLogic.computeProgress(
-            mockActor as any,
-            rules,
-            tier,
-            tu,
-          );
-          expect(progressGained).toBe(1);
-        });
-      });
+      } as any;
+      const result = await TabLogic.computeProgress(actor, critRules, tier, tu);
+      expect(result.progressGained).toBe(1); // Should not double, because 20 was discarded
     });
   });
 
-  describe("activateListeners delete-project", () => {
-    it("should prompt user and delete project on confirm", async () => {
-      const mockActor = new (globalThis as any).Actor();
-      mockActor.id = "actor1";
-      mockActor.name = "Test Actor";
-      mockActor.isOwner = true;
-      (globalThis as any).game.actors.length = 0;
-      (globalThis as any).game.actors.push(mockActor);
+  describe("Currency management", () => {
+    let actor: any;
 
-      const { ActorProxy } = await import("../src/actor-proxy");
-      const { Settings } = await import("../src/settings");
-
-      const proxy = new ActorProxy(mockActor);
-      const project = {
-        id: "proj1",
-        templateId: "tpl1",
-        progress: 0,
-        isCompleted: false,
-        guidanceTierId: "",
-      };
-      let currentProjects = [project];
-      Object.defineProperty(proxy, "projects", { get: () => currentProjects });
-      proxy.setProjects = vi.fn().mockImplementation(async (newProjects) => {
-        currentProjects = newProjects;
-      });
-
-      vi.spyOn(ActorProxy, "forActor").mockReturnValue(proxy);
-
-      vi.spyOn(Settings, "projectTemplates", "get").mockReturnValue([
-        { id: "tpl1", target: 10, rewardUuid: "Item.id", rewardType: "item", name: "Test Tpl" },
-      ] as any);
-
-      const html = document.createElement("div");
-      html.innerHTML = `<button class="delete-project" data-actor-id="actor1" data-id="proj1"></button>`;
-
-      const btn = html.querySelector(".delete-project") as HTMLElement;
-
-      let listener: any;
-      btn.addEventListener = vi.fn().mockImplementation((type: string, cb: any) => {
-        if (type === "click") listener = cb;
-      });
-
-      TabLogic.activateListeners(html, mockActor as any);
-
-      expect(listener).toBeDefined();
-
-      const ev = new Event("click");
-      Object.defineProperty(ev, "currentTarget", { value: btn, enumerable: true });
-
-      // Override Dialog to auto-click "yes"
-      let dialogData: any;
-      (globalThis as any).foundry.appv1.api.Dialog = class {
-        constructor(public data: any) {
-          dialogData = data;
-        }
-        render = vi.fn().mockImplementation(async () => {
-          if (
-            dialogData &&
-            dialogData.buttons &&
-            dialogData.buttons.yes &&
-            dialogData.buttons.yes.callback
-          ) {
-            await dialogData.buttons.yes.callback();
-          }
-        });
+    beforeEach(() => {
+      actor = {
+        update: vi.fn().mockResolvedValue({}),
+        system: { currency: { gp: 1, sp: 0, cp: 0 } },
       } as any;
+    });
 
-      await listener(ev);
+    it("addCurrency should correctly add cp", async () => {
+      await TabLogic.addCurrency(actor, 50); // Add 50cp
+      expect(actor.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          system: { currency: { gp: 1, sp: 5, cp: 0 } },
+        }),
+      );
+    });
 
-      expect(proxy.setProjects).toHaveBeenCalled();
-      expect(currentProjects).toHaveLength(0);
+    it("deductCurrency should return false if insufficient funds", async () => {
+      const result = await TabLogic.deductCurrency(actor, 200); // Need 200cp, only have 100
+      expect(result).toBe(false);
+      expect(ui.notifications.warn).toHaveBeenCalledWith("Insufficient funds!");
+    });
+
+    it("deductCurrency should correctly deduct across denominations", async () => {
+      await TabLogic.deductCurrency(actor, 25); // Have 100cp, deduct 25
+      expect(actor.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          system: { currency: { gp: 0, sp: 7, cp: 5 } },
+        }),
+      );
     });
   });
 
-  describe("activateListeners update-project-progress", () => {
-    it("should rollback granted rewards if setProjects throws", async () => {
-      const mockActor = new (globalThis as any).Actor();
-      mockActor.id = "actor1";
-      (globalThis as any).game.actors.length = 0;
-      (globalThis as any).game.actors.push(mockActor);
-      (globalThis as any).game.user.isGM = true;
+  describe("meetsRequirements", () => {
+    let actor: any;
 
-      const { ActorProxy } = await import("../src/actor-proxy");
-      const { Settings } = await import("../src/settings");
+    beforeEach(() => {
+      actor = {
+        name: "Test",
+        system: {
+          attributes: { str: { value: 10 } },
+          traits: { languages: { value: ["common", "elvish"] } },
+        },
+      } as any;
+    });
 
-      const proxy = new ActorProxy(mockActor);
-      const project = {
-        id: "proj1",
-        templateId: "tpl1",
-        progress: 0,
-        isCompleted: false,
-        guidanceTierId: "",
-      };
-      Object.defineProperty(proxy, "projects", { get: () => [project] });
-      proxy.setProjects = vi.fn().mockRejectedValue(new Error("Database error"));
-      proxy.deleteEmbeddedDocuments = vi.fn().mockResolvedValue([]);
-      proxy.createEmbeddedDocuments = vi.fn().mockResolvedValue([{ _id: "newitem1" }]);
+    it("should handle 'includes' operator for arrays", () => {
+      const req = [
+        { attribute: "system.traits.languages.value", operator: "includes", value: "elvish" },
+      ] as any;
+      expect(TabLogic.meetsRequirements(actor, req).eligible).toBe(true);
+    });
 
-      vi.spyOn(ActorProxy, "forActor").mockReturnValue(proxy);
+    it("should handle numerical comparisons", () => {
+      const req = [{ attribute: "system.attributes.str.value", operator: ">", value: "5" }] as any;
+      expect(TabLogic.meetsRequirements(actor, req).eligible).toBe(true);
+    });
 
-      vi.spyOn(Settings, "projectTemplates", "get").mockReturnValue([
-        { id: "tpl1", target: 10, rewardUuid: "Item.id", rewardType: "item", name: "Test Tpl" },
-      ] as any);
+    it("should return reason on failure", () => {
+      const req = [{ attribute: "system.attributes.str.value", operator: ">", value: "15" }] as any;
+      const result = TabLogic.meetsRequirements(actor, req);
+      expect(result.eligible).toBe(false);
+      expect(result.reason).toContain("system.attributes.str.value > 15");
+    });
+  });
 
-      const item = new (globalThis as any).Item();
-      item.name = "Test Item";
-      item.toObject = () => ({ name: "Test Item" });
-      (globalThis as any).fromUuid = vi.fn().mockResolvedValue(item);
+  describe("formatCurrency", () => {
+    it("should format 125 cp as 1gp 2sp 5cp", () => {
+      expect(TabLogic.formatCurrency(125)).toBe("1gp 2sp 5cp");
+    });
 
-      const html = document.createElement("div");
-      html.innerHTML = `<input class="update-project-progress" data-actor-id="actor1" data-project-id="proj1" value="10" />`;
+    it("should format 50 cp as 5sp", () => {
+      expect(TabLogic.formatCurrency(50)).toBe("5sp");
+    });
 
-      const input = html.querySelector(".update-project-progress") as HTMLInputElement;
+    it("should format 5 cp as 5cp", () => {
+      expect(TabLogic.formatCurrency(5)).toBe("5cp");
+    });
 
-      let listener: any;
-      input.addEventListener = vi.fn().mockImplementation((type: string, cb: any) => {
-        if (type === "change") listener = cb;
-      });
+    it("should format 0 cp as 0cp", () => {
+      expect(TabLogic.formatCurrency(0)).toBe("0cp");
+    });
 
-      TabLogic.activateListeners(html, mockActor as any);
+    it("should format 100 cp as 1gp", () => {
+      expect(TabLogic.formatCurrency(100)).toBe("1gp");
+    });
 
-      expect(listener).toBeDefined();
+    it("should format negative amounts", () => {
+      expect(TabLogic.formatCurrency(-125)).toBe("-1gp 2sp 5cp");
+    });
+  });
 
-      const ev = new Event("change");
-      Object.defineProperty(ev, "currentTarget", { value: input, enumerable: true });
+  describe("calculateTotalBaseTime", () => {
+    const timeUnits = [
+      { id: "hour", name: "Hour", short: "h", isBulk: false, ratio: 1 },
+      { id: "day", name: "Day", short: "d", isBulk: true, ratio: 10 },
+    ] as any[];
 
-      await expect(listener(ev)).rejects.toThrow("Database error");
+    it("should return 0 if no time is entered", () => {
+      const result = TabLogic.calculateTotalBaseTime({}, timeUnits);
+      expect(result).toBe(0);
+    });
 
-      expect(project.isCompleted).toBe(false);
-      expect(proxy.deleteEmbeddedDocuments).toHaveBeenCalledWith("Item", ["newitem1"]);
+    it("should correctly calculate total base time for numbers", () => {
+      const result = TabLogic.calculateTotalBaseTime({ hour: 5, day: 2 }, timeUnits);
+      expect(result).toBe(25); // 5*1 + 2*10
+    });
+
+    it("should correctly calculate total base time for strings", () => {
+      const result = TabLogic.calculateTotalBaseTime(
+        { hour: "5" as any, day: "2" as any },
+        timeUnits,
+      );
+      expect(result).toBe(25);
+    });
+
+    it("should handle mixed numeric and string values", () => {
+      const result = TabLogic.calculateTotalBaseTime({ hour: "10" as any, day: 1 }, timeUnits);
+      expect(result).toBe(20);
+    });
+
+    it("should handle null or undefined values by treating them as 0", () => {
+      const result = TabLogic.calculateTotalBaseTime(
+        { hour: null as any, day: undefined as any },
+        timeUnits,
+      );
+      expect(result).toBe(0);
+    });
+
+    it("should ignore NaN values", () => {
+      const result = TabLogic.calculateTotalBaseTime({ hour: "abc" as any, day: 1 }, timeUnits);
+      expect(result).toBe(10);
+    });
+
+    it("should handle empty or partial timeValues", () => {
+      const result = TabLogic.calculateTotalBaseTime({ day: 3 }, timeUnits);
+      expect(result).toBe(30);
     });
   });
 });

@@ -1,10 +1,10 @@
-import type { LearningProject, TimeBank, DowntimeActor } from "./types";
-import { Settings } from "./settings";
+import type { TimeBank, LearningActor, LearningProject, Actor5e, Item5e } from "./types.js";
+import { Settings } from "./core/settings.js";
 
 export class ActorProxy {
-  private actor: Actor;
+  private actor: Actor5e;
 
-  constructor(actor: Actor) {
+  constructor(actor: Actor5e) {
     this.actor = actor;
   }
 
@@ -21,7 +21,11 @@ export class ActorProxy {
   }
 
   get tokenImg(): string | null {
-    return (this.actor as any).prototypeToken?.texture?.src || this.actor.img;
+    const actor = this.actor as unknown as {
+      prototypeToken?: { texture?: { src?: string } };
+      img: string | null;
+    };
+    return actor.prototypeToken?.texture?.src || actor.img;
   }
 
   get uuid(): string {
@@ -29,35 +33,61 @@ export class ActorProxy {
   }
 
   get projects(): LearningProject[] {
-    return this.actor.getFlag(Settings.ID, "projects") || [];
+    return this.actor.getFlag("thefehrs-learning-manager", "projects") || [];
+  }
+
+  getMappedProjects() {
+    return (this.actor.items as unknown as Item5e[])
+      .filter((i) => i.getFlag("thefehrs-learning-manager", "isLearningProject"))
+      .map((i) => {
+        const projectData = i.getFlag("thefehrs-learning-manager", "projectData");
+        const tier = Settings.guidanceTiers.find((t) => t.id === projectData?.tutelageId);
+        return {
+          id: i.id,
+          name: i.name,
+          progress: projectData?.progress ?? 0,
+          target: projectData?.target ?? 0,
+          percentage:
+            projectData && projectData.target > 0
+              ? Math.min(100, Math.round((projectData.progress / projectData.target) * 100))
+              : 0,
+          tutelageName: tier?.name ?? "None",
+        };
+      });
   }
 
   async setProjects(projects: LearningProject[]): Promise<Actor> {
-    return await this.actor.setFlag(Settings.ID, "projects", projects);
+    return await this.actor.setFlag("thefehrs-learning-manager", "projects", projects);
   }
 
   get bank(): TimeBank {
-    return this.actor.getFlag(Settings.ID, "bank") || { total: 0 };
+    return this.actor.getFlag("thefehrs-learning-manager", "bank") || { total: 0 };
   }
 
   async setBank(bank: TimeBank): Promise<Actor> {
-    return await this.actor.setFlag(Settings.ID, "bank", bank);
+    return await this.actor.setFlag("thefehrs-learning-manager", "bank", bank);
   }
 
-  async update(data: any): Promise<Actor> {
-    return await this.actor.update(data);
+  async update(data: object): Promise<Actor> {
+    return await (this.actor as unknown as Actor).update(data);
   }
 
-  async createEmbeddedDocuments(type: string, data: any[]): Promise<any[]> {
-    return await (this.actor as any).createEmbeddedDocuments(type, data);
+  async createEmbeddedDocuments(type: string, data: object[]): Promise<any[]> {
+    return await (this.actor as unknown as Actor).createEmbeddedDocuments(
+      type as never,
+      data as never,
+    );
   }
 
   async deleteEmbeddedDocuments(type: string, ids: string[]): Promise<any[]> {
-    return await (this.actor as any).deleteEmbeddedDocuments(type, ids);
+    return await (this.actor as unknown as Actor).deleteEmbeddedDocuments(
+      type as never,
+      ids as never,
+    );
   }
 
   get currency(): { gp: number; sp: number; cp: number } {
-    const currency = (this.actor as DowntimeActor).system?.currency;
+    const currency = (this.actor as unknown as LearningActor).system?.currency;
     return {
       gp: currency?.gp ?? 0,
       sp: currency?.sp ?? 0,
@@ -66,7 +96,7 @@ export class ActorProxy {
   }
 
   async updateCurrency(currency: { gp: number; sp: number; cp: number }): Promise<Actor> {
-    return await this.actor.update({
+    return await (this.actor as unknown as Actor).update({
       system: {
         currency,
       },
@@ -74,6 +104,6 @@ export class ActorProxy {
   }
 
   static forActor(actor: Actor): ActorProxy {
-    return new ActorProxy(actor);
+    return new ActorProxy(actor as unknown as Actor5e);
   }
 }

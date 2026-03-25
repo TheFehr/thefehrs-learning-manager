@@ -1,3 +1,75 @@
+import type {
+  CharacterActorSystemData,
+  NPCActorSystemData,
+  GroupActorSystemData,
+  VehicleActorSystemData,
+} from "@dnd5e/data/actor/_types.mjs";
+import type {
+  FeatItemSystemData,
+  SpellItemSystemData,
+  ConsumableItemSystemData,
+  EquipmentItemSystemData,
+  ToolItemSystemData,
+  WeaponItemSystemData,
+  LootItemSystemData,
+  ClassItemSystemData,
+  SubclassItemSystemData,
+  RaceItemSystemData,
+  FacilityItemSystemData,
+  ContainerItemSystemData,
+} from "@dnd5e/data/item/_types.mjs";
+import type {
+  ActivationData,
+  DurationData,
+  RangeData,
+  TargetData,
+  UsesData,
+} from "@dnd5e/data/shared/_types.mjs";
+import type { ActivityData } from "@dnd5e/data/activity/_types.mjs";
+import type { Tidy5eSheetsApi } from "@tidy5e/api/Tidy5eSheetsApi.js";
+import type { ProjectFlagData, ProjectRequirement, ComparisonOperator } from "./project-item.js";
+
+// --- System Unions ---
+export type ActorSystem5e =
+  | CharacterActorSystemData
+  | NPCActorSystemData
+  | GroupActorSystemData
+  | VehicleActorSystemData;
+export type ItemSystem5e =
+  | FeatItemSystemData
+  | SpellItemSystemData
+  | ConsumableItemSystemData
+  | EquipmentItemSystemData
+  | ToolItemSystemData
+  | WeaponItemSystemData
+  | LootItemSystemData
+  | ClassItemSystemData
+  | SubclassItemSystemData
+  | RaceItemSystemData
+  | FacilityItemSystemData
+  | ContainerItemSystemData;
+
+// --- Augmented Documents ---
+
+// Import the official ModuleSubType if possible, or use a looser base
+export type Actor5e = Omit<Actor, "system"> & {
+  system: ActorSystem5e;
+};
+
+export type Item5e = Omit<Item, "system"> & {
+  system: ItemSystem5e;
+};
+
+/** Augmented ActivityData to allow null in visibility levels (standard dnd5e behavior) */
+export interface ActivityData5e extends Omit<ActivityData, "visibility"> {
+  visibility: Omit<ActivityData["visibility"], "level"> & {
+    level: {
+      min: number | null;
+      max: number | null;
+    };
+  };
+}
+
 export interface TimeUnit {
   id: string;
   name: string;
@@ -6,12 +78,16 @@ export interface TimeUnit {
   ratio: number;
 }
 
+export type NotificationLevel = "none" | "error" | "info" | "debug";
+
 export interface SystemRules {
   method: "direct" | "roll";
+  rollMode?: string;
   checkDC?: number;
   checkFormula?: string;
   critDoubleStrategy?: "any" | "all" | "never";
   critThreshold?: number;
+  notificationLevel?: NotificationLevel;
 }
 
 export interface GuidanceTier {
@@ -24,116 +100,102 @@ export interface GuidanceTier {
 }
 
 export type RewardType = "item" | "effect";
-export type ComparisonOperator = "===" | "!==" | ">" | ">=" | "<" | "<=" | "includes";
-
-export interface ProjectRequirement {
-  id: string;
-  attribute: string;
-  operator: ComparisonOperator;
-  value: string;
-}
-
-export interface ProjectTemplate {
-  id: string;
-  name: string;
-  target: number;
-  rewardUuid: string;
-  rewardType: RewardType;
-  requirements: ProjectRequirement[];
-}
-
-export interface LearningProject {
-  id: string;
-  templateId: string;
-  progress: number;
-  guidanceTierId: string;
-  isCompleted: boolean;
-}
 
 export interface TimeBank {
   total: number;
 }
 
-export interface DowntimeActor extends Actor {
-  system: Actor["system"] & {
+export type LearningActor = Omit<Actor5e, "system"> & {
+  system: CharacterActorSystemData & {
     currency: { gp: number; sp: number; cp: number };
   };
-}
+};
 
-export interface DowntimeGroupActor extends Actor {
-  system: Actor["system"] & { members: any[] };
-}
+export type DowntimeGroupActor = Omit<Actor5e, "system"> & {
+  system: GroupActorSystemData;
+};
+
+export type LearningProject = ProjectFlagData;
+
+export type { ProjectRequirement, ComparisonOperator, ProjectFlagData };
 
 declare global {
+  interface HookConfig {
+    "tidy5e-sheet.ready": (api: Tidy5eSheetsApi) => void;
+  }
+
+  interface CONFIG {
+    DND5E: {
+      featureTypes: Record<string, { label: string }>;
+    };
+    Dice: {
+      rollModes: Record<string, string | { label: string }>;
+    };
+  }
+
   interface SettingConfig {
     "thefehrs-learning-manager.rules": SystemRules;
     "thefehrs-learning-manager.timeUnits": TimeUnit[];
     "thefehrs-learning-manager.guidanceTiers": GuidanceTier[];
-    "thefehrs-learning-manager.projectTemplates": ProjectTemplate[];
-    "thefehrs-learning-manager.migrationVersion": number;
-  }
-
-  interface HookConfig {
-    "tidy5e-sheet.ready": [api: Tidy5eApi];
+    "thefehrs-learning-manager.allowedCompendiums": string[];
+    "thefehrs-learning-manager.projectTemplates": unknown[];
+    "thefehrs-learning-manager.migrationVersion": string;
   }
 
   interface FlagConfig {
     Actor: {
       "thefehrs-learning-manager": {
-        bank: TimeBank;
         projects: LearningProject[];
+        bank: TimeBank;
+      };
+    };
+    Item: {
+      "thefehrs-learning-manager": {
+        projectData: ProjectFlagData;
+        isLearningProject?: boolean;
+        isLearnedReward?: boolean;
+        stashedType?: string;
+        stashedEffects?: unknown[];
+        stashedActivities?: object;
+      };
+      "tidy5e-sheet": {
+        section?: string;
       };
     };
   }
 }
 
+// Re-export dnd5e types with original names if needed
+export type {
+  ActivationData as Activation,
+  DurationData as Duration,
+  RangeData as Range,
+  TargetData as Target,
+  UsesData as Uses,
+};
+
 // --- Tidy 5e Sheets API Types ---
+export type { Tidy5eSheetsApi as Tidy5eApi };
+
+export interface OnRenderParams {
+  app: unknown;
+  element: HTMLElement;
+  data: unknown;
+  isFullRender: boolean;
+}
+
+export interface OnRenderTabParams extends OnRenderParams {
+  tabContentsElement: HTMLElement;
+}
+
+export type Tidy5eTabRenderParams = OnRenderTabParams;
 
 export interface Tidy5eTabGetDataParams {
-  /** * The Foundry VTT Actor instance this sheet belongs to.
-   * Provided by the @league-of-foundry-developers/foundry-vtt-types package.
-   */
-  actor: Actor;
+  /** * The Foundry VTT Actor instance this sheet belongs to. */
+  actor: Actor5e;
 
   /** Any other contextual data Tidy5e passes down */
   [key: string]: unknown;
 }
 
-export interface Tidy5eTabRenderParams {
-  /** * The application instance rendering the sheet.
-   * We extend Foundry's base Application to include the specific properties Tidy5e attaches.
-   */
-  app: Application & {
-    document?: Actor;
-    actor?: Actor;
-  };
-
-  /** The standard DOM element wrapper for the rendered tab content */
-  element: HTMLElement;
-
-  /** The resolved data object returned by your getData function */
-  data: unknown;
-}
-
-export interface Tidy5eHandlebarsTabOptions {
-  title: string;
-  tabId: string;
-  path: string;
-  iconClass?: string;
-  getData?: (data: Tidy5eTabGetDataParams) => Promise<unknown> | unknown;
-  onRender?: (params: Tidy5eTabRenderParams) => void;
-}
-
-// Represents the instantiated tab object created by new api.models.HandlebarsTab()
-export interface Tidy5eRegisteredTab {
-  tabId: string;
-  // ... internal Tidy properties, strictly opaque to us
-}
-
-export interface Tidy5eApi {
-  registerCharacterTab: (tab: Tidy5eRegisteredTab) => void;
-  registerGroupTab: (tab: Tidy5eRegisteredTab) => void;
-  models: {
-    HandlebarsTab: new (options: Tidy5eHandlebarsTabOptions) => Tidy5eRegisteredTab;
-  };
-}
+export type ModuleSubType = string;

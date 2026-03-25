@@ -1,0 +1,17 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "skipLibCheck": true,
+    "outDir": "./external-dts/tidy-5e",
+    "baseUrl": ".",
+    "paths": {
+      "@tidy5e/*": ["./externals/tidy-5e/src/*"]
+    }
+  },
+  "include": ["externals/tidy-5e/src/**/*.ts"],
+  "exclude": ["externals/tidy-5e/src/**/*.svelte.ts"]
+}
