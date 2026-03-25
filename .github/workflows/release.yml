@@ -2,8 +2,15 @@ name: Release Module
 
 on:
   push:
+    branches:
+      - main
     tags:
       - "v*"
+  workflow_dispatch:
+
+concurrency:
+  group: release-${{ github.ref_name }}
+  cancel-in-progress: true
 
 jobs:
   build:
@@ -14,6 +21,9 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          submodules: recursive
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -24,6 +34,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Extract external types
+        run: npm run generate-types
+
       - name: Check Formatting
         run: npm run fmt:check
 
@@ -33,13 +46,39 @@ jobs:
       - name: Build the module
         run: npm run build
 
+      - name: Calculate Release Information
+        id: release-info
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            # Full Release
+            VERSION="${GITHUB_REF#refs/tags/}"
+            VERSION_CLEAN="${VERSION#v}"
+            URL="https://github.com/${{ github.repository }}"
+            echo "IS_BETA=false" >> $GITHUB_OUTPUT
+            echo "VERSION_CLEAN=$VERSION_CLEAN" >> $GITHUB_OUTPUT
+            echo "RELEASE_NAME=Release $VERSION" >> $GITHUB_OUTPUT
+            echo "RELEASE_TAG=$VERSION" >> $GITHUB_OUTPUT
+            echo "MANIFEST_URL=$URL/releases/latest/download/module.json" >> $GITHUB_OUTPUT
+            echo "DOWNLOAD_URL=$URL/releases/download/${VERSION}/thefehrs-learning-manager.zip" >> $GITHUB_OUTPUT
+          else
+            # Beta Release
+            VERSION=$(jq -r '.version' package.json)
+            BETA_TAG="v${VERSION}-beta"
+            URL="https://github.com/${{ github.repository }}"
+            echo "IS_BETA=true" >> $GITHUB_OUTPUT
+            echo "VERSION_CLEAN=${VERSION}-beta" >> $GITHUB_OUTPUT
+            echo "RELEASE_NAME=Beta Release $BETA_TAG" >> $GITHUB_OUTPUT
+            echo "RELEASE_TAG=latest-beta" >> $GITHUB_OUTPUT
+            echo "MANIFEST_URL=$URL/releases/download/latest-beta/module.json" >> $GITHUB_OUTPUT
+            echo "DOWNLOAD_URL=$URL/releases/download/latest-beta/thefehrs-learning-manager.zip" >> $GITHUB_OUTPUT
+          fi
+
       - name: Update module.json with release information
         run: |
-          VERSION="${GITHUB_REF#refs/tags/}"
-          VERSION_CLEAN="${VERSION#v}"
+          VERSION_CLEAN="${{ steps.release-info.outputs.VERSION_CLEAN }}"
+          MANIFEST="${{ steps.release-info.outputs.MANIFEST_URL }}"
+          DOWNLOAD="${{ steps.release-info.outputs.DOWNLOAD_URL }}"
           URL="https://github.com/${{ github.repository }}"
-          MANIFEST="${URL}/releases/latest/download/module.json"
-          DOWNLOAD="${URL}/releases/download/${VERSION}/thefehrs-learning-manager.zip"
 
           jq --arg version "$VERSION_CLEAN" \
              --arg url "$URL" \
@@ -54,6 +93,7 @@ jobs:
           zip -r ../thefehrs-learning-manager.zip ./*
 
       - name: Preflight checks
+        if: steps.release-info.outputs.IS_BETA == 'false'
         env:
           FOUNDRY_API_TOKEN: ${{ secrets.FOUNDRY_API_TOKEN }}
         run: |
@@ -71,18 +111,22 @@ jobs:
             exit 1
           fi
 
-      - name: Create GitHub Release
+      - name: Create or Update GitHub Release
         uses: ncipollo/release-action@v1
         with:
           allowUpdates: true
-          name: Release ${{ github.ref_name }}
+          name: ${{ steps.release-info.outputs.RELEASE_NAME }}
+          tag: ${{ steps.release-info.outputs.RELEASE_TAG }}
+          commit: ${{ github.sha }}
           draft: false
-          prerelease: false
+          prerelease: ${{ steps.release-info.outputs.IS_BETA == 'true' }}
+          makeLatest: ${{ steps.release-info.outputs.IS_BETA == 'false' }}
           token: ${{ secrets.GITHUB_TOKEN }}
           artifacts: "./thefehrs-learning-manager.zip, ./dist/module.json"
           generateReleaseNotes: true
 
       - name: Notify Foundry VTT Package Release
+        if: steps.release-info.outputs.IS_BETA == 'false'
         env:
           FOUNDRY_API_TOKEN: ${{ secrets.FOUNDRY_API_TOKEN }}
         run: |
