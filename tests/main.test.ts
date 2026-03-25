@@ -229,5 +229,30 @@ describe("LearningManager", () => {
       await new Promise((resolve) => setTimeout(resolve, 0));
       expect(ProjectEngine.initiateProjectFromItem).toHaveBeenCalledWith(memberActor, item);
     });
+
+    it("should return false when dropped on Group Sheet but member cannot be resolved", async () => {
+      const groupActor = { type: "group", id: "group1" } as any;
+      const data = { type: "Item", uuid: "Compendium.pack.Item.123" };
+
+      vi.mocked(game.settings.get).mockImplementation((_scope, key) => {
+        if (key === "allowedCompendiums") return ["pack.Item"];
+        return null;
+      });
+
+      // Mock DOM and Event - target returns null for all closest calls
+      const mockTarget = {
+        closest: vi.fn().mockReturnValue(null),
+      };
+      (window as any).event = { target: mockTarget };
+
+      LearningManager.init();
+      const dropHook = vi.mocked(Hooks.on).mock.calls.find((c) => c[0] === "dropActorSheetData");
+
+      expect(dropHook).toBeDefined();
+      const result = await dropHook![1](groupActor, {}, data);
+
+      expect(result).toBe(false);
+      expect(ProjectEngine.initiateProjectFromItem).not.toHaveBeenCalled();
+    });
   });
 });
