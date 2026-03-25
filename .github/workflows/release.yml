@@ -69,10 +69,10 @@ jobs:
           else
             # Beta Release
             VERSION=$(jq -r '.version' package.json)
-            BETA_TAG="v${VERSION}-beta"
+            BETA_TAG="v${VERSION}-beta.${{ github.run_number }}"
             URL="https://github.com/${{ github.repository }}"
             echo "IS_BETA=true" >> $GITHUB_OUTPUT
-            echo "VERSION_CLEAN=${VERSION}-beta" >> $GITHUB_OUTPUT
+            echo "VERSION_CLEAN=${VERSION}-beta.${{ github.run_number }}" >> $GITHUB_OUTPUT
             echo "RELEASE_NAME=Beta Release $BETA_TAG" >> $GITHUB_OUTPUT
             echo "RELEASE_TAG=latest-beta" >> $GITHUB_OUTPUT
             echo "MANIFEST_URL=$URL/releases/download/latest-beta/module.json" >> $GITHUB_OUTPUT
