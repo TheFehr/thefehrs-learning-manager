@@ -55,6 +55,7 @@ jobs:
         with:
           fetch-depth: 0
           submodules: recursive
+          persist-credentials: false
 
       - name: Setup Node.js
         uses: actions/setup-node@v6
@@ -211,4 +212,5 @@ jobs:
           fi
 
           echo "Success: HTTP status $HTTP_STATUS"
+          echo "Response Body: $BODY"
           echo "Response Body: $BODY"
