@@ -18,12 +18,12 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           fetch-depth: 0
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
         with:
           node-version: "20"
           cache: "npm"
@@ -69,7 +69,7 @@ jobs:
           zip -r ../thefehrs-learning-manager.zip ./*
 
       - name: Create or Update GitHub Pre-Release
-        uses: ncipollo/release-action@v1
+        uses: ncipollo/release-action@2c591bcc8ecdcd2db72b97d6147f871fcd833ba5 # v1.14.0
         with:
           allowUpdates: true
           name: Beta Release ${{ steps.vars.outputs.BETA_TAG }}
