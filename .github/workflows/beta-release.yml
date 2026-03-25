@@ -69,7 +69,7 @@ jobs:
           zip -r ../thefehrs-learning-manager.zip ./*
 
       - name: Create or Update GitHub Pre-Release
-        uses: ncipollo/release-action@2c779736866f050d4174484c74595606d73352b2 # v1.14.0
+        uses: ncipollo/release-action@2c591bcc8ecdcd2db72b97d6147f871fcd833ba5 # v1.14.0
         with:
           allowUpdates: true
           name: Beta Release ${{ steps.vars.outputs.BETA_TAG }}
