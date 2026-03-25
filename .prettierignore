@@ -1,0 +1,5 @@
+externals/
+dist/
+node_modules/
+external-types/
+external-dts/

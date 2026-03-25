@@ -8,7 +8,14 @@
     "skipLibCheck": true,
     "esModuleInterop": true,
     "noEmit": true,
-    "types": ["@league-of-foundry-developers/foundry-vtt-types", "handlebars"]
+    "types": ["@league-of-foundry-developers/foundry-vtt-types"],
+    "baseUrl": ".",
+    "paths": {
+      "@dnd5e/*": ["./external-dts/dnd5e/*"],
+      "@tidy5e/*": ["./external-dts/tidy-5e/*"]
+    },
+    "allowJs": true
   },
-  "include": ["src/**/*"]
+  "include": ["src/**/*"],
+  "exclude": ["externals/tidy-5e/**"]
 }
