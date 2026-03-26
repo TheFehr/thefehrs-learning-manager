@@ -1,0 +1,50 @@
+name: "Setup and Cache"
+description: "Calculates submodule hashes, manages build caching, and conditionally installs dependencies and extracts types"
+inputs:
+  lockfile-path:
+    description: "The path to the node lockfile"
+    required: false
+    default: "package-lock.json"
+  scripts-path:
+    description: "The path or glob for script files"
+    required: false
+    default: "scripts/**"
+  node-version:
+    description: "The Node.js version to use in the cache key"
+    required: false
+    default: "20"
+outputs:
+  cache-hit:
+    description: "Whether the cache was hit"
+    value: ${{ steps.cache-build.outputs.cache-hit }}
+runs:
+  using: "composite"
+  steps:
+    - name: Calculate Submodule Hashes
+      shell: bash
+      run: git submodule status > .submodules-hash
+
+    - name: Cache Node Modules and Generated Types
+      id: cache-build
+      uses: actions/cache@v4
+      with:
+        path: |
+          node_modules
+          external-types
+          external-dts
+        key: ${{ runner.os }}-node${{ inputs.node-version }}-build-${{ hashFiles(inputs.lockfile-path, inputs.scripts-path, '.submodules-hash', '.gitmodules', 'tsconfig*.json') }}
+
+    - name: Checkout Submodules
+      if: steps.cache-build.outputs.cache-hit != 'true'
+      shell: bash
+      run: git submodule update --init --recursive
+
+    - name: Install dependencies
+      if: steps.cache-build.outputs.cache-hit != 'true'
+      shell: bash
+      run: npm ci
+
+    - name: Extract external types
+      if: steps.cache-build.outputs.cache-hit != 'true'
+      shell: bash
+      run: npm run generate-types
