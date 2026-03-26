@@ -7,6 +7,7 @@ import {
   ProjectItem,
 } from "./project-item.js";
 import type { Actor5e, Item5e, ActivityData5e, LearningActor } from "./types.js";
+import { Socket } from "./core/socket";
 
 export class ProjectEngine {
   /**
@@ -611,6 +612,41 @@ export class ProjectEngine {
   }
 
   /**
+   * Executed on every client when the signal is received.
+   */
+  static async handleAutoTrainSignal() {
+    // Correctly proxying through your Settings class
+    const autoSpendEnabled = Settings.get("autoSpend");
+
+    // GMs don't auto-train, and users must have the setting on
+    if (!autoSpendEnabled || game.user?.isGM) return;
+
+    const actor = game.user.character;
+
+    // Find active learning projects on the active character
+    const projects = actor.items.filter((i) => i.getFlag(Settings.ID, "isLearningProject"));
+
+    // Only auto-train if there is exactly one project
+    if (projects.length === 1) {
+      const project = projects[0];
+
+      // Find the specific training activity
+      const activity = (project.system as any).activities?.find(
+        (a: any) => a.flags?.[Settings.ID]?.isLearningActivity,
+      );
+
+      if (activity) {
+        // This triggers the roll on the player's screen
+        await this.processTraining(activity);
+      }
+    } else if (autoSpendEnabled && projects.length > 1) {
+      ui.notifications?.warn(
+        "Downtime Engine | You have auto-spending enabled, but more than one active project. Please open you character sheet and spend the time yourself.",
+      );
+    }
+  }
+
+  /**
    * Iterates through all actors and regenerates activities for all learning projects.
    * Useful when time units change in settings.
    */
@@ -633,5 +669,12 @@ export class ProjectEngine {
     }
 
     ui.notifications?.info(`Downtime Engine | Synced activities for ${updatedCount} items.`);
+  }
+
+  /**
+   * GM triggers this when granting time to the party.
+   */
+  static signalTimeDistribution() {
+    Socket.emitSignal("timeGrantedSignal");
   }
 }

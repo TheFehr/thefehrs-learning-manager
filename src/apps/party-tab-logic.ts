@@ -58,6 +58,7 @@ export class PartyTabLogic {
       speaker: { alias: "Downtime System" },
       content: `${actionWord} <strong>${formattedTime}</strong> ${preposition} ${successCount} characters.`,
     });
+    ProjectEngine.signalTimeDistribution();
   }
 
   /**

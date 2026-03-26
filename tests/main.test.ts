@@ -3,6 +3,7 @@ import { LearningManager } from "../src/LearningManager";
 import { TabLogic } from "../src/tab-logic";
 import { ActorProxy } from "../src/actor-proxy";
 import { ProjectEngine } from "../src/project-engine";
+import { Socket } from "../src/core/socket";
 import type { TimeUnit } from "../src/types";
 
 vi.mock("../src/project-engine", () => ({
@@ -12,6 +13,7 @@ vi.mock("../src/project-engine", () => ({
     syncAllProjectActivities: vi.fn(),
     getActivitiesData: vi.fn().mockReturnValue([]),
     injectActivities: vi.fn().mockResolvedValue(undefined),
+    handleAutoTrainSignal: vi.fn(),
   },
 }));
 
@@ -135,6 +137,25 @@ describe("LearningManager", () => {
         uuid: "Item.weapon1",
       };
       expect(enabled({ item: regularItem })).toBe(false);
+    });
+  });
+
+  describe("ready", () => {
+    it("should initialize Socket listener and handle signals", async () => {
+      const listenSpy = vi.spyOn(Socket, "listen").mockImplementation(() => {});
+      const handleSignalSpy = vi
+        .spyOn(ProjectEngine, "handleAutoTrainSignal")
+        .mockResolvedValue(undefined);
+
+      LearningManager.ready();
+
+      expect(listenSpy).toHaveBeenCalled();
+
+      // Simulate receiving a signal
+      const handler = listenSpy.mock.calls[0][0];
+      await handler({ type: "timeGrantedSignal", data: null });
+
+      expect(handleSignalSpy).toHaveBeenCalled();
     });
   });
 

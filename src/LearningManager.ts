@@ -23,6 +23,7 @@ import PartyTab from "./apps/tabs/PartyTab.svelte";
 import { PartyTab as PartyTabLogic } from "./party-tab.js";
 import ItemTargetConfig from "./apps/tabs/ItemTargetConfig.svelte";
 import TimeBankBar from "./apps/components/TimeBankBar.svelte";
+import { Socket } from "./core/socket";
 
 export class LearningManager {
   static ID = "thefehrs-learning-manager" as const;
@@ -40,6 +41,15 @@ export class LearningManager {
       icon: "fas fa-cogs",
       type: LearningConfigApp,
       restricted: true,
+    });
+  }
+
+  static ready() {
+    console.debug("Downtime Engine | Initialized");
+    Socket.listen(async (message) => {
+      if (message.type === "timeGrantedSignal") {
+        await ProjectEngine.handleAutoTrainSignal();
+      }
     });
   }
 
@@ -107,6 +117,14 @@ export class LearningManager {
       config: false,
       type: String,
       default: "0",
+    });
+
+    // Player settings
+    Settings.register("autoSpend", {
+      scope: "user",
+      config: true,
+      type: Boolean,
+      default: false,
     });
   }
 

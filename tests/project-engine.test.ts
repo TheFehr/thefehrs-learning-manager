@@ -3,6 +3,7 @@ import { ProjectEngine } from "../src/project-engine";
 import { Settings } from "../src/core/settings";
 import { LearningManager } from "../src/LearningManager";
 import { TabLogic } from "../src/tab-logic";
+import { Socket } from "../src/core/socket";
 
 vi.mock("../src/tab-logic", () => ({
   TabLogic: {
@@ -520,6 +521,102 @@ describe("ProjectEngine", () => {
       vi.spyOn(Settings, "timeUnits", "get").mockReturnValue(timeUnits);
       const data = ProjectEngine.getActivitiesData(10);
       expect(data).toHaveLength(2);
+    });
+  });
+
+  describe("signalTimeDistribution", () => {
+    it("should emit timeGrantedSignal via Socket", () => {
+      const emitSpy = vi.spyOn(Socket, "emitSignal").mockImplementation(() => {});
+
+      ProjectEngine.signalTimeDistribution();
+
+      expect(emitSpy).toHaveBeenCalledWith("timeGrantedSignal");
+    });
+  });
+
+  describe("handleAutoTrainSignal", () => {
+    let mockActor: any;
+    let mockUser: any;
+
+    beforeEach(() => {
+      mockActor = {
+        items: {
+          filter: vi.fn(),
+        },
+      };
+      mockUser = {
+        isGM: false,
+        character: mockActor,
+      };
+      global.game.user = mockUser;
+      global.ui = { notifications: { warn: vi.fn() } } as any;
+
+      vi.spyOn(Settings, "get").mockImplementation((key) => {
+        if (key === "autoSpend") return true;
+        return null;
+      });
+    });
+
+    it("should do nothing if autoSpend is disabled", async () => {
+      vi.spyOn(Settings, "get").mockReturnValue(false);
+      const filterSpy = mockActor.items.filter;
+
+      await ProjectEngine.handleAutoTrainSignal();
+
+      expect(filterSpy).not.toHaveBeenCalled();
+    });
+
+    it("should do nothing if user is GM", async () => {
+      mockUser.isGM = true;
+      const filterSpy = mockActor.items.filter;
+
+      await ProjectEngine.handleAutoTrainSignal();
+
+      expect(filterSpy).not.toHaveBeenCalled();
+    });
+
+    it("should trigger processTraining if exactly one project is found", async () => {
+      const mockProject = {
+        system: {
+          activities: [
+            {
+              flags: {
+                "thefehrs-learning-manager": {
+                  isLearningActivity: true,
+                },
+              },
+            },
+          ],
+        },
+      };
+      mockActor.items.filter.mockReturnValue([mockProject]);
+      const processSpy = vi.spyOn(ProjectEngine, "processTraining").mockResolvedValue(true);
+
+      await ProjectEngine.handleAutoTrainSignal();
+
+      expect(processSpy).toHaveBeenCalledWith(mockProject.system.activities[0]);
+    });
+
+    it("should warn if more than one project is found and autoSpend is true", async () => {
+      mockActor.items.filter.mockReturnValue([{}, {}]);
+      const processSpy = vi.spyOn(ProjectEngine, "processTraining");
+
+      await ProjectEngine.handleAutoTrainSignal();
+
+      expect(processSpy).not.toHaveBeenCalled();
+      expect(ui.notifications.warn).toHaveBeenCalledWith(
+        expect.stringContaining("more than one active project"),
+      );
+    });
+
+    it("should do nothing if no project is found", async () => {
+      mockActor.items.filter.mockReturnValue([]);
+      const processSpy = vi.spyOn(ProjectEngine, "processTraining");
+
+      await ProjectEngine.handleAutoTrainSignal();
+
+      expect(processSpy).not.toHaveBeenCalled();
+      expect(ui.notifications.warn).not.toHaveBeenCalled();
     });
   });
 });

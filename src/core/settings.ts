@@ -58,6 +58,10 @@ export class Settings {
     await this.settings.set(this.ID, "allowedCompendiums", value);
   }
 
+  static get<T = unknown>(key: string): T {
+    return this.settings.get(this.ID, key) as any as T;
+  }
+
   static async set<K extends string>(key: K, value: unknown): Promise<void> {
     // @ts-expect-error - Bypassing strict key check for generic setter
     await this.settings.set(this.ID, key as never, value);

@@ -3,6 +3,6 @@ import { migrateData } from "./migrations/migration.js";
 
 Hooks.once("init", () => LearningManager.init());
 Hooks.once("ready", async () => {
-  console.debug("Downtime Engine | Initialized");
+  LearningManager.ready();
   await migrateData();
 });
