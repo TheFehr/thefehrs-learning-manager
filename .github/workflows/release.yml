@@ -15,6 +15,9 @@ concurrency:
   group: pipeline-${{ github.ref_name }}
   cancel-in-progress: true
 
+env:
+  NODE_VERSION: "20"
+
 jobs:
   test:
     runs-on: ubuntu-latest
@@ -29,12 +32,14 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: "20"
+          node-version: ${{ env.NODE_VERSION }}
           cache: "npm"
 
       - name: Setup and Cache
         id: setup-and-cache
         uses: ./.github/actions/setup-and-cache
+        with:
+          node-version: ${{ env.NODE_VERSION }}
 
       - name: Check Formatting
         run: npm run fmt:check
@@ -62,12 +67,14 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
-          node-version: "20"
+          node-version: ${{ env.NODE_VERSION }}
           cache: "npm"
 
       - name: Setup and Cache
         id: setup-and-cache
         uses: ./.github/actions/setup-and-cache
+        with:
+          node-version: ${{ env.NODE_VERSION }}
 
       - name: Build the module
         run: npm run build

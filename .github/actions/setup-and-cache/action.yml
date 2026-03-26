@@ -9,6 +9,10 @@ inputs:
     description: "The path or glob for script files"
     required: false
     default: "scripts/**"
+  node-version:
+    description: "The Node.js version to use in the cache key"
+    required: false
+    default: "20"
 outputs:
   cache-hit:
     description: "Whether the cache was hit"
@@ -28,7 +32,7 @@ runs:
           node_modules
           external-types
           external-dts
-        key: ${{ runner.os }}-node20-build-${{ hashFiles(inputs.lockfile-path, inputs.scripts-path, '.submodules-hash', '.gitmodules', 'tsconfig*.json') }}
+        key: ${{ runner.os }}-node${{ inputs.node-version }}-build-${{ hashFiles(inputs.lockfile-path, inputs.scripts-path, '.submodules-hash', '.gitmodules', 'tsconfig*.json') }}
 
     - name: Checkout Submodules
       if: steps.cache-build.outputs.cache-hit != 'true'
