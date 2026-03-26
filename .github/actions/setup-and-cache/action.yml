@@ -1,20 +1,20 @@
-name: 'Setup and Cache'
-description: 'Calculates submodule hashes, manages build caching, and conditionally installs dependencies and extracts types'
+name: "Setup and Cache"
+description: "Calculates submodule hashes, manages build caching, and conditionally installs dependencies and extracts types"
 inputs:
   lockfile-path:
-    description: 'The path to the node lockfile'
+    description: "The path to the node lockfile"
     required: false
-    default: 'package-lock.json'
+    default: "package-lock.json"
   scripts-path:
-    description: 'The path or glob for script files'
+    description: "The path or glob for script files"
     required: false
-    default: 'scripts/**'
+    default: "scripts/**"
 outputs:
   cache-hit:
-    description: 'Whether the cache was hit'
+    description: "Whether the cache was hit"
     value: ${{ steps.cache-build.outputs.cache-hit }}
 runs:
-  using: 'composite'
+  using: "composite"
   steps:
     - name: Calculate Submodule Hashes
       shell: bash
