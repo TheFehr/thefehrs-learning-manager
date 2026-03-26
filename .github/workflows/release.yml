@@ -107,8 +107,8 @@ jobs:
             LAST_TAG=$(git describe --tags --abbrev=0 --exclude=latest-beta 2>/dev/null || echo "")
             
             if [ -n "$LAST_TAG" ]; then
-              CHANGELOG=$(git log ${LAST_TAG}..HEAD --oneline --no-merges --reverse | sed 's/^[a-f0-9]\+ /- /')
-              CHANGELOG_FULL="## Changes since $LAST_TAG\n\n$CHANGELOG\n\n**Full Changelog**: $URL/compare/$LAST_TAG...latest-beta"
+              CHANGELOG=$(git log ${LAST_TAG}..HEAD --oneline --no-merges --reverse | sed 's/^[[:xdigit:]]\+ /- /')
+              CHANGELOG_FULL=$(printf "## Changes since %s\n\n%s\n\n**Full Changelog**: %s/compare/%s...latest-beta" "$LAST_TAG" "$CHANGELOG" "$URL" "$LAST_TAG")
             else
               CHANGELOG_FULL="First Beta Release"
             fi
@@ -121,7 +121,7 @@ jobs:
             echo "DOWNLOAD_URL=$URL/releases/download/latest-beta/thefehrs-learning-manager.zip" >> $GITHUB_OUTPUT
             
             # Populate release notes for beta release
-            echo -e "$CHANGELOG_FULL" > release_notes.md
+            printf '%s\n' "$CHANGELOG_FULL" > release_notes.md
           fi
 
       - name: Update module.json with release information
