@@ -4,12 +4,14 @@ import { Settings } from "../src/core/settings";
 import { LearningManager } from "../src/LearningManager";
 import { TabLogic } from "../src/tab-logic";
 import { Socket } from "../src/core/socket";
+import { ActorProxy } from "../src/actor-proxy";
 
 vi.mock("../src/tab-logic", () => ({
   TabLogic: {
     computeProgress: vi.fn().mockResolvedValue({ progressGained: 1 }),
     deductCurrency: vi.fn().mockResolvedValue(true),
     formatCurrency: vi.fn().mockReturnValue("1gp"),
+    formatTimeBank: vi.fn().mockReturnValue("1h"),
   },
 }));
 
@@ -520,7 +522,9 @@ describe("ProjectEngine", () => {
     it("should return activities for positive target", () => {
       vi.spyOn(Settings, "timeUnits", "get").mockReturnValue(timeUnits);
       const data = ProjectEngine.getActivitiesData(10);
-      expect(data).toHaveLength(2);
+      expect(data).toHaveLength(3);
+      expect(data[2].name).toBe("Spend all time");
+      expect(data[2].flags["thefehrs-learning-manager"].isSpendAll).toBe(true);
     });
   });
 
@@ -531,6 +535,74 @@ describe("ProjectEngine", () => {
       ProjectEngine.signalTimeDistribution();
 
       expect(emitSpy).toHaveBeenCalledWith("timeGrantedSignal");
+    });
+  });
+
+  describe("processSpendAll", () => {
+    it("should ask for confirmation when manual", async () => {
+      const item = new Item() as any;
+      const actor = new Actor() as any;
+      item.actor = actor;
+      item.system = {
+        activities: [
+          {
+            flags: {
+              "thefehrs-learning-manager": {
+                isLearningActivity: true,
+                timeUnitId: "hour",
+              },
+            },
+          },
+        ],
+      };
+
+      const mockProxy = { bank: { total: 10 } };
+      vi.spyOn(ActorProxy, "forActor").mockReturnValue(mockProxy as any);
+      vi.spyOn(Settings, "timeUnits", "get").mockReturnValue([
+        { id: "hour", name: "Hour", ratio: 1 } as any,
+      ]);
+
+      const confirmSpy = vi
+        .mocked(foundry.applications.api.DialogV2.confirm)
+        .mockResolvedValue(false);
+
+      const result = await ProjectEngine.processSpendAll(item);
+
+      expect(confirmSpy).toHaveBeenCalled();
+      expect(result).toBe(false);
+    });
+
+    it("should iterate and call processTraining for fitting activities", async () => {
+      const actor = new Actor() as any;
+      const item = new Item() as any;
+      item.id = "proj1";
+      item.actor = actor;
+      item.system = {
+        activities: [
+          {
+            flags: {
+              "thefehrs-learning-manager": { isLearningActivity: true, timeUnitId: "hour" },
+            },
+          },
+        ],
+      };
+
+      const mockProxy = { bank: { total: 2 } };
+      vi.spyOn(ActorProxy, "forActor").mockReturnValue(mockProxy as any);
+      vi.mocked(foundry.applications.api.DialogV2.confirm).mockResolvedValue(true);
+
+      const processSpy = vi.spyOn(ProjectEngine, "processTraining").mockImplementation(async () => {
+        mockProxy.bank.total -= 1;
+        return true;
+      });
+
+      actor.items.get = vi.fn().mockReturnValue(item);
+      item.getFlag = vi.fn().mockReturnValue({ isCompleted: false });
+
+      const result = await ProjectEngine.processSpendAll(item);
+
+      expect(result).toBe(true);
+      expect(processSpy).toHaveBeenCalledTimes(2);
     });
   });
 
@@ -553,12 +625,17 @@ describe("ProjectEngine", () => {
 
       vi.spyOn(Settings, "get").mockImplementation((key) => {
         if (key === "autoSpend") return true;
+        if (key === "autoSpendUnits") return "hour,day,week";
         return null;
       });
     });
 
     it("should do nothing if autoSpend is disabled", async () => {
-      vi.spyOn(Settings, "get").mockReturnValue(false);
+      vi.spyOn(Settings, "get").mockImplementation((key) => {
+        if (key === "autoSpend") return false;
+        if (key === "autoSpendUnits") return "hour,day,week";
+        return null;
+      });
       const filterSpy = mockActor.items.filter;
 
       await ProjectEngine.handleAutoTrainSignal();
@@ -575,35 +652,23 @@ describe("ProjectEngine", () => {
       expect(filterSpy).not.toHaveBeenCalled();
     });
 
-    it("should trigger processTraining if exactly one project is found", async () => {
-      const mockProject = {
-        system: {
-          activities: [
-            {
-              flags: {
-                "thefehrs-learning-manager": {
-                  isLearningActivity: true,
-                },
-              },
-            },
-          ],
-        },
-      };
+    it("should call processSpendAll if exactly one project is found", async () => {
+      const mockProject = { id: "proj1" };
       mockActor.items.filter.mockReturnValue([mockProject]);
-      const processSpy = vi.spyOn(ProjectEngine, "processTraining").mockResolvedValue(true);
+      const spendAllSpy = vi.spyOn(ProjectEngine, "processSpendAll").mockResolvedValue(true);
 
       await ProjectEngine.handleAutoTrainSignal();
 
-      expect(processSpy).toHaveBeenCalledWith(mockProject.system.activities[0]);
+      expect(spendAllSpy).toHaveBeenCalledWith(mockProject, ["hour", "day", "week"]);
     });
 
     it("should warn if more than one project is found and autoSpend is true", async () => {
       mockActor.items.filter.mockReturnValue([{}, {}]);
-      const processSpy = vi.spyOn(ProjectEngine, "processTraining");
+      const spendAllSpy = vi.spyOn(ProjectEngine, "processSpendAll");
 
       await ProjectEngine.handleAutoTrainSignal();
 
-      expect(processSpy).not.toHaveBeenCalled();
+      expect(spendAllSpy).not.toHaveBeenCalled();
       expect(ui.notifications.warn).toHaveBeenCalledWith(
         expect.stringContaining("more than one active project"),
       );

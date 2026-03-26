@@ -9,11 +9,15 @@
   let guidanceTiers = $state<GuidanceTier[]>(Settings.guidanceTiers);
   let allowedCompendiums = $state<string[]>(Settings.allowedCompendiums);
 
+  // User Preferences
+  let autoSpend = $state<boolean>(Settings.get("autoSpend"));
+  let autoSpendUnits = $state<string>(Settings.get("autoSpendUnits") || "");
+
   // Computed / Constant
   const availablePacks = getAvailablePacks();
 
   async function save() {
-    await saveSettings(rules, timeUnits, guidanceTiers, allowedCompendiums);
+    await saveSettings(rules, timeUnits, guidanceTiers, allowedCompendiums, autoSpend, autoSpendUnits);
   }
 
   function addTimeUnit() {
@@ -248,6 +252,23 @@
     <button type="button" class="tidy-button" onclick={addTier}>
       <i class="fas fa-plus"></i> Add Tier
     </button>
+  </section>
+
+  <hr />
+
+  <section>
+    <h3>User Preferences</h3>
+    <div class="form-group">
+      <label for="auto-spend">Auto-spend granted time</label>
+      <input id="auto-spend" type="checkbox" bind:checked={autoSpend} />
+    </div>
+    <p class="notes">If enabled, granted time will be automatically spent on your active project.</p>
+    
+    <div class="form-group">
+      <label for="auto-spend-units">Allowed Units</label>
+      <input id="auto-spend-units" type="text" bind:value={autoSpendUnits} placeholder="hour,day,week" />
+    </div>
+    <p class="notes">Comma-separated IDs of time units to auto-spend (e.g., "hour,day").</p>
   </section>
 
   <div class="footer-actions">

@@ -126,6 +126,12 @@ export class LearningManager {
       type: Boolean,
       default: false,
     });
+    Settings.register("autoSpendUnits", {
+      scope: "user",
+      config: true,
+      type: String,
+      default: "hour,day,week",
+    });
   }
 
   private static registerConfigExpansions() {

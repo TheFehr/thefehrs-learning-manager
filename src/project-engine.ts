@@ -144,7 +144,7 @@ export class ProjectEngine {
     if (target <= 0) return [];
 
     const timeUnits = Settings.timeUnits;
-    return timeUnits.map((tu) => ({
+    const activities: ActivityData5e[] = timeUnits.map((tu) => ({
       _id: "", // Will be assigned by foundry
       img: "icons/svg/book.svg",
       sort: 0,
@@ -226,6 +226,92 @@ export class ProjectEngine {
       },
       name: `Train ${tu.name}`,
     }));
+
+    // Add "Spend all" activity
+    activities.push({
+      _id: "",
+      img: "icons/svg/book-open.svg",
+      sort: 100,
+      override: false,
+      concentration: false,
+      prompt: false,
+      type: "utility",
+      activation: {
+        type: "special",
+        override: false,
+        condition: "",
+        value: 1,
+      },
+      consumption: {
+        value: "1",
+        scaling: {
+          allowed: false,
+          max: "",
+        },
+        spellSlot: false,
+        targets: [],
+      },
+      description: {
+        chatFlavor: "Spending all available training time",
+      },
+      duration: {
+        value: "1",
+        units: "perm",
+        concentration: false,
+        override: false,
+        special: "",
+      },
+      effects: [],
+      flags: {
+        "thefehrs-learning-manager": {
+          isLearningActivity: true,
+          isSpendAll: true,
+        },
+      },
+      range: {
+        value: "0",
+        units: "self",
+        override: false,
+        special: "",
+      },
+      target: {
+        template: {
+          count: "1",
+          size: "0",
+          width: "0",
+          height: "0",
+          contiguous: false,
+          units: "ft",
+          type: "",
+        },
+        affects: {
+          count: "1",
+          choice: false,
+          type: "",
+          special: "",
+        },
+        override: false,
+        prompt: false,
+      },
+      uses: {
+        spent: 0,
+        recovery: [],
+        max: "",
+      },
+      visibility: {
+        identifier: "",
+        level: {
+          min: null,
+          max: null,
+        },
+        requireAttunement: false,
+        requireIdentification: false,
+        requireMagic: false,
+      },
+      name: "Spend all time",
+    } as any);
+
+    return activities;
   }
 
   /**
@@ -401,15 +487,90 @@ export class ProjectEngine {
   }
 
   /**
+   * Processes spending all available training time from largest to smallest unit.
+   */
+  static async processSpendAll(item: Item5e, allowedUnitIds?: string[]) {
+    const actor = item.actor;
+    if (!actor) return false;
+
+    const proxy = ActorProxy.forActor(actor as unknown as Actor);
+    const bank = proxy.bank;
+    if (!bank.total || bank.total <= 0) {
+      if (!allowedUnitIds) ui.notifications?.warn("No training time in your bank!");
+      return false;
+    }
+
+    const activities = Array.from((item.system as any).activities || [])
+      .filter(
+        (a: any) =>
+          a.flags?.[Settings.ID]?.isLearningActivity && !a.flags?.[Settings.ID]?.isSpendAll,
+      )
+      .map((a: any) => {
+        const unitId = a.flags?.[Settings.ID]?.timeUnitId;
+        const unit = Settings.timeUnits.find((u) => u.id === unitId);
+        return { activity: a, ratio: unit?.ratio || 0, unitId, name: unit?.name };
+      })
+      .filter((a: any) => a.ratio > 0 && (!allowedUnitIds || allowedUnitIds.includes(a.unitId)))
+      .sort((a: any, b: any) => b.ratio - a.ratio);
+
+    if (activities.length === 0) {
+      if (!allowedUnitIds)
+        ui.notifications?.warn("No valid training activities found for this project.");
+      return false;
+    }
+
+    // If manual (no allowedUnitIds), ask for confirmation
+    if (!allowedUnitIds) {
+      const { TabLogic } = await import("./tab-logic.js");
+      const formattedTime = TabLogic.formatTimeBank(bank.total, Settings.timeUnits);
+      const confirmed = await (foundry.applications.api as any).DialogV2.confirm({
+        window: { title: "Confirm Spend All Time" },
+        content: `<p>Are you sure you want to spend <b>all</b> your available training time (<b>${formattedTime}</b>) on <b>${item.name}</b>?</p>`,
+        rejectClose: false,
+        modal: true,
+      });
+      if (!confirmed) return false;
+    }
+
+    let iterations = 0;
+    const maxIterations = 100;
+    let anySuccess = false;
+
+    while (iterations < maxIterations) {
+      const currentBank = proxy.bank.total || 0;
+      const fitting = activities.find((a: any) => a.ratio <= currentBank);
+
+      if (!fitting) break;
+
+      const result = await this.processTraining(fitting.activity);
+      if (!result) break;
+      anySuccess = true;
+
+      const updatedProject = actor.items.get(item.id);
+      const isCompleted = updatedProject?.getFlag(Settings.ID, "projectData")?.isCompleted;
+      if (isCompleted) break;
+
+      iterations++;
+    }
+
+    return anySuccess;
+  }
+
+  /**
    * Processes a training session for a project.
    * @param learningActivity The activity data to process.
    * @returns A promise that resolves to true if the training was processed successfully, false otherwise.
    */
   static async processTraining(learningActivity: LearningActivityData): Promise<boolean> {
-    const item = learningActivity.item;
+    const item = learningActivity.item as unknown as Item5e;
 
     const actor = item.actor;
     if (!actor) return false;
+
+    // Handle "Spend all" activity
+    if ((learningActivity as any).flags?.[Settings.ID]?.isSpendAll) {
+      return await this.processSpendAll(item);
+    }
 
     const projectDataFlags = item.getFlag("thefehrs-learning-manager", "projectData");
     if (!projectDataFlags.target || projectDataFlags.target <= 0) {
@@ -617,11 +778,14 @@ export class ProjectEngine {
   static async handleAutoTrainSignal() {
     // Correctly proxying through your Settings class
     const autoSpendEnabled = Settings.get("autoSpend");
+    const autoSpendUnitsRaw = Settings.get<string>("autoSpendUnits") || "";
+    const allowedUnits = autoSpendUnitsRaw.split(",").map((u) => u.trim());
 
     // GMs don't auto-train, and users must have the setting on
     if (!autoSpendEnabled || game.user?.isGM) return;
 
     const actor = game.user.character;
+    if (!actor) return;
 
     // Find active learning projects on the active character
     const projects = actor.items.filter((i) => i.getFlag(Settings.ID, "isLearningProject"));
@@ -629,16 +793,7 @@ export class ProjectEngine {
     // Only auto-train if there is exactly one project
     if (projects.length === 1) {
       const project = projects[0];
-
-      // Find the specific training activity
-      const activity = (project.system as any).activities?.find(
-        (a: any) => a.flags?.[Settings.ID]?.isLearningActivity,
-      );
-
-      if (activity) {
-        // This triggers the roll on the player's screen
-        await this.processTraining(activity);
-      }
+      await this.processSpendAll(project as unknown as Item5e, allowedUnits);
     } else if (autoSpendEnabled && projects.length > 1) {
       ui.notifications?.warn(
         "Downtime Engine | You have auto-spending enabled, but more than one active project. Please open you character sheet and spend the time yourself.",
