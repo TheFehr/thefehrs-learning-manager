@@ -27,5 +27,6 @@
     ]
   },
   "esmodules": ["main.js"],
-  "styles": ["main.css"]
+  "styles": ["main.css"],
+  "socket": true
 }

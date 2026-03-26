@@ -93,7 +93,11 @@ globalThis.game = {
   i18n: {
     localize: vi.fn((key: string) => key),
   },
-  user: { isGM: false },
+  user: { isGM: true },
+  socket: {
+    on: vi.fn(),
+    emit: vi.fn(),
+  },
   actors: new ActorsCollection(),
   packs: new PacksCollection(),
   ID: "thefehrs-learning-manager",

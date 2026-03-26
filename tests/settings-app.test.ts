@@ -31,7 +31,7 @@ describe("SettingsConfig logic", () => {
     vi.clearAllMocks();
 
     // Mock Settings getters
-    vi.spyOn(Settings, "rules", "get").mockReturnValue({ method: "direct" });
+    vi.spyOn(Settings, "rules", "get").mockReturnValue({ method: "direct" } as any);
     vi.spyOn(Settings, "timeUnits", "get").mockReturnValue([]);
     vi.spyOn(Settings, "guidanceTiers", "get").mockReturnValue([]);
     vi.spyOn(Settings, "allowedCompendiums", "get").mockReturnValue([]);
@@ -39,6 +39,9 @@ describe("SettingsConfig logic", () => {
     global.game = {
       packs: {
         filter: vi.fn().mockReturnValue([]),
+      },
+      user: {
+        isGM: true,
       },
     } as any;
   });

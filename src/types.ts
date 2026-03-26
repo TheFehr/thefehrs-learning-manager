@@ -81,12 +81,13 @@ export interface TimeUnit {
 export type NotificationLevel = "none" | "error" | "info" | "debug";
 
 export interface SystemRules {
-  method: "direct" | "roll";
+  method: "direct" | "roll" | "mathematical";
   rollMode?: string;
   checkDC?: number;
   checkFormula?: string;
   critDoubleStrategy?: "any" | "all" | "never";
   critThreshold?: number;
+  bulkExpectedFormula?: string;
   notificationLevel?: NotificationLevel;
 }
 

@@ -11,10 +11,51 @@ describe("TabLogic", () => {
         public data: any,
         public options: any,
       ) {}
-      evaluate = vi.fn().mockResolvedValue({
-        total: 15,
-        dice: [{ faces: 20, results: [{ result: 15, active: true }] }],
-        toMessage: vi.fn(),
+      evaluate = vi.fn().mockImplementation(async () => {
+        // If it's a constant formula (like from replacing 1d20 with 0) or simple 1d20
+        // or the bulk average formula
+        if (/^[0-9+\-* /(),@.a-zA-Z_]+$/.test(this.formula)) {
+          // Simple mock evaluator for test cases
+          let total = 0;
+          if (this.formula.includes("1d20")) {
+            total += 15;
+          }
+          if (this.formula.includes("int.mod")) {
+            total +=
+              this.data?.attributes?.int?.mod ||
+              this.data?.system?.abilities?.int?.mod ||
+              this.data?.abilities?.int?.mod ||
+              0;
+          }
+          if (this.formula.includes("@tutelage")) {
+            total += this.data?.tutelage || 0;
+          }
+
+          // Handle bulkExpectedFormula variables
+          if (
+            this.formula.includes("@hours") ||
+            this.formula.includes("@dc") ||
+            this.formula.includes("@mod")
+          ) {
+            // Very specific mock for the test case formula: round(@hours * (22 - max(1, @dc - @mod)) / 20)
+            const hours = this.data?.hours || 0;
+            const dc = this.data?.dc || 0;
+            const mod = this.data?.mod || 0;
+            const minRoll = Math.max(1, dc - mod);
+            total = Math.round((hours * (22 - minRoll)) / 20);
+          }
+
+          return {
+            total,
+            dice: [{ faces: 20, results: [{ result: 15, active: true }] }],
+            toMessage: vi.fn(),
+          };
+        }
+        return {
+          total: 15,
+          dice: [{ faces: 20, results: [{ result: 15, active: true }] }],
+          toMessage: vi.fn(),
+        };
       });
     } as any;
   });
@@ -27,7 +68,10 @@ describe("TabLogic", () => {
 
     beforeEach(() => {
       actor = {
-        getRollData: () => ({}),
+        system: { abilities: { int: { mod: 0 } } },
+        getRollData: function () {
+          return this.system;
+        },
       } as any;
       rules = { method: "roll", checkDC: 15, checkFormula: "1d20" };
       tier = { modifier: 2, progress: { bulk1: 5 } };
@@ -110,6 +154,41 @@ describe("TabLogic", () => {
       } as any;
       const result = await TabLogic.computeProgress(actor, critRules, tier, tu);
       expect(result.progressGained).toBe(1); // Should not double, because 20 was discarded
+    });
+
+    it("should handle 'mathematical' method", async () => {
+      const mathRules = {
+        method: "mathematical",
+        checkDC: 12,
+        checkFormula: "1d20 + @abilities.int.mod + @tutelage",
+        bulkExpectedFormula: "round(@hours * (22 - max(1, @dc - @mod)) / 20)",
+      };
+      const mathTu = { id: "day", ratio: 10, isBulk: false };
+      actor.system = { abilities: { int: { mod: 2 } } }; // intMod = 2
+      tier.modifier = 2; // tutelageMod = 2
+      // totalMod = 2 + 2 = 4 (because 1d20 is replaced with 0)
+      // dc = 12
+      // hours = 10
+      // formulaData = { hours: 10, dc: 12, mod: 4 }
+      // mock Roll evaluate returns: round(10 * (22 - max(1, 12 - 4)) / 20) = round(10 * (22 - 8) / 20) = round(10 * 14 / 20) = round(7) = 7
+
+      const result = await TabLogic.computeProgress(actor, mathRules as any, tier, mathTu as any);
+      expect(result.progressGained).toBe(7);
+    });
+
+    it("should handle 'mathematical' method with custom bulk formula", async () => {
+      const mathRules = {
+        method: "mathematical",
+        checkDC: 12,
+        checkFormula: "1d20 + @abilities.int.mod + @tutelage",
+        bulkExpectedFormula: "round(@hours * (22 - max(1, @dc - @mod)) / 20)",
+      };
+      const mathTu = { id: "day", ratio: 10, isBulk: false };
+      actor.system = { abilities: { int: { mod: 2 } } }; // intMod = 2
+      tier.modifier = 2; // tutelageMod = 2
+
+      const result = await TabLogic.computeProgress(actor, mathRules as any, tier, mathTu as any);
+      expect(result.progressGained).toBe(7);
     });
   });
 

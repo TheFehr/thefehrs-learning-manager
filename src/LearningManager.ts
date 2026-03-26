@@ -24,6 +24,7 @@ import { PartyTab as PartyTabLogic } from "./party-tab.js";
 import ItemTargetConfig from "./apps/tabs/ItemTargetConfig.svelte";
 import TimeBankBar from "./apps/components/TimeBankBar.svelte";
 import { Socket } from "./core/socket";
+import { migrateData } from "./migrations/migration";
 
 export class LearningManager {
   static ID = "thefehrs-learning-manager" as const;
@@ -33,6 +34,7 @@ export class LearningManager {
     this.registerSettings();
     this.registerConfigExpansions();
     this.registerHooks();
+    this.registerSocketListeners();
 
     Settings.registerMenu("configMenu", {
       name: "Downtime Engine Config",
@@ -40,12 +42,11 @@ export class LearningManager {
       hint: "Configure the Downtime Engine",
       icon: "fas fa-cogs",
       type: LearningConfigApp,
-      restricted: true,
+      restricted: false,
     });
   }
 
-  static ready() {
-    console.debug("Downtime Engine | Initialized");
+  static registerSocketListeners() {
     Socket.listen(async (message) => {
       if (message.type === "timeGrantedSignal") {
         await ProjectEngine.handleAutoTrainSignal();
@@ -53,11 +54,21 @@ export class LearningManager {
     });
   }
 
+  static async ready() {
+    console.debug("Downtime Engine | Initialized");
+    await migrateData();
+  }
+
   private static registerSettings() {
     const rules: SystemRules = {
       method: "direct",
       rollMode: "gmroll",
       notificationLevel: "info",
+      checkDC: 12,
+      checkFormula: "1d20 + @abilities.int.mod + @tutelage",
+      critDoubleStrategy: "any",
+      critThreshold: 20,
+      bulkExpectedFormula: "round(@hours * (22 - max(1, @dc - @mod)) / 20)",
     };
     Settings.register("rules", {
       scope: "world",
@@ -122,13 +133,13 @@ export class LearningManager {
     // Player settings
     Settings.register("autoSpend", {
       scope: "user",
-      config: true,
+      config: false,
       type: Boolean,
       default: false,
     });
     Settings.register("autoSpendUnits", {
       scope: "user",
-      config: true,
+      config: false,
       type: String,
       default: "hour,day,week",
     });

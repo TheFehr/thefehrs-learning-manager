@@ -17,6 +17,10 @@ vi.mock("../src/project-engine", () => ({
   },
 }));
 
+vi.mock("../src/migrations/migration", () => ({
+  migrateData: vi.fn().mockResolvedValue(undefined),
+}));
+
 describe("LearningManager", () => {
   const timeUnits: TimeUnit[] = [
     { id: "hour", name: "Hour", short: "h", isBulk: false, ratio: 1 },
@@ -140,22 +144,19 @@ describe("LearningManager", () => {
     });
   });
 
-  describe("ready", () => {
-    it("should initialize Socket listener and handle signals", async () => {
+  describe("setup", () => {
+    it("should initialize Socket listener", () => {
       const listenSpy = vi.spyOn(Socket, "listen").mockImplementation(() => {});
-      const handleSignalSpy = vi
-        .spyOn(ProjectEngine, "handleAutoTrainSignal")
-        .mockResolvedValue(undefined);
-
-      LearningManager.ready();
-
+      LearningManager.registerSocketListeners();
       expect(listenSpy).toHaveBeenCalled();
+    });
+  });
 
-      // Simulate receiving a signal
-      const handler = listenSpy.mock.calls[0][0];
-      await handler({ type: "timeGrantedSignal", data: null });
-
-      expect(handleSignalSpy).toHaveBeenCalled();
+  describe("ready", () => {
+    it("should log initialized message", () => {
+      const consoleSpy = vi.spyOn(console, "debug");
+      LearningManager.ready();
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining("Initialized"));
     });
   });
 

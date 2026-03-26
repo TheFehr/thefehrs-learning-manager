@@ -5,12 +5,6 @@ import { Settings } from "../src/core/settings";
 describe("Socket", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    global.game = {
-      socket: {
-        on: vi.fn(),
-        emit: vi.fn(),
-      },
-    } as any;
     vi.spyOn(Settings, "ID", "get").mockReturnValue("test-module");
   });
 
@@ -19,7 +13,7 @@ describe("Socket", () => {
   });
 
   it("should register a listener on game.socket", () => {
-    const handler = vi.fn();
+    const handler = vi.fn().mockResolvedValue(undefined);
     Socket.listen(handler);
 
     expect(game.socket.on).toHaveBeenCalledWith("module.test-module", expect.any(Function));

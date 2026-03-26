@@ -13,29 +13,50 @@ export async function saveSettings(
   autoSpend?: boolean,
   autoSpendUnits?: string,
 ) {
+  const isGM = game.user?.isGM;
+
   // Snapshot current settings for potential rollback
-  const originalSettings = {
-    rules: structuredClone(Settings.rules),
-    timeUnits: structuredClone(Settings.timeUnits),
-    guidanceTiers: structuredClone(Settings.guidanceTiers),
-    allowedCompendiums: structuredClone(Settings.allowedCompendiums),
-  };
+  const originalSettings = isGM
+    ? {
+        rules: Settings.rules,
+        timeUnits: Settings.timeUnits,
+        guidanceTiers: Settings.guidanceTiers,
+        allowedCompendiums: Settings.allowedCompendiums,
+      }
+    : null;
+
+  let rulesSaved = false;
+  let timeUnitsSaved = false;
+  let guidanceTiersSaved = false;
+  let allowedCompendiumsSaved = false;
 
   try {
-    await Settings.setRules(rules);
-    await Settings.setTimeUnits(timeUnits);
-    await Settings.setGuidanceTiers(guidanceTiers);
-    await Settings.setAllowedCompendiums(allowedCompendiums);
+    if (isGM) {
+      await Settings.setRules(rules);
+      rulesSaved = true;
+      await Settings.setTimeUnits(timeUnits);
+      timeUnitsSaved = true;
+      await Settings.setGuidanceTiers(guidanceTiers);
+      guidanceTiersSaved = true;
+      await Settings.setAllowedCompendiums(allowedCompendiums);
+      allowedCompendiumsSaved = true;
+    }
+
     if (autoSpend !== undefined) await Settings.set("autoSpend", autoSpend);
     if (autoSpendUnits !== undefined) await Settings.set("autoSpendUnits", autoSpendUnits);
   } catch (err) {
     Logger.error("Failed to save settings, rolling back:", err);
-    // (Rest of rollback logic...)
-    // For simplicity of this update, I'll keep the existing rollback but it only covers world settings
-    await Settings.setRules(originalSettings.rules);
-    await Settings.setTimeUnits(originalSettings.timeUnits);
-    await Settings.setGuidanceTiers(originalSettings.guidanceTiers);
-    await Settings.setAllowedCompendiums(originalSettings.allowedCompendiums);
+    if (isGM && originalSettings) {
+      try {
+        if (rulesSaved) await Settings.setRules(originalSettings.rules);
+        if (timeUnitsSaved) await Settings.setTimeUnits(originalSettings.timeUnits);
+        if (guidanceTiersSaved) await Settings.setGuidanceTiers(originalSettings.guidanceTiers);
+        if (allowedCompendiumsSaved)
+          await Settings.setAllowedCompendiums(originalSettings.allowedCompendiums);
+      } catch (rollbackErr) {
+        Logger.error("Failed to rollback settings:", rollbackErr);
+      }
+    }
 
     Logger.error("Failed to save settings: " + (err instanceof Error ? err.message : String(err)));
     return;
@@ -95,7 +116,9 @@ export function validateSettings(data: any) {
   // 1. Validate Rules
   if (isPlainObject(data.rules)) {
     result.rules = {
-      method: data.rules.method === "roll" ? "roll" : "direct",
+      method: ["roll", "direct", "mathematical"].includes(data.rules.method)
+        ? data.rules.method
+        : "direct",
       rollMode: typeof data.rules.rollMode === "string" ? data.rules.rollMode : "gmroll",
       checkDC: Number.isFinite(data.rules.checkDC) ? data.rules.checkDC : 10,
       checkFormula: typeof data.rules.checkFormula === "string" ? data.rules.checkFormula : "",
@@ -103,6 +126,10 @@ export function validateSettings(data: any) {
         ? data.rules.critDoubleStrategy
         : "never",
       critThreshold: Number.isFinite(data.rules.critThreshold) ? data.rules.critThreshold : 20,
+      bulkExpectedFormula:
+        typeof data.rules.bulkExpectedFormula === "string"
+          ? data.rules.bulkExpectedFormula
+          : "round(@hours * (22 - max(1, @dc - @mod)) / 20)",
       notificationLevel: ["none", "error", "info", "debug"].includes(data.rules.notificationLevel)
         ? data.rules.notificationLevel
         : "info",

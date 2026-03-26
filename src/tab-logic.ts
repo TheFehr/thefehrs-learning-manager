@@ -62,6 +62,35 @@ export class TabLogic {
       } else {
         reason = `Roll total ${roll.total} failed to meet DC ${rules.checkDC}.`;
       }
+    } else if (rules.method === "mathematical") {
+      const hours = tu.ratio;
+      const tutelageMod = tier?.modifier || 0;
+      const formula = rules.checkFormula || "1d20";
+      const dc = rules.checkDC ?? 12;
+      const bulkFormula =
+        rules.bulkExpectedFormula || "round(@hours * (22 - max(1, @dc - @mod)) / 20)";
+
+      // Calculate total modifier by evaluating the formula with '0' instead of 1d20
+      const bonusRoll = await new Roll(formula.replace(/1d20/g, "0"), {
+        ...actor.getRollData(),
+        tutelage: tutelageMod,
+      }).evaluate();
+      const totalMod = bonusRoll.total;
+
+      const formulaData = {
+        hours: hours,
+        dc: dc,
+        mod: totalMod,
+      };
+
+      const expectedRoll = await new Roll(bulkFormula, formulaData).evaluate();
+      progressGained = expectedRoll.total;
+
+      console.debug("Downtime Engine | Mathematical Progress (Formula):", {
+        bulkFormula,
+        formulaData,
+        progressGained,
+      });
     } else {
       progressGained = 1;
     }
