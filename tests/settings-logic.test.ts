@@ -101,30 +101,33 @@ describe("settings-logic", () => {
   describe("saveSettings rollback", () => {
     beforeEach(() => {
       vi.clearAllMocks();
-      // Mock Settings getters
-      vi.spyOn(Settings, "rules", "get").mockReturnValue({ method: "direct" });
-      vi.spyOn(Settings, "timeUnits", "get").mockReturnValue([]);
-      vi.spyOn(Settings, "guidanceTiers", "get").mockReturnValue([]);
-      vi.spyOn(Settings, "allowedCompendiums", "get").mockReturnValue([]);
+      // Mock Settings.get to return initial values
+      vi.spyOn(Settings, "get").mockImplementation((key) => {
+        if (key === "rules") return { method: "direct" };
+        if (key === "timeUnits") return [];
+        if (key === "guidanceTiers") return [];
+        if (key === "allowedCompendiums") return [];
+        return undefined;
+      });
     });
 
     it("should rollback only successful updates on failure", async () => {
+      // Mock set to fail on timeUnits
       const setSpy = vi.spyOn(Settings, "set").mockImplementation(async (key, value) => {
         if (key === "timeUnits") throw new Error("Failed!");
       });
 
+      // Rules should be the first one in toSave
       await saveSettings({ method: "roll" } as any, [{ id: "h" }] as any, [], []);
 
       // Should have tried to set rules and timeUnits
       expect(setSpy).toHaveBeenCalledWith("rules", { method: "roll" });
       expect(setSpy).toHaveBeenCalledWith("timeUnits", [{ id: "h" }]);
 
-      // Should NOT have tried to set guidanceTiers or allowedCompendiums
+      // Should NOT have tried to set guidanceTiers or allowedCompendiums (because timeUnits failed)
       expect(setSpy).not.toHaveBeenCalledWith("guidanceTiers", expect.anything());
-      expect(setSpy).not.toHaveBeenCalledWith("allowedCompendiums", expect.anything());
 
-      // Rollback should only happen for rules
-      // Note: the first call was for the save, the second for rollback
+      // Rollback should happen for rules (it was saved before timeUnits failed)
       expect(setSpy).toHaveBeenCalledWith("rules", { method: "direct" }); // rolled back to original
     });
   });

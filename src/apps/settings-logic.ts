@@ -1,4 +1,4 @@
-import { Settings } from "../core/settings.js";
+import { Settings, type SettingsSchema } from "../core/settings.js";
 import { Logger } from "../core/notifications.js";
 import type { SystemRules, TimeUnit, GuidanceTier, NotificationLevel } from "../types.js";
 
@@ -15,46 +15,39 @@ export async function saveSettings(
 ) {
   const isGM = game.user?.isGM;
 
-  // Snapshot current settings for potential rollback
-  const originalSettings = isGM
-    ? {
-        rules: Settings.rules,
-        timeUnits: Settings.timeUnits,
-        guidanceTiers: Settings.guidanceTiers,
-        allowedCompendiums: Settings.allowedCompendiums,
-      }
-    : null;
+  // Define what we're trying to change
+  const toSave: Partial<Record<keyof SettingsSchema, any>> = {};
+  if (isGM) {
+    toSave.rules = rules;
+    toSave.timeUnits = timeUnits;
+    toSave.guidanceTiers = guidanceTiers;
+    toSave.allowedCompendiums = allowedCompendiums;
+  }
+  if (autoSpend !== undefined) toSave.autoSpend = autoSpend;
+  if (autoSpendUnits !== undefined) toSave.autoSpendUnits = autoSpendUnits;
 
-  let rulesSaved = false;
-  let timeUnitsSaved = false;
-  let guidanceTiersSaved = false;
-  let allowedCompendiumsSaved = false;
+  // Snapshot current values for potential rollback
+  const snapshot: Partial<Record<keyof SettingsSchema, any>> = {};
+  for (const key of Object.keys(toSave) as (keyof SettingsSchema)[]) {
+    snapshot[key] = Settings.get(key);
+  }
+
+  const savedKeys: (keyof SettingsSchema)[] = [];
 
   try {
-    if (isGM) {
-      await Settings.set("rules", rules);
-      rulesSaved = true;
-      await Settings.set("timeUnits", timeUnits);
-      timeUnitsSaved = true;
-      await Settings.set("guidanceTiers", guidanceTiers);
-      guidanceTiersSaved = true;
-      await Settings.set("allowedCompendiums", allowedCompendiums);
-      allowedCompendiumsSaved = true;
+    for (const [key, value] of Object.entries(toSave) as [keyof SettingsSchema, any][]) {
+      await Settings.set(key, value);
+      savedKeys.push(key);
     }
-
-    if (autoSpend !== undefined) await Settings.set("autoSpend", autoSpend);
-    if (autoSpendUnits !== undefined) await Settings.set("autoSpendUnits", autoSpendUnits);
   } catch (err) {
     Logger.error("Failed to save settings, rolling back:", err);
-    if (isGM && originalSettings) {
+
+    // Rollback only what was successfully saved
+    for (const key of savedKeys.reverse()) {
       try {
-        if (rulesSaved) await Settings.set("rules", originalSettings.rules);
-        if (timeUnitsSaved) await Settings.set("timeUnits", originalSettings.timeUnits);
-        if (guidanceTiersSaved) await Settings.set("guidanceTiers", originalSettings.guidanceTiers);
-        if (allowedCompendiumsSaved)
-          await Settings.set("allowedCompendiums", originalSettings.allowedCompendiums);
+        await Settings.set(key, snapshot[key]);
       } catch (rollbackErr) {
-        Logger.error("Failed to rollback settings:", rollbackErr);
+        Logger.error(`Failed to rollback setting "${key}":`, rollbackErr);
       }
     }
 

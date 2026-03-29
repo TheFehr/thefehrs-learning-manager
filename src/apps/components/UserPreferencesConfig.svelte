@@ -7,7 +7,7 @@
     timeUnits = [],
   } = $props<{
     autoSpend: boolean;
-    autoSpendUnits: string;
+    autoSpendUnits: string[];
     timeUnits: TimeUnit[];
   }>();
 
