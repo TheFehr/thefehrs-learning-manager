@@ -11,7 +11,7 @@ export async function saveSettings(
   guidanceTiers: GuidanceTier[],
   allowedCompendiums: string[],
   autoSpend?: boolean,
-  autoSpendUnits?: string,
+  autoSpendUnits?: string[],
 ) {
   const isGM = game.user?.isGM;
 
@@ -32,13 +32,13 @@ export async function saveSettings(
 
   try {
     if (isGM) {
-      await Settings.setRules(rules);
+      await Settings.set("rules", rules);
       rulesSaved = true;
-      await Settings.setTimeUnits(timeUnits);
+      await Settings.set("timeUnits", timeUnits);
       timeUnitsSaved = true;
-      await Settings.setGuidanceTiers(guidanceTiers);
+      await Settings.set("guidanceTiers", guidanceTiers);
       guidanceTiersSaved = true;
-      await Settings.setAllowedCompendiums(allowedCompendiums);
+      await Settings.set("allowedCompendiums", allowedCompendiums);
       allowedCompendiumsSaved = true;
     }
 
@@ -48,11 +48,11 @@ export async function saveSettings(
     Logger.error("Failed to save settings, rolling back:", err);
     if (isGM && originalSettings) {
       try {
-        if (rulesSaved) await Settings.setRules(originalSettings.rules);
-        if (timeUnitsSaved) await Settings.setTimeUnits(originalSettings.timeUnits);
-        if (guidanceTiersSaved) await Settings.setGuidanceTiers(originalSettings.guidanceTiers);
+        if (rulesSaved) await Settings.set("rules", originalSettings.rules);
+        if (timeUnitsSaved) await Settings.set("timeUnits", originalSettings.timeUnits);
+        if (guidanceTiersSaved) await Settings.set("guidanceTiers", originalSettings.guidanceTiers);
         if (allowedCompendiumsSaved)
-          await Settings.setAllowedCompendiums(originalSettings.allowedCompendiums);
+          await Settings.set("allowedCompendiums", originalSettings.allowedCompendiums);
       } catch (rollbackErr) {
         Logger.error("Failed to rollback settings:", rollbackErr);
       }

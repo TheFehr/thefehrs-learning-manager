@@ -778,8 +778,7 @@ export class ProjectEngine {
   static async handleAutoTrainSignal() {
     // Correctly proxying through your Settings class
     const autoSpendEnabled = Settings.get("autoSpend");
-    const autoSpendUnitsRaw = Settings.get<string>("autoSpendUnits") || "";
-    const allowedUnits = autoSpendUnitsRaw.split(",").map((u) => u.trim());
+    const autoSpendUnits = Settings.get("autoSpendUnits");
 
     // GMs don't auto-train, and users must have the setting on
     if (!autoSpendEnabled || game.user?.isGM) return;
@@ -793,7 +792,7 @@ export class ProjectEngine {
     // Only auto-train if there is exactly one project
     if (projects.length === 1) {
       const project = projects[0];
-      await this.processSpendAll(project as unknown as Item5e, allowedUnits);
+      await this.processSpendAll(project as unknown as Item5e, autoSpendUnits);
     } else if (autoSpendEnabled && projects.length > 1) {
       ui.notifications?.warn(
         "Downtime Engine | You have auto-spending enabled, but more than one active project. Please open you character sheet and spend the time yourself.",

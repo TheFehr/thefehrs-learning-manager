@@ -1,15 +1,6 @@
-import type {
-  GuidanceTier,
-  SystemRules,
-  TimeUnit,
-  Tidy5eApi,
-  DowntimeGroupActor,
-  OnRenderTabParams,
-  Actor5e,
-  Item5e,
-} from "./types.js";
+import type { Tidy5eApi, DowntimeGroupActor, OnRenderTabParams, Actor5e, Item5e } from "./types.js";
 import { ProjectEngine } from "./project-engine.js";
-import { Settings } from "./core/settings.js";
+import { Settings, SettingsManager } from "./core/settings.js";
 import { LearningConfigApp } from "./apps/settings-app.js";
 import { TabLogic } from "./tab-logic.js";
 import {
@@ -25,6 +16,7 @@ import ItemTargetConfig from "./apps/tabs/ItemTargetConfig.svelte";
 import TimeBankBar from "./apps/components/TimeBankBar.svelte";
 import { Socket } from "./core/socket";
 import { migrateData } from "./migrations/migration";
+import { initDebugHelpers } from "./core/debug.js";
 
 export class LearningManager {
   static ID = "thefehrs-learning-manager" as const;
@@ -35,6 +27,7 @@ export class LearningManager {
     this.registerConfigExpansions();
     this.registerHooks();
     this.registerSocketListeners();
+    initDebugHelpers();
 
     Settings.registerMenu("configMenu", {
       name: "Downtime Engine Config",
@@ -60,88 +53,19 @@ export class LearningManager {
   }
 
   private static registerSettings() {
-    const rules: SystemRules = {
-      method: "direct",
-      rollMode: "gmroll",
-      notificationLevel: "info",
-      checkDC: 12,
-      checkFormula: "1d20 + @abilities.int.mod + @tutelage",
-      critDoubleStrategy: "any",
-      critThreshold: 20,
-      bulkExpectedFormula: "round(@hours * (22 - max(1, @dc - @mod)) / 20)",
-    };
-    Settings.register("rules", {
-      scope: "world",
-      config: false,
-      type: Object,
-      default: rules,
-    });
-
-    const timeUnits: TimeUnit[] = [
-      { id: "hour", name: "Hour", short: "h", isBulk: false, ratio: 1 },
-      { id: "day", name: "Day", short: "d", isBulk: true, ratio: 10 },
-      { id: "week", name: "Week", short: "w", isBulk: true, ratio: 70 },
-    ];
-    Settings.register("timeUnits", {
-      scope: "world",
-      config: false,
-      type: Array,
-      default: timeUnits,
-      onChange: async () => {
-        try {
-          await ProjectEngine.syncAllProjectActivities();
-        } catch (err) {
-          console.error("Downtime Engine | Failed to sync activities after time unit change:", err);
-        }
+    SettingsManager.registerAll({
+      timeUnits: {
+        onChange: async () => {
+          try {
+            await ProjectEngine.syncAllProjectActivities();
+          } catch (err) {
+            console.error(
+              "Downtime Engine | Failed to sync activities after time unit change:",
+              err,
+            );
+          }
+        },
       },
-    });
-
-    const guidanceTiers: GuidanceTier[] = [
-      {
-        id: "example_tier",
-        name: "Example Tier",
-        modifier: 2,
-        costs: { hour: 0, day: 0, week: 0 },
-        progress: { day: 1, week: 7 },
-      },
-    ];
-    Settings.register("guidanceTiers", {
-      scope: "world",
-      config: false,
-      type: Array,
-      default: guidanceTiers,
-    });
-    Settings.register("allowedCompendiums", {
-      scope: "world",
-      config: false,
-      type: Array,
-      default: [],
-    });
-    Settings.register("projectTemplates", {
-      scope: "world",
-      config: false,
-      type: Array,
-      default: [],
-    });
-    Settings.register("migrationVersion", {
-      scope: "world",
-      config: false,
-      type: String,
-      default: "0",
-    });
-
-    // Player settings
-    Settings.register("autoSpend", {
-      scope: "user",
-      config: false,
-      type: Boolean,
-      default: false,
-    });
-    Settings.register("autoSpendUnits", {
-      scope: "user",
-      config: false,
-      type: String,
-      default: "hour,day,week",
     });
   }
 

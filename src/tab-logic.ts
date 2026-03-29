@@ -19,17 +19,22 @@ export class TabLogic {
     let roll: Roll<any> | undefined = undefined;
     let reason: string | undefined = undefined;
 
-    if (tu.isBulk) {
-      progressGained = tier?.progress?.[tu.id] || 0;
-      if (progressGained === 0) {
-        reason = `Tutelage tier "${tier?.name || "None"}" provides no progress for ${tu.name}s.`;
+    const effectiveMethod = tu.isBulk ? rules.bulkMethod : rules.nonBulkMethod;
+
+    if (effectiveMethod === "direct") {
+      if (tu.isBulk) {
+        progressGained = tier?.progress?.[tu.id] || 0;
+        if (progressGained === 0) {
+          reason = `Tutelage tier "${tier?.name || "None"}" provides no progress for ${tu.name}s.`;
+        }
+      } else {
+        progressGained = 1;
       }
-      console.debug("Downtime Engine | Bulk Progress:", {
-        unitId: tu.id,
-        tierProgress: tier?.progress,
-        gained: progressGained,
-      });
-    } else if (rules.method === "roll" && rules.checkFormula) {
+    } else if (effectiveMethod === "roll") {
+      if (!rules.checkFormula) {
+        return { progressGained: 0, reason: "No check formula defined in rules." };
+      }
+
       roll = await new Roll(
         rules.checkFormula,
         {
@@ -62,38 +67,31 @@ export class TabLogic {
       } else {
         reason = `Roll total ${roll.total} failed to meet DC ${rules.checkDC}.`;
       }
-    } else if (rules.method === "mathematical") {
+    } else if (effectiveMethod === "mathematical") {
       const hours = tu.ratio;
       const tutelageMod = tier?.modifier || 0;
-      const formula = rules.checkFormula || "1d20";
       const dc = rules.checkDC ?? 12;
       const bulkFormula =
-        rules.bulkExpectedFormula || "round(@hours * (22 - max(1, @dc - @mod)) / 20)";
-
-      // Calculate total modifier by evaluating the formula with '0' instead of 1d20
-      const bonusRoll = await new Roll(formula.replace(/1d20/g, "0"), {
-        ...actor.getRollData(),
-        tutelage: tutelageMod,
-      }).evaluate();
-      const totalMod = bonusRoll.total;
+        rules.bulkExpectedFormula ||
+        "round(@hours * (22 - max(1, @dc - (@abilities.int.mod + @tutelage))) / 20)";
 
       const formulaData = {
+        ...actor.getRollData(),
+        tutelage: tutelageMod,
         hours: hours,
         dc: dc,
-        mod: totalMod,
       };
 
       const expectedRoll = await new Roll(bulkFormula, formulaData).evaluate();
       progressGained = expectedRoll.total;
 
-      console.debug("Downtime Engine | Mathematical Progress (Formula):", {
+      console.debug("Downtime Engine | Bulk Expected Progress (Formula):", {
         bulkFormula,
         formulaData,
         progressGained,
       });
-    } else {
-      progressGained = 1;
     }
+
     return { progressGained, roll, reason };
   }
 
@@ -148,85 +146,57 @@ export class TabLogic {
       const op: ComparisonOperator = req.operator;
 
       let met = false;
-      switch (op) {
-        case "===":
-          met = String(actorValue) === String(targetValue);
-          break;
-        case "!==":
-          met = String(actorValue) !== String(targetValue);
-          break;
-        case ">":
-          met = Number(actorValue) > Number(targetValue);
-          break;
-        case ">=":
-          met = Number(actorValue) >= Number(targetValue);
-          break;
-        case "<":
-          met = Number(actorValue) < Number(targetValue);
-          break;
-        case "<=":
-          met = Number(actorValue) <= Number(targetValue);
-          break;
-        case "includes":
-          if (Array.isArray(actorValue)) {
-            met = actorValue.includes(targetValue);
-          } else if (typeof actorValue === "string") {
-            met = actorValue.includes(String(targetValue));
-          } else {
-            met = false;
-          }
-          break;
+      if (op === "==") met = actorValue == targetValue;
+      else if (op === "!=") met = actorValue != targetValue;
+      else if (op === ">") met = actorValue > targetValue;
+      else if (op === ">=") met = actorValue >= targetValue;
+      else if (op === "<") met = actorValue < targetValue;
+      else if (op === "<=") met = actorValue <= targetValue;
+
+      if (!met) {
+        return {
+          eligible: false,
+          reason: `${req.attribute} is ${actorValue}, but needs to be ${op} ${targetValue}.`,
+        };
       }
-      if (!met) return { eligible: false, reason: `${req.attribute} ${op} ${req.value}` };
     }
     return { eligible: true, reason: "" };
   }
 
-  static formatTimeBank(totalUnits: number, timeUnits: TimeUnit[]): string {
-    if (totalUnits === 0) return "0";
-
-    const isNegative = totalUnits < 0;
-    let remaining = Math.abs(totalUnits);
-    const sorted = [...timeUnits].sort((a, b) => b.ratio - a.ratio);
-    const parts: string[] = [];
-
-    for (const unit of sorted) {
-      const count = Math.floor(remaining / unit.ratio);
-      if (count > 0) {
-        parts.push(`${count}${unit.short}`);
-        remaining %= unit.ratio;
-      }
-    }
-
-    const formatted = parts.length > 0 ? parts.join(" ") : "0";
-    return isNegative ? `-${formatted}` : formatted;
-  }
-
   static formatCurrency(amountCp: number): string {
-    const isNegative = amountCp < 0;
-    let remaining = Math.abs(amountCp);
-    const gp = Math.floor(remaining / 100);
-    remaining %= 100;
-    const sp = Math.floor(remaining / 10);
-    const cp = remaining % 10;
-
+    const gp = Math.floor(amountCp / 100);
+    const sp = Math.floor((amountCp % 100) / 10);
+    const cp = amountCp % 10;
     const parts = [];
     if (gp > 0) parts.push(`${gp}gp`);
     if (sp > 0) parts.push(`${sp}sp`);
     if (cp > 0 || parts.length === 0) parts.push(`${cp}cp`);
+    return parts.join(", ");
+  }
 
-    const formatted = parts.join(" ");
-    return isNegative ? `-${formatted}` : formatted;
+  static formatTimeBank(total: number, units: TimeUnit[]): string {
+    if (total === 0) return "0";
+    const sortedUnits = [...units].sort((a, b) => b.ratio - a.ratio);
+    const result = [];
+    let remaining = total;
+    for (const unit of sortedUnits) {
+      const count = Math.floor(remaining / unit.ratio);
+      if (count > 0) {
+        result.push(`${count}${unit.short}`);
+        remaining %= unit.ratio;
+      }
+    }
+    return result.length > 0 ? result.join(" ") : "0";
   }
 
   static calculateTotalBaseTime(timeValues: Record<string, number>, timeUnits: TimeUnit[]): number {
-    let totalBase = 0;
-    timeUnits.forEach((tu) => {
-      const val = Number(timeValues[tu.id] || 0);
-      if (!isNaN(val)) {
-        totalBase += val * tu.ratio;
+    let total = 0;
+    for (const [unitId, amount] of Object.entries(timeValues)) {
+      const unit = timeUnits.find((u) => u.id === unitId);
+      if (unit) {
+        total += (Number(amount) || 0) * unit.ratio;
       }
-    });
-    return totalBase;
+    }
+    return total;
   }
 }

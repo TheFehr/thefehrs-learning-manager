@@ -1,5 +1,4 @@
-import { ProjectEngine } from "../project-engine.js";
-import type { Actor5e, Item5e, SystemRules, GuidanceTier } from "../types.js";
+import type { Actor5e, SystemRules, GuidanceTier } from "../types.js";
 import { createProjectItemFromTemplate, type LegacyProject } from "./migration-utils.js";
 
 interface ProjectTemplateLegacy {

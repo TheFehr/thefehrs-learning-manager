@@ -1,7 +1,7 @@
 <script lang="ts">
-  import type { GuidanceTier, TimeUnit } from "../../types";
+  import type { GuidanceTier, TimeUnit, SystemRules } from "../../types";
 
-  let { guidanceTiers = $bindable(), timeUnits } = $props();
+  let { guidanceTiers = $bindable(), timeUnits, rules } : { guidanceTiers: GuidanceTier[], timeUnits: TimeUnit[], rules: SystemRules } = $props();
 
   function addTier() {
     guidanceTiers.push({
@@ -15,6 +15,10 @@
 
   function removeTier(id: string) {
     guidanceTiers = guidanceTiers.filter(t => t.id !== id);
+  }
+
+  function direktBulkActive(timeUnit: TimeUnit) {
+    return rules.bulkMethod === "direct" && timeUnit.isBulk;
   }
 </script>
 
@@ -48,13 +52,13 @@
             <span class="grid-label">Progress (if bulk)</span>
             {#each timeUnits as unit}
               <div class="grid-row">
-                <label for="tier-{tier.id}-progress-{unit.id}" style={!unit.isBulk ? 'opacity: 0.5' : ''}>{unit.name}:</label>
+                <label for="tier-{tier.id}-progress-{unit.id}" style={!direktBulkActive(unit) ? 'opacity: 0.5' : ''}>{unit.name}:</label>
                 <input
                   id="tier-{tier.id}-progress-{unit.id}"
                   type="number"
                   bind:value={tier.progress[unit.id]}
                   min="0"
-                  disabled={!unit.isBulk}
+                  disabled={!direktBulkActive(unit)}
                 />
               </div>
             {/each}

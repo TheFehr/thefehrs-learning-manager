@@ -2,16 +2,33 @@
   import type { SystemRules } from "../../types";
 
   let { rules = $bindable() } = $props();
+
+  let needsCheckFields = $derived(
+    rules.nonBulkMethod === 'roll' || 
+    rules.bulkMethod === 'roll' || 
+    rules.bulkMethod === 'mathematical'
+  );
+
+  let needsBulkFormula = $derived(rules.bulkMethod === 'mathematical');
 </script>
 
 <section>
   <h3>Global Rules</h3>
+  
   <div class="form-group">
-    <label for="rule-method">Method</label>
-    <select id="rule-method" bind:value={rules.method}>
-      <option value="direct">1 Base Unit = 1 Progress</option>
-      <option value="roll">Learning Check</option>
-      <option value="mathematical">Mathematical Expectation (DC 12)</option>
+    <label for="rule-non-bulk-method">Non-Bulk Method</label>
+    <select id="rule-non-bulk-method" bind:value={rules.nonBulkMethod}>
+      <option value="direct">Direct (1 session = 1 progress)</option>
+      <option value="roll">Learning Check (Roll vs DC)</option>
+    </select>
+  </div>
+
+  <div class="form-group">
+    <label for="rule-bulk-method">Bulk Method</label>
+    <select id="rule-bulk-method" bind:value={rules.bulkMethod}>
+      <option value="direct">Direct (Uses Tier Progress values)</option>
+      <option value="roll">Learning Check (Roll vs DC)</option>
+      <option value="mathematical">Mathematical Expectation (Average)</option>
     </select>
   </div>
 
@@ -25,15 +42,16 @@
     </select>
   </div>
 
-  {#if rules.method === 'roll' || rules.method === 'mathematical'}
+  {#if needsCheckFields}
     <div class="form-group">
       <label for="rule-dc">Check DC</label>
       <input id="rule-dc" type="number" bind:value={rules.checkDC} />
     </div>
     <div class="form-group">
       <label for="rule-formula">Formula</label>
-      <input id="rule-formula" type="text" bind:value={rules.checkFormula} placeholder="1d20 + @attributes.int.mod + @tutelage" />
+      <input id="rule-formula" type="text" bind:value={rules.checkFormula} placeholder="1d20 + @abilities.int.mod + @tutelage" />
     </div>
+    <p class="notes">Available variables: @tutelage and roll data attributes (e.g. @abilities.int.mod)</p>
     <div class="form-group">
       <label for="rule-crit">Crit Strategy</label>
       <select id="rule-crit" bind:value={rules.critDoubleStrategy}>
@@ -48,12 +66,12 @@
     </div>
   {/if}
 
-  {#if rules.method === 'mathematical'}
+  {#if needsBulkFormula}
     <div class="form-group">
-      <label for="rule-bulk-formula">Average Formula</label>
-      <input id="rule-bulk-formula" type="text" bind:value={rules.bulkExpectedFormula} placeholder="round(@hours * (22 - max(1, @dc - @mod)) / 20)" />
+      <label for="rule-bulk-formula">Bulk Expected Formula</label>
+      <input id="rule-bulk-formula" type="text" bind:value={rules.bulkExpectedFormula} placeholder="round(@hours * (22 - max(1, @dc - (@abilities.int.mod + @tutelage))) / 20)" />
     </div>
-    <p class="notes">Available variables: @hours, @dc, @mod</p>
+    <p class="notes">Available variables: @hours, @dc, @tutelage and roll data attributes (e.g. @abilities.int.mod)</p>
   {/if}
 </section>
 

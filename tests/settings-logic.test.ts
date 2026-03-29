@@ -109,29 +109,23 @@ describe("settings-logic", () => {
     });
 
     it("should rollback only successful updates on failure", async () => {
-      const setRulesSpy = vi.spyOn(Settings, "setRules").mockResolvedValue(undefined);
-      const setTimeUnitsSpy = vi
-        .spyOn(Settings, "setTimeUnits")
-        .mockRejectedValue(new Error("Failed!"));
-      const setGuidanceTiersSpy = vi.spyOn(Settings, "setGuidanceTiers");
-      const setAllowedCompendiumsSpy = vi.spyOn(Settings, "setAllowedCompendiums");
+      const setSpy = vi.spyOn(Settings, "set").mockImplementation(async (key, value) => {
+        if (key === "timeUnits") throw new Error("Failed!");
+      });
 
       await saveSettings({ method: "roll" } as any, [{ id: "h" }] as any, [], []);
 
       // Should have tried to set rules and timeUnits
-      expect(setRulesSpy).toHaveBeenCalledWith({ method: "roll" });
-      expect(setTimeUnitsSpy).toHaveBeenCalled();
+      expect(setSpy).toHaveBeenCalledWith("rules", { method: "roll" });
+      expect(setSpy).toHaveBeenCalledWith("timeUnits", [{ id: "h" }]);
 
       // Should NOT have tried to set guidanceTiers or allowedCompendiums
-      expect(setGuidanceTiersSpy).not.toHaveBeenCalled();
-      expect(setAllowedCompendiumsSpy).not.toHaveBeenCalled();
+      expect(setSpy).not.toHaveBeenCalledWith("guidanceTiers", expect.anything());
+      expect(setSpy).not.toHaveBeenCalledWith("allowedCompendiums", expect.anything());
 
       // Rollback should only happen for rules
       // Note: the first call was for the save, the second for rollback
-      expect(setRulesSpy).toHaveBeenCalledTimes(2);
-      expect(setRulesSpy).toHaveBeenLastCalledWith({ method: "direct" }); // rolled back to original
-
-      expect(setTimeUnitsSpy).toHaveBeenCalledTimes(1); // failed, so no rollback call for it
+      expect(setSpy).toHaveBeenCalledWith("rules", { method: "direct" }); // rolled back to original
     });
   });
 });

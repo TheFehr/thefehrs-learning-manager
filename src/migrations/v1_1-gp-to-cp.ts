@@ -1,5 +1,15 @@
-import type { GuidanceTier } from "../types.js";
+interface GuidanceTier {
+  id: string;
+  name: string;
+  modifier: number;
+  costs: Record<string, number>;
+  progress: Record<string, number>;
+  _migratedToV2?: boolean;
+}
 
+/**
+ * Migration v1.1: Multiplies guidance tier costs by 100 (GP to CP conversion).
+ */
 export async function migrateV1_1GpToCp() {
   const SETTINGS_ID = "thefehrs-learning-manager";
   try {

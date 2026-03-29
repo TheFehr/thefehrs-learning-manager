@@ -47,10 +47,7 @@ describe("SettingsConfig logic", () => {
   });
 
   it("should notify user on successful save", async () => {
-    vi.spyOn(Settings, "setRules").mockResolvedValue(undefined);
-    vi.spyOn(Settings, "setTimeUnits").mockResolvedValue(undefined);
-    vi.spyOn(Settings, "setGuidanceTiers").mockResolvedValue(undefined);
-    vi.spyOn(Settings, "setAllowedCompendiums").mockResolvedValue(undefined);
+    vi.spyOn(Settings, "set").mockResolvedValue(undefined);
 
     await saveSettings({ method: "direct" }, [], [], []);
 
@@ -62,7 +59,7 @@ describe("SettingsConfig logic", () => {
   it("should notify user on failed save", async () => {
     // This tests the logic used by the SettingsConfig component's save() handler.
     const error = new Error("Save failed!");
-    vi.spyOn(Settings, "setRules").mockRejectedValue(error);
+    vi.spyOn(Settings, "set").mockRejectedValue(error);
 
     await saveSettings({ method: "direct" }, [], [], []);
 

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { TimeUnit } from "../../types.js";
+  import type {TimeUnit} from "../../types.js";
 
   let {
     autoSpend = $bindable(),
@@ -11,13 +11,8 @@
     timeUnits: TimeUnit[];
   }>();
 
-  const getSelectedUnits = () =>
-    autoSpendUnits ? autoSpendUnits.split(",").filter((u) => u.trim() !== "") : [];
-
   function toggleUnit(id: string) {
-    const current = getSelectedUnits();
-    const next = current.includes(id) ? current.filter((u) => u !== id) : [...current, id];
-    autoSpendUnits = next.join(",");
+    autoSpendUnits = autoSpendUnits.includes(id) ? autoSpendUnits.filter((u) => u !== id) : [...(autoSpendUnits), id];
   }
 </script>
 
@@ -45,7 +40,7 @@
           <label class="checkbox-label">
             <input
               type="checkbox"
-              checked={getSelectedUnits().includes(unit.id)}
+              checked={autoSpendUnits.includes(unit.id)}
               onchange={() => toggleUnit(unit.id)}
             />
             {unit.name} ({unit.short})

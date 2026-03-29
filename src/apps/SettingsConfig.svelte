@@ -16,7 +16,7 @@
 
   // User Preferences
   let autoSpend = $state<boolean>(Settings.get("autoSpend"));
-  let autoSpendUnits = $state<string>(Settings.get("autoSpendUnits") || "");
+  let autoSpendUnits = $state(Settings.get("autoSpendUnits"));
 
   // Computed / Constant
   const availablePacks = getAvailablePacks();
@@ -42,9 +42,14 @@
       bind:allowedCompendiums
       {availablePacks}
     />
+  {:else}
+    <UserPreferencesConfig
+      bind:autoSpend
+      bind:autoSpendUnits
+      {timeUnits}
+    />
   {/if}
 
-  <UserPreferencesConfig bind:autoSpend bind:autoSpendUnits {timeUnits} />
 
   <div class="footer-actions">
     <button type="button" class="tidy-button primary" onclick={save}>

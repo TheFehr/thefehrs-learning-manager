@@ -1,4 +1,7 @@
-import type { SystemRules } from "../types.js";
+type SystemRules = {
+  critDoubleStrategy?: "any" | "all" | "never";
+  critThreshold?: number;
+};
 
 export async function migrateToV1_2() {
   const SETTINGS_ID = "thefehrs-learning-manager";
@@ -9,7 +12,7 @@ export async function migrateToV1_2() {
     };
 
     let changed = false;
-    const updatedRules = { ...rules };
+    const updatedRules: SystemRules = { ...rules };
 
     if (updatedRules.critDoubleStrategy === undefined) {
       updatedRules.critDoubleStrategy = "never";

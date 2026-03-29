@@ -95,7 +95,7 @@
   <hr />
   <TimeUnitsConfig bind:timeUnits />
   <hr />
-  <GuidanceConfig bind:guidanceTiers {timeUnits} />
+  <GuidanceConfig bind:guidanceTiers {timeUnits} {rules} />
   <hr />
 </div>
 
