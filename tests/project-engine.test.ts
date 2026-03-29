@@ -625,7 +625,7 @@ describe("ProjectEngine", () => {
 
       vi.spyOn(Settings, "get").mockImplementation((key) => {
         if (key === "autoSpend") return true;
-        if (key === "autoSpendUnits") return "hour,day,week";
+        if (key === "autoSpendUnits") return ["hour", "day", "week"];
         return null;
       });
     });
@@ -633,7 +633,7 @@ describe("ProjectEngine", () => {
     it("should do nothing if autoSpend is disabled", async () => {
       vi.spyOn(Settings, "get").mockImplementation((key) => {
         if (key === "autoSpend") return false;
-        if (key === "autoSpendUnits") return "hour,day,week";
+        if (key === "autoSpendUnits") return ["hour", "day", "week"];
         return null;
       });
       const filterSpy = mockActor.items.filter;
