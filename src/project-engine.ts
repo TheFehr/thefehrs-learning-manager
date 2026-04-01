@@ -309,7 +309,7 @@ export class ProjectEngine {
         requireMagic: false,
       },
       name: "Spend all time",
-    } as any);
+    });
 
     return activities;
   }

@@ -1,75 +1,83 @@
 <script lang="ts">
-  import type { GuidanceTier, TimeUnit, SystemRules } from "../../types";
+  import type {GuidanceTier, TimeUnit, SystemRules} from "../../types";
 
-  let { guidanceTiers = $bindable(), timeUnits, rules } : { guidanceTiers: GuidanceTier[], timeUnits: TimeUnit[], rules: SystemRules } = $props();
+  let {guidanceTiers = $bindable(), timeUnits, rules}: {
+    guidanceTiers: GuidanceTier[],
+    timeUnits: TimeUnit[],
+    rules: SystemRules
+  } = $props();
 
   function addTier() {
-    guidanceTiers.push({
+    guidanceTiers = [...guidanceTiers, {
       id: (foundry.utils as any).randomID(),
       name: "New Tier",
       modifier: 0,
       costs: {},
       progress: {}
-    });
+    }];
   }
 
   function removeTier(id: string) {
     guidanceTiers = guidanceTiers.filter(t => t.id !== id);
   }
 
-  function direktBulkActive(timeUnit: TimeUnit) {
+  function directBulkActive(timeUnit: TimeUnit) {
     return rules.bulkMethod === "direct" && timeUnit.isBulk;
   }
 </script>
 
 <section>
-  <h3>Guidance Tiers</h3>
-  <div class="tier-list">
-    {#each guidanceTiers as tier}
-      <div class="tier-card">
-        <div class="tier-header">
-          <input type="text" bind:value={tier.name} placeholder="Tier Name" class="tier-name-input" aria-label="Tier Name" />
-          <div class="tier-mod">
-            <label for="tier-mod-{tier.id}">Mod:</label>
-            <input id="tier-mod-{tier.id}" type="number" bind:value={tier.modifier} style="width: 50px;" />
-          </div>
-          <button type="button" class="tidy-button small danger" onclick={() => removeTier(tier.id)} title="Delete Tier">
-            <i class="fas fa-trash"></i>
-          </button>
-        </div>
-        
-        <div class="tier-grids">
-          <div class="grid-box">
-            <span class="grid-label">Costs (cp)</span>
-            {#each timeUnits as unit}
-              <div class="grid-row">
-                <label for="tier-{tier.id}-cost-{unit.id}">{unit.name}:</label>
-                <input id="tier-{tier.id}-cost-{unit.id}" type="number" bind:value={tier.costs[unit.id]} min="0" />
-              </div>
-            {/each}
-          </div>
-          <div class="grid-box">
-            <span class="grid-label">Progress (if bulk)</span>
-            {#each timeUnits as unit}
-              <div class="grid-row">
-                <label for="tier-{tier.id}-progress-{unit.id}" style={!direktBulkActive(unit) ? 'opacity: 0.5' : ''}>{unit.name}:</label>
-                <input
-                  id="tier-{tier.id}-progress-{unit.id}"
-                  type="number"
-                  bind:value={tier.progress[unit.id]}
-                  min="0"
-                  disabled={!direktBulkActive(unit)}
-                />
-              </div>
-            {/each}
-          </div>
-        </div>
-      </div>
-    {/each}
-  </div>
-  <button type="button" class="tidy-button" onclick={addTier}>
-    <i class="fas fa-plus"></i> Add Tier
-  </button>
+    <h3>Guidance Tiers</h3>
+    <div class="tier-list">
+        {#each guidanceTiers as tier}
+            <div class="tier-card">
+                <div class="tier-header">
+                    <input type="text" bind:value={tier.name} placeholder="Tier Name" class="tier-name-input"
+                           aria-label="Tier Name"/>
+                    <div class="tier-mod">
+                        <label for="tier-mod-{tier.id}">Mod:</label>
+                        <input id="tier-mod-{tier.id}" type="number" bind:value={tier.modifier} style="width: 50px;"/>
+                    </div>
+                    <button type="button" class="tidy-button small danger" onclick={() => removeTier(tier.id)}
+                            title="Delete Tier">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </div>
+
+                <div class="tier-grids">
+                    <div class="grid-box">
+                        <span class="grid-label">Costs (cp)</span>
+                        {#each timeUnits as unit}
+                            <div class="grid-row">
+                                <label for="tier-{tier.id}-cost-{unit.id}">{unit.name}:</label>
+                                <input id="tier-{tier.id}-cost-{unit.id}" type="number" bind:value={tier.costs[unit.id]}
+                                       min="0"/>
+                            </div>
+                        {/each}
+                    </div>
+                    <div class="grid-box">
+                        <span class="grid-label">Progress (if bulk)</span>
+                        {#each timeUnits as unit}
+                            <div class="grid-row">
+                                <label for="tier-{tier.id}-progress-{unit.id}"
+                                       style={!directBulkActive(unit) ? 'opacity: 0.5' : ''}>{unit.name}:</label>
+                                <input
+                                        id="tier-{tier.id}-progress-{unit.id}"
+                                        type="number"
+                                        bind:value={tier.progress[unit.id]}
+                                        min="0"
+                                        disabled={!directBulkActive(unit)}
+                                />
+                            </div>
+                        {/each}
+                    </div>
+                </div>
+            </div>
+        {/each}
+    </div>
+    <button type="button" class="tidy-button" onclick={addTier}>
+        <i class="fas fa-plus"></i> Add Tier
+    </button>
 </section>
 
 <style lang="scss">
@@ -84,7 +92,7 @@
     border: 1px solid var(--t5e-faint-color);
     padding: 0.75rem;
     border-radius: 4px;
-    background: rgba(0,0,0,0.05);
+    background: rgba(0, 0, 0, 0.05);
 
     .tier-header {
       display: flex;
@@ -138,6 +146,7 @@
 
   button.danger {
     color: var(--t5e-danger-color);
+
     &:hover {
       background: var(--t5e-danger-color);
       color: white;

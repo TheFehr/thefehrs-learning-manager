@@ -31,19 +31,16 @@ describe("SettingsConfig logic", () => {
     vi.clearAllMocks();
 
     // Mock Settings getters
-    vi.spyOn(Settings, "rules", "get").mockReturnValue({ method: "direct" } as any);
-    vi.spyOn(Settings, "timeUnits", "get").mockReturnValue([]);
-    vi.spyOn(Settings, "guidanceTiers", "get").mockReturnValue([]);
-    vi.spyOn(Settings, "allowedCompendiums", "get").mockReturnValue([]);
+    vi.mocked(game.settings.get).mockImplementation((_scope, key) => {
+      if (key === "rules") return { method: "direct" };
+      if (key === "timeUnits") return [];
+      if (key === "guidanceTiers") return [];
+      if (key === "allowedCompendiums") return [];
+      return null;
+    });
 
-    global.game = {
-      packs: {
-        filter: vi.fn().mockReturnValue([]),
-      },
-      user: {
-        isGM: true,
-      },
-    } as any;
+    game.user.isGM = true;
+    (game.packs as any).contents = [];
   });
 
   it("should notify user on successful save", async () => {

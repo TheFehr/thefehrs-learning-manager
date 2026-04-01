@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { SystemRules } from "../../types";
 
-  let { rules = $bindable() } = $props();
+  let { rules = $bindable() } = $props<{ rules: SystemRules }>();
 
   let needsCheckFields = $derived(
     rules.nonBulkMethod === 'roll' || 

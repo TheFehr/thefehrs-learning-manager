@@ -1,16 +1,19 @@
 <script lang="ts">
-  import type { TimeUnit } from "../../types";
+  import type {TimeUnit} from "../../types";
 
-  let { timeUnits = $bindable() } = $props();
+  let {timeUnits = $bindable()} = $props();
 
   function addTimeUnit() {
-    timeUnits.push({
-      id: (foundry.utils as any).randomID(),
-      name: "New Unit",
-      short: "u",
-      isBulk: false,
-      ratio: 1
-    });
+    timeUnits = [
+      ...timeUnits,
+      {
+        id: (foundry.utils as any).randomID(),
+        name: "New Unit",
+        short: "u",
+        isBulk: false,
+        ratio: 1
+      }
+    ];
   }
 
   function removeTimeUnit(id: string) {
@@ -19,36 +22,38 @@
 </script>
 
 <section>
-  <h3>Time Units</h3>
-  <table class="tidy-table">
-    <thead>
-      <tr>
-        <th>Name</th>
-        <th>Short</th>
-        <th title="Bulk units use defined progress instead of 1">Bulk?</th>
-        <th title="Ratio to base unit (e.g. Day = 10 Hours)">Ratio</th>
-        <th></th>
-      </tr>
-    </thead>
-    <tbody>
-      {#each timeUnits as unit}
+    <h3>Time Units</h3>
+    <table class="tidy-table">
+        <thead>
         <tr>
-          <td><input type="text" bind:value={unit.name} aria-label="Unit Name" /></td>
-          <td><input type="text" bind:value={unit.short} style="width: 40px;" aria-label="Unit Short Name" /></td>
-          <td style="text-align: center;"><input type="checkbox" bind:checked={unit.isBulk} aria-label="Is Bulk?" /></td>
-          <td><input type="number" bind:value={unit.ratio} min="1" style="width: 60px;" aria-label="Ratio" /></td>
-          <td>
-            <button type="button" class="tidy-button small danger" onclick={() => removeTimeUnit(unit.id)} title="Delete Time Unit">
-              <i class="fas fa-trash"></i>
-            </button>
-          </td>
+            <th>Name</th>
+            <th>Short</th>
+            <th title="Bulk units use defined progress instead of 1">Bulk?</th>
+            <th title="Ratio to base unit (e.g. Day = 10 Hours)">Ratio</th>
+            <th></th>
         </tr>
-      {/each}
-    </tbody>
-  </table>
-  <button type="button" class="tidy-button" onclick={addTimeUnit}>
-    <i class="fas fa-plus"></i> Add Unit
-  </button>
+        </thead>
+        <tbody>
+        {#each timeUnits as unit}
+            <tr>
+                <td><input type="text" bind:value={unit.name} aria-label="Unit Name"/></td>
+                <td><input type="text" bind:value={unit.short} style="width: 40px;" aria-label="Unit Short Name"/></td>
+                <td style="text-align: center;"><input type="checkbox" bind:checked={unit.isBulk}
+                                                       aria-label="Is Bulk?"/></td>
+                <td><input type="number" bind:value={unit.ratio} min="1" step="1" style="width: 60px;" aria-label="Ratio"/></td>
+                <td>
+                    <button type="button" class="tidy-button small danger" onclick={() => removeTimeUnit(unit.id)}
+                            title="Delete Time Unit">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        {/each}
+        </tbody>
+    </table>
+    <button type="button" class="tidy-button" onclick={addTimeUnit}>
+        <i class="fas fa-plus"></i> Add Unit
+    </button>
 </section>
 
 <style lang="scss">
@@ -69,6 +74,7 @@
 
   button.danger {
     color: var(--t5e-danger-color);
+
     &:hover {
       background: var(--t5e-danger-color);
       color: white;

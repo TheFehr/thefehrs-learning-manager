@@ -1,5 +1,5 @@
 import { Settings } from "./settings.js";
-import { LearningModuleMessage } from "./socket-types.js";
+import type { LearningModuleMessage } from "./socket-types.js";
 
 export class Socket {
   static get identifier() {
@@ -26,11 +26,6 @@ export class Socket {
       if (!message || typeof message.type !== "string") {
         console.warn("Downtime Engine | Socket: Received malformed message:", args);
         return;
-      }
-
-      // Notify for visual confirmation during troubleshooting
-      if (game.user?.isGM) {
-        ui.notifications?.info(`Downtime Engine | Socket received: ${message.type}`);
       }
 
       handler(message).catch((err) => {

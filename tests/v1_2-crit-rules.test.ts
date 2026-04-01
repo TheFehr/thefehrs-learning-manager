@@ -19,6 +19,7 @@ describe("v1_2-crit-rules migration", () => {
       expect.objectContaining({
         critDoubleStrategy: "never",
         critThreshold: 10,
+        method: "roll",
       }),
     );
   });

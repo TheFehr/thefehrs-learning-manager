@@ -14,7 +14,7 @@ describe("main.ts side effects", () => {
   it("should register init and ready hooks", async () => {
     // Spy on LearningManager methods
     const initSpy = vi.spyOn(LearningManager, "init").mockImplementation(() => {});
-    const readySpy = vi.spyOn(LearningManager, "ready").mockImplementation(() => {});
+    const readySpy = vi.spyOn(LearningManager, "ready").mockResolvedValue(undefined);
 
     // Import main.ts to trigger its side effects
     await import("../src/main");

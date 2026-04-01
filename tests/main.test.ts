@@ -5,6 +5,7 @@ import { ActorProxy } from "../src/actor-proxy";
 import { ProjectEngine } from "../src/project-engine";
 import { Socket } from "../src/core/socket";
 import type { TimeUnit } from "../src/types";
+import { migrateData } from "../src/migrations/migration";
 
 vi.mock("../src/project-engine", () => ({
   ProjectEngine: {
@@ -153,10 +154,11 @@ describe("LearningManager", () => {
   });
 
   describe("ready", () => {
-    it("should log initialized message", () => {
+    it("should log initialized message and run migrations", async () => {
       const consoleSpy = vi.spyOn(console, "debug");
-      LearningManager.ready();
+      await LearningManager.ready();
       expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining("Initialized"));
+      expect(migrateData).toHaveBeenCalled();
     });
   });
 
