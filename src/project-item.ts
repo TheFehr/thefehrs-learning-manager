@@ -3,7 +3,7 @@ import type { LearningActor, Item5e, ActivityData5e } from "./types.js";
 
 export const LearningFeatType = "learning-project" as const;
 
-export type ComparisonOperator = "===" | "!==" | ">" | ">=" | "<" | "<=" | "includes";
+export type ComparisonOperator = "==" | "!=" | "===" | "!==" | ">" | ">=" | "<" | "<=" | "includes";
 
 export interface ProjectRequirement {
   id: string;

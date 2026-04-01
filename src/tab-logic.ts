@@ -95,6 +95,38 @@ export class TabLogic {
     return { progressGained, roll, reason };
   }
 
+  /**
+   * Calculates the success probability (0-1) for a single training roll.
+   */
+  static async calculateSuccessProbability(
+    actor: LearningActor,
+    rules: SystemRules,
+    tier: GuidanceTier | undefined,
+  ): Promise<number> {
+    if (!rules.checkFormula || !rules.checkDC) return 0;
+
+    try {
+      // 1. Resolve the formula's static modifier by replacing 1d20 with 0
+      const staticFormula = rules.checkFormula.replace(/1d20/gi, "0");
+      const staticRoll = await new Roll(staticFormula, {
+        ...actor.getRollData(),
+        tutelage: tier?.modifier || 0,
+      }).evaluate();
+
+      const modifier = staticRoll.total;
+      const targetRoll = rules.checkDC - modifier;
+
+      // 2. Linear probability for a d20 roll
+      // To succeed, d20 >= targetRoll
+      // Number of successful outcomes: 21 - targetRoll (clamped to 0-20)
+      const successCount = Math.min(20, Math.max(0, 21 - targetRoll));
+      return successCount / 20;
+    } catch (err) {
+      console.error("Downtime Engine | Failed to calculate success probability:", err);
+      return 0;
+    }
+  }
+
   static async addCurrency(actor: Actor, amountCp: number) {
     if (amountCp < 0) {
       return this.deductCurrency(actor, -amountCp);
@@ -148,6 +180,12 @@ export class TabLogic {
       let met = false;
       if (op === "==") met = actorValue == targetValue;
       else if (op === "!=") met = actorValue != targetValue;
+      else if (op === "===") met = actorValue === targetValue;
+      else if (op === "!==") met = actorValue !== targetValue;
+      else if (op === "includes")
+        met = Array.isArray(actorValue)
+          ? actorValue.includes(targetValue)
+          : String(actorValue).includes(String(targetValue));
       else if (op === ">") met = actorValue > targetValue;
       else if (op === ">=") met = actorValue >= targetValue;
       else if (op === "<") met = actorValue < targetValue;
