@@ -8,12 +8,20 @@
   } = $props();
 
   function addTier() {
+    const costs: Record<string, number> = {};
+    const progress: Record<string, number> = {};
+    
+    for (const unit of timeUnits) {
+      costs[unit.id] = 0;
+      progress[unit.id] = 0;
+    }
+
     guidanceTiers = [...guidanceTiers, {
-      id: (foundry.utils as any).randomID(),
+      id: foundry.utils.randomID(),
       name: "New Tier",
       modifier: 0,
-      costs: {},
-      progress: {}
+      costs,
+      progress
     }];
   }
 

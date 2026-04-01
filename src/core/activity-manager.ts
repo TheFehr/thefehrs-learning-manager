@@ -71,9 +71,16 @@ export class ActivityManager {
       const activityUpdates: Record<string, any> = {};
 
       // 1. Identify and mark for removal any existing learning activities
-      const existingActivities = (item.system as any).activities;
+      const system = item.system as unknown as {
+        activities?: {
+          forEach: (
+            cb: (activity: { id: string; flags?: Record<string, unknown> }) => void,
+          ) => void;
+        };
+      };
+      const existingActivities = system.activities;
       if (existingActivities && typeof existingActivities.forEach === "function") {
-        existingActivities.forEach((activity: any) => {
+        existingActivities.forEach((activity) => {
           if (activity.flags?.["thefehrs-learning-manager"]?.isLearningActivity) {
             activityUpdates[`-=${activity.id}`] = null;
           }
@@ -119,17 +126,32 @@ export class ActivityManager {
 
     const actors = (game.actors || []) as unknown as Actor5e[];
     let updatedCount = 0;
+    let failedCount = 0;
 
     for (const actor of actors) {
       const learningItems = (actor as unknown as Actor).items.filter((i) =>
         i.getFlag("thefehrs-learning-manager", "isLearningProject"),
       ) as unknown as Item5e[];
       for (const item of learningItems) {
-        await this.injectActivities(item);
-        updatedCount++;
+        try {
+          await this.injectActivities(item);
+          updatedCount++;
+        } catch (err) {
+          console.error(
+            `Downtime Engine | Failed to sync activities for item "${item.name}" on actor "${actor.name}":`,
+            err,
+          );
+          failedCount++;
+        }
       }
     }
 
-    ui.notifications?.info(`Downtime Engine | Synced activities for ${updatedCount} items.`);
+    if (failedCount > 0) {
+      ui.notifications?.warn(
+        `Downtime Engine | Synced activities for ${updatedCount} items. ${failedCount} items failed (see console).`,
+      );
+    } else {
+      ui.notifications?.info(`Downtime Engine | Synced activities for ${updatedCount} items.`);
+    }
   }
 }

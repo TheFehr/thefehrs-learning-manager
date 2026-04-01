@@ -83,18 +83,17 @@ export class ProjectEngine {
       return false;
     }
 
-    const activities = Array.from((item.system as any).activities || [])
+    const activities = (item.system.activities as unknown as LearningActivityData[])
       .filter(
-        (a: any) =>
-          a.flags?.[Settings.ID]?.isLearningActivity && !a.flags?.[Settings.ID]?.isSpendAll,
+        (a) => a.flags?.[Settings.ID]?.isLearningActivity && !a.flags?.[Settings.ID]?.isSpendAll,
       )
-      .map((a: any) => {
+      .map((a) => {
         const unitId = a.flags?.[Settings.ID]?.timeUnitId;
         const unit = Settings.timeUnits.find((u) => u.id === unitId);
         return { activity: a, ratio: unit?.ratio || 0, unitId, name: unit?.name };
       })
-      .filter((a: any) => a.ratio > 0 && (!allowedUnitIds || allowedUnitIds.includes(a.unitId)))
-      .sort((a: any, b: any) => b.ratio - a.ratio);
+      .filter((a) => a.ratio > 0 && (!allowedUnitIds || allowedUnitIds.includes(a.unitId || "")))
+      .sort((a, b) => b.ratio - a.ratio);
 
     if (activities.length === 0) {
       if (!allowedUnitIds)
@@ -106,7 +105,7 @@ export class ProjectEngine {
     if (!allowedUnitIds) {
       const { TabLogic } = await import("./tab-logic.js");
       const formattedTime = TabLogic.formatTimeBank(bank.total, Settings.timeUnits);
-      const confirmed = await (foundry.applications.api as any).DialogV2.confirm({
+      const confirmed = await foundry.applications.api.DialogV2.confirm({
         window: { title: "Confirm Spend All Time" },
         content: `<p>Are you sure you want to spend <b>all</b> your available training time (<b>${formattedTime}</b>) on <b>${item.name}</b>?</p>`,
         rejectClose: false,
@@ -121,7 +120,7 @@ export class ProjectEngine {
 
     while (iterations < maxIterations) {
       const currentBank = proxy.bank.total || 0;
-      const fitting = activities.find((a: any) => a.ratio <= currentBank);
+      const fitting = activities.find((a) => a.ratio <= currentBank);
 
       if (!fitting) break;
 
@@ -129,8 +128,10 @@ export class ProjectEngine {
       if (!result) break;
       anySuccess = true;
 
-      const updatedProject = actor.items.get(item.id);
-      const isCompleted = updatedProject?.getFlag(Settings.ID, "projectData")?.isCompleted;
+      const updatedProject = actor.items.get(item.id) as ProjectItem | undefined;
+      if (!updatedProject || !updatedProject.system?.activities) break;
+
+      const isCompleted = updatedProject.getFlag(Settings.ID, "projectData")?.isCompleted;
       if (isCompleted) break;
 
       iterations++;
@@ -149,14 +150,14 @@ export class ProjectEngine {
     learningActivity: LearningActivityData,
     options: { skipPrompt?: boolean } = {},
   ): Promise<boolean> {
-    const item = learningActivity.item as unknown as Item5e;
+    const item = learningActivity.item;
 
     const actor = item.actor;
     if (!actor) return false;
 
     // Handle "Spend all" activity
-    if ((learningActivity as any).flags?.[Settings.ID]?.isSpendAll) {
-      return await this.processSpendAll(item);
+    if (learningActivity.flags?.[Settings.ID]?.isSpendAll) {
+      return await this.processSpendAll(item as unknown as Item5e);
     }
 
     const projectDataFlags = item.getFlag("thefehrs-learning-manager", "projectData");
@@ -214,21 +215,12 @@ export class ProjectEngine {
       rules.nonBulkMethod === "roll" &&
       rules.bulkMethod !== "roll"
     ) {
-      const bulkResult = await TabLogic.computeProgress(
-        actor as unknown as LearningActor,
-        rules,
-        tier,
-        tu,
-      );
-      const prob = await TabLogic.calculateSuccessProbability(
-        actor as unknown as LearningActor,
-        rules,
-        tier,
-      );
+      const bulkResult = await TabLogic.computeProgress(actor, rules, tier, tu);
+      const prob = await TabLogic.calculateSuccessProbability(actor, rules, tier);
       const chancePercent = Math.round(prob * 100);
       const expectedFromSeparate = (tu.ratio * prob).toFixed(1);
 
-      const choice = await (foundry.applications.api as any).DialogV2.wait({
+      const choice = await foundry.applications.api.DialogV2.wait({
         window: { title: `Training Resolution: ${tu.name}` },
         content: `
           <div style="margin-bottom: 1rem;">
@@ -258,7 +250,7 @@ export class ProjectEngine {
     // Confirmation before spending currency
     if (costCp > 0) {
       const formattedCost = TabLogic.formatCurrency(costCp);
-      const confirmed = await (foundry.applications.api as any).DialogV2.confirm({
+      const confirmed = await foundry.applications.api.DialogV2.confirm({
         window: { title: "Confirm Tutelage Cost" },
         content: `<p>This training session requires <b>${formattedCost}</b> in tutelage fees. Spend currency and proceed?</p>`,
         rejectClose: false,
@@ -274,29 +266,19 @@ export class ProjectEngine {
     }
 
     let totalProgressGained = 0;
-    let rolls: any[] = [];
+    let rolls: Roll[] = [];
     let reasons: string[] = [];
 
     if (isSeparate) {
       const baseTu = { ...tu, isBulk: false, ratio: 1 };
       for (let i = 0; i < tu.ratio; i++) {
-        const result = await TabLogic.computeProgress(
-          actor as unknown as LearningActor,
-          rules,
-          tier,
-          baseTu,
-        );
+        const result = await TabLogic.computeProgress(actor, rules, tier, baseTu);
         totalProgressGained += result.progressGained;
         if (result.roll) rolls.push(result.roll);
         if (result.reason) reasons.push(result.reason);
       }
     } else {
-      const result = await TabLogic.computeProgress(
-        actor as unknown as LearningActor,
-        rules,
-        tier,
-        tu,
-      );
+      const result = await TabLogic.computeProgress(actor, rules, tier, tu);
       totalProgressGained = result.progressGained;
       if (result.roll) rolls.push(result.roll);
       if (result.reason) reasons.push(result.reason);
@@ -321,14 +303,12 @@ export class ProjectEngine {
       await this.completeProject(item as unknown as Item5e);
 
       if (excessProgress > 0 && projectDataFlags.followUpProjectId) {
-        const followUpItem = (await fromUuid(
-          projectDataFlags.followUpProjectId as any,
-        )) as unknown as Item5e | null;
+        const followUpItem = (await fromUuid(projectDataFlags.followUpProjectId)) as Item5e | null;
         if (followUpItem && "getFlag" in followUpItem) {
-          const escapedItemName = (foundry.utils as any).escapeHTML(item.name);
-          const escapedFollowUpName = (foundry.utils as any).escapeHTML((followUpItem as any).name);
+          const escapedItemName = foundry.utils.escapeHTML(item.name || "");
+          const escapedFollowUpName = foundry.utils.escapeHTML(followUpItem.name || "");
 
-          const proceed = await (foundry.applications.api as any).DialogV2.confirm({
+          const proceed = await foundry.applications.api.DialogV2.confirm({
             window: { title: "Learning Progress Exceeded" },
             content: `<p>You generated <strong>${excessProgress}</strong> more progress than needed to complete <strong>${escapedItemName}</strong>.</p>
                       <p>Would you like to immediately apply it towards the follow-up project: <strong>${escapedFollowUpName}</strong>?</p>`,
@@ -337,10 +317,7 @@ export class ProjectEngine {
 
           if (proceed) {
             const { TabLogic } = await import("./tab-logic.js");
-            const followUpFlags = (followUpItem as any).getFlag(
-              "thefehrs-learning-manager",
-              "projectData",
-            ) as ProjectFlagData | undefined;
+            const followUpFlags = followUpItem.getFlag("thefehrs-learning-manager", "projectData");
             const reqs = followUpFlags?.requirements || [];
             const { eligible, reason: reqReason } = TabLogic.meetsRequirements(
               actor as unknown as Actor,
@@ -354,7 +331,7 @@ export class ProjectEngine {
             } else {
               const newItem = await this.initiateProjectFromItem(
                 actor as unknown as Actor,
-                followUpItem as unknown as Item,
+                followUpItem,
                 projectDataFlags.tutelageId,
               );
               if (newItem) {
@@ -368,7 +345,7 @@ export class ProjectEngine {
                 );
                 await this.updateItemWithProgress(newItem, newFlags);
                 ui.notifications?.info(
-                  `Started follow-up project: ${(followUpItem as any).name} with ${
+                  `Started follow-up project: ${followUpItem.name} with ${
                     newFlags.progress
                   } initial progress.`,
                 );
@@ -381,9 +358,11 @@ export class ProjectEngine {
       await this.updateItemWithProgress(item as unknown as Item5e, projectDataFlags);
 
       // Ensure we have the latest document instance before displaying the card
-      const freshItem = (actor as unknown as Actor).items.get(item.id) as unknown as Item5e;
-      if (freshItem && typeof (freshItem as any).displayCard === "function") {
-        await (freshItem as any).displayCard({ rollMode: rules.rollMode });
+      const freshItem = (actor as unknown as Actor).items.get(item.id) as Item5e & {
+        displayCard?: (options?: object) => Promise<unknown>;
+      };
+      if (freshItem && typeof freshItem.displayCard === "function") {
+        await freshItem.displayCard({ rollMode: rules.rollMode });
       }
     }
 
@@ -392,7 +371,7 @@ export class ProjectEngine {
         {
           flavor: `${actor.name} tries to learn ${item.name} (DC ${rules.checkDC})`,
         },
-        { rollMode: (rules.rollMode as any) || "gmroll" },
+        { rollMode: rules.rollMode || "gmroll" },
       );
     }
 
@@ -430,7 +409,7 @@ export class ProjectEngine {
       await this.processSpendAll(project as unknown as Item5e, autoSpendUnits);
     } else if (autoSpendEnabled && projects.length > 1) {
       ui.notifications?.warn(
-        "Downtime Engine | You have auto-spending enabled, but more than one active project. Please open you character sheet and spend the time yourself.",
+        "Downtime Engine | You have auto-spending enabled, but more than one active project. Please open your character sheet and spend the time yourself.",
       );
     }
   }

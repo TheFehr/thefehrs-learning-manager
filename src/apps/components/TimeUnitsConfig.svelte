@@ -7,7 +7,7 @@
     timeUnits = [
       ...timeUnits,
       {
-        id: (foundry.utils as any).randomID(),
+        id: foundry.utils.randomID(),
         name: "New Unit",
         short: "u",
         isBulk: false,
@@ -34,7 +34,7 @@
         </tr>
         </thead>
         <tbody>
-        {#each timeUnits as unit}
+        {#each timeUnits as unit (unit.id)}
             <tr>
                 <td><input type="text" bind:value={unit.name} aria-label="Unit Name"/></td>
                 <td><input type="text" bind:value={unit.short} style="width: 40px;" aria-label="Unit Short Name"/></td>

@@ -24,7 +24,12 @@ else
   IS_BETA=true
   # Use package.json version as base for beta
   if [[ -f "package.json" ]]; then
-    BASE_VERSION=$(jq -r .version package.json)
+    if command -v jq >/dev/null 2>&1; then
+      BASE_VERSION=$(jq -r .version package.json)
+    else
+      # Fallback: simple grep for version
+      BASE_VERSION=$(grep '"version":' package.json | head -1 | sed -E 's/.*"version": "([^"]+)".*/\1/')
+    fi
   else
     BASE_VERSION="0.0.0"
   fi

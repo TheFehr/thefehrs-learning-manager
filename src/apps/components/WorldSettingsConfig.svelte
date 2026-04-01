@@ -43,6 +43,13 @@
       if (!target.files?.length) return;
       const file = target.files[0];
       const reader = new FileReader();
+      reader.onerror = () => {
+        ui.notifications?.error("Downtime Engine | Failed to read settings file.");
+        console.error("Downtime Engine | FileReader error:", reader.error);
+      };
+      reader.onabort = () => {
+        ui.notifications?.warn("Downtime Engine | Settings import aborted.");
+      };
       reader.onload = async (event: ProgressEvent<FileReader>) => {
         try {
           const content = event.target?.result as string;

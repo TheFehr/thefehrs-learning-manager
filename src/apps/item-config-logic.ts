@@ -18,7 +18,7 @@ export class ItemConfigLogic {
         target,
         followUpProjectId,
         requirements,
-      } as any);
+      });
       return true;
     } catch (err) {
       console.error("Downtime Engine | Failed to save item configuration:", err);
@@ -32,13 +32,17 @@ export class ItemConfigLogic {
    * Orchestrates the search for a follow-up project using available modules.
    */
   static async searchFollowUp(): Promise<string | null> {
-    const omnisearch = (CONFIG as any).SpotlightOmnisearch;
+    const omnisearch = CONFIG.SpotlightOmnisearch;
     if (omnisearch?.prompt) {
       const result = await omnisearch.prompt({ query: "!item " });
       return result?.data?.uuid || null;
     }
 
-    const quickInsert = (game as any).modules.get("quick-insert")?.api;
+    const quickInsert = (
+      game.modules.get("quick-insert") as unknown as {
+        api?: { searchItem: (opts: object) => Promise<{ uuid: string } | null> };
+      }
+    )?.api;
     if (quickInsert?.searchItem) {
       const result = await quickInsert.searchItem({ classes: ["Item"] });
       return result?.uuid || null;

@@ -122,6 +122,24 @@ export type LearningProject = ProjectFlagData;
 export type { ProjectRequirement, ComparisonOperator, ProjectFlagData };
 
 declare global {
+  namespace foundry {
+    namespace applications {
+      namespace api {
+        class DialogV2 {
+          static wait(options: object): Promise<unknown>;
+          static confirm(options: object): Promise<boolean>;
+        }
+      }
+    }
+    namespace utils {
+      function randomID(): string;
+      function getProperty(obj: object, path: string): unknown;
+      function setProperty(obj: object, path: string, value: unknown): boolean;
+      function mergeObject(original: object, other: object, options?: object): object;
+      function escapeHTML(str: string): string;
+    }
+  }
+
   interface HookConfig {
     "tidy5e-sheet.ready": (api: Tidy5eSheetsApi) => void;
   }
@@ -132,6 +150,9 @@ declare global {
     };
     Dice: {
       rollModes: Record<string, string | { label: string }>;
+    };
+    SpotlightOmnisearch?: {
+      prompt: (options: { query: string }) => Promise<{ data?: { uuid: string } } | null>;
     };
   }
 

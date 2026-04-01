@@ -70,7 +70,7 @@ interface PackLike {
  * Returns a list of available Item compendiums.
  */
 export function getAvailablePacks() {
-  const packs = (game.packs as any).contents as PackLike[];
+  const packs = (game.packs as unknown as { contents: PackLike[] }).contents;
   return packs
     .filter((pack) => pack.metadata.type === "Item")
     .map((pack) => ({
@@ -79,9 +79,10 @@ export function getAvailablePacks() {
     }));
 }
 
-const isPlainObject = (obj: any) => obj !== null && typeof obj === "object" && !Array.isArray(obj);
+const isPlainObject = (obj: unknown): obj is Record<string, unknown> =>
+  obj !== null && typeof obj === "object" && !Array.isArray(obj);
 
-const sanitizeNumericRecord = (obj: any) => {
+const sanitizeNumericRecord = (obj: unknown) => {
   if (!isPlainObject(obj)) return null;
   return Object.entries(obj).reduce((acc: Record<string, number>, [key, val]) => {
     if (typeof val === "number" && Number.isFinite(val)) {
@@ -94,7 +95,7 @@ const sanitizeNumericRecord = (obj: any) => {
 /**
  * Validates and normalizes imported settings data.
  */
-export function validateSettings(data: any) {
+export function validateSettings(data: unknown) {
   const result: {
     rules?: SystemRules;
     timeUnits?: TimeUnit[];
@@ -107,24 +108,36 @@ export function validateSettings(data: any) {
   }
 
   // 1. Validate Rules
-  if (isPlainObject(data.rules)) {
+  const rawRules = data.rules as Record<string, unknown> | undefined;
+  if (isPlainObject(rawRules)) {
     result.rules = {
-      method: ["roll", "direct", "mathematical"].includes(data.rules.method)
-        ? data.rules.method
+      nonBulkMethod: ["roll", "direct"].includes(String(rawRules.nonBulkMethod))
+        ? (rawRules.nonBulkMethod as "roll" | "direct")
         : "direct",
-      rollMode: typeof data.rules.rollMode === "string" ? data.rules.rollMode : "gmroll",
-      checkDC: Number.isFinite(data.rules.checkDC) ? data.rules.checkDC : 10,
-      checkFormula: typeof data.rules.checkFormula === "string" ? data.rules.checkFormula : "",
-      critDoubleStrategy: ["any", "all", "never"].includes(data.rules.critDoubleStrategy)
-        ? data.rules.critDoubleStrategy
+      bulkMethod: ["roll", "direct", "mathematical"].includes(String(rawRules.bulkMethod))
+        ? (rawRules.bulkMethod as "roll" | "direct" | "mathematical")
+        : "direct",
+      rollMode: typeof rawRules.rollMode === "string" ? rawRules.rollMode : "gmroll",
+      checkDC:
+        typeof rawRules.checkDC === "number" && Number.isFinite(rawRules.checkDC)
+          ? rawRules.checkDC
+          : 10,
+      checkFormula: typeof rawRules.checkFormula === "string" ? rawRules.checkFormula : "",
+      critDoubleStrategy: ["any", "all", "never"].includes(String(rawRules.critDoubleStrategy))
+        ? (rawRules.critDoubleStrategy as "any" | "all" | "never")
         : "never",
-      critThreshold: Number.isFinite(data.rules.critThreshold) ? data.rules.critThreshold : 20,
+      critThreshold:
+        typeof rawRules.critThreshold === "number" && Number.isFinite(rawRules.critThreshold)
+          ? rawRules.critThreshold
+          : 20,
       bulkExpectedFormula:
-        typeof data.rules.bulkExpectedFormula === "string"
-          ? data.rules.bulkExpectedFormula
+        typeof rawRules.bulkExpectedFormula === "string"
+          ? rawRules.bulkExpectedFormula
           : "round(@hours * (22 - max(1, @dc - @mod)) / 20)",
-      notificationLevel: ["none", "error", "info", "debug"].includes(data.rules.notificationLevel)
-        ? data.rules.notificationLevel
+      notificationLevel: ["none", "error", "info", "debug"].includes(
+        String(rawRules.notificationLevel),
+      )
+        ? (rawRules.notificationLevel as NotificationLevel)
         : "info",
     };
   }
@@ -132,24 +145,31 @@ export function validateSettings(data: any) {
   // 2. Validate Time Units
   if (Array.isArray(data.timeUnits)) {
     result.timeUnits = data.timeUnits
-      .filter((unit: any) => unit && typeof unit.id === "string")
-      .map((unit: any) => ({
-        id: unit.id,
+      .filter(
+        (unit: unknown): unit is Record<string, unknown> =>
+          isPlainObject(unit) && typeof unit.id === "string",
+      )
+      .map((unit) => ({
+        id: String(unit.id),
         name: typeof unit.name === "string" ? unit.name : "New Unit",
         short: typeof unit.short === "string" ? unit.short : "u",
         isBulk: typeof unit.isBulk === "boolean" ? unit.isBulk : false,
-        ratio: Number.isFinite(unit.ratio) ? unit.ratio : 1,
+        ratio: typeof unit.ratio === "number" && Number.isFinite(unit.ratio) ? unit.ratio : 1,
       }));
   }
 
   // 3. Validate Guidance Tiers
   if (Array.isArray(data.guidanceTiers)) {
     result.guidanceTiers = data.guidanceTiers
-      .filter((tier: any) => tier && typeof tier.id === "string")
-      .map((tier: any) => ({
-        id: tier.id,
+      .filter(
+        (tier: unknown): tier is Record<string, unknown> =>
+          isPlainObject(tier) && typeof tier.id === "string",
+      )
+      .map((tier) => ({
+        id: String(tier.id),
         name: typeof tier.name === "string" ? tier.name : "New Tier",
-        modifier: Number.isFinite(tier.modifier) ? tier.modifier : 0,
+        modifier:
+          typeof tier.modifier === "number" && Number.isFinite(tier.modifier) ? tier.modifier : 0,
         costs: sanitizeNumericRecord(tier.costs) ?? {},
         progress: sanitizeNumericRecord(tier.progress) ?? {},
         _migratedToV2: typeof tier._migratedToV2 === "boolean" ? tier._migratedToV2 : false,
@@ -159,7 +179,7 @@ export function validateSettings(data: any) {
   // 4. Validate Allowed Compendiums
   if (Array.isArray(data.allowedCompendiums)) {
     result.allowedCompendiums = data.allowedCompendiums.filter(
-      (compendium: any) => typeof compendium === "string",
+      (compendium: unknown): compendium is string => typeof compendium === "string",
     );
   }
 

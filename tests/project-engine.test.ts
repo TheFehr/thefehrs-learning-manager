@@ -197,10 +197,12 @@ describe("ProjectEngine", () => {
           name: "Source Item",
           type: "weapon",
           system: { damage: "1d8" },
-          "flags.thefehrs-learning-manager": expect.objectContaining({
-            isLearningProject: false,
-            isLearnedReward: true,
-            projectData: expect.objectContaining({ isCompleted: true }),
+          flags: expect.objectContaining({
+            "thefehrs-learning-manager": expect.objectContaining({
+              isLearningProject: false,
+              isLearnedReward: true,
+              projectData: expect.objectContaining({ isCompleted: true }),
+            }),
           }),
         }),
       ]);
@@ -597,7 +599,9 @@ describe("ProjectEngine", () => {
         return true;
       });
 
-      actor.items.get = vi.fn().mockReturnValue(item);
+      actor.items = {
+        get: vi.fn().mockReturnValue(item),
+      };
       item.getFlag = vi.fn().mockReturnValue({ isCompleted: false });
 
       const result = await ProjectEngine.processSpendAll(item);

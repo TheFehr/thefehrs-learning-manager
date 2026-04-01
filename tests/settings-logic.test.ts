@@ -16,10 +16,10 @@ describe("settings-logic", () => {
       const dataWithArrayRules = { rules: [] };
       expect(validateSettings(dataWithArrayRules)).toEqual({});
 
-      const dataWithValidRules = { rules: { method: "roll", checkDC: 15 } };
+      const dataWithValidRules = { rules: { nonBulkMethod: "roll", checkDC: 15 } };
       const validated = validateSettings(dataWithValidRules);
       expect(validated.rules).toBeDefined();
-      expect(validated.rules?.method).toBe("roll");
+      expect(validated.rules?.nonBulkMethod).toBe("roll");
       expect(validated.rules?.checkDC).toBe(15);
     });
 
@@ -28,7 +28,7 @@ describe("settings-logic", () => {
         rules: {
           checkDC: NaN,
           critThreshold: Infinity,
-          method: "roll",
+          nonBulkMethod: "roll",
         },
       };
       const validated = validateSettings(data);
@@ -81,7 +81,7 @@ describe("settings-logic", () => {
       const data = {
         rules: {
           notificationLevel: "debug",
-          method: "direct",
+          nonBulkMethod: "direct",
         },
       };
       const validated = validateSettings(data);
@@ -90,7 +90,7 @@ describe("settings-logic", () => {
       const invalidData = {
         rules: {
           notificationLevel: "invalid",
-          method: "direct",
+          nonBulkMethod: "direct",
         },
       };
       const validatedInvalid = validateSettings(invalidData);
@@ -103,7 +103,7 @@ describe("settings-logic", () => {
       vi.clearAllMocks();
       // Mock Settings.get to return initial values
       vi.spyOn(Settings, "get").mockImplementation((key) => {
-        if (key === "rules") return { method: "direct" };
+        if (key === "rules") return { nonBulkMethod: "direct" };
         if (key === "timeUnits") return [];
         if (key === "guidanceTiers") return [];
         if (key === "allowedCompendiums") return [];
@@ -118,17 +118,17 @@ describe("settings-logic", () => {
       });
 
       // Rules should be the first one in toSave
-      await saveSettings({ method: "roll" } as any, [{ id: "h" }] as any, [], []);
+      await saveSettings({ nonBulkMethod: "roll" } as any, [{ id: "h" }] as any, [], []);
 
       // Should have tried to set rules and timeUnits
-      expect(setSpy).toHaveBeenCalledWith("rules", { method: "roll" });
+      expect(setSpy).toHaveBeenCalledWith("rules", { nonBulkMethod: "roll" });
       expect(setSpy).toHaveBeenCalledWith("timeUnits", [{ id: "h" }]);
 
       // Should NOT have tried to set guidanceTiers or allowedCompendiums (because timeUnits failed)
       expect(setSpy).not.toHaveBeenCalledWith("guidanceTiers", expect.anything());
 
       // Rollback should happen for rules (it was saved before timeUnits failed)
-      expect(setSpy).toHaveBeenCalledWith("rules", { method: "direct" }); // rolled back to original
+      expect(setSpy).toHaveBeenCalledWith("rules", { nonBulkMethod: "direct" }); // rolled back to original
     });
   });
 });

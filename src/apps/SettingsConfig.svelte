@@ -16,7 +16,7 @@
 
   // User Preferences
   let autoSpend = $state<boolean>(Settings.get("autoSpend"));
-  let autoSpendUnits = $state(Settings.get("autoSpendUnits"));
+  let autoSpendUnits = $state<string[]>(Settings.get("autoSpendUnits"));
 
   // Computed / Constant
   const availablePacks = getAvailablePacks();

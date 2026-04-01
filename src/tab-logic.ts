@@ -178,6 +178,7 @@ export class TabLogic {
       const op: ComparisonOperator = req.operator;
 
       let met = false;
+      // Note: == and != intentionally use loose equality for type coercion (e.g. "5" == 5)
       if (op === "==") met = actorValue == targetValue;
       else if (op === "!=") met = actorValue != targetValue;
       else if (op === "===") met = actorValue === targetValue;

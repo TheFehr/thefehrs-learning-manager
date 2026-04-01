@@ -115,11 +115,16 @@ export class SettingsManager<Settings extends Record<string, any> = SettingsSche
    */
   static registerAll(overrides: Partial<Record<keyof SettingsSchema, any>> = {}) {
     for (const [key, metadata] of Object.entries(SETTINGS_DEFINITIONS)) {
+      const defaultValue = metadata.default;
       const config = {
         scope: metadata.scope,
         config: metadata.config ?? false,
-        type: metadata.default != null ? (metadata.default as any).constructor : Object,
-        default: metadata.default,
+        type: Array.isArray(defaultValue)
+          ? Object
+          : defaultValue != null
+            ? (defaultValue as { constructor: any }).constructor
+            : Object,
+        default: defaultValue,
         ...overrides[key as keyof SettingsSchema],
       };
 
@@ -131,27 +136,25 @@ export class SettingsManager<Settings extends Record<string, any> = SettingsSche
   // --- Legacy Accessors (kept for backward compatibility, now thin wrappers) ---
 
   get migrationVersion(): Settings["migrationVersion"] {
-    return this.get("migrationVersion" as any);
+    return this.get("migrationVersion");
   }
   get rules(): Settings["rules"] {
-    return this.get("rules" as any);
+    return this.get("rules");
   }
   get timeUnits(): Settings["timeUnits"] {
-    const units = this.get("timeUnits" as any);
-    console.debug("Downtime Engine | Retrieved Time Units:", units);
-    return units;
+    return this.get("timeUnits");
   }
   get guidanceTiers(): Settings["guidanceTiers"] {
-    return this.get("guidanceTiers" as any);
+    return this.get("guidanceTiers");
   }
   get allowedCompendiums(): Settings["allowedCompendiums"] {
-    return this.get("allowedCompendiums" as any) || [];
+    return this.get("allowedCompendiums") || [];
   }
   get autoSpend(): Settings["autoSpend"] {
-    return this.get("autoSpend" as any);
+    return this.get("autoSpend");
   }
   get autoSpendUnits(): Settings["autoSpendUnits"] {
-    return this.get("autoSpendUnits" as any);
+    return this.get("autoSpendUnits");
   }
 
   registerMenu(key: string, data: unknown): void {

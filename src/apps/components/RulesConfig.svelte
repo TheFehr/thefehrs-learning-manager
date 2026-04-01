@@ -10,6 +10,12 @@
   );
 
   let needsBulkFormula = $derived(rules.bulkMethod === 'mathematical');
+
+  function getRollModeLabel(value: unknown): string {
+    return typeof value === 'object' && value !== null && 'label' in value
+      ? (value as { label: string }).label
+      : String(value);
+  }
 </script>
 
 <section>
@@ -36,8 +42,7 @@
     <label for="rule-roll-mode">Roll Mode</label>
     <select id="rule-roll-mode" bind:value={rules.rollMode}>
       {#each Object.entries(CONFIG.Dice.rollModes) as [key, value]}
-        {@const label = typeof value === 'object' && value !== null && 'label' in value ? value.label : value}
-        <option value={key}>{game.i18n.localize(label)}</option>
+        <option value={key}>{game.i18n.localize(getRollModeLabel(value))}</option>
       {/each}
     </select>
   </div>

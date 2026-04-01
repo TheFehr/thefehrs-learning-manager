@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { PartyTabLogic } from "../src/apps/party-tab-logic";
 import { Settings } from "../src/core/settings";
 import { TabLogic } from "../src/tab-logic";
@@ -23,6 +23,10 @@ describe("PartyTabLogic", () => {
         create: vi.fn().mockResolvedValue({}),
       },
     };
+  });
+
+  afterEach(() => {
+    (game.actors as any).length = 0;
   });
 
   describe("processGrantTime", () => {

@@ -42,7 +42,11 @@ export class LearningManager {
   static registerSocketListeners() {
     Socket.listen(async (message) => {
       if (message.type === "timeGrantedSignal") {
-        await ProjectEngine.handleAutoTrainSignal();
+        try {
+          await ProjectEngine.handleAutoTrainSignal();
+        } catch (err) {
+          console.error("Downtime Engine | Failed to handle auto-train signal:", err);
+        }
       }
     });
   }
@@ -77,7 +81,7 @@ export class LearningManager {
 
   private static registerHooks() {
     // @ts-expect-error - dnd5e system hook
-    Hooks.on("dnd5e.preUseItem", (item: Item5e, config: any) => {
+    Hooks.on("dnd5e.preUseItem", (item: Item5e, config: { createMessage?: boolean }) => {
       if (item.getFlag("thefehrs-learning-manager", "isLearningProject")) {
         if (config) {
           config.createMessage = false;
@@ -256,9 +260,9 @@ export class LearningManager {
         },
         enabled: (data: { document?: Actor5e; actor?: Actor5e }) => {
           const actor = data.document || data.actor;
-          return (actor as any)?.type === "character";
+          return actor?.type === "character";
         },
-        onRender: (params: any) => {
+        onRender: (params: OnRenderTabParams) => {
           this.renderSvelte(
             params,
             ".downtime-engine-time-bank-bar-root",
@@ -272,10 +276,14 @@ export class LearningManager {
   }
 
   private static renderSvelte(
-    params: { app: any; element?: HTMLElement; tabContentsElement?: HTMLElement },
+    params: {
+      app: { id: string; document?: unknown; actor?: unknown };
+      element?: HTMLElement;
+      tabContentsElement?: HTMLElement;
+    },
     selector: string,
-    Component: any,
-    getProps: (doc: any) => any,
+    Component: Parameters<typeof mount>[0],
+    getProps: (doc: any) => Record<string, unknown>,
     customAppId?: string,
   ) {
     const appId = customAppId || params.app.id;

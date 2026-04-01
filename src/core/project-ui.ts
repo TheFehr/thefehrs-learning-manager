@@ -1,6 +1,6 @@
 export class ProjectUI {
   static generateProgressHtml(progress: number, target: number, tutelageName: string): string {
-    const percentage = Math.min(100, Math.max(0, (progress / target) * 100));
+    const percentage = target > 0 ? Math.min(100, Math.max(0, (progress / target) * 100)) : 0;
     return `<!-- learning-manager:progress-start -->
 <div class="learning-manager-progress-container" style="margin: 0.5rem 0 1rem 0; padding: 0.5rem; border: 1px solid var(--t5e-faint-color); border-radius: 4px; background: var(--t5e-background); font-family: var(--t5e-font-family);">
   <div style="display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 4px; font-size: 0.75rem; color: var(--t5e-secondary-color);">

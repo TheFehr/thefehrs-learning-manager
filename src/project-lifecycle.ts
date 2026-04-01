@@ -22,7 +22,7 @@ export class ProjectLifecycle {
     const stashedName = itemData.name || "";
     const stashedDescription = itemData.system.description?.value || "";
     const stashedSystem = itemData.system || {};
-    const stashedSourceUuid = (rewardDoc as any).uuid || "";
+    const stashedSourceUuid = (rewardDoc as { uuid?: string }).uuid || "";
 
     const projectItem = rewardDoc as unknown as ProjectItem;
     const projectDataFlags = projectItem.getFlag("thefehrs-learning-manager", "projectData");
@@ -78,7 +78,7 @@ export class ProjectLifecycle {
     };
 
     const [created] = await (actor as unknown as Actor5e).createEmbeddedDocuments("Item", [
-      updateData as never,
+      updateData as unknown as object,
     ]);
     if (!created) {
       console.error(
@@ -91,7 +91,16 @@ export class ProjectLifecycle {
     console.debug(
       `Downtime Engine | Created embedded item "${(created as unknown as Item).name}" (ID: ${createdItem.id}). Injecting activities...`,
     );
-    await ActivityManager.injectActivities(createdItem, projectData.target);
+    try {
+      await ActivityManager.injectActivities(createdItem, projectData.target);
+    } catch (err) {
+      console.error(
+        `Downtime Engine | Failed to inject activities for item "${createdItem.name}". Cleaning up...`,
+        err,
+      );
+      await createdItem.delete();
+      return null;
+    }
     return createdItem;
   }
 
@@ -112,14 +121,14 @@ export class ProjectLifecycle {
     let sourceItem: Item5e | null = null;
     if (stashedSourceUuid) {
       try {
-        sourceItem = (await fromUuid(stashedSourceUuid as any)) as unknown as Item5e | null;
+        sourceItem = (await fromUuid(stashedSourceUuid)) as unknown as Item5e | null;
       } catch (e) {
         console.warn(`Downtime Engine | Could not find source item ${stashedSourceUuid}`);
       }
     }
 
     const completedFlags = {
-      "flags.thefehrs-learning-manager": {
+      [Settings.ID]: {
         isLearningProject: false,
         isLearnedReward: true,
         projectData: {
@@ -135,7 +144,9 @@ export class ProjectLifecycle {
         stashedSystem: null,
         stashedSourceUuid: null,
       },
-      "flags.tidy5e-sheet.section": "Completed Learning",
+      "tidy5e-sheet": {
+        section: "Completed Learning",
+      },
     };
 
     if (sourceItem && sourceItem instanceof Item) {
@@ -143,7 +154,10 @@ export class ProjectLifecycle {
       const sourceData = sourceItem.toObject();
       const createData = {
         ...sourceData,
-        ...completedFlags,
+        flags: {
+          ...(sourceData.flags || {}),
+          ...completedFlags,
+        },
       };
 
       const [created] = await (actor as unknown as Actor).createEmbeddedDocuments("Item", [
@@ -156,8 +170,11 @@ export class ProjectLifecycle {
         ui.notifications?.info(
           `Learning Complete: ${(created as unknown as Item).name} is now fully available!`,
         );
-        if (typeof (created as any).displayCard === "function") {
-          await (created as any).displayCard({ rollMode: Settings.rules.rollMode });
+        const created5e = created as unknown as Item5e & {
+          displayCard?: (options?: object) => Promise<unknown>;
+        };
+        if (typeof created5e.displayCard === "function") {
+          await created5e.displayCard({ rollMode: Settings.rules.rollMode });
         }
         return;
       }
@@ -171,40 +188,52 @@ export class ProjectLifecycle {
     );
 
     // Identify learning activities to explicitly remove
-    const activityUpdates: Record<string, any> = {};
-    const existingActivities = (item.system as any).activities;
+    const activityUpdates: Record<string, null> = {};
+    const system = item.system as unknown as {
+      activities?: {
+        forEach: (cb: (activity: { id: string; flags?: Record<string, unknown> }) => void) => void;
+      };
+    };
+    const existingActivities = system.activities;
     if (existingActivities && typeof existingActivities.forEach === "function") {
-      existingActivities.forEach((activity: any) => {
+      existingActivities.forEach((activity) => {
         if (activity.flags?.["thefehrs-learning-manager"]?.isLearningActivity) {
           activityUpdates[`-=${activity.id}`] = null;
         }
       });
     }
 
-    // Restore from stashed system, overriding activities with our deletions
-    const stashedSystem = projectDataFlags.stashedSystem || {};
+    // Restore from stashed system
     const restoredSystem = {
-      ...stashedSystem,
+      ...(projectDataFlags.stashedSystem || {}),
       activities: {
         ...(projectDataFlags.stashedActivities || {}),
         ...activityUpdates,
       },
     };
 
+    const dotFlags: Record<string, any> = {};
+    for (const [key, value] of Object.entries(completedFlags)) {
+      dotFlags[`flags.${key}`] = value;
+    }
+
     const updateData = {
       name: projectDataFlags.stashedName || (item as unknown as Item).name,
       type: projectDataFlags.stashedType || item.type,
       effects: projectDataFlags.stashedEffects || [],
       system: restoredSystem,
-      ...completedFlags,
+      ...dotFlags,
     };
 
-    await (item as unknown as Item).update(updateData as any);
+    await (item as unknown as Item).update(updateData);
     ui.notifications?.info(
       `Learning Complete: ${(item as unknown as Item).name} is now fully available!`,
     );
-    if (typeof (item as any).displayCard === "function") {
-      await (item as any).displayCard({ rollMode: Settings.rules.rollMode });
+    const item5e = item as unknown as Item5e & {
+      displayCard?: (options?: object) => Promise<unknown>;
+    };
+    if (typeof item5e.displayCard === "function") {
+      await item5e.displayCard({ rollMode: Settings.rules.rollMode });
     }
   }
 
@@ -228,6 +257,6 @@ export class ProjectLifecycle {
       name: `${stashedName} (${projectData.progress}/${projectData.target})`,
       "system.description.value": progressHtml + stashedDescription,
       [`flags.${Settings.ID}.projectData`]: projectData,
-    } as any);
+    });
   }
 }

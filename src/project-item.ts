@@ -38,7 +38,8 @@ export interface LearningActivityData extends Omit<ActivityData5e, "flags"> {
   flags: ActivityData5e["flags"] & {
     "thefehrs-learning-manager": {
       isLearningActivity: true;
-      timeUnitId: string;
+      timeUnitId?: string;
+      isSpendAll?: boolean;
     };
   };
 

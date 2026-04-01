@@ -145,7 +145,7 @@ describe("LearningManager", () => {
     });
   });
 
-  describe("setup", () => {
+  describe("registerSocketListeners", () => {
     it("should initialize Socket listener", () => {
       const listenSpy = vi.spyOn(Socket, "listen").mockImplementation(() => {});
       LearningManager.registerSocketListeners();

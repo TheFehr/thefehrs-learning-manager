@@ -14,8 +14,10 @@ export const DebugHelpers = {
     let actor = game.user?.character;
 
     // Fallback to selected token
-    if (!actor && (canvas as any)?.tokens?.controlled?.length > 0) {
-      actor = (canvas as any).tokens.controlled[0].actor;
+    const controlledTokens = (canvas as { tokens?: { controlled?: { actor: Actor }[] } })?.tokens
+      ?.controlled;
+    if (!actor && controlledTokens && controlledTokens.length > 0) {
+      actor = controlledTokens[0].actor;
     }
 
     if (!actor) {
@@ -44,8 +46,10 @@ export const DebugHelpers = {
    */
   async addGP(gp: number) {
     let actor = game.user?.character;
-    if (!actor && (canvas as any)?.tokens?.controlled?.length > 0) {
-      actor = (canvas as any).tokens.controlled[0].actor;
+    const controlledTokens = (canvas as { tokens?: { controlled?: { actor: Actor }[] } })?.tokens
+      ?.controlled;
+    if (!actor && controlledTokens && controlledTokens.length > 0) {
+      actor = controlledTokens[0].actor;
     }
 
     if (!actor) {
@@ -56,8 +60,9 @@ export const DebugHelpers = {
     const proxy = ActorProxy.forActor(actor as unknown as Actor);
     const current = proxy.currency;
     await proxy.updateCurrency({
-      ...current,
-      gp: current.gp + gp,
+      gp: (current.gp || 0) + gp,
+      sp: current.sp || 0,
+      cp: current.cp || 0,
     });
     ui.notifications?.info(`Downtime Engine | Added ${gp}gp to ${actor.name}.`);
   },
@@ -69,7 +74,7 @@ export const DebugHelpers = {
 export function initDebugHelpers() {
   // @ts-expect-error - Vite specific environment variable
   if (import.meta.env.DEV) {
-    (window as any).ude = DebugHelpers;
+    (window as unknown as { ude: typeof DebugHelpers }).ude = DebugHelpers;
     console.debug(
       "Downtime Engine | Debug helpers initialized. Use `ude.addTime(hours)` in the console.",
     );

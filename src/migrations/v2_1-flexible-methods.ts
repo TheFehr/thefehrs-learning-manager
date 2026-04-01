@@ -15,7 +15,6 @@ export async function migrateToV2_1() {
       const oldMethod = rules.method;
       const updatedRules: SystemRules = { ...rules };
 
-      // Remove deprecated field (clean up for type safety, though it's already in 'as any' above)
       delete (updatedRules as any).method;
 
       if (oldMethod === "direct") {
@@ -27,6 +26,10 @@ export async function migrateToV2_1() {
       } else if (oldMethod === "mathematical") {
         updatedRules.nonBulkMethod = "roll";
         updatedRules.bulkMethod = "mathematical";
+      } else {
+        // Fallback for unexpected values
+        updatedRules.nonBulkMethod = "direct";
+        updatedRules.bulkMethod = "direct";
       }
 
       await Settings.set("rules", updatedRules);

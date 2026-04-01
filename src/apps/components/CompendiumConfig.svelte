@@ -1,5 +1,5 @@
 <script lang="ts">
-  let { allowedCompendiums = $bindable(), availablePacks } = $props();
+  let { allowedCompendiums = $bindable([]), availablePacks } = $props();
 
   function toggleCompendium(id: string) {
     if (allowedCompendiums.includes(id)) {
@@ -14,7 +14,7 @@
   <h3>Allowed Compendiums</h3>
   <p class="notes">Items dropped from these compendiums can start projects.</p>
   <div class="compendium-list">
-    {#each availablePacks as pack}
+    {#each availablePacks as pack (pack.id)}
       <label class="compendium-item">
         <input type="checkbox" checked={allowedCompendiums.includes(pack.id)} onchange={() => toggleCompendium(pack.id)} />
         <span>{pack.label} <small>[{pack.id}]</small></span>
