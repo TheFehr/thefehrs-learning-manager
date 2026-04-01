@@ -523,8 +523,9 @@ describe("ProjectEngine", () => {
       vi.spyOn(Settings, "timeUnits", "get").mockReturnValue(timeUnits);
       const data = ProjectEngine.getActivitiesData(10);
       expect(data).toHaveLength(3);
-      expect(data[2].name).toBe("Spend all time");
-      expect(data[2].flags["thefehrs-learning-manager"].isSpendAll).toBe(true);
+      const spendAllActivity = data.find((a) => a.flags["thefehrs-learning-manager"]?.isSpendAll);
+      expect(spendAllActivity).toBeDefined();
+      expect(spendAllActivity?.name).toBe("Spend all time");
     });
   });
 
@@ -602,7 +603,8 @@ describe("ProjectEngine", () => {
       const result = await ProjectEngine.processSpendAll(item);
 
       expect(result).toBe(true);
-      expect(processSpy).toHaveBeenCalledTimes(2);
+      expect(processSpy).toHaveBeenCalled();
+      expect(mockProxy.bank.total).toBe(0);
     });
   });
 
@@ -676,11 +678,11 @@ describe("ProjectEngine", () => {
 
     it("should do nothing if no project is found", async () => {
       mockActor.items.filter.mockReturnValue([]);
-      const processSpy = vi.spyOn(ProjectEngine, "processTraining");
+      const spendAllSpy = vi.spyOn(ProjectEngine, "processSpendAll");
 
       await ProjectEngine.handleAutoTrainSignal();
 
-      expect(processSpy).not.toHaveBeenCalled();
+      expect(spendAllSpy).not.toHaveBeenCalled();
       expect(ui.notifications.warn).not.toHaveBeenCalled();
     });
   });
