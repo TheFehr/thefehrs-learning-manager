@@ -23,6 +23,14 @@ export const DebugHelpers = {
    * @param hours - The amount of hours to add.
    */
   async addTime(hours: number) {
+    const validatedHours = Number(hours);
+    if (!Number.isFinite(validatedHours) || validatedHours < 0) {
+      const msg = `Invalid hours: ${hours}. Must be a non-negative finite number.`;
+      console.warn(`Downtime Engine | ${msg}`);
+      ui.notifications?.warn(`Downtime Engine | ${msg}`);
+      return;
+    }
+
     const actor = resolveControlledActor();
 
     if (!actor) {
@@ -32,15 +40,15 @@ export const DebugHelpers = {
 
     const proxy = ActorProxy.forActor(actor);
     const bank = proxy.bank;
-    const newTotal = (bank.total || 0) + hours;
+    const newTotal = (bank.total || 0) + validatedHours;
 
     await proxy.setBank({ total: newTotal });
     ui.notifications?.info(
-      `Downtime Engine | Added ${hours}h to ${actor.name}'s bank. New total: ${newTotal}h`,
+      `Downtime Engine | Added ${validatedHours}h to ${actor.name}'s bank. New total: ${newTotal}h`,
     );
-    console.log(`Downtime Engine | Cheat: Added ${hours}h to ${actor.name}'s bank.`, {
+    console.log(`Downtime Engine | Cheat: Added ${validatedHours}h to ${actor.name}'s bank.`, {
       previous: bank.total,
-      added: hours,
+      added: validatedHours,
       newTotal,
     });
   },

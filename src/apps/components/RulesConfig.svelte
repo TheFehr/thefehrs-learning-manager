@@ -12,7 +12,12 @@
 
   let needsBulkFormula = $derived(rules.bulkMethod === 'mathematical');
 
-  let rollModes = $state<Record<string, string | { label: string }>>({});
+  let rollModes = $state<Record<string, string | { label: string }>>({
+    "publicroll": "CHAT.RollPublic",
+    "gmroll": "CHAT.RollPrivate",
+    "blindroll": "CHAT.RollBlind",
+    "selfroll": "CHAT.RollSelf"
+  });
 
   onMount(() => {
     if (globalThis.CONFIG?.Dice?.rollModes) {

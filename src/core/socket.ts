@@ -9,6 +9,7 @@ export class Socket {
   /**
    * Listens for signals from other clients.
    * Note: The emitting client does NOT receive its own broadcast.
+   * @returns The handler function that was registered.
    */
   static listen(handler: (msg: LearningModuleMessage) => Promise<void>) {
     if (!game.socket) {
@@ -19,7 +20,7 @@ export class Socket {
     const id = this.identifier;
     console.debug(`Downtime Engine | Socket: Listening on "${id}"`);
 
-    game.socket.on(id, (...args: any[]) => {
+    const wrapper = (...args: any[]) => {
       console.debug(`Downtime Engine | Socket: Received data on "${id}":`, args);
 
       const message = args[0] as LearningModuleMessage;
@@ -31,7 +32,18 @@ export class Socket {
       handler(message).catch((err) => {
         console.error("Downtime Engine | Socket: Error in handler:", err);
       });
-    });
+    };
+
+    game.socket.on(id, wrapper);
+    return wrapper;
+  }
+
+  /**
+   * Unregisters a previously registered listener.
+   */
+  static off(handler: Function) {
+    if (!game.socket) return;
+    game.socket.off(this.identifier, handler as any);
   }
 
   /**

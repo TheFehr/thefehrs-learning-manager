@@ -96,6 +96,7 @@ globalThis.game = {
   user: { isGM: false },
   socket: {
     on: vi.fn(),
+    off: vi.fn(),
     emit: vi.fn(),
   },
   actors: new ActorsCollection(),

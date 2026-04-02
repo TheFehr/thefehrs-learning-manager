@@ -26,9 +26,10 @@
   }
 
   async function removeTier(id: string, name: string) {
+    const escapedName = foundry.utils.escapeHTML(name);
     const proceed = await foundry.applications.api.DialogV2.confirm({
       window: { title: "Delete Tier" },
-      content: `<p>Are you sure you want to delete the tier <strong>${name}</strong>?</p>`,
+      content: `<p>Are you sure you want to delete the tier <strong>${escapedName}</strong>?</p>`,
       rejectClose: false,
     });
     if (proceed) {

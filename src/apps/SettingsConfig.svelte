@@ -6,7 +6,7 @@
   import UserPreferencesConfig from "./components/UserPreferencesConfig.svelte";
 
   // Auth
-  const isGM = game.user?.isGM;
+  const isGM = !!game.user?.isGM;
 
   // State
   let rules = $state<SystemRules>(Settings.rules);

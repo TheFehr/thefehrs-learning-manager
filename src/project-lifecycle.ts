@@ -216,6 +216,15 @@ export class ProjectLifecycle {
     const stashedSystem = { ...(projectDataFlags.stashedSystem || {}) };
     delete (stashedSystem as Record<string, unknown>).activities;
 
+    // Merge stashed activities (non-learning ones) into stashedSystem.activities
+    if (projectDataFlags.stashedActivities) {
+      const systemWithActivities = stashedSystem as { activities?: Record<string, unknown> };
+      systemWithActivities.activities = {
+        ...(systemWithActivities.activities || {}),
+        ...projectDataFlags.stashedActivities,
+      };
+    }
+
     const updateData = {
       name: projectDataFlags.stashedName || (item as unknown as Item).name,
       type: projectDataFlags.stashedType || item.type,
@@ -223,13 +232,6 @@ export class ProjectLifecycle {
       system: stashedSystem,
       ...dotFlags,
     };
-
-    // Re-insert stashed activities (non-learning ones)
-    if (projectDataFlags.stashedActivities) {
-      for (const [id, activity] of Object.entries(projectDataFlags.stashedActivities)) {
-        updateData[`system.activities.${id}`] = activity;
-      }
-    }
 
     await (item as unknown as Item).update(updateData);
     ui.notifications?.info(

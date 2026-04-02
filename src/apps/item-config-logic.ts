@@ -39,8 +39,8 @@ export class ItemConfigLogic {
     }
 
     const quickInsert = (
-      game as { modules: { get: (id: string) => { api?: QuickInsertAPI } | undefined } }
-    ).modules.get("quick-insert")?.api;
+      game.modules.get("quick-insert") as any as import("../types.js").QuickInsertModule | undefined
+    )?.api;
     if (quickInsert?.searchItem) {
       const result = await quickInsert.searchItem({ classes: ["Item"] });
       return result?.uuid || null;

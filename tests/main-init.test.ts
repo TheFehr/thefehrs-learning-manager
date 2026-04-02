@@ -9,9 +9,13 @@ vi.mock("../src/migrations/migration.js", () => ({
 describe("main.ts side effects", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.resetModules();
   });
 
   it("should register init and ready hooks", async () => {
+    // Re-import LearningManager after resetModules to get the fresh reference
+    const { LearningManager } = await import("../src/LearningManager");
+
     // Spy on LearningManager methods
     const initSpy = vi.spyOn(LearningManager, "init").mockImplementation(() => {});
     const readySpy = vi.spyOn(LearningManager, "ready").mockResolvedValue(undefined);

@@ -21,6 +21,7 @@ import { initDebugHelpers } from "./core/debug.js";
 export class LearningManager {
   static ID = "thefehrs-learning-manager" as const;
   static svelteInstances = new Map<string | number, Record<string, unknown>>();
+  static socketHandler: Function | null = null;
 
   static init() {
     this.registerSettings();
@@ -40,15 +41,20 @@ export class LearningManager {
   }
 
   static registerSocketListeners() {
-    Socket.listen(async (message) => {
-      if (message.type === "timeGrantedSignal") {
-        try {
-          await ProjectEngine.handleAutoTrainSignal();
-        } catch (err) {
-          console.error("Downtime Engine | Failed to handle auto-train signal:", err);
+    if (this.socketHandler) {
+      Socket.off(this.socketHandler);
+    }
+
+    this.socketHandler =
+      Socket.listen(async (message) => {
+        if (message.type === "timeGrantedSignal") {
+          try {
+            await ProjectEngine.handleAutoTrainSignal();
+          } catch (err) {
+            console.error("Downtime Engine | Failed to handle auto-train signal:", err);
+          }
         }
-      }
-    });
+      }) || null;
   }
 
   static async ready() {

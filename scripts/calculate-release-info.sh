@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -e
+set -eu
 
 # Positional arguments
 GITHUB_REF=$1

@@ -132,19 +132,24 @@ export class ActivityManager {
       const learningItems = (actor as unknown as Actor).items.filter((i) =>
         i.getFlag("thefehrs-learning-manager", "isLearningProject"),
       ) as unknown as Item5e[];
-      const chunkedPromises = learningItems.map(async (item) => {
-        try {
-          await this.injectActivities(item);
+
+      const results = await Promise.allSettled(
+        learningItems.map((item) => this.injectActivities(item)),
+      );
+
+      results.forEach((result, idx) => {
+        if (result.status === "fulfilled") {
           updatedCount++;
-        } catch (err) {
+        } else {
+          const item = learningItems[idx];
           console.error(
             `Downtime Engine | Failed to sync activities for item "${item.name}" on actor "${actor.name}":`,
-            err,
+            result.reason,
           );
           failedCount++;
         }
       });
-      await Promise.all(chunkedPromises);
+
       await new Promise((resolve) => setTimeout(resolve, 50));
     }
 

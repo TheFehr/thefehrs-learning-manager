@@ -1,7 +1,7 @@
 <script lang="ts">
   import type {TimeUnit} from "../../types";
 
-  let {timeUnits = $bindable()} = $props();
+  let {timeUnits = $bindable([])} = $props();
 
   function addTimeUnit() {
     timeUnits = [

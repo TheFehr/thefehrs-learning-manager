@@ -1,4 +1,4 @@
-type SystemRules = {
+type V1_2SystemRules = {
   method?: string;
   critDoubleStrategy?: "any" | "all" | "never";
   critThreshold?: number;
@@ -8,12 +8,12 @@ export async function migrateToV1_2() {
   const SETTINGS_ID = "thefehrs-learning-manager";
   ui.notifications?.info("Migrating Downtime Engine critical hit rules...");
   try {
-    const rules = (game.settings.get(SETTINGS_ID, "rules") as unknown as SystemRules) || {
+    const rules = (game.settings.get(SETTINGS_ID, "rules") as unknown as V1_2SystemRules) || {
       method: "roll",
     };
 
     let changed = false;
-    const updatedRules: SystemRules = { ...rules };
+    const updatedRules: V1_2SystemRules = { ...rules };
 
     if (updatedRules.critDoubleStrategy === undefined) {
       updatedRules.critDoubleStrategy = "never";

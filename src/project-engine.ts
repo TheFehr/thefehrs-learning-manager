@@ -137,6 +137,12 @@ export class ProjectEngine {
       iterations++;
     }
 
+    if (iterations >= maxIterations) {
+      console.warn(
+        `Downtime Engine | processSpendAll reached maximum iterations (${maxIterations}) for project "${item.name}". Possible infinite loop logic or extremely large bank.`,
+      );
+    }
+
     return anySuccess;
   }
 

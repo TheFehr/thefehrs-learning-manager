@@ -119,6 +119,11 @@ export type DowntimeGroupActor = Omit<Actor5e, "system"> & {
 
 export type LearningProject = ProjectFlagData;
 
+export interface QuickInsertModule {
+  api?: QuickInsertAPI;
+  [key: string]: unknown;
+}
+
 export type { ProjectRequirement, ComparisonOperator, ProjectFlagData };
 
 declare global {
@@ -129,18 +134,26 @@ declare global {
           action: string;
           label: string;
           icon?: string;
+          class?: string;
           default?: boolean;
           callback?: (
-            event?: Event,
-            button?: HTMLElement,
-            dialog?: unknown,
+            event: PointerEvent | SubmitEvent,
+            button: HTMLButtonElement,
+            dialog: HTMLDialogElement,
           ) => void | Promise<void>;
         }
+
+        type DialogV2SubmitCallback = (
+          event: SubmitEvent,
+          button: HTMLButtonElement,
+          dialog: HTMLDialogElement,
+        ) => void | Promise<void>;
 
         interface DialogV2WaitOptions {
           window?: { title?: string; [key: string]: unknown };
           content?: string;
           buttons?: DialogV2Button[];
+          submit?: DialogV2SubmitCallback;
           rejectClose?: boolean;
           modal?: boolean;
           [key: string]: unknown;
@@ -149,6 +162,7 @@ declare global {
         interface DialogV2ConfirmOptions {
           window?: { title?: string; [key: string]: unknown };
           content?: string;
+          submit?: DialogV2SubmitCallback;
           rejectClose?: boolean;
           modal?: boolean;
           [key: string]: unknown;
@@ -200,7 +214,7 @@ declare global {
   }
 
   interface ModuleAPIs {
-    "quick-insert"?: QuickInsertAPI;
+    "quick-insert"?: QuickInsertModule;
     [key: string]: unknown;
   }
 

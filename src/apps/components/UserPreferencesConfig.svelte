@@ -40,7 +40,7 @@
           <label class="checkbox-label">
             <input
               type="checkbox"
-              checked={(autoSpendUnits ?? []).includes(unit.id)}
+              checked={autoSpendUnits.includes(unit.id)}
               onchange={() => toggleUnit(unit.id)}
             />
             {unit.name} ({unit.short})

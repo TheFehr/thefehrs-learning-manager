@@ -191,6 +191,17 @@ export class TabLogic {
       else if (op === ">=") met = actorValue >= targetValue;
       else if (op === "<") met = actorValue < targetValue;
       else if (op === "<=") met = actorValue <= targetValue;
+      else {
+        console.warn(
+          `Downtime Engine | Unknown operator "${op}" in requirement for attribute "${req.attribute}".`,
+          {
+            req,
+            actorValue,
+            targetValue,
+          },
+        );
+        met = false;
+      }
 
       if (!met) {
         return {
