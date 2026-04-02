@@ -144,6 +144,20 @@ export interface QuickInsertAPI {
 
 export type LearningProject = ProjectFlagData;
 
+export interface ModuleAPIs {
+  "quick-insert"?: QuickInsertAPI;
+  [key: string]: any;
+}
+
+/**
+ * Helper to get a module's API in a type-safe way.
+ */
+export function getModuleAPI<T extends string & keyof ModuleAPIs>(
+  id: T,
+): ModuleAPIs[T] | undefined {
+  return (game.modules.get(id) as any)?.api;
+}
+
 export type { ProjectRequirement, ComparisonOperator, ProjectFlagData };
 
 declare global {
@@ -230,18 +244,6 @@ declare global {
     };
     SpotlightOmnisearch?: {
       prompt: (options: { query: string }) => Promise<{ data?: { uuid: string } } | null>;
-    };
-  }
-
-  interface ModuleAPIs {
-    "quick-insert"?: QuickInsertAPI;
-    [key: string]: unknown;
-  }
-
-  interface Game {
-    modules: {
-      get<T extends keyof ModuleAPIs>(id: T): (Module & { api?: ModuleAPIs[T] }) | undefined;
-      get(id: string): (Module & { api?: any }) | undefined;
     };
   }
 

@@ -1,4 +1,4 @@
-import type { Item5e, ProjectRequirement } from "../types.js";
+import { getModuleAPI, type Item5e, type ProjectRequirement } from "../types.js";
 
 /**
  * Logic for the Item Target Config component.
@@ -38,9 +38,7 @@ export class ItemConfigLogic {
       return result?.data?.uuid || null;
     }
 
-    const quickInsert = (game.modules.get("quick-insert") as any)?.api as
-      | import("../types.js").QuickInsertAPI
-      | undefined;
+    const quickInsert = getModuleAPI("quick-insert");
     if (quickInsert?.searchItem) {
       const result = await quickInsert.searchItem({ classes: ["Item"] });
       return result?.uuid || null;
