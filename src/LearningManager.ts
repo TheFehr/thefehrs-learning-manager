@@ -21,7 +21,7 @@ import { initDebugHelpers } from "./core/debug.js";
 export class LearningManager {
   static ID = "thefehrs-learning-manager" as const;
   static svelteInstances = new Map<string | number, Record<string, unknown>>();
-  static socketHandler: Function | null = null;
+  static socketHandler: ((...args: any[]) => void) | null = null;
 
   static init() {
     this.registerSettings();
@@ -285,7 +285,7 @@ export class LearningManager {
     );
   }
 
-  private static renderSvelte(
+  private static renderSvelte<DocType>(
     params: {
       app: { id: string; document?: unknown; actor?: unknown };
       element?: HTMLElement;
@@ -293,7 +293,7 @@ export class LearningManager {
     },
     selector: string,
     Component: Parameters<typeof mount>[0],
-    getProps: (doc: any) => Record<string, unknown>,
+    getProps: (doc: DocType) => Record<string, unknown>,
     customAppId?: string,
   ) {
     const appId = customAppId || params.app.id;
@@ -305,7 +305,7 @@ export class LearningManager {
       this.svelteInstances.delete(appId);
     }
 
-    const doc = params.app.document || params.app.actor;
+    const doc = (params.app.document || params.app.actor) as DocType;
     if (!doc) return;
 
     const instance = mount(Component, {

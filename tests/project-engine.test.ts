@@ -608,6 +608,10 @@ describe("ProjectEngine", () => {
 
       expect(result).toBe(true);
       expect(processSpy).toHaveBeenCalledTimes(2);
+      expect(processSpy).toHaveBeenCalledWith(
+        item.system.activities[0],
+        expect.objectContaining({ skipPrompt: true }),
+      );
       expect(mockProxy.bank.total).toBe(0);
     });
   });

@@ -9,12 +9,14 @@ export class Socket {
   /**
    * Listens for signals from other clients.
    * Note: The emitting client does NOT receive its own broadcast.
-   * @returns The handler function that was registered.
+   * @returns The handler function that was registered, or undefined if game.socket is unavailable.
    */
-  static listen(handler: (msg: LearningModuleMessage) => Promise<void>) {
+  static listen(
+    handler: (msg: LearningModuleMessage) => Promise<void>,
+  ): ((...args: any[]) => void) | undefined {
     if (!game.socket) {
       console.warn("Downtime Engine | Socket: game.socket is not available.");
-      return;
+      return undefined;
     }
 
     const id = this.identifier;
@@ -59,7 +61,7 @@ export class Socket {
     const id = this.identifier;
     const message: LearningModuleMessage = { type, data: null };
 
-    console.info(`Downtime Engine | Socket: Emitting signal "${type}" to "${id}"`, message);
+    console.debug(`Downtime Engine | Socket: Emitting signal "${type}" to "${id}"`, message);
 
     game.socket.emit(id, message);
   }

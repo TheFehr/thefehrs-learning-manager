@@ -19,6 +19,11 @@ describe("TabLogic", () => {
           return { total: Number(this.formula), dice: [], toMessage: vi.fn() };
         }
 
+        // Handle mathematical formula for bonusRoll evaluation (totalMod)
+        if (this.formula === "0") {
+          return { total: 0, dice: [], toMessage: vi.fn() };
+        }
+
         if (this.formula.includes("1d20")) {
           total += 15;
         }
@@ -31,11 +36,6 @@ describe("TabLogic", () => {
         }
         if (this.formula.includes("@tutelage")) {
           total += this.data?.tutelage || 0;
-        }
-
-        // Handle mathematical formula for bonusRoll evaluation (totalMod)
-        if (this.formula === "0") {
-          return { total: total, dice: [], toMessage: vi.fn() };
         }
 
         // Handle bulkExpectedFormula variables
@@ -57,8 +57,11 @@ describe("TabLogic", () => {
           total = Math.round((hours * (22 - minRoll)) / 20);
         }
 
+        // Default total if not computed by formula logic above
+        const finalTotal = total || (this.formula.includes("1d20") ? 15 : 0);
+
         return {
-          total: total || 15,
+          total: finalTotal,
           dice: [{ faces: 20, results: [{ result: 15, active: true }] }],
           toMessage: vi.fn(),
         };

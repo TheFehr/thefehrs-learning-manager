@@ -117,12 +117,32 @@ export type DowntimeGroupActor = Omit<Actor5e, "system"> & {
   system: GroupActorSystemData;
 };
 
-export type LearningProject = ProjectFlagData;
-
-export interface QuickInsertModule {
-  api?: QuickInsertAPI;
-  [key: string]: unknown;
+export interface SearchItem {
+  id: string;
+  uuid: string;
+  name: string;
+  documentType: string;
+  subType: string;
+  img: string;
+  system: any;
+  packageName: string;
+  packageId: string;
+  folder: string;
+  dragData: any;
+  journalLink: string;
+  script: string;
+  tagline: string;
+  tooltip: string;
+  show(): void;
+  get(): any;
 }
+
+export interface QuickInsertAPI {
+  search: (text: string, filter?: any | null, max?: number) => Promise<SearchItem[]>;
+  searchItem: (opts: { classes?: string[] }) => Promise<{ uuid: string } | null>;
+}
+
+export type LearningProject = ProjectFlagData;
 
 export type { ProjectRequirement, ComparisonOperator, ProjectFlagData };
 
@@ -179,26 +199,26 @@ declare global {
           element: HTMLElement;
           close(): Promise<void>;
 
-          static wait(options: DialogV2WaitOptions): Promise<string | boolean | null>;
-          static confirm(options: DialogV2ConfirmOptions): Promise<boolean>;
+          static wait(options: DialogV2WaitOptions): Promise<any>;
+          static confirm(options: DialogV2ConfirmOptions): Promise<any>;
         }
       }
     }
     namespace utils {
       function randomID(): string;
-      function getProperty(obj: object, path: string): unknown;
+      function getProperty<T = unknown>(obj: object, path: string): T;
       function setProperty(obj: object, path: string, value: unknown): boolean;
-      function mergeObject(original: object, other: object, options?: object): object;
+      function mergeObject<T extends object, U extends object>(
+        original: T,
+        other: U,
+        options?: object,
+      ): T & U;
       function escapeHTML(str: string): string;
     }
   }
 
   interface HookConfig {
     "tidy5e-sheet.ready": (api: Tidy5eSheetsApi) => void;
-  }
-
-  interface QuickInsertAPI {
-    searchItem: (opts: { classes?: string[] }) => Promise<{ uuid: string } | null>;
   }
 
   interface CONFIG {
@@ -214,14 +234,14 @@ declare global {
   }
 
   interface ModuleAPIs {
-    "quick-insert"?: QuickInsertModule;
+    "quick-insert"?: QuickInsertAPI;
     [key: string]: unknown;
   }
 
   interface Game {
     modules: {
-      get<T extends keyof ModuleAPIs>(id: T): { api?: ModuleAPIs[T] } | undefined;
-      get(id: string): { api?: unknown } | undefined;
+      get<T extends keyof ModuleAPIs>(id: T): (Module & { api?: ModuleAPIs[T] }) | undefined;
+      get(id: string): (Module & { api?: any }) | undefined;
     };
   }
 

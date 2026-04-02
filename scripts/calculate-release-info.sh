@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -eu
+set -euo pipefail
 
 # Positional arguments
 GITHUB_REF=$1
@@ -33,6 +33,12 @@ else
   else
     BASE_VERSION="0.0.0"
   fi
+
+  # Validate BASE_VERSION
+  if [[ -z "$BASE_VERSION" || "$BASE_VERSION" == "null" ]]; then
+    BASE_VERSION="0.0.0"
+  fi
+
   VERSION_CLEAN="$BASE_VERSION-beta.$RUN_NUMBER"
   RELEASE_TAG="latest-beta"
   RELEASE_NAME="Beta Development Build (Run $RUN_NUMBER)"

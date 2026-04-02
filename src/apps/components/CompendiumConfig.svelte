@@ -25,11 +25,21 @@
         <input type="checkbox" checked={allowedCompendiums.includes(pack.id)} onchange={() => toggleCompendium(pack.id)} />
         <span>{pack.label} <small>[{pack.id}]</small></span>
       </label>
+    {:else}
+      <div class="empty-state">No compendiums available.</div>
     {/each}
   </div>
 </section>
 
 <style lang="scss">
+  .empty-state {
+    grid-column: span 2;
+    text-align: center;
+    padding: 1rem;
+    opacity: 0.6;
+    font-style: italic;
+  }
+
   .notes {
     font-size: 0.8rem;
     color: var(--t5e-secondary-color);

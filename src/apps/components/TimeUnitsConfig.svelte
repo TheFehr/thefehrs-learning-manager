@@ -1,7 +1,7 @@
 <script lang="ts">
   import type {TimeUnit} from "../../types";
 
-  let {timeUnits = $bindable([])} = $props();
+  let {timeUnits = $bindable([])}: { timeUnits: TimeUnit[] } = $props();
 
   function addTimeUnit() {
     timeUnits = [
@@ -40,7 +40,7 @@
                 <td><input type="text" bind:value={unit.short} style="width: 40px;" aria-label="Unit Short Name"/></td>
                 <td style="text-align: center;"><input type="checkbox" bind:checked={unit.isBulk}
                                                        aria-label="Is Bulk?"/></td>
-                <td><input type="number" bind:value={unit.ratio} onchange={() => unit.ratio = Math.max(1, Number(unit.ratio))} min="1" step="1" style="width: 60px;" aria-label="Ratio"/></td>
+                <td><input type="number" bind:value={unit.ratio} oninput={() => unit.ratio = Math.max(1, Math.floor(Number(unit.ratio) || 1))} min="1" step="1" style="width: 60px;" aria-label="Ratio"/></td>
                 <td>
                     <button type="button" class="tidy-button small danger" onclick={() => removeTimeUnit(unit.id)}
                             title="Delete Time Unit">

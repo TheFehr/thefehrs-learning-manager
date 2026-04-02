@@ -12,7 +12,7 @@ describe("Socket", () => {
     expect(Socket.identifier).toBe("module.test-module");
   });
 
-  it("should register a listener on game.socket", () => {
+  it("should register a listener on game.socket", async () => {
     const handler = vi.fn().mockResolvedValue(undefined);
     Socket.listen(handler);
 
@@ -21,7 +21,7 @@ describe("Socket", () => {
     // Simulate receiving a message
     const registeredHandler = vi.mocked(game.socket.on).mock.calls[0][1];
     const testMessage = { type: "timeGrantedSignal", data: null };
-    registeredHandler(testMessage);
+    await registeredHandler(testMessage);
 
     expect(handler).toHaveBeenCalledWith(testMessage);
   });

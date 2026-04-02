@@ -1,5 +1,4 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { LearningManager } from "../src/LearningManager";
 
 // Mock migrateData to avoid running actual migrations
 vi.mock("../src/migrations/migration.js", () => ({

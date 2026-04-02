@@ -58,6 +58,14 @@ export const DebugHelpers = {
    * @param gp - The amount of GP to add.
    */
   async addGP(gp: number) {
+    const validatedGP = Number(gp);
+    if (!Number.isFinite(validatedGP) || validatedGP < 0) {
+      const msg = `Invalid gp: ${gp}. Must be a non-negative finite number.`;
+      console.warn(`Downtime Engine | ${msg}`);
+      ui.notifications?.warn(`Downtime Engine | ${msg}`);
+      return;
+    }
+
     const actor = resolveControlledActor();
 
     if (!actor) {
@@ -68,11 +76,11 @@ export const DebugHelpers = {
     const proxy = ActorProxy.forActor(actor);
     const current = proxy.currency;
     await proxy.updateCurrency({
-      gp: (current.gp || 0) + gp,
+      gp: (current.gp || 0) + validatedGP,
       sp: current.sp || 0,
       cp: current.cp || 0,
     });
-    ui.notifications?.info(`Downtime Engine | Added ${gp}gp to ${actor.name}.`);
+    ui.notifications?.info(`Downtime Engine | Added ${validatedGP}gp to ${actor.name}.`);
   },
 };
 
