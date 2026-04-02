@@ -83,9 +83,15 @@
                                         bind:value={tier.progress[unit.id]}
                                         min="0"
                                         disabled={!directBulkActive(unit)}
+                                        title={!directBulkActive(unit) ? "Only editable when Bulk Method is 'Direct'" : ""}
                                 />
                             </div>
                         {/each}
+                        {#if rules.bulkMethod !== 'direct'}
+                            <p class="notes" style="margin-top: 0.5rem; font-size: 0.7rem;">
+                                <i class="fas fa-info-circle"></i> Bulk progress is disabled because Bulk Method is not "Direct".
+                            </p>
+                        {/if}
                     </div>
                 </div>
             </div>

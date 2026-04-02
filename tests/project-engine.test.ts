@@ -36,11 +36,12 @@ describe("ProjectEngine", () => {
     global.Item = class {
       constructor() {}
       update = vi.fn().mockResolvedValue(this);
+      delete = vi.fn().mockResolvedValue(true);
       createEmbeddedDocuments = vi.fn().mockResolvedValue([]);
       getFlag = vi.fn();
       setFlag = vi.fn();
       name = "Mock Item";
-      toObject = vi.fn();
+      toObject = vi.fn().mockReturnValue({ system: { activities: {} } });
       system = { activities: {} };
     } as any;
 
@@ -226,7 +227,7 @@ describe("ProjectEngine", () => {
       const item = new Item() as any;
       item.actor = actor;
       item.name = "Learning Project";
-      item.type = "feat";
+      item.type = "weapon";
       item.delete = vi.fn();
       const activitiesMap = new Map([
         [
@@ -248,20 +249,29 @@ describe("ProjectEngine", () => {
 
       await ProjectEngine.completeProject(item);
 
-      expect(item.update).toHaveBeenCalledWith(
+      // Should have been called twice (split update)
+      expect(item.update).toHaveBeenCalledTimes(2);
+
+      // First call: primary update (system, name, etc.)
+      expect(vi.mocked(item.update).mock.calls[0][0]).toEqual(
         expect.objectContaining({
           name: "Stashed Name",
-          type: "weapon",
           system: expect.objectContaining({
             original: true,
             activities: expect.objectContaining({
               act3: {},
             }),
           }),
-          "system.activities.-=act1": null,
+        }),
+      );
+
+      // Second call: dot-notation updates (flags and activity removals)
+      expect(vi.mocked(item.update).mock.calls[1][0]).toEqual(
+        expect.objectContaining({
           "flags.thefehrs-learning-manager": expect.objectContaining({
             isLearnedReward: true,
           }),
+          "system.activities.-=act1": null,
         }),
       );
       expect(item.delete).not.toHaveBeenCalled();
@@ -290,7 +300,7 @@ describe("ProjectEngine", () => {
 
       const item = new Item() as any;
       item.actor = actor;
-      item.type = "feat";
+      item.type = "weapon"; // Match stashedType to test in-place update
       item.getFlag = vi.fn().mockImplementation((_scope, key) => {
         if (key === "isLearningProject") return true;
         if (key === "projectData") return { ...projectData };
@@ -312,11 +322,16 @@ describe("ProjectEngine", () => {
       const result = await ProjectEngine.processTraining(activity as any);
 
       expect(result).toBe(true);
-      // Check for completion update
+      // Check for completion update (it calls completeProject, which does 2 updates in fallback path)
       expect(item.update).toHaveBeenCalled();
-      const lastUpdate = vi.mocked(item.update).mock.lastCall![0];
-      expect(lastUpdate.type).toBe("weapon");
-      expect(lastUpdate["flags.thefehrs-learning-manager"]).toEqual(
+
+      const firstUpdate = vi.mocked(item.update).mock.calls.find((c) => c[0].type === "weapon")![0];
+      const secondUpdate = vi
+        .mocked(item.update)
+        .mock.calls.find((c) => c[0]["flags.thefehrs-learning-manager"])![0];
+
+      expect(firstUpdate.type).toBe("weapon");
+      expect(secondUpdate["flags.thefehrs-learning-manager"]).toEqual(
         expect.objectContaining({
           isLearnedReward: true,
         }),

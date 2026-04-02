@@ -46,7 +46,7 @@ describe("SettingsConfig logic", () => {
   it("should notify user on successful save", async () => {
     vi.spyOn(Settings, "set").mockResolvedValue(undefined);
 
-    await saveSettings({ method: "direct" }, [], [], []);
+    await saveSettings({ method: "direct" }, [], [], [], false, []);
 
     expect(ui.notifications.info).toHaveBeenCalledWith(
       expect.stringContaining("saved successfully"),
@@ -58,7 +58,7 @@ describe("SettingsConfig logic", () => {
     const error = new Error("Save failed!");
     vi.spyOn(Settings, "set").mockRejectedValue(error);
 
-    await saveSettings({ method: "direct" }, [], [], []);
+    await saveSettings({ method: "direct" }, [], [], [], false, []);
 
     expect(ui.notifications.error).toHaveBeenCalledWith(expect.stringContaining("Save failed!"));
     expect(ui.notifications.info).not.toHaveBeenCalled();

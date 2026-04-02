@@ -156,19 +156,44 @@ export class SettingsManager<Settings extends Record<string, any> = SettingsSche
     return this.get("rules");
   }
   get timeUnits(): Settings["timeUnits"] {
-    return this.get("timeUnits") || ([] as Settings["timeUnits"]);
+    const val = this.get("timeUnits");
+    if (val === undefined) {
+      console.warn("Downtime Engine | Setting 'timeUnits' is uninitialized.");
+      return [] as Settings["timeUnits"];
+    }
+    return val;
   }
   get guidanceTiers(): Settings["guidanceTiers"] {
-    return this.get("guidanceTiers") || ([] as Settings["guidanceTiers"]);
+    const val = this.get("guidanceTiers");
+    if (val === undefined) {
+      console.warn("Downtime Engine | Setting 'guidanceTiers' is uninitialized.");
+      return [] as Settings["guidanceTiers"];
+    }
+    return val;
   }
   get allowedCompendiums(): Settings["allowedCompendiums"] {
-    return this.get("allowedCompendiums") || ([] as Settings["allowedCompendiums"]);
+    const val = this.get("allowedCompendiums");
+    if (val === undefined) {
+      console.warn("Downtime Engine | Setting 'allowedCompendiums' is uninitialized.");
+      return [] as Settings["allowedCompendiums"];
+    }
+    return val;
   }
   get autoSpend(): Settings["autoSpend"] {
-    return this.get("autoSpend");
+    const val = this.get("autoSpend");
+    if (val === undefined) {
+      console.warn("Downtime Engine | Setting 'autoSpend' is uninitialized.");
+      return false;
+    }
+    return val;
   }
   get autoSpendUnits(): Settings["autoSpendUnits"] {
-    return this.get("autoSpendUnits") || ([] as Settings["autoSpendUnits"]);
+    const val = this.get("autoSpendUnits");
+    if (val === undefined) {
+      console.warn("Downtime Engine | Setting 'autoSpendUnits' is uninitialized.");
+      return [] as Settings["autoSpendUnits"];
+    }
+    return val;
   }
 
   registerMenu(key: string, data: unknown): void {

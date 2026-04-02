@@ -125,7 +125,13 @@ export class ProjectEngine {
       if (!fitting) break;
 
       const result = await this.processTraining(fitting.activity, { skipPrompt: true });
-      if (!result) break;
+      if (!result) {
+        console.warn(
+          `Downtime Engine | Failed to process training for "${fitting.name}" unit in Spend All loop. Skipping...`,
+        );
+        iterations++;
+        continue;
+      }
       anySuccess = true;
 
       const updatedProject = actor.items.get(item.id) as ProjectItem | undefined;
@@ -138,9 +144,9 @@ export class ProjectEngine {
     }
 
     if (iterations >= maxIterations) {
-      console.warn(
-        `Downtime Engine | processSpendAll reached maximum iterations (${maxIterations}) for project "${item.name}". Possible infinite loop logic or extremely large bank.`,
-      );
+      const msg = `processSpendAll reached maximum iterations (${maxIterations}) for project "${item.name}". Possible infinite loop logic or extremely large bank.`;
+      console.warn(`Downtime Engine | ${msg}`);
+      ui.notifications?.warn(`Downtime Engine | ${msg}`);
     }
 
     return anySuccess;

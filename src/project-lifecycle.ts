@@ -182,16 +182,65 @@ export class ProjectLifecycle {
           }
           return;
         }
+      } else {
+        console.warn(
+          `Downtime Engine | sourceItem for UUID ${stashedSourceUuid} is not an Item instance. Type: ${typeof sourceItem}, constructor: ${(sourceItem as any)?.constructor?.name}`,
+        );
       }
     }
 
-    // Fallback Restoration: Restore in-place
+    // Fallback Restoration: Restore in-place (or recreate if type differs)
     console.warn(
       `Downtime Engine | Falling back to in-place restoration for ${
         (item as unknown as Item).name
       }`,
     );
 
+    const stashedType = projectDataFlags.stashedType || item.type;
+    const needsTypeChange = stashedType !== item.type;
+
+    if (needsTypeChange) {
+      const clonedData = item.toObject();
+      clonedData.type = stashedType;
+      delete (clonedData as any)._id;
+
+      // Update flags and basic info in the clone
+      clonedData.name = projectDataFlags.stashedName || (item as unknown as Item).name;
+      clonedData.effects = projectDataFlags.stashedEffects || [];
+      clonedData.system = { ...(projectDataFlags.stashedSystem || {}) };
+      clonedData.flags = {
+        ...(clonedData.flags || {}),
+        ...completedFlags,
+      };
+
+      // Restore stashed activities in the clone
+      if (projectDataFlags.stashedActivities) {
+        clonedData.system.activities = {
+          ...(clonedData.system.activities || {}),
+          ...projectDataFlags.stashedActivities,
+        };
+      }
+
+      const [created] = await (actor as unknown as Actor).createEmbeddedDocuments("Item", [
+        clonedData,
+      ]);
+
+      if (created) {
+        await (item as unknown as Item).delete();
+        ui.notifications?.info(
+          `Learning Complete: ${(created as unknown as Item).name} is now fully available!`,
+        );
+        const created5e = created as unknown as Item5e & {
+          displayCard?: (options?: object) => Promise<unknown>;
+        };
+        if (typeof created5e.displayCard === "function") {
+          await created5e.displayCard({ rollMode: Settings.rules.rollMode });
+        }
+        return;
+      }
+    }
+
+    // Standard in-place update if no type change needed
     const dotFlags: Record<string, any> = {};
     for (const [key, value] of Object.entries(completedFlags)) {
       dotFlags[`flags.${key}`] = value;
@@ -225,15 +274,21 @@ export class ProjectLifecycle {
       };
     }
 
-    const updateData = {
+    const primaryUpdate = {
       name: projectDataFlags.stashedName || (item as unknown as Item).name,
-      type: projectDataFlags.stashedType || item.type,
+      type: stashedType,
       effects: projectDataFlags.stashedEffects || [],
       system: stashedSystem,
-      ...dotFlags,
     };
 
-    await (item as unknown as Item).update(updateData);
+    // 1. Update basic data and nested system first
+    await (item as unknown as Item).update(primaryUpdate);
+
+    // 2. Apply dot-notation updates (flags and activity removals) in a separate call to avoid interference
+    if (Object.keys(dotFlags).length > 0) {
+      await (item as unknown as Item).update(dotFlags);
+    }
+
     ui.notifications?.info(
       `Learning Complete: ${(item as unknown as Item).name} is now fully available!`,
     );

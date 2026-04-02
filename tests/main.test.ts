@@ -146,10 +146,24 @@ describe("LearningManager", () => {
   });
 
   describe("registerSocketListeners", () => {
-    it("should initialize Socket listener", () => {
-      const listenSpy = vi.spyOn(Socket, "listen").mockImplementation(() => {});
+    it("should initialize Socket listener and handle timeGrantedSignal", async () => {
+      let registeredHandler: ((msg: any) => Promise<void>) | undefined;
+      vi.spyOn(Socket, "listen").mockImplementation((handler) => {
+        registeredHandler = handler;
+        return vi.fn();
+      });
+      const autoTrainSpy = vi.spyOn(ProjectEngine, "handleAutoTrainSignal").mockResolvedValue();
+
       LearningManager.registerSocketListeners();
-      expect(listenSpy).toHaveBeenCalled();
+
+      expect(Socket.listen).toHaveBeenCalled();
+      expect(registeredHandler).toBeDefined();
+
+      // Trigger the handler
+      if (registeredHandler) {
+        await registeredHandler({ type: "timeGrantedSignal", data: null });
+        expect(autoTrainSpy).toHaveBeenCalled();
+      }
     });
   });
 

@@ -7,6 +7,15 @@ export class Socket {
   }
 
   /**
+   * Type guard for LearningModuleMessage.
+   */
+  static isLearningModuleMessage(msg: any): msg is LearningModuleMessage {
+    return (
+      msg && typeof msg.type === "string" && (msg.data === null || typeof msg.data === "object")
+    );
+  }
+
+  /**
    * Listens for signals from other clients.
    * Note: The emitting client does NOT receive its own broadcast.
    * @returns The handler function that was registered, or undefined if game.socket is unavailable.
@@ -25,9 +34,9 @@ export class Socket {
     const wrapper = (...args: any[]) => {
       console.debug(`Downtime Engine | Socket: Received data on "${id}":`, args);
 
-      const message = args[0] as LearningModuleMessage;
-      if (!message || typeof message.type !== "string") {
-        console.warn("Downtime Engine | Socket: Received malformed message:", args);
+      const message = args[0];
+      if (!this.isLearningModuleMessage(message)) {
+        console.warn("Downtime Engine | Socket: Received invalid message payload:", args);
         return;
       }
 
@@ -43,9 +52,9 @@ export class Socket {
   /**
    * Unregisters a previously registered listener.
    */
-  static off(handler: Function) {
+  static off(handler: (...args: any[]) => void) {
     if (!game.socket) return;
-    game.socket.off(this.identifier, handler as any);
+    game.socket.off(this.identifier, handler);
   }
 
   /**

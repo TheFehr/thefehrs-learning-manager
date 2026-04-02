@@ -106,8 +106,12 @@ export class TabLogic {
     if (!rules.checkFormula || !rules.checkDC) return 0;
 
     try {
-      // 1. Resolve the formula's static modifier by replacing 1d20 with 0
-      const staticFormula = rules.checkFormula.replace(/\b1?\s*d20\b/gi, "0");
+      // 1. Resolve the formula's static modifier by replacing all d20 expressions with 0
+      // Matches: d20, 1d20, 2d20kh1, 1d20+5, etc.
+      const staticFormula = rules.checkFormula.replace(
+        /(?:\d*)d20(?:kh\d+|kl\d+|[+\-/]\d+|\b)/gi,
+        "0",
+      );
       const staticRoll = await new Roll(staticFormula, {
         ...actor.getRollData(),
         tutelage: tier?.modifier || 0,

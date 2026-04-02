@@ -146,7 +146,6 @@ export type LearningProject = ProjectFlagData;
 
 export interface ModuleAPIs {
   "quick-insert"?: QuickInsertAPI;
-  [key: string]: any;
 }
 
 /**
