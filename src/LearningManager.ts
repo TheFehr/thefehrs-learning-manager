@@ -53,7 +53,11 @@ export class LearningManager {
 
   static async ready() {
     console.debug("Downtime Engine | Initialized");
-    await migrateData();
+    try {
+      await migrateData();
+    } catch (err) {
+      console.error("Downtime Engine | Migration failed:", err);
+    }
   }
 
   private static registerSettings() {

@@ -1,5 +1,11 @@
 <script lang="ts">
-  let { allowedCompendiums = $bindable([]), availablePacks } = $props();
+  let { 
+    allowedCompendiums = $bindable([]), 
+    availablePacks = [] 
+  } = $props<{
+    allowedCompendiums: string[];
+    availablePacks: { id: string; label: string }[];
+  }>();
 
   function toggleCompendium(id: string) {
     if (allowedCompendiums.includes(id)) {

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { validateSettings, saveSettings } from "../src/apps/settings-logic";
 import { Settings } from "../src/core/settings";
+import { toggleUserGM } from "./setup";
 
 describe("settings-logic", () => {
   describe("validateSettings", () => {
@@ -101,6 +102,7 @@ describe("settings-logic", () => {
   describe("saveSettings rollback", () => {
     beforeEach(() => {
       vi.clearAllMocks();
+      toggleUserGM(true);
       // Mock Settings.get to return initial values
       vi.spyOn(Settings, "get").mockImplementation((key) => {
         if (key === "rules") return { nonBulkMethod: "direct" };
@@ -126,6 +128,7 @@ describe("settings-logic", () => {
 
       // Should NOT have tried to set guidanceTiers or allowedCompendiums (because timeUnits failed)
       expect(setSpy).not.toHaveBeenCalledWith("guidanceTiers", expect.anything());
+      expect(setSpy).not.toHaveBeenCalledWith("allowedCompendiums", expect.anything());
 
       // Rollback should happen for rules (it was saved before timeUnits failed)
       expect(setSpy).toHaveBeenCalledWith("rules", { nonBulkMethod: "direct" }); // rolled back to original

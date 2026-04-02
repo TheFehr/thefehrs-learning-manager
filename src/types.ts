@@ -125,9 +125,48 @@ declare global {
   namespace foundry {
     namespace applications {
       namespace api {
+        interface DialogV2Button {
+          action: string;
+          label: string;
+          icon?: string;
+          default?: boolean;
+          callback?: (
+            event?: Event,
+            button?: HTMLElement,
+            dialog?: unknown,
+          ) => void | Promise<void>;
+        }
+
+        interface DialogV2WaitOptions {
+          window?: { title?: string; [key: string]: unknown };
+          content?: string;
+          buttons?: DialogV2Button[];
+          rejectClose?: boolean;
+          modal?: boolean;
+          [key: string]: unknown;
+        }
+
+        interface DialogV2ConfirmOptions {
+          window?: { title?: string; [key: string]: unknown };
+          content?: string;
+          rejectClose?: boolean;
+          modal?: boolean;
+          [key: string]: unknown;
+        }
+
         class DialogV2 {
-          static wait(options: object): Promise<unknown>;
-          static confirm(options: object): Promise<boolean>;
+          constructor(
+            options: DialogV2WaitOptions & {
+              close?: () => void;
+              position?: { width?: number; height?: number };
+            },
+          );
+          render(force?: boolean): Promise<unknown>;
+          element: HTMLElement;
+          close(): Promise<void>;
+
+          static wait(options: DialogV2WaitOptions): Promise<string | boolean | null>;
+          static confirm(options: DialogV2ConfirmOptions): Promise<boolean>;
         }
       }
     }
@@ -144,6 +183,10 @@ declare global {
     "tidy5e-sheet.ready": (api: Tidy5eSheetsApi) => void;
   }
 
+  interface QuickInsertAPI {
+    searchItem: (opts: { classes?: string[] }) => Promise<{ uuid: string } | null>;
+  }
+
   interface CONFIG {
     DND5E: {
       featureTypes: Record<string, { label: string }>;
@@ -153,6 +196,18 @@ declare global {
     };
     SpotlightOmnisearch?: {
       prompt: (options: { query: string }) => Promise<{ data?: { uuid: string } } | null>;
+    };
+  }
+
+  interface ModuleAPIs {
+    "quick-insert"?: QuickInsertAPI;
+    [key: string]: unknown;
+  }
+
+  interface Game {
+    modules: {
+      get<T extends keyof ModuleAPIs>(id: T): { api?: ModuleAPIs[T] } | undefined;
+      get(id: string): { api?: unknown } | undefined;
     };
   }
 

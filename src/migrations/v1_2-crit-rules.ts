@@ -1,4 +1,5 @@
 type SystemRules = {
+  method?: string;
   critDoubleStrategy?: "any" | "all" | "never";
   critThreshold?: number;
 };
@@ -25,7 +26,11 @@ export async function migrateToV1_2() {
     }
 
     if (changed) {
-      await game.settings.set(SETTINGS_ID, "rules", updatedRules);
+      await game.settings.set(
+        SETTINGS_ID,
+        "rules",
+        updatedRules as unknown as import("../types.js").SystemRules,
+      );
     }
     await game.settings.set(SETTINGS_ID, "migrationVersion", "1.2.0");
     ui?.notifications?.info("Downtime Engine critical hit rules migrated successfully!");

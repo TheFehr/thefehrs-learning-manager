@@ -98,6 +98,9 @@ export class ProjectLifecycle {
         `Downtime Engine | Failed to inject activities for item "${createdItem.name}". Cleaning up...`,
         err,
       );
+      ui.notifications?.error(
+        `Downtime Engine | Failed to inject activities for item "${createdItem.name}". Project creation aborted.`,
+      );
       await createdItem.delete();
       return null;
     }
@@ -135,48 +138,50 @@ export class ProjectLifecycle {
           ...projectDataFlags,
           isCompleted: true,
           progress: projectDataFlags.target,
+          stashedEffects: null,
+          stashedActivities: null,
+          stashedType: null,
+          stashedName: null,
+          stashedDescription: null,
+          stashedSystem: null,
+          stashedSourceUuid: null,
         },
-        stashedEffects: null,
-        stashedActivities: null,
-        stashedType: null,
-        stashedName: null,
-        stashedDescription: null,
-        stashedSystem: null,
-        stashedSourceUuid: null,
       },
       "tidy5e-sheet": {
         section: "Completed Learning",
       },
     };
 
-    if (sourceItem && sourceItem instanceof Item) {
-      // Primary Restoration: Create a new copy from the source item
-      const sourceData = sourceItem.toObject();
-      const createData = {
-        ...sourceData,
-        flags: {
-          ...(sourceData.flags || {}),
-          ...completedFlags,
-        },
-      };
-
-      const [created] = await (actor as unknown as Actor).createEmbeddedDocuments("Item", [
-        createData,
-      ]);
-
-      if (created) {
-        // Delete the old in-progress item
-        await (item as unknown as Item).delete();
-        ui.notifications?.info(
-          `Learning Complete: ${(created as unknown as Item).name} is now fully available!`,
-        );
-        const created5e = created as unknown as Item5e & {
-          displayCard?: (options?: object) => Promise<unknown>;
+    if (sourceItem != null) {
+      if (sourceItem instanceof Item) {
+        // Primary Restoration: Create a new copy from the source item
+        const sourceData = sourceItem.toObject();
+        const createData = {
+          ...sourceData,
+          flags: {
+            ...(sourceData.flags || {}),
+            ...completedFlags,
+          },
         };
-        if (typeof created5e.displayCard === "function") {
-          await created5e.displayCard({ rollMode: Settings.rules.rollMode });
+
+        const [created] = await (actor as unknown as Actor).createEmbeddedDocuments("Item", [
+          createData,
+        ]);
+
+        if (created) {
+          // Delete the old in-progress item
+          await (item as unknown as Item).delete();
+          ui.notifications?.info(
+            `Learning Complete: ${(created as unknown as Item).name} is now fully available!`,
+          );
+          const created5e = created as unknown as Item5e & {
+            displayCard?: (options?: object) => Promise<unknown>;
+          };
+          if (typeof created5e.displayCard === "function") {
+            await created5e.displayCard({ rollMode: Settings.rules.rollMode });
+          }
+          return;
         }
-        return;
       }
     }
 
@@ -187,8 +192,12 @@ export class ProjectLifecycle {
       }`,
     );
 
-    // Identify learning activities to explicitly remove
-    const activityUpdates: Record<string, null> = {};
+    const dotFlags: Record<string, any> = {};
+    for (const [key, value] of Object.entries(completedFlags)) {
+      dotFlags[`flags.${key}`] = value;
+    }
+
+    // Identify learning activities to explicitly remove via dot-path
     const system = item.system as unknown as {
       activities?: {
         forEach: (cb: (activity: { id: string; flags?: Record<string, unknown> }) => void) => void;
@@ -198,32 +207,29 @@ export class ProjectLifecycle {
     if (existingActivities && typeof existingActivities.forEach === "function") {
       existingActivities.forEach((activity) => {
         if (activity.flags?.["thefehrs-learning-manager"]?.isLearningActivity) {
-          activityUpdates[`-=${activity.id}`] = null;
+          dotFlags[`system.activities.-=${activity.id}`] = null;
         }
       });
     }
 
-    // Restore from stashed system
-    const restoredSystem = {
-      ...(projectDataFlags.stashedSystem || {}),
-      activities: {
-        ...(projectDataFlags.stashedActivities || {}),
-        ...activityUpdates,
-      },
-    };
-
-    const dotFlags: Record<string, any> = {};
-    for (const [key, value] of Object.entries(completedFlags)) {
-      dotFlags[`flags.${key}`] = value;
-    }
+    // Restore from stashed system (excluding activities which are handled via dot-paths for deletion)
+    const stashedSystem = { ...(projectDataFlags.stashedSystem || {}) };
+    delete (stashedSystem as Record<string, unknown>).activities;
 
     const updateData = {
       name: projectDataFlags.stashedName || (item as unknown as Item).name,
       type: projectDataFlags.stashedType || item.type,
       effects: projectDataFlags.stashedEffects || [],
-      system: restoredSystem,
+      system: stashedSystem,
       ...dotFlags,
     };
+
+    // Re-insert stashed activities (non-learning ones)
+    if (projectDataFlags.stashedActivities) {
+      for (const [id, activity] of Object.entries(projectDataFlags.stashedActivities)) {
+        updateData[`system.activities.${id}`] = activity;
+      }
+    }
 
     await (item as unknown as Item).update(updateData);
     ui.notifications?.info(

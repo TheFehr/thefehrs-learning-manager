@@ -269,17 +269,12 @@ export class ProjectEngine {
     let rolls: Roll[] = [];
     let reasons: string[] = [];
 
-    if (isSeparate) {
-      const baseTu = { ...tu, isBulk: false, ratio: 1 };
-      for (let i = 0; i < tu.ratio; i++) {
-        const result = await TabLogic.computeProgress(actor, rules, tier, baseTu);
-        totalProgressGained += result.progressGained;
-        if (result.roll) rolls.push(result.roll);
-        if (result.reason) reasons.push(result.reason);
-      }
-    } else {
-      const result = await TabLogic.computeProgress(actor, rules, tier, tu);
-      totalProgressGained = result.progressGained;
+    const iterations = isSeparate ? tu.ratio : 1;
+    const baseTu = isSeparate ? { ...tu, isBulk: false, ratio: 1 } : tu;
+
+    for (let i = 0; i < iterations; i++) {
+      const result = await TabLogic.computeProgress(actor, rules, tier, baseTu);
+      totalProgressGained += result.progressGained;
       if (result.roll) rolls.push(result.roll);
       if (result.reason) reasons.push(result.reason);
     }
@@ -366,13 +361,21 @@ export class ProjectEngine {
       }
     }
 
-    for (const r of rolls) {
-      await r.toMessage(
-        {
-          flavor: `${actor.name} tries to learn ${item.name} (DC ${rules.checkDC})`,
-        },
-        { rollMode: rules.rollMode || "gmroll" },
+    const BATCH_THRESHOLD = 5;
+    if (isSeparate && tu.ratio > BATCH_THRESHOLD) {
+      const successCount = rolls.filter((r) => r.total >= (rules.checkDC || 0)).length;
+      ui.notifications?.info(
+        `Training complete: Gained ${totalProgressGained} progress from ${tu.ratio} separate rolls (${successCount} successes).`,
       );
+    } else {
+      for (const r of rolls) {
+        await r.toMessage(
+          {
+            flavor: `${actor.name} tries to learn ${item.name} (DC ${rules.checkDC})`,
+          },
+          { rollMode: rules.rollMode || "gmroll" },
+        );
+      }
     }
 
     if (totalProgressGained === 0) {
@@ -381,7 +384,7 @@ export class ProjectEngine {
           ? `Training unsuccessful: ${reasons[0]}`
           : "Training unsuccessful - no progress gained.";
       ui.notifications?.info(msg);
-    } else if (isSeparate) {
+    } else if (isSeparate && tu.ratio <= BATCH_THRESHOLD) {
       ui.notifications?.info(
         `Training complete: Gained ${totalProgressGained} progress from ${tu.ratio} separate rolls.`,
       );

@@ -7,6 +7,8 @@ import { Socket } from "../src/core/socket";
 import type { TimeUnit } from "../src/types";
 import { migrateData } from "../src/migrations/migration";
 
+import { toggleUserGM } from "../tests/setup";
+
 vi.mock("../src/project-engine", () => ({
   ProjectEngine: {
     initiateProjectFromItem: vi.fn(),

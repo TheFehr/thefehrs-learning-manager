@@ -27,8 +27,8 @@ else
     if command -v jq >/dev/null 2>&1; then
       BASE_VERSION=$(jq -r .version package.json)
     else
-      # Fallback: simple grep for version
-      BASE_VERSION=$(grep '"version":' package.json | head -1 | sed -E 's/.*"version": "([^"]+)".*/\1/')
+      # Fallback: regex for version
+      BASE_VERSION=$(grep -E '"version"\s*:\s*"[^"]+"' package.json | head -1 | sed -E 's/.*"version"\s*:\s*"([^"]+)".*/\1/')
     fi
   else
     BASE_VERSION="0.0.0"

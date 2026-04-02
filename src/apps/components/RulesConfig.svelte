@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { SystemRules } from "../../types";
+  import { onMount } from "svelte";
 
   let { rules = $bindable() } = $props<{ rules: SystemRules }>();
 
@@ -10,6 +11,14 @@
   );
 
   let needsBulkFormula = $derived(rules.bulkMethod === 'mathematical');
+
+  let rollModes = $state<Record<string, string | { label: string }>>({});
+
+  onMount(() => {
+    if (globalThis.CONFIG?.Dice?.rollModes) {
+      rollModes = CONFIG.Dice.rollModes;
+    }
+  });
 
   function getRollModeLabel(value: unknown): string {
     return typeof value === 'object' && value !== null && 'label' in value
@@ -41,8 +50,8 @@
   <div class="form-group">
     <label for="rule-roll-mode">Roll Mode</label>
     <select id="rule-roll-mode" bind:value={rules.rollMode}>
-      {#each Object.entries(CONFIG.Dice.rollModes) as [key, value]}
-        <option value={key}>{game.i18n.localize(getRollModeLabel(value))}</option>
+      {#each Object.entries(rollModes) as [key, value]}
+        <option value={key}>{game?.i18n?.localize(getRollModeLabel(value)) || getRollModeLabel(value)}</option>
       {/each}
     </select>
   </div>

@@ -25,8 +25,15 @@
     }];
   }
 
-  function removeTier(id: string) {
-    guidanceTiers = guidanceTiers.filter(t => t.id !== id);
+  async function removeTier(id: string, name: string) {
+    const proceed = await foundry.applications.api.DialogV2.confirm({
+      window: { title: "Delete Tier" },
+      content: `<p>Are you sure you want to delete the tier <strong>${name}</strong>?</p>`,
+      rejectClose: false,
+    });
+    if (proceed) {
+      guidanceTiers = guidanceTiers.filter(t => t.id !== id);
+    }
   }
 
   function directBulkActive(timeUnit: TimeUnit) {
@@ -46,7 +53,7 @@
                         <label for="tier-mod-{tier.id}">Mod:</label>
                         <input id="tier-mod-{tier.id}" type="number" bind:value={tier.modifier} style="width: 50px;"/>
                     </div>
-                    <button type="button" class="tidy-button small danger" onclick={() => removeTier(tier.id)}
+                    <button type="button" class="tidy-button small danger" onclick={() => removeTier(tier.id, tier.name)}
                             title="Delete Tier">
                         <i class="fas fa-trash"></i>
                     </button>

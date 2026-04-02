@@ -83,7 +83,7 @@ export class TabLogic {
       };
 
       const expectedRoll = await new Roll(bulkFormula, formulaData).evaluate();
-      progressGained = expectedRoll.total;
+      progressGained = Math.max(0, expectedRoll.total);
 
       console.debug("Downtime Engine | Bulk Expected Progress (Formula):", {
         bulkFormula,
@@ -107,7 +107,7 @@ export class TabLogic {
 
     try {
       // 1. Resolve the formula's static modifier by replacing 1d20 with 0
-      const staticFormula = rules.checkFormula.replace(/1d20/gi, "0");
+      const staticFormula = rules.checkFormula.replace(/\b1?\s*d20\b/gi, "0");
       const staticRoll = await new Roll(staticFormula, {
         ...actor.getRollData(),
         tutelage: tier?.modifier || 0,
@@ -203,14 +203,17 @@ export class TabLogic {
   }
 
   static formatCurrency(amountCp: number): string {
-    const gp = Math.floor(amountCp / 100);
-    const sp = Math.floor((amountCp % 100) / 10);
-    const cp = amountCp % 10;
+    const isNegative = amountCp < 0;
+    const abs = Math.abs(amountCp);
+    const gp = Math.floor(abs / 100);
+    const sp = Math.floor((abs % 100) / 10);
+    const cp = abs % 10;
     const parts = [];
     if (gp > 0) parts.push(`${gp}gp`);
     if (sp > 0) parts.push(`${sp}sp`);
     if (cp > 0 || parts.length === 0) parts.push(`${cp}cp`);
-    return parts.join(", ");
+    const formatted = parts.join(", ");
+    return isNegative ? `-${formatted}` : formatted;
   }
 
   static formatTimeBank(total: number, units: TimeUnit[]): string {

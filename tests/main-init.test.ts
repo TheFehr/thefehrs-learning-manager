@@ -25,11 +25,13 @@ describe("main.ts side effects", () => {
 
     // Find and execute the "init" hook callback
     const initHook = vi.mocked(Hooks.once).mock.calls.find((c) => c[0] === "init");
+    expect(initHook).toBeDefined();
     initHook![1]();
     expect(initSpy).toHaveBeenCalled();
 
     // Find and execute the "ready" hook callback
     const readyHook = vi.mocked(Hooks.once).mock.calls.find((c) => c[0] === "ready");
+    expect(readyHook).toBeDefined();
     await readyHook![1]();
     expect(readySpy).toHaveBeenCalled();
   });

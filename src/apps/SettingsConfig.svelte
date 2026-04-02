@@ -15,8 +15,8 @@
   let allowedCompendiums = $state<string[]>(Settings.allowedCompendiums);
 
   // User Preferences
-  let autoSpend = $state<boolean>(Settings.get("autoSpend"));
-  let autoSpendUnits = $state<string[]>(Settings.get("autoSpendUnits"));
+  let autoSpend = $state<boolean>(!isGM ? Settings.get("autoSpend") : false);
+  let autoSpendUnits = $state<string[]>(!isGM ? Settings.get("autoSpendUnits") : []);
 
   // Computed / Constant
   const availablePacks = getAvailablePacks();

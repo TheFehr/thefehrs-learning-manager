@@ -2,8 +2,8 @@
   import type {TimeUnit} from "../../types.js";
 
   let {
-    autoSpend = $bindable(),
-    autoSpendUnits = $bindable(),
+    autoSpend = $bindable(false),
+    autoSpendUnits = $bindable([]),
     timeUnits = [],
   } = $props<{
     autoSpend: boolean;
@@ -40,7 +40,7 @@
           <label class="checkbox-label">
             <input
               type="checkbox"
-              checked={autoSpendUnits.includes(unit.id)}
+              checked={(autoSpendUnits ?? []).includes(unit.id)}
               onchange={() => toggleUnit(unit.id)}
             />
             {unit.name} ({unit.short})

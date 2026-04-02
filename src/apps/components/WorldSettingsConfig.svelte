@@ -43,12 +43,19 @@
       if (!target.files?.length) return;
       const file = target.files[0];
       const reader = new FileReader();
+      const cleanup = () => {
+        input.onchange = null;
+        input.remove();
+      };
+
       reader.onerror = () => {
         ui.notifications?.error("Downtime Engine | Failed to read settings file.");
         console.error("Downtime Engine | FileReader error:", reader.error);
+        cleanup();
       };
       reader.onabort = () => {
         ui.notifications?.warn("Downtime Engine | Settings import aborted.");
+        cleanup();
       };
       reader.onload = async (event: ProgressEvent<FileReader>) => {
         try {
@@ -56,10 +63,10 @@
           const data = JSON.parse(content);
           const validated = validateSettings(data);
 
-          if (validated.rules) rules = validated.rules;
-          if (validated.timeUnits) timeUnits = validated.timeUnits;
-          if (validated.guidanceTiers) guidanceTiers = validated.guidanceTiers;
-          if (validated.allowedCompendiums)
+          if (validated.rules !== undefined) rules = validated.rules;
+          if (validated.timeUnits !== undefined) timeUnits = validated.timeUnits;
+          if (validated.guidanceTiers !== undefined) guidanceTiers = validated.guidanceTiers;
+          if (validated.allowedCompendiums !== undefined)
             allowedCompendiums = validated.allowedCompendiums;
 
           ui.notifications?.info(
@@ -68,6 +75,8 @@
         } catch (err: unknown) {
           const error = err as Error;
           ui.notifications?.error("Failed to import settings: " + error.message);
+        } finally {
+          cleanup();
         }
       };
       reader.readAsText(file);

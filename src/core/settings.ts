@@ -79,6 +79,10 @@ export const SETTINGS_DEFINITIONS: {
 
 /**
  * Derived default values for all settings.
+ * The cast is necessary because Object.fromEntries loses the specific key types,
+ * but the SETTINGS_DEFINITIONS keys strictly map to SettingsSchema.
+ * This cast is required as of TypeScript 5.7+ to bridge the gap between
+ * runtime Object.fromEntries and the static SettingsSchema interface.
  */
 export const DEFAULT_SETTINGS: SettingsSchema = Object.fromEntries(
   Object.entries(SETTINGS_DEFINITIONS).map(([key, metadata]) => [key, metadata.default]),
@@ -116,14 +120,24 @@ export class SettingsManager<Settings extends Record<string, any> = SettingsSche
   static registerAll(overrides: Partial<Record<keyof SettingsSchema, any>> = {}) {
     for (const [key, metadata] of Object.entries(SETTINGS_DEFINITIONS)) {
       const defaultValue = metadata.default;
+      let type: any = Object;
+
+      if (defaultValue !== null && defaultValue !== undefined) {
+        if (Array.isArray(defaultValue)) {
+          type = Object;
+        } else {
+          const t = typeof defaultValue;
+          if (t === "boolean") type = Boolean;
+          else if (t === "string") type = String;
+          else if (t === "number") type = Number;
+          else type = Object;
+        }
+      }
+
       const config = {
         scope: metadata.scope,
         config: metadata.config ?? false,
-        type: Array.isArray(defaultValue)
-          ? Object
-          : defaultValue != null
-            ? (defaultValue as { constructor: any }).constructor
-            : Object,
+        type,
         default: defaultValue,
         ...overrides[key as keyof SettingsSchema],
       };
@@ -142,19 +156,19 @@ export class SettingsManager<Settings extends Record<string, any> = SettingsSche
     return this.get("rules");
   }
   get timeUnits(): Settings["timeUnits"] {
-    return this.get("timeUnits");
+    return this.get("timeUnits") || ([] as Settings["timeUnits"]);
   }
   get guidanceTiers(): Settings["guidanceTiers"] {
-    return this.get("guidanceTiers");
+    return this.get("guidanceTiers") || ([] as Settings["guidanceTiers"]);
   }
   get allowedCompendiums(): Settings["allowedCompendiums"] {
-    return this.get("allowedCompendiums") || [];
+    return this.get("allowedCompendiums") || ([] as Settings["allowedCompendiums"]);
   }
   get autoSpend(): Settings["autoSpend"] {
     return this.get("autoSpend");
   }
   get autoSpendUnits(): Settings["autoSpendUnits"] {
-    return this.get("autoSpendUnits");
+    return this.get("autoSpendUnits") || ([] as Settings["autoSpendUnits"]);
   }
 
   registerMenu(key: string, data: unknown): void {

@@ -1,5 +1,17 @@
 import { ActorProxy } from "../actor-proxy.js";
 
+function resolveControlledActor(): Actor | undefined {
+  let actor = game.user?.character;
+
+  // Fallback to selected token
+  const controlledTokens = (canvas as { tokens?: { controlled?: { actor: Actor }[] } })?.tokens
+    ?.controlled;
+  if (!actor && controlledTokens && controlledTokens.length > 0) {
+    actor = controlledTokens[0].actor;
+  }
+  return actor;
+}
+
 /**
  * Developer-only cheat helpers for the browser console.
  * Available via `window.ude` in development mode.
@@ -11,21 +23,14 @@ export const DebugHelpers = {
    * @param hours - The amount of hours to add.
    */
   async addTime(hours: number) {
-    let actor = game.user?.character;
-
-    // Fallback to selected token
-    const controlledTokens = (canvas as { tokens?: { controlled?: { actor: Actor }[] } })?.tokens
-      ?.controlled;
-    if (!actor && controlledTokens && controlledTokens.length > 0) {
-      actor = controlledTokens[0].actor;
-    }
+    const actor = resolveControlledActor();
 
     if (!actor) {
       console.warn("Downtime Engine | No character controlled or token selected.");
       return;
     }
 
-    const proxy = ActorProxy.forActor(actor as unknown as Actor);
+    const proxy = ActorProxy.forActor(actor);
     const bank = proxy.bank;
     const newTotal = (bank.total || 0) + hours;
 
@@ -45,19 +50,14 @@ export const DebugHelpers = {
    * @param gp - The amount of GP to add.
    */
   async addGP(gp: number) {
-    let actor = game.user?.character;
-    const controlledTokens = (canvas as { tokens?: { controlled?: { actor: Actor }[] } })?.tokens
-      ?.controlled;
-    if (!actor && controlledTokens && controlledTokens.length > 0) {
-      actor = controlledTokens[0].actor;
-    }
+    const actor = resolveControlledActor();
 
     if (!actor) {
       console.warn("Downtime Engine | No character controlled or token selected.");
       return;
     }
 
-    const proxy = ActorProxy.forActor(actor as unknown as Actor);
+    const proxy = ActorProxy.forActor(actor);
     const current = proxy.currency;
     await proxy.updateCurrency({
       gp: (current.gp || 0) + gp,

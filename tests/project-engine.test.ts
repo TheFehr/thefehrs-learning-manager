@@ -254,11 +254,9 @@ describe("ProjectEngine", () => {
           type: "weapon",
           system: expect.objectContaining({
             original: true,
-            activities: expect.objectContaining({
-              act3: {},
-              "-=act1": null,
-            }),
           }),
+          "system.activities.act3": {},
+          "system.activities.-=act1": null,
           "flags.thefehrs-learning-manager": expect.objectContaining({
             isLearnedReward: true,
           }),
@@ -607,8 +605,9 @@ describe("ProjectEngine", () => {
       const result = await ProjectEngine.processSpendAll(item);
 
       expect(result).toBe(true);
-      expect(processSpy).toHaveBeenCalled();
+      expect(processSpy).toHaveBeenCalledTimes(2);
       expect(mockProxy.bank.total).toBe(0);
+      expect(mockProxy.bank.total).toBeGreaterThanOrEqual(0);
     });
   });
 

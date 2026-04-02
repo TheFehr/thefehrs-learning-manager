@@ -26,6 +26,11 @@ export async function saveSettings(
   if (autoSpend !== undefined) toSave.autoSpend = autoSpend;
   if (autoSpendUnits !== undefined) toSave.autoSpendUnits = autoSpendUnits;
 
+  if (Object.keys(toSave).length === 0) {
+    Logger.info("No settings to save.");
+    return;
+  }
+
   // Snapshot current values for potential rollback
   const snapshot: Partial<Record<keyof SettingsSchema, any>> = {};
   for (const key of Object.keys(toSave) as (keyof SettingsSchema)[]) {
@@ -144,18 +149,24 @@ export function validateSettings(data: unknown) {
 
   // 2. Validate Time Units
   if (Array.isArray(data.timeUnits)) {
-    result.timeUnits = data.timeUnits
-      .filter(
-        (unit: unknown): unit is Record<string, unknown> =>
-          isPlainObject(unit) && typeof unit.id === "string",
-      )
-      .map((unit) => ({
-        id: String(unit.id),
-        name: typeof unit.name === "string" ? unit.name : "New Unit",
-        short: typeof unit.short === "string" ? unit.short : "u",
-        isBulk: typeof unit.isBulk === "boolean" ? unit.isBulk : false,
-        ratio: typeof unit.ratio === "number" && Number.isFinite(unit.ratio) ? unit.ratio : 1,
-      }));
+    const filteredUnits = data.timeUnits.filter(
+      (unit: unknown): unit is Record<string, unknown> =>
+        isPlainObject(unit) && typeof unit.id === "string",
+    );
+
+    if (filteredUnits.length !== data.timeUnits.length) {
+      Logger.warn(
+        `Downtime Engine | Validation dropped ${data.timeUnits.length - filteredUnits.length} invalid time units.`,
+      );
+    }
+
+    result.timeUnits = filteredUnits.map((unit) => ({
+      id: String(unit.id),
+      name: typeof unit.name === "string" ? unit.name : "New Unit",
+      short: typeof unit.short === "string" ? unit.short : "u",
+      isBulk: typeof unit.isBulk === "boolean" ? unit.isBulk : false,
+      ratio: typeof unit.ratio === "number" && Number.isFinite(unit.ratio) ? unit.ratio : 1,
+    }));
   }
 
   // 3. Validate Guidance Tiers

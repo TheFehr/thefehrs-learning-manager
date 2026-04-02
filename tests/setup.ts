@@ -93,7 +93,7 @@ globalThis.game = {
   i18n: {
     localize: vi.fn((key: string) => key),
   },
-  user: { isGM: true },
+  user: { isGM: false },
   socket: {
     on: vi.fn(),
     emit: vi.fn(),
@@ -102,6 +102,10 @@ globalThis.game = {
   packs: new PacksCollection(),
   ID: "thefehrs-learning-manager",
 } as any;
+
+export function toggleUserGM(isGM: boolean) {
+  (globalThis.game as any).user.isGM = isGM;
+}
 
 globalThis.Handlebars = {
   registerHelper: vi.fn(),

@@ -11,6 +11,8 @@ vi.mock("../src/actor-proxy");
 vi.mock("../src/project-engine");
 
 describe("PartyTabLogic", () => {
+  let originalActors: any;
+
   beforeEach(() => {
     vi.clearAllMocks();
 
@@ -23,10 +25,18 @@ describe("PartyTabLogic", () => {
         create: vi.fn().mockResolvedValue({}),
       },
     };
+
+    // Spy on ui.notifications
+    vi.spyOn(global.ui.notifications, "warn").mockImplementation(() => {});
+    vi.spyOn(global.ui.notifications, "info").mockImplementation(() => {});
+
+    // Replace game.actors with a Map-like structure
+    originalActors = global.game.actors;
+    global.game.actors = new Map() as any;
   });
 
   afterEach(() => {
-    (game.actors as any).length = 0;
+    global.game.actors = originalActors;
   });
 
   describe("processGrantTime", () => {
@@ -38,7 +48,7 @@ describe("PartyTabLogic", () => {
       vi.mocked(TabLogic.formatTimeBank).mockReturnValue("1h");
 
       const mockActor = { id: "actor1" };
-      (game.actors as any).push(mockActor);
+      (game.actors as any).set(mockActor.id, mockActor);
 
       const mockProxy = {
         bank: { total: 0 },

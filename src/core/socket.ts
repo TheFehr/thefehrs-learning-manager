@@ -17,10 +17,10 @@ export class Socket {
     }
 
     const id = this.identifier;
-    console.info(`Downtime Engine | Socket: Listening on "${id}"`);
+    console.debug(`Downtime Engine | Socket: Listening on "${id}"`);
 
     game.socket.on(id, (...args: any[]) => {
-      console.info(`Downtime Engine | Socket: Received data on "${id}":`, args);
+      console.debug(`Downtime Engine | Socket: Received data on "${id}":`, args);
 
       const message = args[0] as LearningModuleMessage;
       if (!message || typeof message.type !== "string") {

@@ -132,7 +132,7 @@ export class ActivityManager {
       const learningItems = (actor as unknown as Actor).items.filter((i) =>
         i.getFlag("thefehrs-learning-manager", "isLearningProject"),
       ) as unknown as Item5e[];
-      for (const item of learningItems) {
+      const chunkedPromises = learningItems.map(async (item) => {
         try {
           await this.injectActivities(item);
           updatedCount++;
@@ -143,7 +143,9 @@ export class ActivityManager {
           );
           failedCount++;
         }
-      }
+      });
+      await Promise.all(chunkedPromises);
+      await new Promise((resolve) => setTimeout(resolve, 50));
     }
 
     if (failedCount > 0) {

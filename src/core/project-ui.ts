@@ -16,23 +16,32 @@ export class ProjectUI {
 
   static stripProgressHtml(html: string): string {
     if (!html) return "";
-    let clean = html;
 
-    // 1. Remove by comments (global)
-    clean = clean.replace(
-      /<!-- learning-manager:progress-start -->[\s\S]*?<!-- learning-manager:progress-end -->/g,
-      "",
-    );
+    try {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(`<div>${html}</div>`, "text/html");
 
-    // 2. Remove by class (fallback if comments are gone or mangled)
-    const classRegex =
-      /<[^>]*class="[^"]*learning-manager-progress-container[^"]*"[^>]*>[\s\S]*?<\/[^>]*>/g;
-    let lastClean: string;
-    do {
-      lastClean = clean;
-      clean = clean.replace(classRegex, "");
-    } while (clean !== lastClean);
+      const containers = doc.querySelectorAll(".learning-manager-progress-container");
+      containers.forEach((c) => {
+        if (c.parentNode) c.parentNode.removeChild(c);
+      });
 
-    return clean.trim();
+      const wrapper = doc.body.firstElementChild;
+      let clean = wrapper ? wrapper.innerHTML : html;
+      clean = clean.replace(
+        /<!-- learning-manager:progress-start -->[\s\S]*?<!-- learning-manager:progress-end -->/g,
+        "",
+      );
+
+      return clean.trim();
+    } catch (err) {
+      console.error("Downtime Engine | Failed to parse HTML for stripping:", err);
+      return html
+        .replace(
+          /<!-- learning-manager:progress-start -->[\s\S]*?<!-- learning-manager:progress-end -->/g,
+          "",
+        )
+        .trim();
+    }
   }
 }
