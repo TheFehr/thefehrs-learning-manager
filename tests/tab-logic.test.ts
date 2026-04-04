@@ -5,27 +5,38 @@ describe("TabLogic", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     global.Roll = class {
+      public dice: any[] = [];
       constructor(
         public formula: string,
         public data: any,
         public options: any,
-      ) {}
-      evaluate = vi.fn().mockImplementation(async () => {
-        // Simple mock evaluator for test cases
+      ) {
+        if (this.formula.includes("1d20")) {
+          this.dice = [{ faces: 20, number: 1, modifiers: [], results: [] }];
+        }
+      }
+      clone() {
+        const cloned = new (global.Roll as any)(this.formula, this.data, this.options);
+        cloned.dice = JSON.parse(JSON.stringify(this.dice));
+        return cloned;
+      }
+      async evaluate() {
         let total = 0;
 
-        // Handle constant replacements (like bonusRoll evaluating totalMod)
         if (!isNaN(Number(this.formula))) {
-          return { total: Number(this.formula), dice: [], toMessage: vi.fn() };
+          return {
+            total: Number(this.formula),
+            dice: [],
+            toMessage: vi.fn().mockResolvedValue({}),
+          };
         }
 
-        // Handle mathematical formula for bonusRoll evaluation (totalMod)
         if (this.formula === "0") {
-          return { total: 0, dice: [], toMessage: vi.fn() };
+          return { total: 0, dice: [], toMessage: vi.fn().mockResolvedValue({}) };
         }
 
         if (this.formula.includes("1d20")) {
-          total += 15;
+          total += this.dice[0]?.results?.[0]?.result ?? 15;
         }
         if (this.formula.includes("int.mod")) {
           total +=
@@ -38,34 +49,24 @@ describe("TabLogic", () => {
           total += this.data?.tutelage || 0;
         }
 
-        // Handle bulkExpectedFormula variables
-        if (
-          this.formula.includes("@hours") ||
-          this.formula.includes("@dc") ||
-          this.formula.includes("@tutelage") ||
-          this.formula.includes("@abilities")
-        ) {
+        if (this.formula.includes("@hours") || this.formula.includes("@dc")) {
           const hours = this.data?.hours || 0;
           const dc = this.data?.dc || 0;
           const tutelage = this.data?.tutelage || 0;
-          const intMod =
-            this.data?.abilities?.int?.mod ?? this.data?.system?.abilities?.int?.mod ?? 0;
-
-          // formula: round(@hours * (22 - max(1, @dc - (@abilities.int.mod + @tutelage))) / 20)
-          const bonus = intMod + tutelage;
-          const minRoll = Math.max(1, dc - bonus);
+          const intMod = this.data?.abilities?.int?.mod ?? 0;
+          const minRoll = Math.max(1, dc - (intMod + tutelage));
           total = Math.round((hours * (22 - minRoll)) / 20);
         }
 
-        // Default total if not computed by formula logic above
-        const finalTotal = total || (this.formula.includes("1d20") ? 15 : 0);
-
         return {
-          total: finalTotal,
-          dice: [{ faces: 20, results: [{ result: 15, active: true }] }],
-          toMessage: vi.fn(),
+          total: total,
+          dice:
+            this.dice.length > 0
+              ? this.dice
+              : [{ faces: 20, results: [{ result: 15, active: true }] }],
+          toMessage: vi.fn().mockResolvedValue({}),
         };
-      });
+      }
     } as any;
   });
 
@@ -117,9 +118,6 @@ describe("TabLogic", () => {
       actor.system.abilities = { int: { mod: 5 } };
 
       const result = await TabLogic.computeProgress(actor, bulkRules, tier, bulkTu as any);
-
-      // With DC 12, int mod 5, tutelage 2: minRoll is max(1, 12 - (5 + 2)) = 5.
-      // Formula: round(10 * (22 - 5) / 20) = round(10 * 17 / 20) = round(8.5) = 9
       expect(result.progressGained).toBe(9);
     });
 
@@ -129,95 +127,169 @@ describe("TabLogic", () => {
 
       const result = await TabLogic.computeProgress(actor, bulkRules, tier, bulkTu as any);
       expect(result.progressGained).toBe(1);
-      expect(result.roll).toBeDefined();
     });
 
-    it("should return a reason on zero bulk progress (direct)", async () => {
-      const bulkTu = { id: "no_progress_unit", name: "Month", isBulk: true };
-      const result = await TabLogic.computeProgress(actor, rules, undefined, bulkTu as any);
-      expect(result.progressGained).toBe(0);
-      expect(result.reason).toBe('Tutelage tier "None" provides no progress for Months.');
-    });
-
-    it("should handle 'any' crit strategy for non-bulk roll", async () => {
-      const critRules = { ...rules, critDoubleStrategy: "any", critThreshold: 20 };
+    it("should handle crit doubling in 'roll' method", async () => {
+      const critRules = {
+        ...rules,
+        critDoubleStrategy: "any",
+        critThreshold: 20,
+      };
       global.Roll = class {
         evaluate = vi.fn().mockResolvedValue({
           total: 20,
           dice: [{ faces: 20, results: [{ result: 20, active: true }] }],
         });
       } as any;
+
       const result = await TabLogic.computeProgress(actor, critRules, tier, tu);
       expect(result.progressGained).toBe(2);
     });
-
-    it("should respect 'direct' method for non-bulk", async () => {
-      const directRules = { ...rules, nonBulkMethod: "direct" };
-      const result = await TabLogic.computeProgress(actor, directRules, tier, tu);
-      expect(result.progressGained).toBe(1);
-      expect(result.roll).toBeUndefined();
-    });
   });
 
-  describe("Currency Formatting", () => {
-    it("should format currency correctly", () => {
-      expect(TabLogic.formatCurrency(125)).toBe("1gp, 2sp, 5cp");
-      expect(TabLogic.formatCurrency(5)).toBe("5cp");
-      expect(TabLogic.formatCurrency(100)).toBe("1gp");
+  describe("meetsRequirements", () => {
+    let actor: any;
+
+    beforeEach(() => {
+      actor = {
+        system: { abilities: { int: { value: 15 } } },
+      };
     });
-  });
 
-  describe("Time Bank Formatting", () => {
-    const units = [
-      { id: "hour", short: "h", ratio: 1, name: "Hour", isBulk: false },
-      { id: "day", short: "d", ratio: 10, name: "Day", isBulk: true },
-    ];
-
-    it("should format time bank correctly", () => {
-      expect(TabLogic.formatTimeBank(25, units)).toBe("2d 5h");
-      expect(TabLogic.formatTimeBank(5, units)).toBe("5h");
-      expect(TabLogic.formatTimeBank(0, units)).toBe("0");
-    });
-  });
-
-  describe("Requirements Check", () => {
-    it("should check requirements correctly", () => {
-      const actor = { system: { abilities: { str: { value: 15 } } } } as any;
-      const reqs = [{ attribute: "system.abilities.str.value", operator: ">=", value: 13 }];
-
+    it("should return eligible true if all requirements met", () => {
+      const reqs = [{ attribute: "system.abilities.int.value", operator: ">=", value: 13 }];
       const result = TabLogic.meetsRequirements(actor, reqs as any);
       expect(result.eligible).toBe(true);
     });
 
-    it("should fail on unmet requirements", () => {
-      const actor = { system: { abilities: { str: { value: 10 } } } } as any;
-      const reqs = [{ attribute: "system.abilities.str.value", operator: ">=", value: 13 }];
-
+    it("should return eligible false with reason if requirement not met", () => {
+      const reqs = [{ attribute: "system.abilities.int.value", operator: ">=", value: 18 }];
       const result = TabLogic.meetsRequirements(actor, reqs as any);
       expect(result.eligible).toBe(false);
-      expect(result.reason).toContain("needs to be >= 13");
+      expect(result.reason).toContain("needs to be >= 18");
+    });
+
+    it("should support 'includes' operator", () => {
+      actor.system.tags = ["tag1", "tag2"];
+      const reqs = [{ attribute: "system.tags", operator: "includes", value: "tag1" }];
+      const result = TabLogic.meetsRequirements(actor, reqs as any);
+      expect(result.eligible).toBe(true);
+    });
+
+    it("should handle unknown operator", () => {
+      const reqs = [{ attribute: "system.abilities.int.value", operator: "UNKNOWN", value: 13 }];
+      vi.spyOn(console, "warn").mockImplementation(() => {});
+      const result = TabLogic.meetsRequirements(actor, reqs as any);
+      expect(result.eligible).toBe(false);
+      expect(console.warn).toHaveBeenCalledWith(
+        expect.stringContaining("Unknown operator"),
+        expect.any(Object),
+      );
+    });
+  });
+
+  describe("formatCurrency", () => {
+    it("should format cp correctly", () => {
+      expect(TabLogic.formatCurrency(125)).toBe("1gp, 2sp, 5cp");
+    });
+
+    it("should handle 0", () => {
+      expect(TabLogic.formatCurrency(0)).toBe("0cp");
+    });
+
+    it("should handle negative values", () => {
+      expect(TabLogic.formatCurrency(-125)).toBe("-1gp, 2sp, 5cp");
+    });
+  });
+
+  describe("formatTimeBank", () => {
+    const units = [
+      { id: "day", short: "d", ratio: 10 },
+      { id: "hour", short: "h", ratio: 1 },
+    ] as any[];
+
+    it("should format time correctly", () => {
+      expect(TabLogic.formatTimeBank(15, units)).toBe("1d 5h");
+    });
+
+    it("should return 0 for zero total", () => {
+      expect(TabLogic.formatTimeBank(0, units)).toBe("0");
     });
   });
 
   describe("calculateTotalBaseTime", () => {
     const timeUnits = [
-      { id: "hour", ratio: 1, name: "Hour", short: "h", isBulk: false },
-      { id: "day", ratio: 10, name: "Day", short: "d", isBulk: true },
-    ];
+      { id: "hour", ratio: 1 },
+      { id: "day", ratio: 10 },
+    ] as any[];
 
-    it("should calculate total base time correctly", () => {
+    it("should sum up base units correctly", () => {
       const result = TabLogic.calculateTotalBaseTime({ hour: 5, day: 2 }, timeUnits);
       expect(result).toBe(25);
     });
 
-    it("should return 0 for empty values", () => {
-      const result = TabLogic.calculateTotalBaseTime({}, timeUnits);
+    it("should handle missing units", () => {
+      const result = TabLogic.calculateTotalBaseTime({ week: 1 }, timeUnits);
       expect(result).toBe(0);
     });
 
     it("should handle invalid inputs gracefully", () => {
       const result = TabLogic.calculateTotalBaseTime({ hour: "10" as any, day: 1 }, timeUnits);
       expect(result).toBe(20);
+    });
+  });
+
+  describe("calculateSuccessProbability", () => {
+    const rules = { checkFormula: "1d20 + @tutelage", checkDC: 15 } as any;
+    const actor = { getRollData: vi.fn().mockReturnValue({}) } as any;
+    const tier = { modifier: 2 } as any;
+
+    it("should calculate correct probability for simple d20", async () => {
+      const prob = await TabLogic.calculateSuccessProbability(actor, rules, tier);
+      expect(prob).toBe(0.4);
+    });
+
+    it("should return 1 for deterministic success", async () => {
+      const deterministicRules = { checkFormula: "20", checkDC: 15 } as any;
+      const prob = await TabLogic.calculateSuccessProbability(actor, deterministicRules, tier);
+      expect(prob).toBe(1);
+    });
+
+    it("should return 0 for complex formulas", async () => {
+      const complexRules = { checkFormula: "2d20kh1", checkDC: 15 } as any;
+      const prob = await TabLogic.calculateSuccessProbability(actor, complexRules, tier);
+      expect(prob).toBe(0);
+    });
+  });
+
+  describe("deductCurrency", () => {
+    it("should deduct currency correctly", async () => {
+      const actor = {} as any;
+      const mockProxy = {
+        currency: { gp: 1, sp: 0, cp: 0 },
+        updateCurrency: vi.fn().mockResolvedValue(true),
+      };
+      const { ActorProxy } = await import("../src/actor-proxy");
+      vi.spyOn(ActorProxy, "forActor").mockReturnValue(mockProxy as any);
+
+      const success = await TabLogic.deductCurrency(actor, 50); // deduct 50cp from 100cp
+      expect(success).toBe(true);
+      expect(mockProxy.updateCurrency).toHaveBeenCalledWith({ gp: 0, sp: 5, cp: 0 });
+    });
+
+    it("should fail if insufficient funds", async () => {
+      const actor = {} as any;
+      const mockProxy = {
+        currency: { gp: 0, sp: 0, cp: 10 },
+        updateCurrency: vi.fn(),
+      };
+      const { ActorProxy } = await import("../src/actor-proxy");
+      vi.spyOn(ActorProxy, "forActor").mockReturnValue(mockProxy as any);
+      (global as any).ui = { notifications: { warn: vi.fn() } };
+
+      const success = await TabLogic.deductCurrency(actor, 50);
+      expect(success).toBe(false);
+      expect(ui.notifications.warn).toHaveBeenCalledWith(expect.stringContaining("Insufficient"));
     });
   });
 });

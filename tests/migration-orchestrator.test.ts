@@ -63,4 +63,13 @@ describe("Data Migration Orchestrator", () => {
     expect(v1_2critRules.migrateToV1_2).not.toHaveBeenCalled();
     expect(v2NativeItems.migrateToV2).toHaveBeenCalled();
   });
+
+  it("should handle migration errors gracefully", async () => {
+    vi.mocked(game.settings.get).mockReturnValue("0.0.0");
+    vi.mocked(v1Relational.migrateToV1Relational).mockRejectedValue(new Error("Fail"));
+    vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await migrateData();
+    expect(console.error).toHaveBeenCalled();
+  });
 });

@@ -293,4 +293,78 @@ describe("LearningManager", () => {
       expect(ProjectEngine.initiateProjectFromItem).not.toHaveBeenCalled();
     });
   });
+
+  describe("TidyTabs", () => {
+    it("should correctly enable/disable Item Tab", () => {
+      let registeredTab: any;
+      const mockApi = {
+        registerGroupTab: vi.fn(),
+        registerItemTab: vi.fn().mockImplementation((tab) => {
+          registeredTab = tab;
+        }),
+        registerCharacterContent: vi.fn(),
+        models: {
+          HtmlTab: class {
+            constructor(data: any) {
+              Object.assign(this, data);
+            }
+          },
+          HtmlContent: class {
+            constructor(data: any) {
+              Object.assign(this, data);
+            }
+          },
+        },
+      };
+
+      (LearningManager as any).registerTidyTabs(mockApi);
+      expect(mockApi.registerItemTab).toHaveBeenCalled();
+
+      const enabled = registeredTab.enabled;
+      game.user.isGM = false;
+      expect(enabled({})).toBe(false);
+
+      game.user.isGM = true;
+      const learningItem = {
+        type: "feat",
+        system: { type: { value: "learning-project" } },
+        getFlag: vi.fn(),
+      } as any;
+      expect(enabled({ item: learningItem })).toBe(true);
+    });
+  });
+
+  describe("Application Lifecycle", () => {
+    it("should unmount Svelte instance when application is closed", async () => {
+      LearningManager.init();
+      const mockInstance = { some: "instance" };
+      LearningManager.svelteInstances.set("app123", mockInstance as any);
+
+      const { unmount } = await import("svelte");
+      const closeHook = vi.mocked(Hooks.on).mock.calls.find((c) => c[0] === "closeApplication");
+      expect(closeHook).toBeDefined();
+
+      closeHook![1]({ id: "app123" });
+
+      expect(unmount).toHaveBeenCalledWith(mockInstance);
+      expect(LearningManager.svelteInstances.has("app123")).toBe(false);
+    });
+
+    it("should handle renderSvelte with existing instance", async () => {
+      const mockOldInstance = { old: true };
+      const actor = { id: "actor1" };
+      const app = { id: "app1", actor };
+      LearningManager.svelteInstances.set("app1", mockOldInstance as any);
+
+      const { unmount, mount } = await import("svelte");
+      const params = { app, element: document.createElement("div") };
+      const selector = ".root";
+      params.element.innerHTML = '<div class="root"></div>';
+
+      (LearningManager as any).renderSvelte(params, selector, {}, () => ({}));
+
+      expect(unmount).toHaveBeenCalledWith(mockOldInstance);
+      expect(mount).toHaveBeenCalled();
+    });
+  });
 });

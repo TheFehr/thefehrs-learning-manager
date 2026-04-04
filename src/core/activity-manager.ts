@@ -112,6 +112,7 @@ export class ActivityManager {
         `Downtime Engine | Failed to create activities for "${(item as unknown as Item).name}":`,
         err,
       );
+      throw err;
     }
   }
 

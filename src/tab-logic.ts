@@ -96,7 +96,8 @@ export class TabLogic {
   }
 
   /**
-   * Calculates the success probability (0-1) for a single training roll.
+   * Calculates the success probability (0-1) for a training roll.
+   * Supports any formula containing a single simple d20 term.
    */
   static async calculateSuccessProbability(
     actor: LearningActor,
@@ -106,46 +107,58 @@ export class TabLogic {
     if (!rules.checkFormula || !rules.checkDC) return 0;
 
     try {
-      // 1. Resolve the formula's static modifier by replacing all d20 expressions with 0
-      // Matches: d20, 1d20, 2d20kh1, 1d20+5, etc.
-      const staticFormula = rules.checkFormula.replace(
-        /(?:\d*)d20(?:kh\d+|kl\d+|[+\-/]\d+|\b)/gi,
-        "0",
-      );
-      const staticRoll = await new Roll(staticFormula, {
+      const rollData = {
         ...actor.getRollData(),
         tutelage: tier?.modifier || 0,
-      }).evaluate();
+      };
 
-      const modifier = staticRoll.total;
-      const targetRoll = rules.checkDC - modifier;
+      // 1. Construct the roll to inspect its structure
+      const roll = new Roll(rules.checkFormula, rollData);
+      const dice = roll.dice;
 
-      // 2. Linear probability for a d20 roll
-      // To succeed, d20 >= targetRoll
-      // Number of successful outcomes: 21 - targetRoll (clamped to 0-20)
-      const successCount = Math.min(20, Math.max(0, 21 - targetRoll));
-      return successCount / 20;
+      // 2. Handle the deterministic case (no dice)
+      if (dice.length === 0) {
+        const result = await roll.evaluate();
+        return result.total >= (rules.checkDC || 0) ? 1 : 0;
+      }
+
+      // 3. Support only the simplest case: exactly one d20 with no special modifiers
+      const isSimpleD20 =
+        dice.length === 1 &&
+        dice[0].faces === 20 &&
+        dice[0].number === 1 &&
+        (dice[0].modifiers?.length || 0) === 0;
+
+      if (!isSimpleD20) {
+        console.debug(
+          "Downtime Engine | Success probability estimation skipped: formula is complex or contains multiple dice.",
+          rules.checkFormula,
+        );
+        return 0;
+      }
+
+      // 4. Brute force outcomes by forcing the d20 result (1-20)
+      const outcomes: Promise<number>[] = [];
+      for (let i = 1; i <= 20; i++) {
+        const testRoll = roll.clone();
+        const die = testRoll.dice[0];
+
+        // Force the result of the single d20
+        die.results = [{ result: i, active: true }];
+        // @ts-expect-error - internal Foundry property
+        die._evaluated = true;
+
+        outcomes.push(testRoll.evaluate().then((r) => (r.total >= (rules.checkDC || 0) ? 1 : 0)));
+      }
+
+      const results = await Promise.all(outcomes);
+      const totalSuccesses = results.reduce((acc, val) => acc + val, 0);
+
+      return totalSuccesses / 20;
     } catch (err) {
       console.error("Downtime Engine | Failed to calculate success probability:", err);
       return 0;
     }
-  }
-
-  static async addCurrency(actor: Actor, amountCp: number) {
-    if (amountCp < 0) {
-      return this.deductCurrency(actor, -amountCp);
-    }
-    const proxy = ActorProxy.forActor(actor);
-    const cur = proxy.currency;
-    let totalCp = cur.gp * 100 + cur.sp * 10 + cur.cp;
-
-    totalCp += amountCp;
-    const newGp = Math.floor(totalCp / 100);
-    totalCp %= 100;
-    const newSp = Math.floor(totalCp / 10);
-    const newCp = totalCp % 10;
-
-    await proxy.updateCurrency({ gp: newGp, sp: newSp, cp: newCp });
   }
 
   static async deductCurrency(actor: Actor, amountCp: number): Promise<boolean> {
@@ -210,7 +223,7 @@ export class TabLogic {
       if (!met) {
         return {
           eligible: false,
-          reason: `${req.attribute} is ${actorValue}, but needs to be ${op} ${targetValue}.`,
+          reason: `${req.attribute} is ${actorValue} (${typeof actorValue}), but needs to be ${op} ${targetValue} (${typeof targetValue}).`,
         };
       }
     }

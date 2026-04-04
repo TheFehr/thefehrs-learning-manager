@@ -32,7 +32,9 @@ describe("PartyTabLogic", () => {
 
     // Replace game.actors with a Map-like structure
     originalActors = global.game.actors;
-    global.game.actors = new Map() as any;
+    const mockMap = new Map();
+    vi.spyOn(mockMap, "get");
+    global.game.actors = mockMap as any;
   });
 
   afterEach(() => {
@@ -77,6 +79,101 @@ describe("PartyTabLogic", () => {
 
       expect(ProjectEngine.signalTimeDistribution).not.toHaveBeenCalled();
       expect(ui.notifications.warn).toHaveBeenCalledWith("No recipients selected.");
+    });
+  });
+
+  describe("updateGuidance", () => {
+    it("should update item flags if user is GM", async () => {
+      const mockItem = { update: vi.fn().mockResolvedValue(true) };
+      const mockActor = { items: { get: vi.fn().mockReturnValue(mockItem) } };
+      (game.actors as any).set("actor1", mockActor);
+      vi.spyOn(Settings, "guidanceTiers", "get").mockReturnValue([{ id: "tier1" } as any]);
+
+      await PartyTabLogic.updateGuidance("actor1", { id: "item1" } as any, "tier1", true);
+
+      expect(mockItem.update).toHaveBeenCalledWith({
+        "flags.thefehrs-learning-manager.projectData.tutelageId": "tier1",
+      });
+    });
+
+    it("should do nothing if user is not GM", async () => {
+      await PartyTabLogic.updateGuidance("actor1", { id: "item1" } as any, "tier1", false);
+      expect(game.actors.get).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("updateProgress", () => {
+    it("should update progress and handle completion", async () => {
+      const mockProjectData = { progress: 5, target: 10, isCompleted: false };
+      const mockItem = {
+        getFlag: vi.fn().mockReturnValue(mockProjectData),
+      };
+      const mockActor = { items: { get: vi.fn().mockReturnValue(mockItem) } };
+      (game.actors as any).set("actor1", mockActor);
+
+      await PartyTabLogic.updateProgress("actor1", { id: "item1" } as any, 10, true);
+
+      expect(ProjectEngine.completeProject).toHaveBeenCalledWith(mockItem);
+    });
+
+    it("should update item without completion if target not reached", async () => {
+      const mockProjectData = { progress: 5, target: 10, isCompleted: false };
+      const mockItem = { getFlag: vi.fn().mockReturnValue(mockProjectData) };
+      const mockActor = { items: { get: vi.fn().mockReturnValue(mockItem) } };
+      (game.actors as any).set("actor1", mockActor);
+
+      await PartyTabLogic.updateProgress("actor1", { id: "item1" } as any, 8, true);
+
+      expect(ProjectEngine.updateItemWithProgress).toHaveBeenCalled();
+      expect(mockProjectData.progress).toBe(8);
+    });
+  });
+
+  describe("updateTarget", () => {
+    it("should update target and inject activities", async () => {
+      const mockProjectData = { progress: 5, target: 10 };
+      const mockItem = { getFlag: vi.fn().mockReturnValue(mockProjectData), name: "Test" };
+      const mockActor = { items: { get: vi.fn().mockReturnValue(mockItem) } };
+      (game.actors as any).set("actor1", mockActor);
+
+      await PartyTabLogic.updateTarget("actor1", { id: "item1" } as any, 20, true);
+
+      expect(ProjectEngine.injectActivities).toHaveBeenCalledWith(mockItem, 20);
+      expect(ProjectEngine.updateItemWithProgress).toHaveBeenCalled();
+    });
+  });
+
+  describe("deleteProject", () => {
+    it("should delete item if confirmed", async () => {
+      const mockItem = { delete: vi.fn() };
+      const mockActor = {
+        name: "Actor",
+        isOwner: true,
+        items: { get: vi.fn().mockReturnValue(mockItem) },
+      };
+      (game.actors as any).set("actor1", mockActor);
+
+      // Mock DialogV2 to auto-confirm by calling callback
+      (global as any).foundry.applications.api.DialogV2 = class {
+        constructor(public data: any) {}
+        render() {
+          const yesButton = this.data.buttons.find((b: any) => b.action === "yes");
+          yesButton.callback();
+          return this;
+        }
+      };
+
+      await PartyTabLogic.deleteProject("actor1", { id: "item1", progress: 0 } as any, false);
+
+      expect(mockItem.delete).toHaveBeenCalled();
+    });
+
+    it("should warn if no permission", async () => {
+      const mockActor = { isOwner: false };
+      (game.actors as any).set("actor1", mockActor);
+
+      await PartyTabLogic.deleteProject("actor1", {} as any, false);
+      expect(ui.notifications.warn).toHaveBeenCalledWith(expect.stringContaining("permission"));
     });
   });
 });

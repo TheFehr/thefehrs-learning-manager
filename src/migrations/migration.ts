@@ -9,36 +9,40 @@ import { migrateToV2_1 } from "./v2_1-flexible-methods.js";
 export async function migrateData() {
   if (!game.user?.isGM) return;
 
-  let currentVersion = Settings.migrationVersion;
+  try {
+    let currentVersion = Settings.migrationVersion;
 
-  // Normalize legacy integer versions > 0 to 1.2.0 so only the v2 migration runs.
-  if (/^\d+$/.test(currentVersion) && currentVersion !== "0") {
-    currentVersion = "1.2.0";
-  }
+    // Normalize legacy integer versions > 0 to 1.2.0 so only the v2 migration runs.
+    if (/^\d+$/.test(currentVersion) && currentVersion !== "0") {
+      currentVersion = "1.2.0";
+    }
 
-  if (currentVersion === "0") {
-    // New installation or very old version
-    // Always call direct migration to ensure settings/templates are normalized
-    await migrateToV2Direct();
-    await migrateToV2_1();
-    return;
-  }
+    if (currentVersion === "0") {
+      // New installation or very old version
+      // Always call direct migration to ensure settings/templates are normalized
+      await migrateToV2Direct();
+      await migrateToV2_1();
+      return;
+    }
 
-  if (isNewerVersion("1.1.0", currentVersion)) {
-    await migrateToV1Relational();
-    await migrateV1_1GpToCp();
-  }
+    if (isNewerVersion("1.1.0", currentVersion)) {
+      await migrateToV1Relational();
+      await migrateV1_1GpToCp();
+    }
 
-  if (isNewerVersion("1.2.0", currentVersion)) {
-    await migrateToV1_2();
-  }
+    if (isNewerVersion("1.2.0", currentVersion)) {
+      await migrateToV1_2();
+    }
 
-  if (isNewerVersion("2.0.0", currentVersion)) {
-    await migrateToV2();
-  }
+    if (isNewerVersion("2.0.0", currentVersion)) {
+      await migrateToV2();
+    }
 
-  if (isNewerVersion("2.1.0", currentVersion)) {
-    await migrateToV2_1();
+    if (isNewerVersion("2.1.0", currentVersion)) {
+      await migrateToV2_1();
+    }
+  } catch (err) {
+    console.error("Downtime Engine | Migration failed:", err);
   }
 }
 

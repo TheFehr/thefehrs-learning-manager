@@ -15,6 +15,7 @@ globalThis.foundry = {
   applications: {
     api: {
       ApplicationV2: class {
+        element = document.createElement("div");
         async close(_options = {}) {}
       },
       HandlebarsApplicationMixin: (Base: any) => class extends Base {},
@@ -100,7 +101,10 @@ globalThis.game = {
     emit: vi.fn(),
   },
   actors: new ActorsCollection(),
-  packs: new PacksCollection(),
+  packs: {
+    contents: [],
+    get: vi.fn(),
+  },
   ID: "thefehrs-learning-manager",
 } as any;
 
@@ -243,7 +247,7 @@ globalThis.CONFIG = {
 } as any;
 
 vi.mock("svelte", () => ({
-  mount: vi.fn(),
+  mount: vi.fn().mockReturnValue({}),
   unmount: vi.fn(),
   tick: vi.fn().mockResolvedValue(undefined),
   untrack: vi.fn((fn: any) => fn()),

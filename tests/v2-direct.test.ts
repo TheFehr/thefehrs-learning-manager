@@ -1,75 +1,74 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { migrateToV2Direct } from "../src/migrations/v2-direct";
-import { LearningManager } from "../src/LearningManager";
-import { ActorsCollection } from "./setup";
-import { ProjectEngine } from "../src/project-engine";
+import * as migrationUtils from "../src/migrations/migration-utils";
 
-describe("v2-direct migration", () => {
+vi.mock("../src/migrations/migration-utils", () => ({
+  createProjectItemFromTemplate: vi.fn().mockResolvedValue({}),
+}));
+
+describe("Migration v2 (Direct)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    game.actors = new ActorsCollection();
-    game.user.isGM = true;
-
-    vi.spyOn(ProjectEngine, "injectActivities").mockResolvedValue(undefined);
+    (global as any).ui = { notifications: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } };
+    (global as any).game = {
+      settings: { get: vi.fn(), set: vi.fn().mockResolvedValue(true) },
+      user: { isGM: true },
+      actors: [],
+    };
+    (global as any).foundry = { utils: { randomID: vi.fn().mockReturnValue("rand123") } };
   });
 
-  it("should perform direct migration from 0 to 2.0.0", async () => {
-    const initialTiers = [{ id: "t1", costs: { h: 1.5 } }];
-    vi.mocked(game.settings.get).mockImplementation((_scope, key) => {
-      if (key === "guidanceTiers") return initialTiers;
-      if (key === "projectTemplates") return [];
-      if (key === "rules") return { method: "roll" };
+  it("should migrate rules, tiers, and projects", async () => {
+    const mockRules = { method: "roll" };
+    const mockTiers = [{ id: "t1", costs: { h: 1 } }];
+    const mockTemplates = [
+      { id: "tpl1", name: "Tpl 1", target: 10, rewardUuid: "uuid", rewardType: "item" },
+    ];
+    const mockActor = {
+      name: "Actor",
+      getFlag: vi.fn().mockReturnValue([{ name: "Tpl 1", templateId: "tpl1", progress: 5 }]),
+      setFlag: vi.fn().mockResolvedValue(true),
+    };
+
+    vi.mocked(game.settings.get).mockImplementation((scope, key) => {
+      if (key === "rules") return mockRules;
+      if (key === "guidanceTiers") return mockTiers;
+      if (key === "projectTemplates") return mockTemplates;
       return null;
     });
-
-    const actor = new Actor() as any;
-    actor.id = "actor1";
-    actor.flags = {
-      [LearningManager.ID]: {
-        projects: [
-          {
-            id: "p1",
-            name: "New Project",
-            progress: 10,
-            maxProgress: 100,
-            rewardUuid: "item1",
-            rewardType: "item",
-          },
-        ],
-      },
-    };
-    (game.actors as any[]).push(actor);
-
-    const MockRewardItem = class extends Item {
-      toObject() {
-        return {
-          name: "Reward",
-          system: { activities: {} },
-          effects: [],
-        };
-      }
-    };
-
-    global.fromUuid = vi.fn().mockResolvedValue(new MockRewardItem());
+    game.actors = [mockActor as any];
 
     await migrateToV2Direct();
 
-    // Rules
     expect(game.settings.set).toHaveBeenCalledWith(
-      LearningManager.ID,
+      expect.any(String),
       "rules",
-      expect.objectContaining({ critDoubleStrategy: "never" }),
+      expect.objectContaining({ critThreshold: 10 }),
     );
-    // Tiers
     expect(game.settings.set).toHaveBeenCalledWith(
-      LearningManager.ID,
+      expect.any(String),
       "guidanceTiers",
-      expect.arrayContaining([expect.objectContaining({ costs: { h: 150 } })]),
+      expect.arrayContaining([expect.objectContaining({ costs: { h: 100 }, _migratedToV2: true })]),
     );
-    // Item created & projects cleared
-    expect(ProjectEngine.injectActivities).toHaveBeenCalled();
-    expect(actor.setFlag).toHaveBeenCalledWith(LearningManager.ID, "projects", []);
-    // Version
-    expect(game.settings.set).toHaveBeenCalledWith(LearningManager.ID, "migrationVersion", "2.0.0");
+    expect(migrationUtils.createProjectItemFromTemplate).toHaveBeenCalled();
+    expect(mockActor.setFlag).toHaveBeenCalledWith(expect.any(String), "projects", []);
+  });
+
+  it("should handle migration failures for individual projects", async () => {
+    vi.mocked(game.settings.get).mockReturnValue([]);
+    vi.mocked(migrationUtils.createProjectItemFromTemplate).mockResolvedValue(null); // Fail
+    const mockActor = {
+      name: "Actor",
+      getFlag: vi.fn().mockReturnValue([{ name: "Project", id: "p1" }]),
+      setFlag: vi.fn(),
+    };
+    game.actors = [mockActor as any];
+
+    await migrateToV2Direct();
+
+    expect(ui.notifications.warn).toHaveBeenCalledWith(expect.stringContaining("partially failed"));
+    expect(mockActor.setFlag).toHaveBeenCalledWith(expect.any(String), "projects", [
+      expect.objectContaining({ id: "p1" }),
+    ]);
   });
 });

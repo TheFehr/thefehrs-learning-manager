@@ -69,6 +69,10 @@ export class ProjectEngine {
     return ProjectLifecycle.updateItemWithProgress(item, projectData);
   }
 
+  static async importTabLogic() {
+    return await import("./tab-logic");
+  }
+
   /**
    * Processes spending all available training time from largest to smallest unit.
    */
@@ -103,7 +107,7 @@ export class ProjectEngine {
 
     // If manual (no allowedUnitIds), ask for confirmation
     if (!allowedUnitIds) {
-      const { TabLogic } = await import("./tab-logic.js");
+      const { TabLogic } = await this.importTabLogic();
       const formattedTime = TabLogic.formatTimeBank(bank.total, Settings.timeUnits);
       const confirmed = await foundry.applications.api.DialogV2.confirm({
         window: { title: "Confirm Spend All Time" },
@@ -216,7 +220,7 @@ export class ProjectEngine {
       return false;
     }
 
-    const { TabLogic } = await import("./tab-logic.js");
+    const { TabLogic } = await this.importTabLogic();
 
     const rules = Settings.rules;
     let isSeparate = false;
@@ -323,7 +327,7 @@ export class ProjectEngine {
           });
 
           if (proceed) {
-            const { TabLogic } = await import("./tab-logic.js");
+            const { TabLogic } = await this.importTabLogic();
             const followUpFlags = followUpItem.getFlag("thefehrs-learning-manager", "projectData");
             const reqs = followUpFlags?.requirements || [];
             const { eligible, reason: reqReason } = TabLogic.meetsRequirements(

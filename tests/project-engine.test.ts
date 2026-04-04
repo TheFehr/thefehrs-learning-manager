@@ -12,6 +12,7 @@ vi.mock("../src/tab-logic", () => ({
     deductCurrency: vi.fn().mockResolvedValue(true),
     formatCurrency: vi.fn().mockReturnValue("1gp"),
     formatTimeBank: vi.fn().mockReturnValue("1h"),
+    meetsRequirements: vi.fn().mockReturnValue({ eligible: true, reason: "" }),
   },
 }));
 
@@ -276,6 +277,40 @@ describe("ProjectEngine", () => {
       );
       expect(item.delete).not.toHaveBeenCalled();
     });
+
+    it("should recreate the item if type change is needed during restoration", async () => {
+      const actor = new Actor() as any;
+      actor.createEmbeddedDocuments = vi.fn().mockResolvedValue([new Item()]);
+
+      const projectDataFlags = {
+        stashedType: "weapon", // Original was weapon, current is feat
+        stashedName: "Weapon",
+        stashedSystem: { original: true },
+        tutelageId: "tier1",
+      };
+
+      const item = new Item() as any;
+      item.actor = actor;
+      item.type = "feat"; // Current type
+      item.delete = vi.fn().mockResolvedValue(true);
+      item.getFlag = vi.fn().mockImplementation((_scope, key) => {
+        if (key === "isLearningProject") return true;
+        if (key === "projectData") return projectDataFlags;
+        return null;
+      });
+
+      global.fromUuid = vi.fn().mockRejectedValue(new Error("Not found"));
+
+      await ProjectEngine.completeProject(item);
+
+      expect(actor.createEmbeddedDocuments).toHaveBeenCalledWith("Item", [
+        expect.objectContaining({
+          type: "weapon",
+          name: "Weapon",
+        }),
+      ]);
+      expect(item.delete).toHaveBeenCalled();
+    });
   });
 
   describe("processTraining", () => {
@@ -342,6 +377,52 @@ describe("ProjectEngine", () => {
         "bank",
         expect.objectContaining({ total: 99 }),
       );
+    });
+
+    it("should handle excess progress and initiate follow-up project", async () => {
+      const actor = {
+        system: { currency: { gp: 10, sp: 0, cp: 0 }, abilities: { int: { mod: 0 } } },
+        getFlag: vi.fn().mockReturnValue({ total: 100 }), // bank
+        setFlag: vi.fn().mockResolvedValue(true),
+        getRollData: vi.fn().mockReturnValue({}),
+        name: "Actor",
+      } as any;
+
+      const projectData = {
+        progress: 9,
+        target: 10,
+        tutelageId: "tier1",
+        isCompleted: false,
+        followUpProjectId: "Compendium.test.followup",
+      };
+
+      const item = {
+        actor,
+        id: "proj1",
+        getFlag: vi.fn().mockReturnValue(projectData),
+        name: "First Project",
+        update: vi.fn().mockResolvedValue(true),
+      } as any;
+
+      const followUpItem = {
+        name: "Second Project",
+        getFlag: vi.fn().mockReturnValue({ requirements: [] }),
+      } as any;
+      global.fromUuid = vi.fn().mockResolvedValue(followUpItem);
+
+      vi.mocked(foundry.applications.api.DialogV2.confirm).mockResolvedValue(true);
+      vi.spyOn(ProjectEngine, "completeProject").mockResolvedValue(undefined);
+      const initiateSpy = vi.spyOn(ProjectEngine, "initiateProjectFromItem").mockResolvedValue({
+        getFlag: vi.fn().mockReturnValue({ target: 10, progress: 0 }),
+        update: vi.fn().mockResolvedValue(true),
+      } as any);
+
+      const activity = { item, flags: { "thefehrs-learning-manager": { timeUnitId: "hour" } } };
+      vi.mocked(TabLogic.computeProgress).mockResolvedValue({ progressGained: 5 }); // 4 excess
+
+      await ProjectEngine.processTraining(activity as any);
+
+      expect(initiateSpy).toHaveBeenCalledWith(actor, followUpItem, "tier1");
     });
 
     it("should whisper the roll to the player and GM", async () => {
@@ -628,6 +709,38 @@ describe("ProjectEngine", () => {
         expect.objectContaining({ skipPrompt: true }),
       );
       expect(mockProxy.bank.total).toBe(0);
+    });
+
+    it("should handle failures in the loop and continue", async () => {
+      const actor = new Actor() as any;
+      const item = new Item() as any;
+      item.actor = actor;
+      item.system = {
+        activities: [
+          {
+            flags: {
+              "thefehrs-learning-manager": { isLearningActivity: true, timeUnitId: "hour" },
+            },
+          },
+        ],
+      };
+      const mockProxy = { bank: { total: 2 } };
+      vi.spyOn(ActorProxy, "forActor").mockReturnValue(mockProxy as any);
+      vi.mocked(foundry.applications.api.DialogV2.confirm).mockResolvedValue(true);
+
+      let calls = 0;
+      const processSpy = vi.spyOn(ProjectEngine, "processTraining").mockImplementation(async () => {
+        calls++;
+        if (calls === 1) return false; // Fail first call
+        mockProxy.bank.total -= 1;
+        return true;
+      });
+
+      actor.items = { get: vi.fn().mockReturnValue(item) };
+      item.getFlag = vi.fn().mockReturnValue({ isCompleted: false });
+
+      await ProjectEngine.processSpendAll(item);
+      expect(calls).toBeGreaterThan(1);
     });
   });
 

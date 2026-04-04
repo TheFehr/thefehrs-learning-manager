@@ -100,13 +100,28 @@ describe("settings-logic", () => {
   });
 
   describe("saveSettings rollback", () => {
+    const fullRules: import("../src/types").SystemRules = {
+      nonBulkMethod: "direct",
+      bulkMethod: "direct",
+      rollMode: "gmroll",
+      checkDC: 10,
+      checkFormula: "",
+      critDoubleStrategy: "never",
+      critThreshold: 20,
+      notificationLevel: "info",
+    };
+
+    const fullTimeUnits: import("../src/types").TimeUnit[] = [
+      { id: "h", name: "Hour", short: "h", isBulk: false, ratio: 1 },
+    ];
+
     beforeEach(() => {
       vi.clearAllMocks();
       toggleUserGM(true);
       // Mock Settings.get to return initial values
       vi.spyOn(Settings, "get").mockImplementation((key) => {
-        if (key === "rules") return { nonBulkMethod: "direct" };
-        if (key === "timeUnits") return [];
+        if (key === "rules") return { ...fullRules };
+        if (key === "timeUnits") return [...fullTimeUnits];
         if (key === "guidanceTiers") return [];
         if (key === "allowedCompendiums") return [];
         return undefined;
@@ -119,19 +134,22 @@ describe("settings-logic", () => {
         if (key === "timeUnits") throw new Error("Failed!");
       });
 
+      const updatedRules = { ...fullRules, nonBulkMethod: "roll" as const };
+      const updatedTimeUnits = [{ ...fullTimeUnits[0], id: "h" }];
+
       // Rules should be the first one in toSave
-      await saveSettings({ nonBulkMethod: "roll" } as any, [{ id: "h" }] as any, [], []);
+      await saveSettings(updatedRules, updatedTimeUnits, [], [], false, []);
 
       // Should have tried to set rules and timeUnits
-      expect(setSpy).toHaveBeenCalledWith("rules", { nonBulkMethod: "roll" });
-      expect(setSpy).toHaveBeenCalledWith("timeUnits", [{ id: "h" }]);
+      expect(setSpy).toHaveBeenCalledWith("rules", updatedRules);
+      expect(setSpy).toHaveBeenCalledWith("timeUnits", updatedTimeUnits);
 
       // Should NOT have tried to set guidanceTiers or allowedCompendiums (because timeUnits failed)
       expect(setSpy).not.toHaveBeenCalledWith("guidanceTiers", expect.anything());
       expect(setSpy).not.toHaveBeenCalledWith("allowedCompendiums", expect.anything());
 
       // Rollback should happen for rules (it was saved before timeUnits failed)
-      expect(setSpy).toHaveBeenCalledWith("rules", { nonBulkMethod: "direct" }); // rolled back to original
+      expect(setSpy).toHaveBeenCalledWith("rules", fullRules); // rolled back to original
     });
   });
 });
