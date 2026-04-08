@@ -268,7 +268,6 @@ export class ProjectLifecycle {
     newItem: Item,
     rollMode: string,
   ): Promise<boolean> {
-    const createdItem = newItem as unknown as Item;
     // Delete the old in-progress item
     try {
       await (oldItem as unknown as Item).delete();
