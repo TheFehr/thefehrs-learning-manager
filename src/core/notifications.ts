@@ -30,8 +30,8 @@ export class Logger {
       } catch (err) {
         console.error("Logger | UI notification failed:", err);
       }
+      if (!uiOnly) console.info(`Downtime Engine | ${message}`);
     }
-    if (!uiOnly) console.info(`Downtime Engine | ${message}`);
   }
 
   static error(message: string, err?: unknown) {
@@ -41,8 +41,8 @@ export class Logger {
       } catch (uiErr) {
         console.error("Logger | UI notification failed:", uiErr);
       }
+      console.error(`Downtime Engine | ${message}`, err || "");
     }
-    console.error(`Downtime Engine | ${message}`, err || "");
   }
 
   static warn(message: string) {
@@ -52,8 +52,8 @@ export class Logger {
       } catch (err) {
         console.error("Logger | UI notification failed:", err);
       }
+      console.warn(`Downtime Engine | ${message}`);
     }
-    console.warn(`Downtime Engine | ${message}`);
   }
 
   static debug(message: string, data?: unknown) {

@@ -27,17 +27,34 @@ export class TimeBankLogic {
     bankTotal: number,
     sortedUnits: TimeUnit[],
   ) {
-    const val = Number(newValue);
-    if (!Number.isFinite(val) || Number.isNaN(val)) {
-      ui.notifications?.warn(`Invalid time value: ${newValue}`);
+    if (newValue.trim() === "") {
+      ui.notifications?.warn(`Downtime Engine | Invalid time value: ${newValue}`);
+      return;
+    }
+    const val = Math.floor(Number(newValue));
+    if (!Number.isFinite(val) || val < 0) {
+      ui.notifications?.warn(`Downtime Engine | Invalid time value: ${newValue}`);
       return;
     }
 
     const currentVal = this.getTimeValue(unit, bankTotal, sortedUnits);
     const diff = (val - currentVal) * unit.ratio;
+    const newTotal = bankTotal + diff;
 
-    if (diff !== 0) {
-      await proxy.setBank({ total: bankTotal + diff });
+    if (newTotal < 0) {
+      ui.notifications?.warn("Downtime Engine | Time bank cannot be negative.");
+      return;
+    }
+
+    try {
+      if (diff !== 0) {
+        await proxy.setBank({ total: newTotal });
+      }
+    } catch (err) {
+      console.error("Downtime Engine | Failed to update time bank:", err);
+      ui.notifications?.error(
+        "Downtime Engine | Failed to update time bank. See console for details.",
+      );
     }
   }
 }

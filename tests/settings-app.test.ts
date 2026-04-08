@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { LearningConfigApp } from "../src/apps/settings-app";
 import { Settings } from "../src/core/settings";
-import SettingsConfig from "../src/apps/SettingsConfig.svelte";
 import { saveSettings } from "../src/apps/settings-logic";
 
 describe("LearningConfigApp", () => {
@@ -21,35 +20,58 @@ describe("LearningConfigApp", () => {
     const mockInstance = { some: "instance" };
     (app as unknown as { svelteInstance: any }).svelteInstance = mockInstance;
 
+    const { unmount } = await import("svelte");
     await app.close();
+    expect(unmount).toHaveBeenCalledWith(mockInstance);
     expect((app as unknown as { svelteInstance: any }).svelteInstance).toBeNull();
+  });
+
+  it("should mount Svelte component on _onRender", async () => {
+    const app = new LearningConfigApp();
+
+    const { mount } = await import("svelte");
+
+    // @ts-ignore
+    await app._onRender({}, {});
+
+    expect(mount).toHaveBeenCalled();
+    expect((app as any).svelteInstance).toBeDefined();
   });
 });
 
 describe("SettingsConfig logic", () => {
+  const fullRules: import("../src/types").SystemRules = {
+    nonBulkMethod: "direct",
+    bulkMethod: "direct",
+    rollMode: "gmroll",
+    checkDC: 10,
+    checkFormula: "",
+    critDoubleStrategy: "never",
+    critThreshold: 20,
+    notificationLevel: "info",
+    bulkExpectedFormula: "",
+  };
+
   beforeEach(() => {
     vi.clearAllMocks();
 
     // Mock Settings getters
-    vi.spyOn(Settings, "rules", "get").mockReturnValue({ method: "direct" });
-    vi.spyOn(Settings, "timeUnits", "get").mockReturnValue([]);
-    vi.spyOn(Settings, "guidanceTiers", "get").mockReturnValue([]);
-    vi.spyOn(Settings, "allowedCompendiums", "get").mockReturnValue([]);
+    vi.mocked(game.settings.get).mockImplementation((_scope, key) => {
+      if (key === "rules") return { ...fullRules };
+      if (key === "timeUnits") return [];
+      if (key === "guidanceTiers") return [];
+      if (key === "allowedCompendiums") return [];
+      return null;
+    });
 
-    global.game = {
-      packs: {
-        filter: vi.fn().mockReturnValue([]),
-      },
-    } as any;
+    game.user.isGM = true;
+    (game.packs as any).contents = [];
   });
 
   it("should notify user on successful save", async () => {
-    vi.spyOn(Settings, "setRules").mockResolvedValue(undefined);
-    vi.spyOn(Settings, "setTimeUnits").mockResolvedValue(undefined);
-    vi.spyOn(Settings, "setGuidanceTiers").mockResolvedValue(undefined);
-    vi.spyOn(Settings, "setAllowedCompendiums").mockResolvedValue(undefined);
+    vi.spyOn(Settings, "set").mockResolvedValue(undefined);
 
-    await saveSettings({ method: "direct" }, [], [], []);
+    await saveSettings(fullRules, [], [], [], false, []);
 
     expect(ui.notifications.info).toHaveBeenCalledWith(
       expect.stringContaining("saved successfully"),
@@ -59,9 +81,9 @@ describe("SettingsConfig logic", () => {
   it("should notify user on failed save", async () => {
     // This tests the logic used by the SettingsConfig component's save() handler.
     const error = new Error("Save failed!");
-    vi.spyOn(Settings, "setRules").mockRejectedValue(error);
+    vi.spyOn(Settings, "set").mockRejectedValue(error);
 
-    await saveSettings({ method: "direct" }, [], [], []);
+    await saveSettings(fullRules, [], [], [], false, []);
 
     expect(ui.notifications.error).toHaveBeenCalledWith(expect.stringContaining("Save failed!"));
     expect(ui.notifications.info).not.toHaveBeenCalled();

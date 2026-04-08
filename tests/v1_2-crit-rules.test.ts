@@ -1,6 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { migrateToV1_2 } from "../src/migrations/v1_2-crit-rules";
-import { LearningManager } from "../src/LearningManager";
+import { Settings } from "../src/core/settings";
+
+vi.mock("../src/core/settings", () => ({
+  Settings: {
+    ID: "thefehrs-learning-manager",
+  },
+}));
 
 describe("v1_2-crit-rules migration", () => {
   beforeEach(() => {
@@ -14,11 +20,12 @@ describe("v1_2-crit-rules migration", () => {
     await migrateToV1_2();
 
     expect(game.settings.set).toHaveBeenCalledWith(
-      LearningManager.ID,
+      Settings.ID,
       "rules",
       expect.objectContaining({
         critDoubleStrategy: "never",
-        critThreshold: 10,
+        critThreshold: 20,
+        method: "roll",
       }),
     );
   });
@@ -30,11 +37,11 @@ describe("v1_2-crit-rules migration", () => {
     await migrateToV1_2();
 
     expect(game.settings.set).toHaveBeenCalledWith(
-      LearningManager.ID,
+      Settings.ID,
       "rules",
       expect.objectContaining({
         critDoubleStrategy: "any",
-        critThreshold: 10,
+        critThreshold: 20,
       }),
     );
   });

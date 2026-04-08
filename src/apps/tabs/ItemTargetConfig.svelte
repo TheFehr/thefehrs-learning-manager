@@ -15,8 +15,8 @@
   let initialSnapshot = $state<string>("");
 
   const operatorChoices: Record<ComparisonOperator, string> = {
-    "===": "Equal To",
-    "!==": "Not Equal To",
+    "==": "Equal To",
+    "!=": "Not Equal To",
     ">": "Greater Than",
     ">=": "Greater Than or Equal To",
     "<": "Less Than",

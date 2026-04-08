@@ -1,15 +1,6 @@
-import type {
-  GuidanceTier,
-  SystemRules,
-  TimeUnit,
-  Tidy5eApi,
-  DowntimeGroupActor,
-  OnRenderTabParams,
-  Actor5e,
-  Item5e,
-} from "./types.js";
+import type { Tidy5eApi, DowntimeGroupActor, OnRenderTabParams, Actor5e, Item5e } from "./types.js";
 import { ProjectEngine } from "./project-engine.js";
-import { Settings } from "./core/settings.js";
+import { Settings, SettingsManager } from "./core/settings.js";
 import { LearningConfigApp } from "./apps/settings-app.js";
 import { TabLogic } from "./tab-logic.js";
 import {
@@ -23,15 +14,21 @@ import PartyTab from "./apps/tabs/PartyTab.svelte";
 import { PartyTab as PartyTabLogic } from "./party-tab.js";
 import ItemTargetConfig from "./apps/tabs/ItemTargetConfig.svelte";
 import TimeBankBar from "./apps/components/TimeBankBar.svelte";
+import { Socket } from "./core/socket";
+import { migrateData } from "./migrations/migration";
+import { initDebugHelpers } from "./core/debug.js";
 
 export class LearningManager {
   static ID = "thefehrs-learning-manager" as const;
   static svelteInstances = new Map<string | number, Record<string, unknown>>();
+  static socketHandler: ((...args: any[]) => void) | null = null;
 
   static init() {
     this.registerSettings();
     this.registerConfigExpansions();
     this.registerHooks();
+    this.registerSocketListeners();
+    initDebugHelpers();
 
     Settings.registerMenu("configMenu", {
       name: "Downtime Engine Config",
@@ -39,74 +36,55 @@ export class LearningManager {
       hint: "Configure the Downtime Engine",
       icon: "fas fa-cogs",
       type: LearningConfigApp,
-      restricted: true,
+      restricted: false,
     });
   }
 
-  private static registerSettings() {
-    const rules: SystemRules = {
-      method: "direct",
-      rollMode: "gmroll",
-      notificationLevel: "info",
-    };
-    Settings.register("rules", {
-      scope: "world",
-      config: false,
-      type: Object,
-      default: rules,
-    });
+  static registerSocketListeners() {
+    if (this.socketHandler) {
+      console.debug("Downtime Engine | Unregistering existing socket handler.");
+      Socket.off(this.socketHandler);
+    }
 
-    const timeUnits: TimeUnit[] = [
-      { id: "hour", name: "Hour", short: "h", isBulk: false, ratio: 1 },
-      { id: "day", name: "Day", short: "d", isBulk: true, ratio: 10 },
-      { id: "week", name: "Week", short: "w", isBulk: true, ratio: 70 },
-    ];
-    Settings.register("timeUnits", {
-      scope: "world",
-      config: false,
-      type: Array,
-      default: timeUnits,
-      onChange: async () => {
-        try {
-          await ProjectEngine.syncAllProjectActivities();
-        } catch (err) {
-          console.error("Downtime Engine | Failed to sync activities after time unit change:", err);
+    this.socketHandler =
+      Socket.listen(async (message) => {
+        if (message.type === "timeGrantedSignal") {
+          try {
+            await ProjectEngine.handleAutoTrainSignal();
+          } catch (err) {
+            console.error(
+              "Downtime Engine | Failed to handle auto-train signal:",
+              err,
+              JSON.stringify(message),
+            );
+          }
         }
-      },
-    });
+      }) || null;
+  }
 
-    const guidanceTiers: GuidanceTier[] = [
-      {
-        id: "example_tier",
-        name: "Example Tier",
-        modifier: 2,
-        costs: { hour: 0, day: 0, week: 0 },
-        progress: { day: 1, week: 7 },
+  static async ready() {
+    console.debug("Downtime Engine | Initialized");
+    try {
+      await migrateData();
+    } catch (err) {
+      console.error("Downtime Engine | Migration failed:", err);
+    }
+  }
+
+  private static registerSettings() {
+    SettingsManager.registerAll({
+      timeUnits: {
+        onChange: async () => {
+          try {
+            await ProjectEngine.syncAllProjectActivities();
+          } catch (err) {
+            console.error(
+              "Downtime Engine | Failed to sync activities after time unit change:",
+              err,
+            );
+          }
+        },
       },
-    ];
-    Settings.register("guidanceTiers", {
-      scope: "world",
-      config: false,
-      type: Array,
-      default: guidanceTiers,
-    });
-    Settings.register("allowedCompendiums", {
-      scope: "world",
-      config: false,
-      type: Array,
-      default: [],
-    });
-    Settings.register("projectTemplates", {
-      scope: "world",
-      config: false,
-      type: Array,
-      default: [],
-    });
-    Settings.register("migrationVersion", {
-      scope: "world",
-      config: false,
-      type: String,
-      default: "0",
     });
   }
 
@@ -118,7 +96,7 @@ export class LearningManager {
 
   private static registerHooks() {
     // @ts-expect-error - dnd5e system hook
-    Hooks.on("dnd5e.preUseItem", (item: Item5e, config: any) => {
+    Hooks.on("dnd5e.preUseItem", (item: Item5e, config: { createMessage?: boolean }) => {
       if (item.getFlag("thefehrs-learning-manager", "isLearningProject")) {
         if (config) {
           config.createMessage = false;
@@ -297,9 +275,9 @@ export class LearningManager {
         },
         enabled: (data: { document?: Actor5e; actor?: Actor5e }) => {
           const actor = data.document || data.actor;
-          return (actor as any)?.type === "character";
+          return actor?.type === "character";
         },
-        onRender: (params: any) => {
+        onRender: (params: OnRenderTabParams) => {
           this.renderSvelte(
             params,
             ".downtime-engine-time-bank-bar-root",
@@ -312,11 +290,15 @@ export class LearningManager {
     );
   }
 
-  private static renderSvelte(
-    params: { app: any; element?: HTMLElement; tabContentsElement?: HTMLElement },
+  private static renderSvelte<DocType>(
+    params: {
+      app: { id: string; document?: unknown; actor?: unknown };
+      element?: HTMLElement;
+      tabContentsElement?: HTMLElement;
+    },
     selector: string,
-    Component: any,
-    getProps: (doc: any) => any,
+    Component: Parameters<typeof mount>[0],
+    getProps: (doc: DocType) => Record<string, unknown>,
     customAppId?: string,
   ) {
     const appId = customAppId || params.app.id;
@@ -328,7 +310,7 @@ export class LearningManager {
       this.svelteInstances.delete(appId);
     }
 
-    const doc = params.app.document || params.app.actor;
+    const doc = (params.app.document || params.app.actor) as DocType;
     if (!doc) return;
 
     const instance = mount(Component, {

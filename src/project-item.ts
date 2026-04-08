@@ -3,7 +3,12 @@ import type { LearningActor, Item5e, ActivityData5e } from "./types.js";
 
 export const LearningFeatType = "learning-project" as const;
 
-export type ComparisonOperator = "===" | "!==" | ">" | ">=" | "<" | "<=" | "includes";
+/**
+ * Supported comparison operators for project requirements.
+ * Note: '==' and '!=' are included to support type-coercing loose equality checks
+ * (e.g., comparing a string input "14" to a numeric actor attribute 14) which is common in Foundry data.
+ */
+export type ComparisonOperator = "==" | "!=" | ">" | ">=" | "<" | "<=" | "includes";
 
 export interface ProjectRequirement {
   id: string;
@@ -38,7 +43,8 @@ export interface LearningActivityData extends Omit<ActivityData5e, "flags"> {
   flags: ActivityData5e["flags"] & {
     "thefehrs-learning-manager": {
       isLearningActivity: true;
-      timeUnitId: string;
+      timeUnitId?: string;
+      isSpendAll?: boolean;
     };
   };
 

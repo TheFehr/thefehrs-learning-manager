@@ -17,9 +17,9 @@ export class PartyTabLogic {
    * Opens an actor's sheet by UUID.
    */
   static async openActorSheet(uuid: string) {
-    const doc = await fromUuid(uuid as any);
+    const doc = await fromUuid(uuid);
     if (doc && "sheet" in doc && doc.sheet) {
-      (doc.sheet as any).render(true);
+      (doc.sheet as { render: (force: boolean) => unknown }).render(true);
     }
   }
 
@@ -58,6 +58,7 @@ export class PartyTabLogic {
       speaker: { alias: "Downtime System" },
       content: `${actionWord} <strong>${formattedTime}</strong> ${preposition} ${successCount} characters.`,
     });
+    ProjectEngine.signalTimeDistribution();
   }
 
   /**
@@ -67,9 +68,12 @@ export class PartyTabLogic {
     const timeUnits = Settings.timeUnits;
     const isParty = (actor.type as string) === "group";
 
-    let svelteInstance: any;
+    interface GrantTimeInstance {
+      submit: () => void;
+    }
+    let svelteInstance: GrantTimeInstance | undefined;
 
-    const dialog = new (foundry.applications.api as any).DialogV2({
+    const dialog = new foundry.applications.api.DialogV2({
       window: {
         title: "Modify Training Time",
         contentClasses: ["thefehrs-learning-manager-dialog"],
@@ -81,8 +85,8 @@ export class PartyTabLogic {
           label: "Apply Time",
           icon: "fas fa-check",
           default: true,
-          callback: (event: any, button: any, dialogInstance: any) => {
-            if (svelteInstance) svelteInstance.submit();
+          callback: async (_event, _button, _dialog) => {
+            if (svelteInstance) await svelteInstance.submit();
           },
         },
       ],
@@ -133,7 +137,7 @@ export class PartyTabLogic {
     if (item) {
       await item.update({
         "flags.thefehrs-learning-manager.projectData.tutelageId": tier?.id ?? "",
-      } as any);
+      });
     }
   }
 
@@ -233,11 +237,11 @@ export class PartyTabLogic {
       target: container,
       props: {
         projectName,
-        actorName: (targetActor as any).name || "Unknown Actor",
+        actorName: targetActor.name || "Unknown Actor",
       },
     });
 
-    new (foundry.applications.api as any).DialogV2({
+    new foundry.applications.api.DialogV2({
       window: {
         title: "Abort Project",
         contentClasses: ["thefehrs-learning-manager-dialog"],

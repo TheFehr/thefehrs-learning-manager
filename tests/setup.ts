@@ -15,6 +15,7 @@ globalThis.foundry = {
   applications: {
     api: {
       ApplicationV2: class {
+        element = document.createElement("div");
         async close(_options = {}) {}
       },
       HandlebarsApplicationMixin: (Base: any) => class extends Base {},
@@ -24,6 +25,10 @@ globalThis.foundry = {
     },
   },
   utils: {
+    deepClone: vi.fn((obj: any) => {
+      if (!obj || typeof obj !== "object") return obj;
+      return JSON.parse(JSON.stringify(obj));
+    }),
     randomID: vi.fn().mockReturnValue("randomid"),
     isNewerVersion: vi.fn((newer: string, current: string) => {
       if (newer === current) return false;
@@ -73,6 +78,120 @@ globalThis.foundry = {
         .replace(/'/g, "&#39;");
     }),
   },
+  dice: {
+    terms: {
+      Die: class {
+        constructor(public data: any) {
+          this.faces = data.faces;
+          this.number = data.number;
+          this.results = data.results || [];
+        }
+        faces: number;
+        number: number;
+        results: any[];
+        _evaluated = false;
+      },
+    },
+  },
+} as any;
+
+globalThis.Roll = class {
+  constructor(
+    public formula: string,
+    public data: any = {},
+  ) {}
+  dice: any[] = [];
+  terms: any[] = [];
+  total = 0;
+  _evaluated = false;
+  async evaluate() {
+    if (this._evaluated) return this;
+
+    const tokens = this.formula.split(/([+\-*/])/);
+    let t = 0;
+    let op = "+";
+
+    for (const token of tokens) {
+      const trimmed = token.trim();
+      if (!trimmed) continue;
+
+      if (["+", "-", "*", "/"].includes(trimmed)) {
+        op = trimmed;
+        continue;
+      }
+
+      let val = 0;
+      if (trimmed.startsWith("@")) {
+        val = Number(this.data[trimmed.slice(1)]) || 0;
+      } else if (trimmed.includes("d")) {
+        // Find corresponding Die term if available
+        const dieTerm = this.terms.find(
+          (t) => t instanceof foundry.dice.terms.Die && t.formula === trimmed,
+        );
+        if (dieTerm) {
+          val =
+            dieTerm.results?.reduce(
+              (s: number, r: any) => s + (r.active !== false ? r.result : 0),
+              0,
+            ) || 0;
+        } else if (this.dice.length > 0) {
+          // Fallback to searching this.dice if terms aren't populated
+          const d = this.dice.find((d) => d.faces === 20); // Common case for these tests
+          val =
+            d?.results?.reduce((s: number, r: any) => s + (r.active !== false ? r.result : 0), 0) ||
+            0;
+        } else {
+          val = 10; // Default die result
+        }
+      } else {
+        val = Number(trimmed) || 0;
+      }
+
+      if (op === "+") t += val;
+      else if (op === "-") t -= val;
+      else if (op === "*") t *= val;
+      else if (op === "/") t /= val;
+    }
+
+    this.total = t;
+    this._evaluated = true;
+    return this;
+  }
+  static fromTerms(terms: any[]) {
+    const formula = terms.map((t) => t.formula || String(t.total || t.result || "")).join(" ");
+    const r = new globalThis.Roll(formula);
+    r.terms = [...terms];
+    r.dice = terms.filter((t) => t instanceof foundry.dice.terms.Die);
+    return r;
+  }
+  clone() {
+    const cloned = new globalThis.Roll(this.formula, this.data);
+    // Manually clone dice and terms to preserve class instances (prototypes)
+    cloned.dice = this.dice.map((d) => {
+      if (d instanceof foundry.dice.terms.Die) {
+        return new foundry.dice.terms.Die({
+          faces: d.faces,
+          number: d.number,
+          results: [...(d.results || [])],
+        });
+      }
+      return { ...d };
+    });
+    cloned.terms = this.terms.map((t) => {
+      if (t instanceof foundry.dice.terms.Die) {
+        return new foundry.dice.terms.Die({
+          faces: t.faces,
+          number: t.number,
+          results: [...(t.results || [])],
+        });
+      }
+      return { ...t };
+    });
+    cloned.total = this.total;
+    cloned._evaluated = this._evaluated;
+    return cloned;
+  }
+  toMessage = vi.fn().mockResolvedValue({});
 } as any;
 
 export class ActorsCollection extends Array<any> {
@@ -94,10 +213,22 @@ globalThis.game = {
     localize: vi.fn((key: string) => key),
   },
   user: { isGM: false },
+  socket: {
+    on: vi.fn(),
+    off: vi.fn(),
+    emit: vi.fn(),
+  },
   actors: new ActorsCollection(),
-  packs: new PacksCollection(),
+  packs: {
+    contents: [],
+    get: vi.fn(),
+  },
   ID: "thefehrs-learning-manager",
 } as any;
+
+export function toggleUserGM(isGM: boolean) {
+  (globalThis.game as any).user.isGM = isGM;
+}
 
 globalThis.Handlebars = {
   registerHelper: vi.fn(),
@@ -114,22 +245,22 @@ class MockActor {
   system: any = {};
   items = new EmbeddedCollection();
 
-  getFlag(scope: string, key: string) {
+  getFlag = vi.fn((scope: string, key: string) => {
     return this.flags?.[scope]?.[key];
-  }
+  });
 
-  async setFlag(scope: string, key: string, value: any) {
+  setFlag = vi.fn(async (scope: string, key: string, value: any) => {
     if (!this.flags[scope]) this.flags[scope] = {};
     this.flags[scope][key] = value;
     return this;
-  }
+  });
 
-  async update(data: any) {
+  update = vi.fn(async (data: any) => {
     foundry.utils.mergeObject(this, data);
     return this;
-  }
+  });
 
-  async createEmbeddedDocuments(type: string, data: any[]) {
+  createEmbeddedDocuments = vi.fn(async (type: string, data: any[]) => {
     const created = data.map((d) => {
       const createdItem: any = {
         ...d,
@@ -150,11 +281,8 @@ class MockActor {
       this.items.push(...created);
     }
     return created;
-  }
+  });
 }
-vi.spyOn(MockActor.prototype, "setFlag");
-vi.spyOn(MockActor.prototype, "update");
-vi.spyOn(MockActor.prototype, "createEmbeddedDocuments");
 
 globalThis.Actor = MockActor as any;
 
@@ -170,13 +298,13 @@ class MockItem {
   toObject() {
     return JSON.parse(JSON.stringify(this));
   }
-  getFlag(scope: string, key: string) {
+  getFlag = vi.fn((scope: string, key: string) => {
     return (this.flags as any)[scope]?.[key];
-  }
-  async update(data: any) {
+  });
+  update = vi.fn(async (data: any) => {
     foundry.utils.mergeObject(this, data);
     return this;
-  }
+  });
   displayCard = vi.fn();
 }
 globalThis.Item = MockItem as any;
@@ -234,7 +362,7 @@ globalThis.CONFIG = {
 } as any;
 
 vi.mock("svelte", () => ({
-  mount: vi.fn(),
+  mount: vi.fn().mockReturnValue({}),
   unmount: vi.fn(),
   tick: vi.fn().mockResolvedValue(undefined),
   untrack: vi.fn((fn: any) => fn()),

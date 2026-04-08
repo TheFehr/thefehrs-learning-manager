@@ -138,6 +138,13 @@ export async function createProjectItemFromTemplate(
       : "In-Progress Learning",
   };
 
+  if (typeof (actor as any).createEmbeddedDocuments !== "function") {
+    console.error(
+      `Downtime Engine | Actor ${actor.name} is missing createEmbeddedDocuments method.`,
+    );
+    return null;
+  }
+
   const [created] = await (actor as unknown as Actor).createEmbeddedDocuments("Item", [updateData]);
   if (!created) return null;
 

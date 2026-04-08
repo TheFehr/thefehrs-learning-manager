@@ -62,7 +62,7 @@ export class PartyTab {
 
     if (!globalThis.Actor || !(actualActor instanceof globalThis.Actor)) return null;
     const a = actualActor as unknown as Actor5e;
-    const proxy = ActorProxy.forActor(a as any);
+    const proxy = ActorProxy.forActor(actualActor);
 
     const bank = proxy.bank;
 

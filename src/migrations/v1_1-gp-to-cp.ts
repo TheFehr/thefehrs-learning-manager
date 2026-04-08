@@ -1,7 +1,20 @@
-import type { GuidanceTier } from "../types.js";
+import { Settings } from "../core/settings.js";
 
+interface GuidanceTier {
+  id: string;
+  name: string;
+  modifier: number;
+  costs: Record<string, number>;
+  progress: Record<string, number>;
+  _migratedGpToCp?: boolean;
+  _migratedToV2?: boolean;
+}
+
+/**
+ * Migration v1.1: Multiplies guidance tier costs by 100 (GP to CP conversion).
+ */
 export async function migrateV1_1GpToCp() {
-  const SETTINGS_ID = "thefehrs-learning-manager";
+  const SETTINGS_ID = Settings.ID;
   try {
     const tiers = game.settings.get(
       SETTINGS_ID,
@@ -9,11 +22,14 @@ export async function migrateV1_1GpToCp() {
     ) as unknown as GuidanceTier[];
     let tiersUpdated = false;
     for (const tier of tiers) {
-      if (!tier._migratedToV2 && tier.costs) {
+      if (tier._migratedToV2 && !tier._migratedGpToCp) {
+        tier._migratedGpToCp = true;
+        tiersUpdated = true;
+      } else if (!tier._migratedGpToCp && tier.costs) {
         for (const key of Object.keys(tier.costs)) {
           tier.costs[key] = Math.round(tier.costs[key] * 100);
         }
-        tier._migratedToV2 = true;
+        tier._migratedGpToCp = true;
         tiersUpdated = true;
       }
     }

@@ -1,4 +1,4 @@
-import type { Item5e, ProjectRequirement } from "../types.js";
+import { getModuleAPI, type Item5e, type ProjectRequirement } from "../types.js";
 
 /**
  * Logic for the Item Target Config component.
@@ -18,7 +18,7 @@ export class ItemConfigLogic {
         target,
         followUpProjectId,
         requirements,
-      } as any);
+      });
       return true;
     } catch (err) {
       console.error("Downtime Engine | Failed to save item configuration:", err);
@@ -32,16 +32,22 @@ export class ItemConfigLogic {
    * Orchestrates the search for a follow-up project using available modules.
    */
   static async searchFollowUp(): Promise<string | null> {
-    const omnisearch = (CONFIG as any).SpotlightOmnisearch;
+    const omnisearch = CONFIG.SpotlightOmnisearch;
     if (omnisearch?.prompt) {
       const result = await omnisearch.prompt({ query: "!item " });
       return result?.data?.uuid || null;
     }
 
-    const quickInsert = (game as any).modules.get("quick-insert")?.api;
-    if (quickInsert?.searchItem) {
-      const result = await quickInsert.searchItem({ classes: ["Item"] });
-      return result?.uuid || null;
+    const quickInsert = getModuleAPI("quick-insert");
+    if (quickInsert?.open) {
+      return new Promise((resolve) => {
+        quickInsert.open({
+          mode: 1, // Insert mode
+          restrictTypes: ["Item"],
+          onSubmit: (item: { uuid: string }) => resolve(item.uuid),
+          onClose: () => resolve(null),
+        });
+      });
     }
 
     ui.notifications?.info(

@@ -81,12 +81,14 @@ export interface TimeUnit {
 export type NotificationLevel = "none" | "error" | "info" | "debug";
 
 export interface SystemRules {
-  method: "direct" | "roll";
+  nonBulkMethod: "direct" | "roll";
+  bulkMethod: "direct" | "mathematical" | "roll";
   rollMode?: string;
   checkDC?: number;
   checkFormula?: string;
   critDoubleStrategy?: "any" | "all" | "never";
   critThreshold?: number;
+  bulkExpectedFormula?: string;
   notificationLevel?: NotificationLevel;
 }
 
@@ -96,7 +98,7 @@ export interface GuidanceTier {
   modifier: number;
   costs: Record<string, number>;
   progress: Record<string, number>;
-  _migratedToV2?: boolean;
+  _migratedGpToCp?: boolean;
 }
 
 export type RewardType = "item" | "effect";
@@ -115,11 +117,130 @@ export type DowntimeGroupActor = Omit<Actor5e, "system"> & {
   system: GroupActorSystemData;
 };
 
+export interface SearchItem {
+  id: string;
+  uuid: string;
+  name: string;
+  documentType: string;
+  subType: string;
+  img: string;
+  system: any;
+  packageName: string;
+  packageId: string;
+  folder: string;
+  dragData: any;
+  journalLink: string;
+  script: string;
+  tagline: string;
+  tooltip: string;
+  show(): Promise<void>;
+  get(): Promise<Document | Record<string, unknown>>;
+}
+
+export interface QuickInsertAPI {
+  search: (text: string, filter?: unknown, max?: number) => Promise<SearchItem[]>;
+  open: (config: unknown) => Promise<void>;
+}
+
 export type LearningProject = ProjectFlagData;
+
+export interface ModuleAPIs {
+  "quick-insert"?: QuickInsertAPI;
+}
+
+/**
+ * Helper to get a module's API in a type-safe way.
+ */
+export function getModuleAPI<T extends string & keyof ModuleAPIs>(
+  id: T,
+): ModuleAPIs[T] | undefined {
+  if (typeof game === "undefined" || !game.modules) return undefined;
+  const module = game.modules.get(id);
+  if (!module) return undefined;
+
+  const api = (module as any).api;
+  if (!api || typeof api !== "object") return undefined;
+
+  // Basic shape validation to prevent runtime errors if a module changes its API
+  const validators: Partial<Record<keyof ModuleAPIs, (api: any) => boolean>> = {
+    "quick-insert": (api) => typeof api.search === "function" && typeof api.open === "function",
+  };
+
+  const validator = validators[id];
+  if (validator && !validator(api)) {
+    console.warn(`Downtime Engine | Module API shape mismatch for ${id}. Disabling integration.`);
+    return undefined;
+  }
+
+  return api as ModuleAPIs[T];
+}
 
 export type { ProjectRequirement, ComparisonOperator, ProjectFlagData };
 
 declare global {
+  namespace foundry {
+    namespace applications {
+      namespace api {
+        interface DialogV2Button {
+          action: string;
+          label: string;
+          icon?: string;
+          class?: string;
+          default?: boolean;
+          callback?: (
+            event: PointerEvent | SubmitEvent,
+            button: HTMLButtonElement,
+            dialog: any, // v12 uses ApplicationV2 instance
+          ) => Promise<any>;
+        }
+
+        /**
+         * v12 Submit Callback receives the result of the button callback or the action string.
+         */
+        type DialogV2SubmitCallback = (result: any) => Promise<any>;
+
+        interface DialogV2Options {
+          window?: {
+            title?: string;
+            icon?: string;
+            controls?: any[];
+            [key: string]: unknown;
+          };
+          content?: string;
+          buttons?: DialogV2Button[];
+          submit?: DialogV2SubmitCallback;
+          close?: (event: Event, dialog: any) => void;
+          rejectClose?: boolean;
+          modal?: boolean;
+          [key: string]: unknown;
+        }
+
+        class DialogV2 {
+          constructor(options: Partial<DialogV2Options>);
+          render(options?: { force?: boolean; [key: string]: any }): Promise<any>;
+          element: HTMLElement;
+          close(options?: object): Promise<void>;
+
+          static wait(options: Partial<DialogV2Options>): Promise<any>;
+          static confirm(options: Partial<DialogV2Options>): Promise<any>;
+          static prompt(options: Partial<DialogV2Options>): Promise<any>;
+        }
+      }
+    }
+    namespace utils {
+      function randomID(length?: number): string;
+      function getProperty<T = unknown>(obj: object, path: string): T;
+      function setProperty(obj: object, path: string, value: unknown): boolean;
+      function mergeObject<T extends object, U extends object>(
+        original: T,
+        other: U,
+        options?: object,
+        _d?: number,
+      ): T & U;
+      function escapeHTML(str: string): string;
+    }
+  }
+
   interface HookConfig {
     "tidy5e-sheet.ready": (api: Tidy5eSheetsApi) => void;
   }
@@ -130,6 +251,9 @@ declare global {
     };
     Dice: {
       rollModes: Record<string, string | { label: string }>;
+    };
+    SpotlightOmnisearch?: {
+      prompt: (options: { query: string }) => Promise<{ data?: { uuid: string } } | null>;
     };
   }
 

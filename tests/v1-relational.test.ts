@@ -1,36 +1,83 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { migrateToV1Relational } from "../src/migrations/v1-relational";
-import { LearningManager } from "../src/LearningManager";
-import { ActorsCollection } from "./setup";
 
-describe("v1-relational migration", () => {
+describe("Migration v1 (Relational)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    game.actors = new ActorsCollection();
+    (global as any).ui = { notifications: { info: vi.fn() } };
+    (global as any).game = {
+      actors: [],
+      settings: { get: vi.fn().mockReturnValue([]), set: vi.fn().mockResolvedValue(true) },
+    };
+    (global as any).foundry = (global as any).foundry || {};
+    (global as any).foundry.utils = (global as any).foundry.utils || {};
+    (global as any).foundry.utils.randomID = vi.fn().mockReturnValue("rand123");
   });
 
-  it("should create templates from legacy projects and link them", async () => {
-    const actor = new Actor() as any;
-    actor.flags = {
-      [LearningManager.ID]: {
-        projects: [
-          { name: "Project 1", maxProgress: 100, rewardUuid: "uuid1", rewardType: "item" },
-        ],
-      },
+  it("should migrate projects without templateId", async () => {
+    const mockProject = {
+      name: "Legacy Project",
+      maxProgress: 50,
+      rewardUuid: "uuid",
+      rewardType: "item",
+      requirements: [],
     };
-    (game.actors as any[]).push(actor);
-
-    vi.mocked(game.settings.get).mockReturnValue([]);
+    const mockActor = {
+      name: "Actor",
+      getFlag: vi.fn().mockReturnValue([mockProject]),
+      setFlag: vi.fn().mockResolvedValue(true),
+    };
+    (global as any).game.actors = [mockActor as any];
 
     await migrateToV1Relational();
 
-    expect(game.settings.set).toHaveBeenCalledWith(
-      LearningManager.ID,
-      "projectTemplates",
-      expect.arrayContaining([expect.objectContaining({ name: "Project 1", target: 100 })]),
+    expect(mockActor.setFlag).toHaveBeenCalledWith(
+      "thefehrs-learning-manager",
+      "projects",
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: "Legacy Project",
+          maxProgress: 50,
+          templateId: "rand123",
+        }),
+      ]),
     );
+    expect((global as any).game.settings.set).toHaveBeenCalledWith(
+      "thefehrs-learning-manager",
+      "projectTemplates",
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "rand123",
+          name: "Legacy Project",
+          target: 50,
+        }),
+      ]),
+    );
+  });
 
-    const updatedProjects = vi.mocked(actor.setFlag).mock.calls[0][2];
-    expect(updatedProjects[0].templateId).toBeDefined();
+  it("should handle actors with empty projects array", async () => {
+    const mockActor = {
+      name: "Empty Actor",
+      getFlag: vi.fn().mockReturnValue([]),
+      setFlag: vi.fn(),
+    };
+    (global as any).game.actors = [mockActor as any];
+
+    await migrateToV1Relational();
+
+    expect(mockActor.setFlag).not.toHaveBeenCalled();
+  });
+
+  it.each([null, undefined])("should handle actors with %s projects flag", async (flagValue) => {
+    const mockActor = {
+      name: "Mock Actor",
+      getFlag: vi.fn().mockReturnValue(flagValue),
+      setFlag: vi.fn(),
+    };
+    (global as any).game.actors = [mockActor as any];
+
+    await migrateToV1Relational();
+
+    expect(mockActor.setFlag).not.toHaveBeenCalled();
   });
 });

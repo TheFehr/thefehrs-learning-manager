@@ -3,6 +3,7 @@
 external-types/
 external-dts/
 node_modules/
+coverage/
 dist/
 
 .env.foundryvtt.local

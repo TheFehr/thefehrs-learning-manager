@@ -1,9 +1,12 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { mount, unmount } from "svelte";
 import { LearningManager } from "../src/LearningManager";
 import { TabLogic } from "../src/tab-logic";
 import { ActorProxy } from "../src/actor-proxy";
 import { ProjectEngine } from "../src/project-engine";
+import { Socket } from "../src/core/socket";
 import type { TimeUnit } from "../src/types";
+import { migrateData } from "../src/migrations/migration";
 
 vi.mock("../src/project-engine", () => ({
   ProjectEngine: {
@@ -12,7 +15,13 @@ vi.mock("../src/project-engine", () => ({
     syncAllProjectActivities: vi.fn(),
     getActivitiesData: vi.fn().mockReturnValue([]),
     injectActivities: vi.fn().mockResolvedValue(undefined),
+    handleAutoTrainSignal: vi.fn(),
+    signalTimeDistribution: vi.fn(),
   },
+}));
+
+vi.mock("../src/migrations/migration", () => ({
+  migrateData: vi.fn().mockResolvedValue(undefined),
 }));
 
 describe("LearningManager", () => {
@@ -24,6 +33,10 @@ describe("LearningManager", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   describe("TabLogic.formatTimeBank", () => {
@@ -135,6 +148,60 @@ describe("LearningManager", () => {
         uuid: "Item.weapon1",
       };
       expect(enabled({ item: regularItem })).toBe(false);
+    });
+  });
+
+  describe("registerSocketListeners", () => {
+    it("should initialize Socket listener and handle timeGrantedSignal", async () => {
+      let registeredHandler: ((msg: any) => Promise<void>) | undefined;
+      vi.spyOn(Socket, "listen").mockImplementation((handler) => {
+        registeredHandler = handler;
+        return vi.fn();
+      });
+      const autoTrainSpy = vi.spyOn(ProjectEngine, "handleAutoTrainSignal").mockResolvedValue();
+
+      LearningManager.registerSocketListeners();
+
+      expect(Socket.listen).toHaveBeenCalled();
+      expect(registeredHandler).toBeDefined();
+
+      // Trigger the handler
+      if (registeredHandler) {
+        await registeredHandler({ type: "timeGrantedSignal", data: null });
+        expect(autoTrainSpy).toHaveBeenCalled();
+      }
+    });
+
+    it("should handle errors in socket handler gracefully", async () => {
+      let registeredHandler: ((msg: any) => Promise<void>) | undefined;
+      vi.spyOn(Socket, "listen").mockImplementation((handler) => {
+        registeredHandler = handler;
+        return vi.fn();
+      });
+      vi.spyOn(ProjectEngine, "handleAutoTrainSignal").mockRejectedValue(
+        new Error("Auto-train failed"),
+      );
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      LearningManager.registerSocketListeners();
+
+      if (registeredHandler) {
+        await registeredHandler({ type: "timeGrantedSignal", data: null });
+        expect(errorSpy).toHaveBeenCalledWith(
+          expect.stringContaining("Failed to handle auto-train signal"),
+          expect.any(Error),
+          expect.any(String),
+        );
+      }
+    });
+  });
+
+  describe("ready", () => {
+    it("should log initialized message and run migrations", async () => {
+      const consoleSpy = vi.spyOn(console, "debug");
+      await LearningManager.ready();
+      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining("Initialized"));
+      expect(migrateData).toHaveBeenCalled();
     });
   });
 
@@ -253,6 +320,81 @@ describe("LearningManager", () => {
 
       expect(result).toBe(false);
       expect(ProjectEngine.initiateProjectFromItem).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("TidyTabs", () => {
+    it("should correctly enable/disable Item Tab", () => {
+      let registeredTab: any;
+      const mockApi = {
+        registerActorTab: vi.fn(),
+        registerItemTab: vi.fn().mockImplementation((tab) => {
+          registeredTab = tab;
+        }),
+        registerGroupTab: vi.fn(),
+        registerItemContent: vi.fn(),
+        registerCharacterContent: vi.fn(),
+        models: {
+          HtmlTab: class {
+            constructor(data: any) {
+              Object.assign(this, data);
+            }
+          },
+          HtmlContent: class {
+            constructor(data: any) {
+              Object.assign(this, data);
+            }
+          },
+        },
+      };
+
+      (LearningManager as any).registerTidyTabs(mockApi);
+      expect(mockApi.registerItemTab).toHaveBeenCalled();
+
+      const enabled = registeredTab.enabled;
+      game.user.isGM = false;
+      expect(enabled({})).toBe(false);
+
+      game.user.isGM = true;
+      const learningItem = {
+        type: "feat",
+        system: { type: { value: "learning-project" } },
+        getFlag: vi.fn(),
+      } as any;
+      expect(enabled({ item: learningItem })).toBe(true);
+    });
+  });
+
+  describe("Application Lifecycle", () => {
+    it("should unmount Svelte instance when application is closed", async () => {
+      LearningManager.init();
+      const mockInstance = { some: "instance" };
+      LearningManager.svelteInstances.set("app123", mockInstance as any);
+
+      const closeHook = vi.mocked(Hooks.on).mock.calls.find((c) => c[0] === "closeApplication");
+      expect(closeHook).toBeDefined();
+
+      closeHook![1]({ id: "app123" });
+
+      expect(unmount).toHaveBeenCalledWith(mockInstance);
+      expect(LearningManager.svelteInstances.has("app123")).toBe(false);
+    });
+
+    it("should handle renderSvelte with existing instance", async () => {
+      const mockOldInstance = { old: true };
+      const actor = { id: "actor1" };
+      const app = { id: "app1", actor };
+      LearningManager.svelteInstances.set("app1", mockOldInstance as any);
+
+      const params = { app, element: document.createElement("div") };
+      const selector = ".root";
+      params.element.innerHTML = '<div class="root"></div>';
+
+      (LearningManager as any).renderSvelte(params, selector, {}, () => ({}));
+
+      expect(unmount).toHaveBeenCalledWith(mockOldInstance);
+      expect(mount).toHaveBeenCalled();
+      expect(LearningManager.svelteInstances.get("app1")).toBeDefined();
     });
   });
 });
