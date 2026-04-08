@@ -39,9 +39,15 @@ export class ItemConfigLogic {
     }
 
     const quickInsert = getModuleAPI("quick-insert");
-    if (quickInsert?.searchItem) {
-      const result = await quickInsert.searchItem({ classes: ["Item"] });
-      return result?.uuid || null;
+    if (quickInsert?.open) {
+      return new Promise((resolve) => {
+        quickInsert.open({
+          mode: 1, // Insert mode
+          restrictTypes: ["Item"],
+          onSubmit: (item: { uuid: string }) => resolve(item.uuid),
+          onClose: () => resolve(null),
+        });
+      });
     }
 
     ui.notifications?.info(

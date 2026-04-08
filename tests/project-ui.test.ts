@@ -14,6 +14,23 @@ describe("ProjectUI", () => {
       const html = ProjectUI.generateProgressHtml(5, 0, "None");
       expect(html).toContain("width: 0%");
     });
+
+    it("should clamp negative progress to 0%", () => {
+      const html = ProjectUI.generateProgressHtml(-5, 10, "Neg");
+      expect(html).toContain("width: 0%");
+      expect(html).toContain("0 / 10");
+    });
+
+    it("should handle non-finite progress values gracefully", () => {
+      expect(ProjectUI.generateProgressHtml(NaN, 10, "NaN")).toContain("width: 0%");
+      expect(ProjectUI.generateProgressHtml(Infinity, 10, "Inf")).toContain("width: 0%");
+    });
+
+    it("should clamp overflow progress to 100% width but show actual numbers", () => {
+      const html = ProjectUI.generateProgressHtml(15, 10, "Overflow");
+      expect(html).toContain("width: 100%");
+      expect(html).toContain("15 / 10");
+    });
   });
 
   describe("stripProgressHtml", () => {
@@ -34,6 +51,7 @@ describe("ProjectUI", () => {
 
     it("should handle empty or null input", () => {
       expect(ProjectUI.stripProgressHtml("")).toBe("");
+      expect(ProjectUI.stripProgressHtml(null as any)).toBe("");
     });
   });
 });

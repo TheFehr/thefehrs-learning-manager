@@ -1,11 +1,21 @@
-import type { GuidanceTier, SystemRules, TimeUnit } from "../types.js";
+import type { GuidanceTier, ProjectRequirement, SystemRules, TimeUnit } from "../types.js";
+
+export interface ProjectTemplate {
+  id: string;
+  name: string;
+  target: number;
+  description?: string;
+  rewardUuid: string;
+  rewardType: string;
+  requirements: ProjectRequirement[];
+}
 
 export interface SettingsSchema {
   rules: SystemRules;
   timeUnits: TimeUnit[];
   guidanceTiers: GuidanceTier[];
   allowedCompendiums: string[];
-  projectTemplates: any[];
+  projectTemplates: ProjectTemplate[];
   migrationVersion: string;
   autoSpend: boolean;
   autoSpendUnits: string[];
@@ -79,17 +89,25 @@ export const SETTINGS_DEFINITIONS: {
 
 /**
  * Derived default values for all settings.
- * The cast is necessary because Object.fromEntries loses the specific key types,
- * but the SETTINGS_DEFINITIONS keys strictly map to SettingsSchema.
- * This cast is required as of TypeScript 5.7+ to bridge the gap between
- * runtime Object.fromEntries and the static SettingsSchema interface.
  */
-export const DEFAULT_SETTINGS: SettingsSchema = Object.fromEntries(
-  Object.entries(SETTINGS_DEFINITIONS).map(([key, metadata]) => [key, metadata.default]),
-) as unknown as SettingsSchema;
+export const DEFAULT_SETTINGS: SettingsSchema = (
+  Object.keys(SETTINGS_DEFINITIONS) as Array<keyof SettingsSchema>
+).reduce((acc, key) => {
+  (acc as any)[key] = SETTINGS_DEFINITIONS[key].default;
+  return acc;
+}, {} as Partial<SettingsSchema>) as SettingsSchema;
+
+export interface SettingMenuConfig {
+  name: string;
+  label: string;
+  hint?: string;
+  icon?: string;
+  type: typeof foundry.applications.api.ApplicationV2 | any;
+  restricted: boolean;
+}
 
 export class SettingsManager<Settings extends Record<string, any> = SettingsSchema> {
-  static ID = "thefehrs-learning-manager" as const;
+  static readonly ID = "thefehrs-learning-manager" as const;
 
   get ID() {
     return SettingsManager.ID;
@@ -134,12 +152,23 @@ export class SettingsManager<Settings extends Record<string, any> = SettingsSche
         }
       }
 
+      const safeOverrides: any = {};
+      const providedOverrides = overrides[key as keyof SettingsSchema] || {};
+
+      // Whitelist only safe override properties
+      const SAFE_PROPS = ["onChange", "requiresReload", "hint", "choices", "name", "config"];
+      for (const prop of SAFE_PROPS) {
+        if (providedOverrides[prop] !== undefined) {
+          safeOverrides[prop] = providedOverrides[prop];
+        }
+      }
+
       const config = {
         scope: metadata.scope,
         config: metadata.config ?? false,
         type,
         default: defaultValue,
-        ...overrides[key as keyof SettingsSchema],
+        ...safeOverrides,
       };
 
       // @ts-expect-error - Complex registration data types
@@ -147,57 +176,66 @@ export class SettingsManager<Settings extends Record<string, any> = SettingsSche
     }
   }
 
+  private seenMissing = new Set<string>();
+
+  /**
+   * Generic getter for a setting with a fallback value and a debug log if uninitialized.
+   */
+  private getWithFallback<K extends keyof Settings>(key: K, fallback: Settings[K]): Settings[K] {
+    const val = this.get(key);
+    if (val === undefined || val === null) {
+      const keyStr = key as string;
+      if (!this.seenMissing.has(keyStr)) {
+        console.debug(`Downtime Engine | Setting '${keyStr}' is uninitialized or null.`);
+        this.seenMissing.add(keyStr);
+      }
+      return fallback;
+    }
+
+    // Deep merge objects to backfill missing nested keys (e.g. newly added rules)
+    if (
+      typeof val === "object" &&
+      val !== null &&
+      !Array.isArray(val) &&
+      typeof fallback === "object" &&
+      fallback !== null &&
+      !Array.isArray(fallback)
+    ) {
+      return foundry.utils.mergeObject(fallback, val, { inplace: false }) as Settings[K];
+    }
+
+    return val;
+  }
+
   // --- Legacy Accessors (kept for backward compatibility, now thin wrappers) ---
 
   get migrationVersion(): Settings["migrationVersion"] {
-    return this.get("migrationVersion");
+    return this.getWithFallback("migrationVersion", DEFAULT_SETTINGS.migrationVersion);
   }
   get rules(): Settings["rules"] {
-    return this.get("rules");
+    return this.getWithFallback("rules", DEFAULT_SETTINGS.rules);
   }
   get timeUnits(): Settings["timeUnits"] {
-    const val = this.get("timeUnits");
-    if (val === undefined) {
-      console.warn("Downtime Engine | Setting 'timeUnits' is uninitialized.");
-      return [] as Settings["timeUnits"];
-    }
-    return val;
+    return this.getWithFallback("timeUnits", DEFAULT_SETTINGS.timeUnits);
   }
   get guidanceTiers(): Settings["guidanceTiers"] {
-    const val = this.get("guidanceTiers");
-    if (val === undefined) {
-      console.warn("Downtime Engine | Setting 'guidanceTiers' is uninitialized.");
-      return [] as Settings["guidanceTiers"];
-    }
-    return val;
+    return this.getWithFallback("guidanceTiers", DEFAULT_SETTINGS.guidanceTiers);
   }
   get allowedCompendiums(): Settings["allowedCompendiums"] {
-    const val = this.get("allowedCompendiums");
-    if (val === undefined) {
-      console.warn("Downtime Engine | Setting 'allowedCompendiums' is uninitialized.");
-      return [] as Settings["allowedCompendiums"];
-    }
-    return val;
+    return this.getWithFallback("allowedCompendiums", DEFAULT_SETTINGS.allowedCompendiums);
+  }
+  get projectTemplates(): Settings["projectTemplates"] {
+    return this.getWithFallback("projectTemplates", DEFAULT_SETTINGS.projectTemplates);
   }
   get autoSpend(): Settings["autoSpend"] {
-    const val = this.get("autoSpend");
-    if (val === undefined) {
-      console.warn("Downtime Engine | Setting 'autoSpend' is uninitialized.");
-      return false;
-    }
-    return val;
+    return this.getWithFallback("autoSpend", DEFAULT_SETTINGS.autoSpend);
   }
   get autoSpendUnits(): Settings["autoSpendUnits"] {
-    const val = this.get("autoSpendUnits");
-    if (val === undefined) {
-      console.warn("Downtime Engine | Setting 'autoSpendUnits' is uninitialized.");
-      return [] as Settings["autoSpendUnits"];
-    }
-    return val;
+    return this.getWithFallback("autoSpendUnits", DEFAULT_SETTINGS.autoSpendUnits);
   }
 
-  registerMenu(key: string, data: unknown): void {
-    this.settings.registerMenu(SettingsManager.ID, key, data as never);
+  registerMenu(key: string, data: SettingMenuConfig): void {
+    this.settings.registerMenu(SettingsManager.ID, key, data as any);
   }
 }
 

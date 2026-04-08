@@ -68,7 +68,10 @@ export class PartyTabLogic {
     const timeUnits = Settings.timeUnits;
     const isParty = (actor.type as string) === "group";
 
-    let svelteInstance: (Record<string, any> & { submit: () => void }) | undefined;
+    interface GrantTimeInstance {
+      submit: () => void;
+    }
+    let svelteInstance: GrantTimeInstance | undefined;
 
     const dialog = new foundry.applications.api.DialogV2({
       window: {
@@ -82,8 +85,8 @@ export class PartyTabLogic {
           label: "Apply Time",
           icon: "fas fa-check",
           default: true,
-          callback: () => {
-            if (svelteInstance) svelteInstance.submit();
+          callback: async (_event, _button, _dialog) => {
+            if (svelteInstance) await svelteInstance.submit();
           },
         },
       ],

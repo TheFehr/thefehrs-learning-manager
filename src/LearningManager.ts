@@ -42,6 +42,7 @@ export class LearningManager {
 
   static registerSocketListeners() {
     if (this.socketHandler) {
+      console.debug("Downtime Engine | Unregistering existing socket handler.");
       Socket.off(this.socketHandler);
     }
 
@@ -51,7 +52,11 @@ export class LearningManager {
           try {
             await ProjectEngine.handleAutoTrainSignal();
           } catch (err) {
-            console.error("Downtime Engine | Failed to handle auto-train signal:", err);
+            console.error(
+              "Downtime Engine | Failed to handle auto-train signal:",
+              err,
+              JSON.stringify(message),
+            );
           }
         }
       }) || null;

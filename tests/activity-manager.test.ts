@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { ActivityManager } from "../src/core/activity-manager";
 import { Settings } from "../src/core/settings";
 
@@ -17,6 +17,13 @@ describe("ActivityManager", () => {
     (global as any).foundry = { utils: { randomID: vi.fn().mockReturnValue("rand123") } };
     vi.spyOn(console, "debug").mockImplementation(() => {});
     vi.spyOn(console, "error").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    delete (global as any).ui;
+    delete (global as any).game;
+    delete (global as any).foundry;
   });
 
   describe("getActivitiesData", () => {

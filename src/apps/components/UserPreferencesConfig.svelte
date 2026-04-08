@@ -35,16 +35,20 @@
   <div class="form-group">
     <span class="form-label">Allowed Units</span>
     <div class="form-fields">
-      <div class="checkbox-group">
+      <div class="checkbox-group" class:disabled={!autoSpend}>
         {#each timeUnits as unit}
-          <label class="checkbox-label">
+          <label class="checkbox-label" class:disabled={!autoSpend}>
             <input
               type="checkbox"
+              data-unit-id={unit.id}
               checked={autoSpendUnits.includes(unit.id)}
               onchange={() => toggleUnit(unit.id)}
+              disabled={!autoSpend}
             />
             {unit.name} ({unit.short})
           </label>
+        {:else}
+          <p class="notes">No time units available.</p>
         {/each}
       </div>
       <p class="notes">Select which time units should be automatically spent.</p>
@@ -98,26 +102,34 @@
   .checkbox-group {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.75rem;
+    gap: 0.5rem;
 
-    .checkbox-label {
-      display: flex;
-      align-items: center;
-      gap: 0.25rem;
-      font-weight: normal;
-      cursor: pointer;
-      background: var(--t5e-faint-color);
-      padding: 0.25rem 0.5rem;
-      border-radius: 4px;
-      border: 1px solid transparent;
+    &.disabled {
+      opacity: 0.5;
+    }
+  }
 
-      &:hover {
-        background: var(--t5e-tertiary-color);
-      }
+  .checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-weight: normal;
+    cursor: pointer;
+    background: var(--t5e-faint-color);
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    border: 1px solid transparent;
 
-      input {
-        margin: 0;
-      }
+    &.disabled {
+      cursor: not-allowed;
+    }
+
+    &:hover:not(.disabled) {
+      background: var(--t5e-tertiary-color);
+    }
+
+    input {
+      margin: 0;
     }
   }
 

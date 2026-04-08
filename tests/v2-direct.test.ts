@@ -55,7 +55,12 @@ describe("Migration v2 (Direct)", () => {
   });
 
   it("should handle migration failures for individual projects", async () => {
-    vi.mocked(game.settings.get).mockReturnValue([]);
+    vi.mocked(game.settings.get).mockImplementation((scope, key) => {
+      if (key === "rules") return {};
+      if (key === "guidanceTiers") return [];
+      if (key === "projectTemplates") return [];
+      return null;
+    });
     vi.mocked(migrationUtils.createProjectItemFromTemplate).mockResolvedValue(null); // Fail
     const mockActor = {
       name: "Actor",

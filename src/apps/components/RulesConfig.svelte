@@ -2,7 +2,17 @@
   import type { SystemRules } from "../../types";
   import { onMount } from "svelte";
 
-  let { rules = $bindable() } = $props<{ rules: SystemRules }>();
+  let { rules = $bindable({
+    nonBulkMethod: 'roll',
+    bulkMethod: 'mathematical',
+    rollMode: 'gmroll',
+    checkDC: 12,
+    checkFormula: '',
+    critDoubleStrategy: 'never',
+    critThreshold: 20,
+    notificationLevel: 'info',
+    bulkExpectedFormula: ''
+  }) } = $props<{ rules: SystemRules }>();
 
   let needsCheckFields = $derived(
     rules.nonBulkMethod === 'roll' || 
@@ -20,8 +30,17 @@
   });
 
   onMount(() => {
-    if (globalThis.CONFIG?.Dice?.rollModes) {
-      rollModes = CONFIG.Dice.rollModes;
+    const customModes = globalThis.CONFIG?.Dice?.rollModes;
+    if (customModes && typeof customModes === "object") {
+      const updatedModes = { ...rollModes };
+      for (const [key, value] of Object.entries(customModes)) {
+        if (typeof value === "string" || (typeof value === "object" && value !== null && "label" in value)) {
+          updatedModes[key] = value;
+        } else {
+          console.warn(`Downtime Engine | RulesConfig: Received invalid roll mode config for key "${key}":`, value);
+        }
+      }
+      rollModes = updatedModes;
     }
   });
 
@@ -64,7 +83,7 @@
   {#if needsCheckFields}
     <div class="form-group">
       <label for="rule-dc">Check DC</label>
-      <input id="rule-dc" type="number" bind:value={rules.checkDC} />
+      <input id="rule-dc" type="number" bind:value={rules.checkDC} min="0" step="1" inputmode="numeric" />
     </div>
     <div class="form-group">
       <label for="rule-formula">Formula</label>

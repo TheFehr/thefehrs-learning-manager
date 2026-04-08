@@ -6,6 +6,7 @@ interface GuidanceTier {
   modifier: number;
   costs: Record<string, number>;
   progress: Record<string, number>;
+  _migratedGpToCp?: boolean;
   _migratedToV2?: boolean;
 }
 
@@ -21,11 +22,14 @@ export async function migrateV1_1GpToCp() {
     ) as unknown as GuidanceTier[];
     let tiersUpdated = false;
     for (const tier of tiers) {
-      if (!tier._migratedToV2 && tier.costs) {
+      if (tier._migratedToV2 && !tier._migratedGpToCp) {
+        tier._migratedGpToCp = true;
+        tiersUpdated = true;
+      } else if (!tier._migratedGpToCp && tier.costs) {
         for (const key of Object.keys(tier.costs)) {
           tier.costs[key] = Math.round(tier.costs[key] * 100);
         }
-        tier._migratedToV2 = true;
+        tier._migratedGpToCp = true;
         tiersUpdated = true;
       }
     }

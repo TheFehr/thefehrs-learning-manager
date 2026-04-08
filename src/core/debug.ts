@@ -4,28 +4,27 @@ function resolveControlledActor(): Actor | undefined {
   let actor = game.user?.character;
 
   // Fallback to selected token
-  const controlledTokens = (canvas as { tokens?: { controlled?: { actor: Actor }[] } })?.tokens
-    ?.controlled;
+  const controlledTokens = (canvas as { tokens?: { controlled?: Token[] } }).tokens?.controlled;
   if (!actor && controlledTokens && controlledTokens.length > 0) {
-    actor = controlledTokens[0].actor;
+    actor = controlledTokens[0].actor ?? undefined;
   }
+
   return actor;
 }
 
 /**
- * Developer-only cheat helpers for the browser console.
- * Available via `window.ude` in development mode.
+ * Global helpers for debugging and "cheating" during development.
+ * Available as `ude` in the browser console.
  */
 export const DebugHelpers = {
   /**
-   * Add a specific amount of hours to the currently controlled character's time bank.
-   * Checks for game.user.character first, then falls back to the first selected token.
-   * @param hours - The amount of hours to add.
+   * Add a specific amount of training hours to the currently controlled character.
+   * @param hours - The amount of hours to add. Supports negative values.
    */
   async addTime(hours: number) {
     const validatedHours = Number(hours);
-    if (!Number.isFinite(validatedHours) || validatedHours < 0) {
-      const msg = `Invalid hours: ${hours}. Must be a non-negative finite number.`;
+    if (!Number.isFinite(validatedHours)) {
+      const msg = `Invalid hours: ${hours}. Must be a finite number.`;
       console.warn(`Downtime Engine | ${msg}`);
       ui.notifications?.warn(`Downtime Engine | ${msg}`);
       return;
@@ -40,27 +39,37 @@ export const DebugHelpers = {
 
     const proxy = ActorProxy.forActor(actor);
     const bank = proxy.bank;
-    const newTotal = (bank.total || 0) + validatedHours;
+    const newTotal = Math.max(0, (bank.total || 0) + validatedHours);
+    const diff = newTotal - (bank.total || 0);
+
+    if (diff === 0 && validatedHours !== 0) {
+      ui.notifications?.warn(`Downtime Engine | Bank already empty, cannot remove more time.`);
+      return;
+    }
 
     await proxy.setBank({ total: newTotal });
+    const action = diff >= 0 ? "Added" : "Removed";
+    const absDiff = Math.abs(diff);
+
     ui.notifications?.info(
-      `Downtime Engine | Added ${validatedHours}h to ${actor.name}'s bank. New total: ${newTotal}h`,
+      `Downtime Engine | ${action} ${absDiff}h to ${actor.name}'s bank. New total: ${newTotal}h`,
     );
-    console.log(`Downtime Engine | Cheat: Added ${validatedHours}h to ${actor.name}'s bank.`, {
+    console.log(`Downtime Engine | Cheat: ${action} ${absDiff}h to ${actor.name}'s bank.`, {
       previous: bank.total,
-      added: validatedHours,
+      change: validatedHours,
+      actualDiff: diff,
       newTotal,
     });
   },
 
   /**
    * Add a specific amount of gold to the currently controlled character.
-   * @param gp - The amount of GP to add.
+   * @param gp - The amount of GP to add. Supports negative values.
    */
   async addGP(gp: number) {
     const validatedGP = Number(gp);
-    if (!Number.isFinite(validatedGP) || validatedGP < 0) {
-      const msg = `Invalid gp: ${gp}. Must be a non-negative finite number.`;
+    if (!Number.isFinite(validatedGP)) {
+      const msg = `Invalid gp: ${gp}. Must be a finite number.`;
       console.warn(`Downtime Engine | ${msg}`);
       ui.notifications?.warn(`Downtime Engine | ${msg}`);
       return;
@@ -75,12 +84,31 @@ export const DebugHelpers = {
 
     const proxy = ActorProxy.forActor(actor);
     const current = proxy.currency;
+    const newGP = Math.max(0, (current.gp || 0) + validatedGP);
+    const diff = newGP - (current.gp || 0);
+
+    if (diff === 0 && validatedGP !== 0) {
+      ui.notifications?.warn(`Downtime Engine | No GP available to remove.`);
+      return;
+    }
+
+    const action = diff >= 0 ? "Added" : "Removed";
+    const absDiff = Math.abs(diff);
+
     await proxy.updateCurrency({
-      gp: (current.gp || 0) + validatedGP,
-      sp: current.sp || 0,
-      cp: current.cp || 0,
+      ...current,
+      gp: newGP,
     });
-    ui.notifications?.info(`Downtime Engine | Added ${validatedGP}gp to ${actor.name}.`);
+
+    ui.notifications?.info(
+      `Downtime Engine | ${action} ${absDiff}gp to ${actor.name}. New total: ${newGP}gp`,
+    );
+    console.log(`Downtime Engine | Cheat: ${action} ${absDiff}gp to ${actor.name}.`, {
+      previous: current.gp,
+      change: validatedGP,
+      actualDiff: diff,
+      newTotal: newGP,
+    });
   },
 };
 
@@ -88,7 +116,9 @@ export const DebugHelpers = {
  * Initialize debug helpers on the window object if in development mode.
  */
 export function initDebugHelpers() {
-  // @ts-expect-error - Vite specific environment variable
+  // ude = User Downtime Engine - short and easy to type in console
+  // We use ude to avoid naming collisions with common global variables
+  // and to make it discoverable
   if (import.meta.env.DEV) {
     (window as unknown as { ude: typeof DebugHelpers }).ude = DebugHelpers;
     console.debug(

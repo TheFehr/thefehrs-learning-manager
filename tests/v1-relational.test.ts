@@ -9,7 +9,9 @@ describe("Migration v1 (Relational)", () => {
       actors: [],
       settings: { get: vi.fn().mockReturnValue([]), set: vi.fn().mockResolvedValue(true) },
     };
-    (global as any).foundry = { utils: { randomID: vi.fn().mockReturnValue("rand123") } };
+    (global as any).foundry = (global as any).foundry || {};
+    (global as any).foundry.utils = (global as any).foundry.utils || {};
+    (global as any).foundry.utils.randomID = vi.fn().mockReturnValue("rand123");
   });
 
   it("should migrate projects without templateId", async () => {
@@ -32,12 +34,50 @@ describe("Migration v1 (Relational)", () => {
     expect(mockActor.setFlag).toHaveBeenCalledWith(
       "thefehrs-learning-manager",
       "projects",
-      expect.arrayContaining([expect.objectContaining({ templateId: "rand123" })]),
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: "Legacy Project",
+          maxProgress: 50,
+          templateId: "rand123",
+        }),
+      ]),
     );
-    expect(game.settings.set).toHaveBeenCalledWith(
+    expect((global as any).game.settings.set).toHaveBeenCalledWith(
       "thefehrs-learning-manager",
       "projectTemplates",
-      expect.any(Array),
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "rand123",
+          name: "Legacy Project",
+          target: 50,
+        }),
+      ]),
     );
+  });
+
+  it("should handle actors with empty projects array", async () => {
+    const mockActor = {
+      name: "Empty Actor",
+      getFlag: vi.fn().mockReturnValue([]),
+      setFlag: vi.fn(),
+    };
+    (global as any).game.actors = [mockActor as any];
+
+    await migrateToV1Relational();
+
+    expect(mockActor.setFlag).not.toHaveBeenCalled();
+  });
+
+  it.each([null, undefined])("should handle actors with %s projects flag", async (flagValue) => {
+    const mockActor = {
+      name: "Mock Actor",
+      getFlag: vi.fn().mockReturnValue(flagValue),
+      setFlag: vi.fn(),
+    };
+    (global as any).game.actors = [mockActor as any];
+
+    await migrateToV1Relational();
+
+    expect(mockActor.setFlag).not.toHaveBeenCalled();
   });
 });

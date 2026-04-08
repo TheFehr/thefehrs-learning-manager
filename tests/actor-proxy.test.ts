@@ -96,9 +96,20 @@ describe("ActorProxy", () => {
       expect(proxy.tokenImg).toBe("token.png");
     });
 
-    it("should return projects from flags", () => {
+    it("should handle missing prototype token texture gracefully by falling back to actor image", () => {
+      mockActor.prototypeToken = {};
+      expect(proxy.tokenImg).toBe("actor.png");
+    });
+
+    it("should handle missing prototype token gracefully by falling back to actor image", () => {
+      // prototypeToken is missing
+      expect(proxy.tokenImg).toBe("actor.png");
+    });
+
+    it("should return projects from flags and verify arguments", () => {
       mockActor.getFlag.mockReturnValue([{ id: "proj1" }]);
       expect(proxy.projects).toEqual([{ id: "proj1" }]);
+      expect(mockActor.getFlag).toHaveBeenCalledWith("thefehrs-learning-manager", "projects");
     });
 
     it("should set projects on flags", async () => {

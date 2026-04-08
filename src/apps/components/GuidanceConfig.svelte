@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import type {GuidanceTier, TimeUnit, SystemRules} from "../../types";
 
   let {guidanceTiers = $bindable(), timeUnits, rules}: {
@@ -6,6 +7,42 @@
     timeUnits: TimeUnit[],
     rules: SystemRules
   } = $props();
+
+  $effect(() => {
+    // Only track timeUnits changes here. 
+    // guidanceTiers is read via untrack to avoid self-triggering loops.
+    const _units = timeUnits; 
+    
+    let modified = false;
+    const updated = untrack(() => guidanceTiers.map(tier => {
+      let tierModified = false;
+      const costs = { ...(tier.costs || {}) };
+      const progress = { ...(tier.progress || {}) };
+      
+      for (const unit of _units) {
+        const c = Number(costs[unit.id]);
+        if (!Number.isFinite(c)) {
+          costs[unit.id] = 0;
+          tierModified = true;
+        }
+        const p = Number(progress[unit.id]);
+        if (!Number.isFinite(p)) {
+          progress[unit.id] = 0;
+          tierModified = true;
+        }
+      }
+      
+      if (tierModified || !tier.costs || !tier.progress) {
+        modified = true;
+        return { ...tier, costs, progress };
+      }
+      return tier;
+    }));
+
+    if (modified) {
+      guidanceTiers = updated;
+    }
+  });
 
   function addTier() {
     const costs: Record<string, number> = {};
@@ -45,14 +82,14 @@
 <section>
     <h3>Guidance Tiers</h3>
     <div class="tier-list">
-        {#each guidanceTiers as tier}
+        {#each guidanceTiers as tier, i}
             <div class="tier-card">
                 <div class="tier-header">
-                    <input type="text" bind:value={tier.name} placeholder="Tier Name" class="tier-name-input"
+                    <input type="text" bind:value={guidanceTiers[i].name} placeholder="Tier Name" class="tier-name-input"
                            aria-label="Tier Name"/>
                     <div class="tier-mod">
                         <label for="tier-mod-{tier.id}">Mod:</label>
-                        <input id="tier-mod-{tier.id}" type="number" bind:value={tier.modifier} style="width: 50px;"/>
+                        <input id="tier-mod-{tier.id}" type="number" bind:value={guidanceTiers[i].modifier} style="width: 50px;"/>
                     </div>
                     <button type="button" class="tidy-button small danger" onclick={() => removeTier(tier.id, tier.name)}
                             title="Delete Tier">
@@ -66,7 +103,7 @@
                         {#each timeUnits as unit}
                             <div class="grid-row">
                                 <label for="tier-{tier.id}-cost-{unit.id}">{unit.name}:</label>
-                                <input id="tier-{tier.id}-cost-{unit.id}" type="number" bind:value={tier.costs[unit.id]}
+                                <input id="tier-{tier.id}-cost-{unit.id}" type="number" bind:value={guidanceTiers[i].costs[unit.id]}
                                        min="0"/>
                             </div>
                         {/each}
@@ -80,7 +117,7 @@
                                 <input
                                         id="tier-{tier.id}-progress-{unit.id}"
                                         type="number"
-                                        bind:value={tier.progress[unit.id]}
+                                        bind:value={guidanceTiers[i].progress[unit.id]}
                                         min="0"
                                         disabled={!directBulkActive(unit)}
                                         title={!directBulkActive(unit) ? "Only editable when Bulk Method is 'Direct'" : ""}

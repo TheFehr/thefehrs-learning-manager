@@ -12,9 +12,11 @@ vi.mock("../src/project-engine");
 
 describe("PartyTabLogic", () => {
   let originalActors: any;
+  let originalFoundry: any;
 
   beforeEach(() => {
     vi.clearAllMocks();
+    originalFoundry = (global as any).foundry;
 
     // Mock Settings.timeUnits
     vi.spyOn(Settings, "timeUnits", "get").mockReturnValue([]);
@@ -27,10 +29,14 @@ describe("PartyTabLogic", () => {
     };
 
     // Spy on ui.notifications
+    if (!(global as any).ui) (global as any).ui = {};
+    if (!(global as any).ui.notifications)
+      (global as any).ui.notifications = { warn: vi.fn(), info: vi.fn() };
     vi.spyOn(global.ui.notifications, "warn").mockImplementation(() => {});
     vi.spyOn(global.ui.notifications, "info").mockImplementation(() => {});
 
     // Replace game.actors with a Map-like structure
+    if (!global.game) global.game = { ID: "thefehrs-learning-manager" } as any;
     originalActors = global.game.actors;
     const mockMap = new Map();
     vi.spyOn(mockMap, "get");
@@ -38,7 +44,11 @@ describe("PartyTabLogic", () => {
   });
 
   afterEach(() => {
-    global.game.actors = originalActors;
+    if (global.game) global.game.actors = originalActors;
+    (global as any).foundry = originalFoundry;
+    vi.restoreAllMocks();
+    delete (global as any).ui;
+    delete (global as any).ChatMessage;
   });
 
   describe("processGrantTime", () => {
@@ -124,8 +134,10 @@ describe("PartyTabLogic", () => {
 
       await PartyTabLogic.updateProgress("actor1", { id: "item1" } as any, 8, true);
 
-      expect(ProjectEngine.updateItemWithProgress).toHaveBeenCalled();
-      expect(mockProjectData.progress).toBe(8);
+      expect(ProjectEngine.updateItemWithProgress).toHaveBeenCalledWith(
+        mockItem,
+        expect.objectContaining({ progress: 8 }),
+      );
     });
   });
 
@@ -153,12 +165,14 @@ describe("PartyTabLogic", () => {
       };
       (game.actors as any).set("actor1", mockActor);
 
-      // Mock DialogV2 to auto-confirm by calling callback
+      // Mock DialogV2 to auto-confirm by calling callback synchronously from render
+      (global as any).foundry = (global as any).foundry || { applications: { api: {} } };
+      (global as any).foundry.applications = (global as any).foundry.applications || { api: {} };
       (global as any).foundry.applications.api.DialogV2 = class {
         constructor(public data: any) {}
         render() {
           const yesButton = this.data.buttons.find((b: any) => b.action === "yes");
-          yesButton.callback();
+          if (yesButton.callback) yesButton.callback();
           return this;
         }
       };
@@ -166,6 +180,30 @@ describe("PartyTabLogic", () => {
       await PartyTabLogic.deleteProject("actor1", { id: "item1", progress: 0 } as any, false);
 
       expect(mockItem.delete).toHaveBeenCalled();
+    });
+
+    it("should not delete item if cancelled", async () => {
+      const mockItem = { delete: vi.fn() };
+      const mockActor = {
+        name: "Actor",
+        isOwner: true,
+        items: { get: vi.fn().mockReturnValue(mockItem) },
+      };
+      (game.actors as any).set("actor1", mockActor);
+
+      // Mock DialogV2 to auto-cancel by calling 'no' callback synchronously from render
+      (global as any).foundry.applications.api.DialogV2 = class {
+        constructor(public data: any) {}
+        render() {
+          const noButton = this.data.buttons.find((b: any) => b.action === "no");
+          if (noButton.callback) noButton.callback();
+          return this;
+        }
+      };
+
+      await PartyTabLogic.deleteProject("actor1", { id: "item1", progress: 0 } as any, false);
+
+      expect(mockItem.delete).not.toHaveBeenCalled();
     });
 
     it("should warn if no permission", async () => {

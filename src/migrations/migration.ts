@@ -4,7 +4,7 @@ import { migrateV1_1GpToCp } from "./v1_1-gp-to-cp.js";
 import { migrateToV1_2 } from "./v1_2-crit-rules.js";
 import { migrateToV2 } from "./v2-native-items.js";
 import { migrateToV2Direct } from "./v2-direct.js";
-import { migrateToV2_1 } from "./v2_1-flexible-methods.js";
+import { migrateToV2_1, migrateToV2_1_1 } from "./v2_1-flexible-methods.js";
 
 export async function migrateData() {
   if (!game.user?.isGM) return;
@@ -22,6 +22,7 @@ export async function migrateData() {
       // Always call direct migration to ensure settings/templates are normalized
       await migrateToV2Direct();
       await migrateToV2_1();
+      await migrateToV2_1_1();
       return;
     }
 
@@ -41,8 +42,15 @@ export async function migrateData() {
     if (isNewerVersion("2.1.0", currentVersion)) {
       await migrateToV2_1();
     }
+
+    if (isNewerVersion("2.1.1", currentVersion)) {
+      await migrateToV2_1_1();
+    }
   } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
     console.error("Downtime Engine | Migration failed:", err);
+    ui.notifications?.error(`Downtime Engine | Migration failed: ${msg}. See console for details.`);
+    throw err;
   }
 }
 

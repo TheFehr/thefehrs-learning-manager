@@ -25,7 +25,7 @@ export class ActorProxy {
       prototypeToken?: { texture?: { src?: string } };
       img: string | null;
     };
-    return actor.prototypeToken?.texture?.src || actor.img;
+    return actor.prototypeToken?.texture?.src ?? actor.img;
   }
 
   get uuid(): string {

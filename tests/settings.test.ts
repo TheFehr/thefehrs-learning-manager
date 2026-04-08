@@ -1,5 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { Settings, SettingsManager } from "../src/core/settings";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { Settings, SettingsManager, SETTINGS_DEFINITIONS } from "../src/core/settings";
 
 describe("SettingsManager", () => {
   beforeEach(() => {
@@ -13,6 +13,12 @@ describe("SettingsManager", () => {
       },
     };
     vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.spyOn(console, "debug").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    delete (global as any).game;
   });
 
   it("should have correct ID", () => {
@@ -21,7 +27,8 @@ describe("SettingsManager", () => {
 
   it("should register all settings", () => {
     SettingsManager.registerAll();
-    expect(game.settings.register).toHaveBeenCalled();
+    const expectedCount = Object.keys(SETTINGS_DEFINITIONS).length;
+    expect(game.settings.register).toHaveBeenCalledTimes(expectedCount);
   });
 
   it("should get and set settings", async () => {
@@ -32,22 +39,28 @@ describe("SettingsManager", () => {
     expect(game.settings.set).toHaveBeenCalledWith(Settings.ID, "migrationVersion", "new-value");
   });
 
-  it("should provide legacy accessors with defaults and warnings", () => {
+  it("should provide legacy accessors with defaults and debug logs", () => {
     vi.mocked(game.settings.get).mockReturnValue(undefined);
 
-    expect(Settings.timeUnits).toEqual([]);
-    expect(console.warn).toHaveBeenCalledWith(
+    expect(Settings.timeUnits).toEqual(SETTINGS_DEFINITIONS.timeUnits.default);
+    expect(console.debug).toHaveBeenCalledWith(
       expect.stringContaining("'timeUnits' is uninitialized"),
     );
 
-    expect(Settings.autoSpend).toBe(false);
-    expect(console.warn).toHaveBeenCalledWith(
+    expect(Settings.autoSpend).toBe(SETTINGS_DEFINITIONS.autoSpend.default);
+    expect(console.debug).toHaveBeenCalledWith(
       expect.stringContaining("'autoSpend' is uninitialized"),
     );
   });
 
   it("should register menu", () => {
-    Settings.registerMenu("test", {});
-    expect(game.settings.registerMenu).toHaveBeenCalledWith(Settings.ID, "test", {});
+    const mockConfig = {
+      name: "Test Menu",
+      label: "Test Label",
+      type: class {} as any,
+      restricted: true,
+    };
+    Settings.registerMenu("test", mockConfig);
+    expect(game.settings.registerMenu).toHaveBeenCalledWith(Settings.ID, "test", mockConfig);
   });
 });

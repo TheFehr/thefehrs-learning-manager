@@ -48,7 +48,7 @@ export async function saveSettings(
     Logger.error("Failed to save settings, rolling back:", err);
 
     // Rollback only what was successfully saved
-    for (const key of savedKeys.reverse()) {
+    for (const key of [...savedKeys].reverse()) {
       try {
         await Settings.set(key, snapshot[key]);
       } catch (rollbackErr) {
@@ -115,12 +115,30 @@ export function validateSettings(data: unknown) {
   // 1. Validate Rules
   const rawRules = data.rules as Record<string, unknown> | undefined;
   if (isPlainObject(rawRules)) {
+    let nonBulkMethod = rawRules.nonBulkMethod as string | undefined;
+    let bulkMethod = rawRules.bulkMethod as string | undefined;
+    const legacyMethod = rawRules.method as string | undefined;
+
+    // Map legacy method if new fields are missing
+    if (legacyMethod && !nonBulkMethod && !bulkMethod) {
+      if (legacyMethod === "direct") {
+        nonBulkMethod = "direct";
+        bulkMethod = "direct";
+      } else if (legacyMethod === "roll") {
+        nonBulkMethod = "roll";
+        bulkMethod = "roll";
+      } else if (legacyMethod === "mathematical") {
+        nonBulkMethod = "roll";
+        bulkMethod = "mathematical";
+      }
+    }
+
     result.rules = {
-      nonBulkMethod: ["roll", "direct"].includes(String(rawRules.nonBulkMethod))
-        ? (rawRules.nonBulkMethod as "roll" | "direct")
+      nonBulkMethod: ["roll", "direct"].includes(String(nonBulkMethod))
+        ? (nonBulkMethod as "roll" | "direct")
         : "direct",
-      bulkMethod: ["roll", "direct", "mathematical"].includes(String(rawRules.bulkMethod))
-        ? (rawRules.bulkMethod as "roll" | "direct" | "mathematical")
+      bulkMethod: ["roll", "direct", "mathematical"].includes(String(bulkMethod))
+        ? (bulkMethod as "roll" | "direct" | "mathematical")
         : "direct",
       rollMode: typeof rawRules.rollMode === "string" ? rawRules.rollMode : "gmroll",
       checkDC:

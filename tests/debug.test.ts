@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { DebugHelpers } from "../src/core/debug";
 import { ActorProxy } from "../src/actor-proxy";
 
@@ -22,6 +22,10 @@ describe("DebugHelpers", () => {
     };
     vi.spyOn(console, "warn").mockImplementation(() => {});
     vi.spyOn(console, "log").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   describe("addTime", () => {
@@ -54,8 +58,18 @@ describe("DebugHelpers", () => {
     });
 
     it("should validate input", async () => {
-      await DebugHelpers.addTime(-5);
-      expect(ui.notifications.warn).toHaveBeenCalledWith(expect.stringContaining("Invalid hours"));
+      await DebugHelpers.addTime("abc" as any);
+      expect(global.ui.notifications.warn).toHaveBeenCalledWith(
+        expect.stringContaining("Invalid hours"),
+      );
+      expect(ActorProxy.forActor).not.toHaveBeenCalled();
+    });
+
+    it("should validate NaN input", async () => {
+      await DebugHelpers.addTime(NaN);
+      expect(global.ui.notifications.warn).toHaveBeenCalledWith(
+        expect.stringContaining("Invalid hours"),
+      );
       expect(ActorProxy.forActor).not.toHaveBeenCalled();
     });
   });
@@ -75,6 +89,12 @@ describe("DebugHelpers", () => {
     it("should validate input", async () => {
       await DebugHelpers.addGP(NaN);
       expect(ui.notifications.warn).toHaveBeenCalledWith(expect.stringContaining("Invalid gp"));
+    });
+
+    it("should warn if no actor found", async () => {
+      game.user.character = undefined;
+      await DebugHelpers.addGP(100);
+      expect(console.warn).toHaveBeenCalledWith(expect.stringContaining("No character controlled"));
     });
   });
 });

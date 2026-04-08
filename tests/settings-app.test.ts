@@ -20,8 +20,22 @@ describe("LearningConfigApp", () => {
     const mockInstance = { some: "instance" };
     (app as unknown as { svelteInstance: any }).svelteInstance = mockInstance;
 
+    const { unmount } = await import("svelte");
     await app.close();
+    expect(unmount).toHaveBeenCalledWith(mockInstance);
     expect((app as unknown as { svelteInstance: any }).svelteInstance).toBeNull();
+  });
+
+  it("should mount Svelte component on _onRender", async () => {
+    const app = new LearningConfigApp();
+
+    const { mount } = await import("svelte");
+
+    // @ts-ignore
+    await app._onRender({}, {});
+
+    expect(mount).toHaveBeenCalled();
+    expect((app as any).svelteInstance).toBeDefined();
   });
 });
 
@@ -35,6 +49,7 @@ describe("SettingsConfig logic", () => {
     critDoubleStrategy: "never",
     critThreshold: 20,
     notificationLevel: "info",
+    bulkExpectedFormula: "",
   };
 
   beforeEach(() => {
@@ -72,32 +87,5 @@ describe("SettingsConfig logic", () => {
 
     expect(ui.notifications.error).toHaveBeenCalledWith(expect.stringContaining("Save failed!"));
     expect(ui.notifications.info).not.toHaveBeenCalled();
-  });
-
-  describe("LearningConfigApp", () => {
-    it("should mount Svelte component on _onRender", async () => {
-      const app = new LearningConfigApp();
-
-      const { mount } = await import("svelte");
-
-      // @ts-ignore
-      await app._onRender({}, {});
-
-      expect(mount).toHaveBeenCalled();
-      expect((app as any).svelteInstance).toBeDefined();
-    });
-
-    it("should unmount Svelte component on close", async () => {
-      const app = new LearningConfigApp();
-      const mockInstance = { some: "instance" };
-      (app as any).svelteInstance = mockInstance;
-
-      const { unmount } = await import("svelte");
-
-      await app.close();
-
-      expect(unmount).toHaveBeenCalledWith(mockInstance);
-      expect((app as any).svelteInstance).toBeNull();
-    });
   });
 });

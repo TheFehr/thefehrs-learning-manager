@@ -34,6 +34,13 @@ describe("ProjectEngine", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    (global as any).ui = {
+      notifications: {
+        info: vi.fn(),
+        warn: vi.fn(),
+        error: vi.fn(),
+      },
+    };
     global.Item = class {
       constructor() {}
       update = vi.fn().mockResolvedValue(this);
@@ -123,6 +130,21 @@ describe("ProjectEngine", () => {
         ]),
       );
       expect(result).toBe(createdItem);
+    });
+
+    it("should return null if target is missing or 0", async () => {
+      const actor = new Actor() as any;
+      const rewardItem = new Item() as any;
+      rewardItem.name = "Invalid Reward";
+      rewardItem.getFlag.mockReturnValue({ target: 0 }); // Invalid target
+      vi.spyOn(ui.notifications, "error");
+
+      const result = await ProjectEngine.initiateProjectFromItem(actor, rewardItem, "tier1");
+
+      expect(result).toBeNull();
+      expect(ui.notifications.error).toHaveBeenCalledWith(
+        expect.stringContaining("Invalid target value"),
+      );
     });
   });
 
@@ -250,10 +272,10 @@ describe("ProjectEngine", () => {
 
       await ProjectEngine.completeProject(item);
 
-      // Should have been called twice (split update)
-      expect(item.update).toHaveBeenCalledTimes(2);
+      // Should have been called once (atomic update)
+      expect(item.update).toHaveBeenCalledTimes(1);
 
-      // First call: primary update (system, name, etc.)
+      // Call: primary update (system, name, etc., and dot-notation updates)
       expect(vi.mocked(item.update).mock.calls[0][0]).toEqual(
         expect.objectContaining({
           name: "Stashed Name",
@@ -263,12 +285,6 @@ describe("ProjectEngine", () => {
               act3: {},
             }),
           }),
-        }),
-      );
-
-      // Second call: dot-notation updates (flags and activity removals)
-      expect(vi.mocked(item.update).mock.calls[1][0]).toEqual(
-        expect.objectContaining({
           "flags.thefehrs-learning-manager": expect.objectContaining({
             isLearnedReward: true,
           }),
@@ -331,6 +347,9 @@ describe("ProjectEngine", () => {
         stashedEffects: [],
         stashedActivities: {},
         stashedType: "weapon",
+        stashedSystem: {
+          description: { value: "Original Description" },
+        },
       };
 
       const item = new Item() as any;
@@ -357,20 +376,20 @@ describe("ProjectEngine", () => {
       const result = await ProjectEngine.processTraining(activity as any);
 
       expect(result).toBe(true);
-      // Check for completion update (it calls completeProject, which does 2 updates in fallback path)
+      // Check for completion update (atomic since Phase 1 refactor)
       expect(item.update).toHaveBeenCalled();
 
-      const firstUpdate = vi.mocked(item.update).mock.calls.find((c) => c[0].type === "weapon")![0];
-      const secondUpdate = vi
+      const completionUpdate = vi
         .mocked(item.update)
         .mock.calls.find((c) => c[0]["flags.thefehrs-learning-manager"])![0];
 
-      expect(firstUpdate.type).toBe("weapon");
-      expect(secondUpdate["flags.thefehrs-learning-manager"]).toEqual(
+      expect(completionUpdate["flags.thefehrs-learning-manager"]).toEqual(
         expect.objectContaining({
           isLearnedReward: true,
         }),
       );
+      // system.description.value should be updated (now in nested system object)
+      expect(completionUpdate.system.description.value).toBeDefined();
 
       expect(actor.setFlag).toHaveBeenCalledWith(
         "thefehrs-learning-manager",
@@ -740,7 +759,8 @@ describe("ProjectEngine", () => {
       item.getFlag = vi.fn().mockReturnValue({ isCompleted: false });
 
       await ProjectEngine.processSpendAll(item);
-      expect(calls).toBeGreaterThan(1);
+      expect(calls).toBe(3);
+      expect(mockProxy.bank.total).toBe(0);
     });
   });
 
@@ -759,7 +779,6 @@ describe("ProjectEngine", () => {
         character: mockActor,
       };
       global.game.user = mockUser;
-      global.ui = { notifications: { warn: vi.fn() } } as any;
 
       vi.spyOn(Settings, "get").mockImplementation((key) => {
         if (key === "autoSpend") return true;

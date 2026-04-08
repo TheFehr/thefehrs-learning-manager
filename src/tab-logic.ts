@@ -8,6 +8,10 @@ import type {
   GuidanceTier,
 } from "./types.js";
 
+/**
+ * Utility class for downtime resolution logic.
+ * Tested against Foundry VTT v12.
+ */
 export class TabLogic {
   static async computeProgress(
     actor: LearningActor,
@@ -82,14 +86,37 @@ export class TabLogic {
         dc: dc,
       };
 
-      const expectedRoll = await new Roll(bulkFormula, formulaData).evaluate();
-      progressGained = Math.max(0, expectedRoll.total);
+      try {
+        const expectedRoll = await new Roll(bulkFormula, formulaData).evaluate();
+        const total = expectedRoll.total;
 
-      console.debug("Downtime Engine | Bulk Expected Progress (Formula):", {
-        bulkFormula,
-        formulaData,
-        progressGained,
-      });
+        if (!Number.isFinite(total)) {
+          console.warn("Downtime Engine | Bulk mathematical formula produced non-finite result:", {
+            bulkFormula,
+            formulaData,
+            total,
+          });
+          progressGained = 0;
+          reason = "Bulk mathematical formula produced an invalid result.";
+        } else {
+          progressGained = Math.max(0, total);
+        }
+
+        console.debug("Downtime Engine | Bulk Expected Progress calculation details:", {
+          bulkFormula,
+          formulaData,
+          result: total,
+          progressGained,
+        });
+      } catch (err) {
+        console.error("Downtime Engine | Failed to evaluate bulk mathematical formula:", {
+          bulkFormula,
+          formulaData,
+          error: err,
+        });
+        progressGained = 0;
+        reason = "Error evaluating bulk mathematical formula. Check console for details.";
+      }
     }
 
     return { progressGained, roll, reason };
@@ -112,17 +139,18 @@ export class TabLogic {
         tutelage: tier?.modifier || 0,
       };
 
-      // 1. Construct the roll to inspect its structure
+      // 1. Construct the roll and evaluate it once to resolve data references
       const roll = new Roll(rules.checkFormula, rollData);
+      await roll.evaluate();
       const dice = roll.dice;
 
       // 2. Handle the deterministic case (no dice)
       if (dice.length === 0) {
-        const result = await roll.evaluate();
-        return result.total >= (rules.checkDC || 0) ? 1 : 0;
+        return roll.total >= (rules.checkDC || 0) ? 1 : 0;
       }
 
-      // 3. Support only the simplest case: exactly one d20 with no special modifiers
+      // 3. Brute force outcomes by forcing the d20 result (1-20).
+      // We only support formulas with exactly one d20 term and no other dice.
       const isSimpleD20 =
         dice.length === 1 &&
         dice[0].faces === 20 &&
@@ -137,23 +165,19 @@ export class TabLogic {
         return 0;
       }
 
-      // 4. Brute force outcomes by forcing the d20 result (1-20)
-      const outcomes: Promise<number>[] = [];
-      for (let i = 1; i <= 20; i++) {
-        const testRoll = roll.clone();
-        const die = testRoll.dice[0];
+      // Use non-global, case-insensitive, word-boundary regex to replace the d20 token
+      const baseFormula = rules.checkFormula.replace(/\b1?d20\b/i, "Outcome");
 
-        // Force the result of the single d20
-        die.results = [{ result: i, active: true }];
-        // @ts-expect-error - internal Foundry property
-        die._evaluated = true;
+      const outcomes = await Promise.all(
+        Array.from({ length: 20 }, (_, idx) => {
+          const i = idx + 1;
+          const formula = baseFormula.replace("Outcome", String(i));
+          const testRoll = new Roll(formula, rollData);
+          return testRoll.evaluate();
+        }),
+      );
 
-        outcomes.push(testRoll.evaluate().then((r) => (r.total >= (rules.checkDC || 0) ? 1 : 0)));
-      }
-
-      const results = await Promise.all(outcomes);
-      const totalSuccesses = results.reduce((acc, val) => acc + val, 0);
-
+      const totalSuccesses = outcomes.filter((r) => r.total >= (rules.checkDC || 0)).length;
       return totalSuccesses / 20;
     } catch (err) {
       console.error("Downtime Engine | Failed to calculate success probability:", err);
@@ -161,102 +185,85 @@ export class TabLogic {
     }
   }
 
-  static async deductCurrency(actor: Actor, amountCp: number): Promise<boolean> {
-    if (amountCp < 0) {
-      console.warn("Negative amount deducted");
+  /**
+   * Deducts currency from an actor.
+   */
+  static async deductCurrency(actor: Actor, costCp: number): Promise<boolean> {
+    if (isNaN(costCp) || costCp < 0) {
+      console.warn(
+        `Downtime Engine | Invalid currency cost: ${costCp}. Must be a non-negative number.`,
+      );
       return false;
     }
     const proxy = ActorProxy.forActor(actor);
     const cur = proxy.currency;
-    let totalCp = cur.gp * 100 + cur.sp * 10 + cur.cp;
+    const totalCp = cur.gp * 100 + cur.sp * 10 + cur.cp;
 
-    if (totalCp < amountCp) {
-      ui.notifications?.warn("Insufficient funds!");
+    if (totalCp < costCp) {
+      ui.notifications?.warn("Downtime Engine | Insufficient currency!");
       return false;
     }
 
-    totalCp -= amountCp;
-    const newGp = Math.floor(totalCp / 100);
-    totalCp %= 100;
-    const newSp = Math.floor(totalCp / 10);
-    const newCp = totalCp % 10;
+    let remaining = totalCp - costCp;
+    const newGp = Math.floor(remaining / 100);
+    remaining %= 100;
+    const newSp = Math.floor(remaining / 10);
+    const newCp = remaining % 10;
 
     await proxy.updateCurrency({ gp: newGp, sp: newSp, cp: newCp });
     return true;
   }
 
-  static meetsRequirements(
-    actor: Actor,
-    requirements: ProjectRequirement[],
-  ): { eligible: boolean; reason: string } {
-    for (const req of requirements) {
-      const actorValue = foundry.utils.getProperty(actor, req.attribute);
-      const targetValue = req.value;
-      const op: ComparisonOperator = req.operator;
+  /**
+   * Formats CP into a readable string (e.g. 1gp, 2sp, 5cp)
+   */
+  static formatCurrency(cp: number): string {
+    if (cp === 0) return "0cp";
+    const isNegative = cp < 0;
+    const absCp = Math.abs(cp);
 
-      let met = false;
-      // Note: == and != intentionally use loose equality for type coercion (e.g. "5" == 5)
-      if (op === "==") met = actorValue == targetValue;
-      else if (op === "!=") met = actorValue != targetValue;
-      else if (op === "===") met = actorValue === targetValue;
-      else if (op === "!==") met = actorValue !== targetValue;
-      else if (op === "includes")
-        met = Array.isArray(actorValue)
-          ? actorValue.includes(targetValue)
-          : String(actorValue).includes(String(targetValue));
-      else if (op === ">") met = actorValue > targetValue;
-      else if (op === ">=") met = actorValue >= targetValue;
-      else if (op === "<") met = actorValue < targetValue;
-      else if (op === "<=") met = actorValue <= targetValue;
-      else {
-        console.warn(
-          `Downtime Engine | Unknown operator "${op}" in requirement for attribute "${req.attribute}".`,
-          {
-            req,
-            actorValue,
-            targetValue,
-          },
-        );
-        met = false;
-      }
+    const gp = Math.floor(absCp / 100);
+    const sp = Math.floor((absCp % 100) / 10);
+    const remainingCp = absCp % 10;
 
-      if (!met) {
-        return {
-          eligible: false,
-          reason: `${req.attribute} is ${actorValue} (${typeof actorValue}), but needs to be ${op} ${targetValue} (${typeof targetValue}).`,
-        };
-      }
-    }
-    return { eligible: true, reason: "" };
-  }
-
-  static formatCurrency(amountCp: number): string {
-    const isNegative = amountCp < 0;
-    const abs = Math.abs(amountCp);
-    const gp = Math.floor(abs / 100);
-    const sp = Math.floor((abs % 100) / 10);
-    const cp = abs % 10;
     const parts = [];
     if (gp > 0) parts.push(`${gp}gp`);
     if (sp > 0) parts.push(`${sp}sp`);
-    if (cp > 0 || parts.length === 0) parts.push(`${cp}cp`);
+    if (remainingCp > 0 || parts.length === 0) parts.push(`${remainingCp}cp`);
+
     const formatted = parts.join(", ");
     return isNegative ? `-${formatted}` : formatted;
   }
 
+  /**
+   * Formats base training time into a readable string using available units.
+   */
   static formatTimeBank(total: number, units: TimeUnit[]): string {
     if (total === 0) return "0";
     const sortedUnits = [...units].sort((a, b) => b.ratio - a.ratio);
     const result = [];
     let remaining = total;
     for (const unit of sortedUnits) {
+      if (unit.ratio <= 0) continue;
       const count = Math.floor(remaining / unit.ratio);
       if (count > 0) {
         result.push(`${count}${unit.short}`);
         remaining %= unit.ratio;
       }
     }
-    return result.length > 0 ? result.join(" ") : "0";
+    if (result.length > 0) return result.join(" ");
+
+    // If total > 0 but it was too small to form a whole unit, show it as fractional smallest unit
+    if (total > 0 && sortedUnits.length > 0) {
+      const smallestUnit = sortedUnits[sortedUnits.length - 1];
+      if (smallestUnit.ratio > 0) {
+        const scaled = total / smallestUnit.ratio;
+        // Show up to 2 decimal places, but remove trailing zeros
+        return `${parseFloat(scaled.toFixed(2))}${smallestUnit.short}`;
+      }
+    }
+
+    return "0";
   }
 
   static calculateTotalBaseTime(timeValues: Record<string, number>, timeUnits: TimeUnit[]): number {
@@ -268,5 +275,76 @@ export class TabLogic {
       }
     }
     return total;
+  }
+
+  static meetsRequirements(
+    actor: Actor,
+    requirements: ProjectRequirement[],
+  ): { eligible: boolean; reason: string } {
+    for (const req of requirements) {
+      const actorValue = foundry.utils.getProperty(actor, req.attribute);
+      const targetValue = req.value;
+      const op: ComparisonOperator = req.operator;
+
+      // Handle missing attributes explicitly
+      if (actorValue === undefined || actorValue === null) {
+        if (op === "!=") {
+          // If both are missing/null, they ARE equal, so != is false
+          if (targetValue === null || targetValue === undefined || targetValue === "") {
+            return {
+              eligible: false,
+              reason: `Requirement not met: attribute "${req.attribute}" is missing and target value is also empty.`,
+            };
+          }
+          // Attribute is missing but target has a value, so != is true. Proceed.
+        } else {
+          return {
+            eligible: false,
+            reason: `Requirement not met: attribute "${req.attribute}" not found on actor.`,
+          };
+        }
+      }
+
+      let met = false;
+      // Note: == and != intentionally use loose equality for type coercion (e.g. "5" == 5)
+      if (op === "==") met = actorValue == targetValue;
+      else if (op === "!=") met = actorValue != targetValue;
+      else if (op === "includes")
+        met = Array.isArray(actorValue)
+          ? actorValue.includes(targetValue)
+          : String(actorValue).includes(String(targetValue));
+      else {
+        const aNum = Number(actorValue);
+        const tNum = Number(targetValue);
+        const isNumeric = !isNaN(aNum) && !isNaN(tNum);
+
+        if (op === ">") met = isNumeric ? aNum > tNum : String(actorValue) > String(targetValue);
+        else if (op === ">=")
+          met = isNumeric ? aNum >= tNum : String(actorValue) >= String(targetValue);
+        else if (op === "<")
+          met = isNumeric ? aNum < tNum : String(actorValue) < String(targetValue);
+        else if (op === "<=")
+          met = isNumeric ? aNum <= tNum : String(actorValue) <= String(targetValue);
+        else {
+          console.warn(
+            `Downtime Engine | Unknown operator "${op}" in requirement for attribute "${req.attribute}".`,
+            {
+              req,
+              actorValue,
+              targetValue,
+            },
+          );
+          met = false;
+        }
+      }
+
+      if (!met) {
+        return {
+          eligible: false,
+          reason: `Requirement not met: ${req.attribute} (${actorValue}) ${op} ${targetValue}`,
+        };
+      }
+    }
+    return { eligible: true, reason: "" };
   }
 }

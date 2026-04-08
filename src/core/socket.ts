@@ -9,12 +9,11 @@ export class Socket {
   /**
    * Type guard for LearningModuleMessage.
    */
-  static isLearningModuleMessage(msg: any): msg is LearningModuleMessage {
-    return (
-      msg && typeof msg.type === "string" && (msg.data === null || typeof msg.data === "object")
-    );
+  static isLearningModuleMessage(msg: unknown): msg is LearningModuleMessage {
+    if (!msg || typeof msg !== "object") return false;
+    const m = msg as Record<string, unknown>;
+    return typeof m.type === "string" && "data" in m;
   }
-
   /**
    * Listens for signals from other clients.
    * Note: The emitting client does NOT receive its own broadcast.

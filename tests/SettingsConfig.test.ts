@@ -1,7 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import SettingsConfig from "../src/apps/SettingsConfig.svelte";
 import { mount, unmount, tick } from "svelte";
-import { Settings } from "../src/core/settings";
 import { toggleUserGM } from "./setup";
 
 vi.unmock("svelte");
@@ -17,33 +16,43 @@ vi.mock("../src/core/settings", () => ({
 }));
 
 describe("SettingsConfig.svelte", () => {
+  let instance: any;
+  let target: HTMLElement;
+
   beforeEach(() => {
     vi.clearAllMocks();
     toggleUserGM(true);
+    target = document.createElement("div");
+    document.body.appendChild(target);
+  });
+
+  afterEach(() => {
+    if (instance) unmount(instance);
+    instance = undefined;
+    target.remove();
   });
 
   it("should mount for GM", async () => {
-    const target = document.createElement("div");
-    const instance = mount(SettingsConfig, {
+    instance = mount(SettingsConfig, {
       target,
       props: {},
     });
-    const { tick } = await import("svelte");
     await tick();
 
     expect(instance).toBeDefined();
     expect(target.innerHTML).toContain("thefehrs-settings");
-    unmount(instance);
+    expect(target.innerHTML).toContain("Global Rules");
   });
 
-  it("should mount for non-GM", () => {
-    (game.user as any).isGM = false;
-    const target = document.createElement("div");
-    const instance = mount(SettingsConfig, {
+  it("should mount for non-GM", async () => {
+    toggleUserGM(false);
+    instance = mount(SettingsConfig, {
       target,
       props: {},
     });
+    await tick();
+
     expect(instance).toBeDefined();
-    unmount(instance);
+    expect(target.innerHTML).toContain("User Preferences");
   });
 });

@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { Logger } from "../src/core/notifications";
 import { Settings } from "../src/core/settings";
 
@@ -22,6 +22,11 @@ describe("Logger", () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     vi.spyOn(console, "warn").mockImplementation(() => {});
     vi.spyOn(console, "debug").mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    delete (global as any).ui;
   });
 
   it("should show info notification and log to console", () => {

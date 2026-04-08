@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { ItemConfigLogic } from "../src/apps/item-config-logic";
 import { getModuleAPI } from "../src/types";
 
@@ -16,6 +16,12 @@ describe("ItemConfigLogic", () => {
       },
     };
     (global as any).CONFIG = {};
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    delete (global as any).ui;
+    delete (global as any).CONFIG;
   });
 
   describe("saveConfig", () => {
@@ -63,13 +69,15 @@ describe("ItemConfigLogic", () => {
     it("should use QuickInsert if Spotlight is unavailable", async () => {
       (global as any).CONFIG.SpotlightOmnisearch = null;
       const mockQuickInsert = {
-        searchItem: vi.fn().mockResolvedValue({ uuid: "quick-uuid" }),
+        open: vi.fn().mockImplementation((config: any) => {
+          config.onSubmit({ uuid: "quick-uuid" });
+        }),
       };
       vi.mocked(getModuleAPI).mockReturnValue(mockQuickInsert as any);
 
       const result = await ItemConfigLogic.searchFollowUp();
       expect(result).toBe("quick-uuid");
-      expect(mockQuickInsert.searchItem).toHaveBeenCalled();
+      expect(mockQuickInsert.open).toHaveBeenCalled();
     });
 
     it("should notify and return null if no modules found", async () => {

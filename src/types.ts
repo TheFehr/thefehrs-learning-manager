@@ -98,7 +98,7 @@ export interface GuidanceTier {
   modifier: number;
   costs: Record<string, number>;
   progress: Record<string, number>;
-  _migratedToV2?: boolean;
+  _migratedGpToCp?: boolean;
 }
 
 export type RewardType = "item" | "effect";
@@ -133,13 +133,13 @@ export interface SearchItem {
   script: string;
   tagline: string;
   tooltip: string;
-  show(): void;
-  get(): any;
+  show(): Promise<void>;
+  get(): Promise<Document | Record<string, unknown>>;
 }
 
 export interface QuickInsertAPI {
-  search: (text: string, filter?: any | null, max?: number) => Promise<SearchItem[]>;
-  searchItem: (opts: { classes?: string[] }) => Promise<{ uuid: string } | null>;
+  search: (text: string, filter?: unknown, max?: number) => Promise<SearchItem[]>;
+  open: (config: unknown) => Promise<void>;
 }
 
 export type LearningProject = ProjectFlagData;
@@ -154,7 +154,25 @@ export interface ModuleAPIs {
 export function getModuleAPI<T extends string & keyof ModuleAPIs>(
   id: T,
 ): ModuleAPIs[T] | undefined {
-  return (game.modules.get(id) as any)?.api;
+  if (typeof game === "undefined" || !game.modules) return undefined;
+  const module = game.modules.get(id);
+  if (!module) return undefined;
+
+  const api = (module as any).api;
+  if (!api || typeof api !== "object") return undefined;
+
+  // Basic shape validation to prevent runtime errors if a module changes its API
+  const validators: Partial<Record<keyof ModuleAPIs, (api: any) => boolean>> = {
+    "quick-insert": (api) => typeof api.search === "function" && typeof api.open === "function",
+  };
+
+  const validator = validators[id];
+  if (validator && !validator(api)) {
+    console.warn(`Downtime Engine | Module API shape mismatch for ${id}. Disabling integration.`);
+    return undefined;
+  }
+
+  return api as ModuleAPIs[T];
 }
 
 export type { ProjectRequirement, ComparisonOperator, ProjectFlagData };
@@ -172,59 +190,52 @@ declare global {
           callback?: (
             event: PointerEvent | SubmitEvent,
             button: HTMLButtonElement,
-            dialog: HTMLDialogElement,
-          ) => void | Promise<void>;
+            dialog: any, // v12 uses ApplicationV2 instance
+          ) => Promise<any>;
         }
 
-        type DialogV2SubmitCallback = (
-          event: SubmitEvent,
-          button: HTMLButtonElement,
-          dialog: HTMLDialogElement,
-        ) => void | Promise<void>;
+        /**
+         * v12 Submit Callback receives the result of the button callback or the action string.
+         */
+        type DialogV2SubmitCallback = (result: any) => Promise<any>;
 
-        interface DialogV2WaitOptions {
-          window?: { title?: string; [key: string]: unknown };
+        interface DialogV2Options {
+          window?: {
+            title?: string;
+            icon?: string;
+            controls?: any[];
+            [key: string]: unknown;
+          };
           content?: string;
           buttons?: DialogV2Button[];
           submit?: DialogV2SubmitCallback;
-          rejectClose?: boolean;
-          modal?: boolean;
-          [key: string]: unknown;
-        }
-
-        interface DialogV2ConfirmOptions {
-          window?: { title?: string; [key: string]: unknown };
-          content?: string;
-          submit?: DialogV2SubmitCallback;
+          close?: (event: Event, dialog: any) => void;
           rejectClose?: boolean;
           modal?: boolean;
           [key: string]: unknown;
         }
 
         class DialogV2 {
-          constructor(
-            options: DialogV2WaitOptions & {
-              close?: () => void;
-              position?: { width?: number; height?: number };
-            },
-          );
-          render(force?: boolean): Promise<unknown>;
+          constructor(options: Partial<DialogV2Options>);
+          render(options?: { force?: boolean; [key: string]: any }): Promise<any>;
           element: HTMLElement;
-          close(): Promise<void>;
+          close(options?: object): Promise<void>;
 
-          static wait(options: DialogV2WaitOptions): Promise<any>;
-          static confirm(options: DialogV2ConfirmOptions): Promise<any>;
+          static wait(options: Partial<DialogV2Options>): Promise<any>;
+          static confirm(options: Partial<DialogV2Options>): Promise<any>;
+          static prompt(options: Partial<DialogV2Options>): Promise<any>;
         }
       }
     }
     namespace utils {
-      function randomID(): string;
+      function randomID(length?: number): string;
       function getProperty<T = unknown>(obj: object, path: string): T;
       function setProperty(obj: object, path: string, value: unknown): boolean;
       function mergeObject<T extends object, U extends object>(
         original: T,
         other: U,
         options?: object,
+        _d?: number,
       ): T & U;
       function escapeHTML(str: string): string;
     }

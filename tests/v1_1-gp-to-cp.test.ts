@@ -5,8 +5,6 @@ import { Settings } from "../src/core/settings";
 vi.mock("../src/core/settings", () => ({
   Settings: {
     ID: "thefehrs-learning-manager",
-    guidanceTiers: [],
-    set: vi.fn(),
   },
 }));
 
@@ -28,16 +26,29 @@ describe("Migration v1.1 (GP to CP)", () => {
 
     await migrateV1_1GpToCp();
 
-    expect(game.settings.set).toHaveBeenCalledWith("thefehrs-learning-manager", "guidanceTiers", [
-      expect.objectContaining({ costs: { hour: 100, day: 1000 }, _migratedToV2: true }),
+    expect(game.settings.set).toHaveBeenCalledWith(Settings.ID, "guidanceTiers", [
+      expect.objectContaining({ costs: { hour: 100, day: 1000 }, _migratedGpToCp: true }),
     ]);
   });
 
-  it("should handle already migrated or empty costs", async () => {
-    const mockTiers = [{ id: "tier1", costs: {}, _migratedToV2: true }];
+  it("should handle already migrated tiers", async () => {
+    const mockTiers = [{ id: "tier1", costs: { hour: 100 }, _migratedGpToCp: true }];
     vi.mocked(game.settings.get).mockReturnValue(mockTiers);
 
     await migrateV1_1GpToCp();
     expect(game.settings.set).not.toHaveBeenCalled();
+  });
+
+  it("should handle empty costs", async () => {
+    const mockTiers = [{ id: "tier1", costs: {} }];
+    vi.mocked(game.settings.get).mockReturnValue(mockTiers);
+
+    await migrateV1_1GpToCp();
+    // It should still mark as migrated even if costs were empty to avoid re-processing
+    expect(game.settings.set).toHaveBeenCalledWith(
+      Settings.ID,
+      "guidanceTiers",
+      expect.arrayContaining([expect.objectContaining({ _migratedGpToCp: true })]),
+    );
   });
 });

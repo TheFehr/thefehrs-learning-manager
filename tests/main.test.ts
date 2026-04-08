@@ -1,4 +1,5 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { mount, unmount } from "svelte";
 import { LearningManager } from "../src/LearningManager";
 import { TabLogic } from "../src/tab-logic";
 import { ActorProxy } from "../src/actor-proxy";
@@ -15,6 +16,7 @@ vi.mock("../src/project-engine", () => ({
     getActivitiesData: vi.fn().mockReturnValue([]),
     injectActivities: vi.fn().mockResolvedValue(undefined),
     handleAutoTrainSignal: vi.fn(),
+    signalTimeDistribution: vi.fn(),
   },
 }));
 
@@ -31,6 +33,10 @@ describe("LearningManager", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   describe("TabLogic.formatTimeBank", () => {
@@ -163,6 +169,29 @@ describe("LearningManager", () => {
       if (registeredHandler) {
         await registeredHandler({ type: "timeGrantedSignal", data: null });
         expect(autoTrainSpy).toHaveBeenCalled();
+      }
+    });
+
+    it("should handle errors in socket handler gracefully", async () => {
+      let registeredHandler: ((msg: any) => Promise<void>) | undefined;
+      vi.spyOn(Socket, "listen").mockImplementation((handler) => {
+        registeredHandler = handler;
+        return vi.fn();
+      });
+      vi.spyOn(ProjectEngine, "handleAutoTrainSignal").mockRejectedValue(
+        new Error("Auto-train failed"),
+      );
+      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+      LearningManager.registerSocketListeners();
+
+      if (registeredHandler) {
+        await registeredHandler({ type: "timeGrantedSignal", data: null });
+        expect(errorSpy).toHaveBeenCalledWith(
+          expect.stringContaining("Failed to handle auto-train signal"),
+          expect.any(Error),
+          expect.any(String),
+        );
       }
     });
   });
@@ -298,10 +327,12 @@ describe("LearningManager", () => {
     it("should correctly enable/disable Item Tab", () => {
       let registeredTab: any;
       const mockApi = {
-        registerGroupTab: vi.fn(),
+        registerActorTab: vi.fn(),
         registerItemTab: vi.fn().mockImplementation((tab) => {
           registeredTab = tab;
         }),
+        registerGroupTab: vi.fn(),
+        registerItemContent: vi.fn(),
         registerCharacterContent: vi.fn(),
         models: {
           HtmlTab: class {
@@ -340,7 +371,6 @@ describe("LearningManager", () => {
       const mockInstance = { some: "instance" };
       LearningManager.svelteInstances.set("app123", mockInstance as any);
 
-      const { unmount } = await import("svelte");
       const closeHook = vi.mocked(Hooks.on).mock.calls.find((c) => c[0] === "closeApplication");
       expect(closeHook).toBeDefined();
 
@@ -356,7 +386,6 @@ describe("LearningManager", () => {
       const app = { id: "app1", actor };
       LearningManager.svelteInstances.set("app1", mockOldInstance as any);
 
-      const { unmount, mount } = await import("svelte");
       const params = { app, element: document.createElement("div") };
       const selector = ".root";
       params.element.innerHTML = '<div class="root"></div>';
@@ -365,6 +394,7 @@ describe("LearningManager", () => {
 
       expect(unmount).toHaveBeenCalledWith(mockOldInstance);
       expect(mount).toHaveBeenCalled();
+      expect(LearningManager.svelteInstances.get("app1")).toBeDefined();
     });
   });
 });

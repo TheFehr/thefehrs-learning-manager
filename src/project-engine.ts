@@ -3,8 +3,8 @@ import { ActorProxy } from "./actor-proxy.js";
 import { ActivityManager } from "./core/activity-manager.js";
 import { ProjectLifecycle } from "./project-lifecycle.js";
 import { LearningActivityData, ProjectFlagData, ProjectItem } from "./project-item.js";
-import type { Item5e, LearningActor } from "./types.js";
-import { Socket } from "./core/socket";
+import type { Item5e, LearningActor, TimeUnit, SystemRules } from "./types.js";
+import { Socket } from "./core/socket.js";
 
 import { ProjectUI } from "./core/project-ui.js";
 
@@ -69,8 +69,12 @@ export class ProjectEngine {
     return ProjectLifecycle.updateItemWithProgress(item, projectData);
   }
 
+  static _tabLogicModule: any = null;
+
   static async importTabLogic() {
-    return await import("./tab-logic");
+    if (this._tabLogicModule) return this._tabLogicModule;
+    this._tabLogicModule = await import("./tab-logic");
+    return this._tabLogicModule;
   }
 
   /**
@@ -83,13 +87,29 @@ export class ProjectEngine {
     const proxy = ActorProxy.forActor(actor as unknown as Actor);
     const bank = proxy.bank;
     if (!bank.total || bank.total <= 0) {
-      if (!allowedUnitIds) ui.notifications?.warn("No training time in your bank!");
+      if (!allowedUnitIds) {
+        ui.notifications?.warn("No training time in your bank!");
+      } else {
+        console.debug("Downtime Engine | No training time in bank, skipping auto-spend.");
+      }
       return false;
     }
 
-    const activities = (item.system.activities as unknown as LearningActivityData[])
+    // system.activities can be a Map, Collection, or Array depending on document state/version
+    const rawActivities = item.system.activities as
+      | Map<unknown, unknown>
+      | Array<unknown>
+      | Record<string, unknown>;
+    const activityList =
+      typeof rawActivities?.values === "function"
+        ? Array.from(rawActivities.values())
+        : Array.isArray(rawActivities)
+          ? rawActivities
+          : Object.values(rawActivities || {});
+
+    const activities = (activityList as LearningActivityData[])
       .filter(
-        (a) => a.flags?.[Settings.ID]?.isLearningActivity && !a.flags?.[Settings.ID]?.isSpendAll,
+        (a) => a?.flags?.[Settings.ID]?.isLearningActivity && !a?.flags?.[Settings.ID]?.isSpendAll,
       )
       .map((a) => {
         const unitId = a.flags?.[Settings.ID]?.timeUnitId;
@@ -121,6 +141,8 @@ export class ProjectEngine {
     let iterations = 0;
     const maxIterations = 100;
     let anySuccess = false;
+    let consecutiveFailures = 0;
+    const maxConsecutiveFailures = 10;
 
     while (iterations < maxIterations) {
       const currentBank = proxy.bank.total || 0;
@@ -133,10 +155,28 @@ export class ProjectEngine {
         console.warn(
           `Downtime Engine | Failed to process training for "${fitting.name}" unit in Spend All loop. Skipping...`,
         );
+        consecutiveFailures++;
+        if (consecutiveFailures >= maxConsecutiveFailures) {
+          const msg = `Spend All loop aborted after ${consecutiveFailures} consecutive failures.`;
+          console.error(`Downtime Engine | ${msg}`);
+          ui.notifications?.error(`Downtime Engine | ${msg}`);
+          break;
+        }
         iterations++;
         continue;
       }
+
+      // Defensive check: ensure bank actually decreased
+      const newBank = proxy.bank.total || 0;
+      if (newBank >= currentBank) {
+        const msg = `Spend All loop detected no decrease in bank total after successful training for "${fitting.name}". Aborting to prevent infinite loop.`;
+        console.error(`Downtime Engine | ${msg}`);
+        ui.notifications?.error(`Downtime Engine | ${msg}`);
+        break;
+      }
+
       anySuccess = true;
+      consecutiveFailures = 0;
 
       const updatedProject = actor.items.get(item.id) as ProjectItem | undefined;
       if (!updatedProject || !updatedProject.system?.activities) break;
@@ -238,20 +278,13 @@ export class ProjectEngine {
 
       const choice = await foundry.applications.api.DialogV2.wait({
         window: { title: `Training Resolution: ${tu.name}` },
-        content: `
-          <div style="margin-bottom: 1rem;">
-            <p>How would you like to resolve this <b>${tu.name}</b> session?</p>
-            <div style="display: flex; gap: 1rem; flex-direction: column;">
-              <div style="padding: 0.5rem; border: 1px solid var(--t5e-faint-color); border-radius: 4px; background: rgba(0,0,0,0.05);">
-                <i class="fas fa-calculator"></i> <b>Bulk Method</b>: Gaining <strong>${bulkResult.progressGained}</strong> progress fixed.
-              </div>
-              <div style="padding: 0.5rem; border: 1px solid var(--t5e-faint-color); border-radius: 4px; background: rgba(0,0,0,0.05);">
-                <i class="fas fa-dice-d20"></i> <b>Separate Rolls</b>: Each hour has a <strong>${chancePercent}%</strong> chance of success (DC ${rules.checkDC}).
-                <br><small style="opacity: 0.8;">Statistically expected progress: ${expectedFromSeparate} across ${tu.ratio} rolls.</small>
-              </div>
-            </div>
-          </div>
-        `,
+        content: this._renderTrainingResolutionDialog(
+          tu,
+          bulkResult.progressGained,
+          chancePercent,
+          expectedFromSeparate,
+          rules,
+        ),
         buttons: [
           { action: "bulk", label: `Use Bulk`, icon: "fas fa-calculator" },
           { action: "separate", label: `Roll separately`, icon: "fas fa-dice-d20" },
@@ -327,7 +360,6 @@ export class ProjectEngine {
           });
 
           if (proceed) {
-            const { TabLogic } = await this.importTabLogic();
             const followUpFlags = followUpItem.getFlag("thefehrs-learning-manager", "projectData");
             const reqs = followUpFlags?.requirements || [];
             const { eligible, reason: reqReason } = TabLogic.meetsRequirements(
@@ -356,7 +388,7 @@ export class ProjectEngine {
                 );
                 await this.updateItemWithProgress(newItem, newFlags);
                 ui.notifications?.info(
-                  `Started follow-up project: ${followUpItem.name} with ${
+                  `Started follow-up project: ${foundry.utils.escapeHTML(followUpItem.name)} with ${
                     newFlags.progress
                   } initial progress.`,
                 );
@@ -379,7 +411,7 @@ export class ProjectEngine {
 
     const BATCH_THRESHOLD = 5;
     if (isSeparate && tu.ratio > BATCH_THRESHOLD) {
-      const successCount = rolls.filter((r) => r.total >= (rules.checkDC || 0)).length;
+      const successCount = rolls.filter((r) => r.total >= (rules.checkDC ?? 12)).length;
       ui.notifications?.info(
         `Training complete: Gained ${totalProgressGained} progress from ${tu.ratio} separate rolls (${successCount} successes).`,
       );
@@ -387,7 +419,7 @@ export class ProjectEngine {
       for (const r of rolls) {
         await r.toMessage(
           {
-            flavor: `${actor.name} tries to learn ${item.name} (DC ${rules.checkDC})`,
+            flavor: `${actor.name} tries to learn ${item.name} (DC ${rules.checkDC ?? 12})`,
           },
           { rollMode: rules.rollMode || "gmroll" },
         );
@@ -426,7 +458,7 @@ export class ProjectEngine {
     if (projects.length === 1) {
       const project = projects[0];
       await this.processSpendAll(project as unknown as Item5e, autoSpendUnits);
-    } else if (autoSpendEnabled && projects.length > 1) {
+    } else if (projects.length > 1) {
       ui.notifications?.warn(
         "Downtime Engine | You have auto-spending enabled, but more than one active project. Please open your character sheet and spend the time yourself.",
       );
@@ -438,5 +470,29 @@ export class ProjectEngine {
    */
   static signalTimeDistribution() {
     Socket.emitSignal("timeGrantedSignal");
+  }
+
+  private static _renderTrainingResolutionDialog(
+    tu: TimeUnit,
+    bulkProgress: number,
+    chancePercent: number,
+    expectedFromSeparate: string,
+    rules: SystemRules,
+  ): string {
+    const safeTuName = foundry.utils.escapeHTML(tu.name);
+    return `
+      <div style="margin-bottom: 1rem;">
+        <p>How would you like to resolve this <b>${safeTuName}</b> session?</p>
+        <div style="display: flex; gap: 1rem; flex-direction: column;">
+          <div style="padding: 0.5rem; border: 1px solid var(--t5e-faint-color); border-radius: 4px; background: rgba(0,0,0,0.05);">
+            <i class="fas fa-calculator"></i> <b>Bulk Method</b>: Gaining <strong>${bulkProgress}</strong> progress fixed.
+          </div>
+          <div style="padding: 0.5rem; border: 1px solid var(--t5e-faint-color); border-radius: 4px; background: rgba(0,0,0,0.05);">
+            <i class="fas fa-dice-d20"></i> <b>Separate Rolls</b>: Each hour has a <strong>${chancePercent}%</strong> chance of success (DC ${rules.checkDC ?? 12}).
+            <br><small style="opacity: 0.8;">Statistically expected progress: ${expectedFromSeparate} across ${tu.ratio} rolls.</small>
+          </div>
+        </div>
+      </div>
+    `;
   }
 }

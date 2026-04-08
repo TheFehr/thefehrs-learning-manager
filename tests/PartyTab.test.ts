@@ -1,7 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import PartyTab from "../src/apps/tabs/PartyTab.svelte";
 import { mount, unmount, tick } from "svelte";
-import { toggleUserGM } from "./setup";
 
 vi.unmock("svelte");
 
@@ -17,6 +16,9 @@ vi.mock("../src/apps/party-tab-logic", () => ({
 }));
 
 describe("PartyTab.svelte", () => {
+  let instance: any;
+  let target: HTMLElement;
+
   const mockActor = {
     id: "party1",
     name: "Party",
@@ -49,12 +51,19 @@ describe("PartyTab.svelte", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    toggleUserGM(true);
+    target = document.createElement("div");
+    document.body.appendChild(target);
+  });
+
+  afterEach(() => {
+    if (instance) unmount(instance);
+    instance = undefined;
+    target.remove();
+    vi.restoreAllMocks();
   });
 
   it("should mount and display members", async () => {
-    const target = document.createElement("div");
-    const instance = mount(PartyTab, {
+    instance = mount(PartyTab, {
       target,
       props: mockProps as any,
     });
@@ -63,19 +72,16 @@ describe("PartyTab.svelte", () => {
     expect(target.innerHTML).toContain("Actor 1");
     expect(target.innerHTML).toContain("Project 1");
     expect(target.innerHTML).toContain("Tier 1");
-    unmount(instance);
   });
 
   it("should show empty state if member has no projects", async () => {
-    const target = document.createElement("div");
     const membersWithNoProjects = [{ ...mockProps.members[0], projects: [] }];
-    const instance = mount(PartyTab, {
+    instance = mount(PartyTab, {
       target,
       props: { ...mockProps, members: membersWithNoProjects } as any,
     });
     await tick();
 
     expect(target.innerHTML).toContain("No active projects");
-    unmount(instance);
   });
 });

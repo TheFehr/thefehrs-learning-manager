@@ -22,7 +22,12 @@
   <div class="compendium-list">
     {#each availablePacks as pack (pack.id)}
       <label class="compendium-item">
-        <input type="checkbox" checked={allowedCompendiums.includes(pack.id)} onchange={() => toggleCompendium(pack.id)} />
+        <input 
+          type="checkbox" 
+          data-pack-id={pack.id}
+          checked={allowedCompendiums.includes(pack.id)} 
+          onchange={() => toggleCompendium(pack.id)} 
+        />
         <span>{pack.label} <small>[{pack.id}]</small></span>
       </label>
     {:else}
