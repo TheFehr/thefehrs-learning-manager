@@ -269,10 +269,10 @@ export class ProjectLifecycle {
     rollMode: string,
   ): Promise<boolean> {
     // Delete the old in-progress item
+    const createdItem = newItem as unknown as Item;
     try {
       await (oldItem as unknown as Item).delete();
     } catch (err) {
-      const createdItem = newItem as unknown as Item;
       console.error(
         `Downtime Engine | Failed to delete original project item after restoration. New item created: ${createdItem.name} (${createdItem.id})`,
         err,
