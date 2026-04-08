@@ -1,10 +1,12 @@
 import { ActorProxy } from "../actor-proxy.js";
 
 function resolveControlledActor(): Actor | undefined {
+  if (typeof canvas === "undefined" || !canvas?.ready) return undefined;
+
   let actor = game.user?.character;
 
   // Fallback to selected token
-  const controlledTokens = (canvas as { tokens?: { controlled?: Token[] } }).tokens?.controlled;
+  const controlledTokens = (canvas as any).tokens?.controlled;
   if (!actor && controlledTokens && controlledTokens.length > 0) {
     actor = controlledTokens[0].actor ?? undefined;
   }
@@ -121,8 +123,10 @@ export function initDebugHelpers() {
   // and to make it discoverable
   if (import.meta.env.DEV) {
     (window as unknown as { ude: typeof DebugHelpers }).ude = DebugHelpers;
-    console.debug(
-      "Downtime Engine | Debug helpers initialized. Use `ude.addTime(hours)` in the console.",
-    );
+    Hooks.once("ready", () => {
+      console.debug(
+        "Downtime Engine | Debug helpers initialized. Use `ude.addTime(hours)` in the console.",
+      );
+    });
   }
 }

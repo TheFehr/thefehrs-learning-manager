@@ -15,6 +15,7 @@ describe("DebugHelpers", () => {
       user: { character: null },
     };
     (global as any).canvas = {
+      ready: true,
       tokens: { controlled: [] },
     };
     (global as any).ui = {

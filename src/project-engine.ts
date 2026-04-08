@@ -129,9 +129,12 @@ export class ProjectEngine {
     if (!allowedUnitIds) {
       const { TabLogic } = await this.importTabLogic();
       const formattedTime = TabLogic.formatTimeBank(bank.total, Settings.timeUnits);
+      const safeFormattedTime = foundry.utils.escapeHTML(formattedTime);
+      const safeItemName = foundry.utils.escapeHTML(item.name);
+
       const confirmed = await foundry.applications.api.DialogV2.confirm({
         window: { title: "Confirm Spend All Time" },
-        content: `<p>Are you sure you want to spend <b>all</b> your available training time (<b>${formattedTime}</b>) on <b>${item.name}</b>?</p>`,
+        content: `<p>Are you sure you want to spend <b>all</b> your available training time (<b>${safeFormattedTime}</b>) on <b>${safeItemName}</b>?</p>`,
         rejectClose: false,
         modal: true,
       });

@@ -39,15 +39,22 @@ export class TabLogic {
         return { progressGained: 0, reason: "No check formula defined in rules." };
       }
 
-      roll = await new Roll(
-        rules.checkFormula,
-        {
-          ...actor.getRollData(),
-          tutelage: tier?.modifier || 0,
-        },
-        // @ts-expect-error - Foundry Roll constructor accepts target in options
-        { target: rules.checkDC },
-      ).evaluate();
+      try {
+        roll = await new Roll(
+          rules.checkFormula,
+          {
+            ...actor.getRollData(),
+            tutelage: tier?.modifier || 0,
+          },
+          // @ts-expect-error - Foundry Roll constructor accepts target in options
+          { target: rules.checkDC },
+        ).evaluate();
+      } catch (err) {
+        return {
+          progressGained: 0,
+          reason: `Invalid check formula: ${err instanceof Error ? err.message : String(err)}`,
+        };
+      }
 
       let multiplier = 1;
       const strategy = rules.critDoubleStrategy ?? "never";
@@ -131,7 +138,7 @@ export class TabLogic {
     rules: SystemRules,
     tier: GuidanceTier | undefined,
   ): Promise<number> {
-    if (!rules.checkFormula || !rules.checkDC) return 0;
+    if (!rules.checkFormula || rules.checkDC == null) return 0;
 
     try {
       const rollData = {

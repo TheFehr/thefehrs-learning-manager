@@ -115,6 +115,8 @@ export async function migrateToV2_1() {
 
     // 4. Operator Migration: Items in Allowed Compendiums
     const allowedPacks = Settings.allowedCompendiums || [];
+    let hasFailures = false;
+
     for (const packId of allowedPacks) {
       const pack = game.packs.get(packId);
       if (!pack || pack.metadata.type !== "Item") continue;
@@ -150,6 +152,7 @@ export async function migrateToV2_1() {
         }
       } catch (err) {
         console.error(`Downtime Engine | Failed to migrate compendium pack ${packId}:`, err);
+        hasFailures = true;
       } finally {
         if (wasLocked) {
           try {
@@ -159,9 +162,14 @@ export async function migrateToV2_1() {
               `Downtime Engine | Failed to re-lock compendium pack ${packId}:`,
               lockErr,
             );
+            hasFailures = true;
           }
         }
       }
+    }
+
+    if (hasFailures) {
+      throw new Error("One or more compendium packs failed to migrate.");
     }
 
     await Settings.set("migrationVersion", "2.1.0");

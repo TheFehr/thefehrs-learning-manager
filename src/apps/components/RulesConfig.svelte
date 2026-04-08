@@ -16,9 +16,12 @@
 
   let needsCheckFields = $derived(
     rules.nonBulkMethod === 'roll' || 
-    rules.bulkMethod === 'roll' || 
-    rules.bulkMethod === 'mathematical'
+    rules.bulkMethod === 'roll'
   );
+
+  let needsDC = $derived(
+    needsCheckFields || rules.bulkMethod === 'mathematical'
+  )
 
   let needsBulkFormula = $derived(rules.bulkMethod === 'mathematical');
 
@@ -101,6 +104,13 @@
     <div class="form-group">
       <label for="rule-threshold">Crit Threshold</label>
       <input id="rule-threshold" type="number" bind:value={rules.critThreshold} min="1" max="20" />
+    </div>
+  {/if}
+
+  {#if needsDC && !needsCheckFields}
+    <div class="form-group">
+      <label for="rule-dc">Check DC</label>
+      <input id="rule-dc" type="number" bind:value={rules.checkDC} />
     </div>
   {/if}
 

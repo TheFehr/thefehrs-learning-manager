@@ -2,15 +2,18 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { TabLogic } from "../src/tab-logic";
 
 describe("TabLogic", () => {
+  let originalRoll: any;
+
   beforeEach(() => {
     vi.clearAllMocks();
+    originalRoll = global.Roll;
     /**
      * Stub for Foundry's Roll class.
      * Simulates basic evaluation, cloning, and d20 outcome overrides
      * used in success probability brute-forcing.
      */
     const BaseRoll =
-      global.Roll ||
+      originalRoll ||
       class {
         constructor(
           public formula: string,
@@ -101,6 +104,7 @@ describe("TabLogic", () => {
   });
 
   afterEach(() => {
+    global.Roll = originalRoll;
     vi.restoreAllMocks();
   });
 

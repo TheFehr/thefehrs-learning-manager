@@ -308,9 +308,9 @@ export class ProjectLifecycle {
     clonedData.name = projectDataFlags.stashedName || (item as unknown as Item).name;
     clonedData.effects = projectDataFlags.stashedEffects || [];
 
-    // Perform deep merge of stashed system to preserve properties from other modules
+    // Replace system data with deep clone of stashed system to prevent artifact survival
     if (projectDataFlags.stashedSystem) {
-      foundry.utils.mergeObject(clonedData.system, projectDataFlags.stashedSystem);
+      clonedData.system = foundry.utils.deepClone(projectDataFlags.stashedSystem);
     }
 
     clonedData.flags = {
@@ -318,10 +318,9 @@ export class ProjectLifecycle {
       ...completedFlags,
     };
 
-    // Restore stashed activities in the clone using deep merge
+    // Restore stashed activities in the clone using deep clone
     if (projectDataFlags.stashedActivities) {
-      if (!clonedData.system.activities) clonedData.system.activities = {};
-      foundry.utils.mergeObject(clonedData.system.activities, projectDataFlags.stashedActivities);
+      clonedData.system.activities = foundry.utils.deepClone(projectDataFlags.stashedActivities);
     }
 
     const [created] = await (actor as unknown as Actor).createEmbeddedDocuments("Item", [

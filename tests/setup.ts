@@ -25,6 +25,10 @@ globalThis.foundry = {
     },
   },
   utils: {
+    deepClone: vi.fn((obj: any) => {
+      if (!obj || typeof obj !== "object") return obj;
+      return JSON.parse(JSON.stringify(obj));
+    }),
     randomID: vi.fn().mockReturnValue("randomid"),
     isNewerVersion: vi.fn((newer: string, current: string) => {
       if (newer === current) return false;
@@ -120,16 +124,22 @@ globalThis.Roll = class {
       if (trimmed.startsWith("@")) {
         val = Number(this.data[trimmed.slice(1)]) || 0;
       } else if (trimmed.includes("d")) {
-        if (this.dice.length > 0) {
-          val = this.dice.reduce((acc, d) => {
-            return (
-              acc +
-              (d.results?.reduce(
-                (s: number, r: any) => s + (r.active !== false ? r.result : 0),
-                0,
-              ) || 0)
-            );
-          }, 0);
+        // Find corresponding Die term if available
+        const dieTerm = this.terms.find(
+          (t) => t instanceof foundry.dice.terms.Die && t.formula === trimmed,
+        );
+        if (dieTerm) {
+          val =
+            dieTerm.results?.reduce(
+              (s: number, r: any) => s + (r.active !== false ? r.result : 0),
+              0,
+            ) || 0;
+        } else if (this.dice.length > 0) {
+          // Fallback to searching this.dice if terms aren't populated
+          const d = this.dice.find((d) => d.faces === 20); // Common case for these tests
+          val =
+            d?.results?.reduce((s: number, r: any) => s + (r.active !== false ? r.result : 0), 0) ||
+            0;
         } else {
           val = 10; // Default die result
         }
@@ -148,7 +158,8 @@ globalThis.Roll = class {
     return this;
   }
   static fromTerms(terms: any[]) {
-    const r = new globalThis.Roll("");
+    const formula = terms.map((t) => t.formula || String(t.total || t.result || "")).join(" ");
+    const r = new globalThis.Roll(formula);
     r.terms = [...terms];
     r.dice = terms.filter((t) => t instanceof foundry.dice.terms.Die);
     return r;
