@@ -324,7 +324,7 @@ describe("TabLogic", () => {
       };
       const { ActorProxy } = await import("../src/actor-proxy");
       vi.spyOn(ActorProxy, "forActor").mockReturnValue(mockProxy as any);
-      (global as any).ui = { notifications: { warn: vi.fn() } };
+      vi.spyOn(ui.notifications, "warn").mockImplementation(() => {});
 
       const success = await TabLogic.deductCurrency(actor, 50);
       expect(success).toBe(false);

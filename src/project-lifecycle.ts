@@ -17,11 +17,11 @@ export class ProjectLifecycle {
     const item5e = rewardDoc as unknown as Item5e;
     const itemData = item5e.toObject();
     const stashedEffects = itemData.effects || [];
-    const stashedActivities = itemData.system.activities || {};
+    const stashedActivities = foundry.utils.deepClone(itemData.system.activities || {});
     const stashedType = itemData.type || "";
     const stashedName = itemData.name || "";
     const stashedDescription = itemData.system.description?.value || "";
-    const stashedSystem = itemData.system || {};
+    const stashedSystem = foundry.utils.deepClone(itemData.system || {});
     const stashedSourceUuid = (rewardDoc as { uuid?: string }).uuid || "";
 
     const projectItem = rewardDoc as unknown as ProjectItem;
@@ -103,7 +103,10 @@ export class ProjectLifecycle {
       `Downtime Engine | Created embedded item "${(created as unknown as Item).name}" (ID: ${createdItem.id}). Injecting activities...`,
     );
     try {
-      await ActivityManager.injectActivities(createdItem, projectData.target);
+      const injected = await ActivityManager.injectActivities(createdItem, projectData.target);
+      if (!injected) {
+        throw new Error("No learning activities were injected for the created project item.");
+      }
     } catch (err) {
       console.error(
         `Downtime Engine | Failed to inject activities for item "${createdItem.name}". Cleaning up...`,
