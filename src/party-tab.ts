@@ -58,7 +58,7 @@ export class PartyTab {
   ): MemberMappedData | null {
     const actualActor =
       member.actor ||
-      (this.getMemberId(member) ? game.actors?.get(this.getMemberId(member)!) : null);
+      (this.getMemberId(member) ? (game.actors as any)?.get(this.getMemberId(member)!) : null);
 
     if (!globalThis.Actor || !(actualActor instanceof globalThis.Actor)) return null;
     const a = actualActor as unknown as Actor5e;

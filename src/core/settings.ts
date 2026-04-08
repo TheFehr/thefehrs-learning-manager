@@ -121,14 +121,14 @@ export class SettingsManager<Settings extends Record<string, any> = SettingsSche
    * Generic getter for a setting.
    */
   get<K extends keyof Settings>(key: K): Settings[K] {
-    return this.settings.get(SettingsManager.ID, key as string) as Settings[K];
+    return (game.settings as any).get(SettingsManager.ID, key as string) as Settings[K];
   }
 
   /**
    * Generic setter for a setting.
    */
   async set<K extends keyof Settings>(key: K, value: Settings[K]): Promise<void> {
-    await this.settings.set(SettingsManager.ID, key as string, value);
+    await (game.settings as any).set(SettingsManager.ID, key as string, value);
   }
 
   /**
@@ -210,28 +210,28 @@ export class SettingsManager<Settings extends Record<string, any> = SettingsSche
   // --- Legacy Accessors (kept for backward compatibility, now thin wrappers) ---
 
   get migrationVersion(): Settings["migrationVersion"] {
-    return this.getWithFallback("migrationVersion", DEFAULT_SETTINGS.migrationVersion);
+    return this.getWithFallback("migrationVersion", DEFAULT_SETTINGS.migrationVersion as any);
   }
   get rules(): Settings["rules"] {
-    return this.getWithFallback("rules", DEFAULT_SETTINGS.rules);
+    return this.getWithFallback("rules", DEFAULT_SETTINGS.rules as any);
   }
   get timeUnits(): Settings["timeUnits"] {
-    return this.getWithFallback("timeUnits", DEFAULT_SETTINGS.timeUnits);
+    return this.getWithFallback("timeUnits", DEFAULT_SETTINGS.timeUnits as any);
   }
   get guidanceTiers(): Settings["guidanceTiers"] {
-    return this.getWithFallback("guidanceTiers", DEFAULT_SETTINGS.guidanceTiers);
+    return this.getWithFallback("guidanceTiers", DEFAULT_SETTINGS.guidanceTiers as any);
   }
   get allowedCompendiums(): Settings["allowedCompendiums"] {
-    return this.getWithFallback("allowedCompendiums", DEFAULT_SETTINGS.allowedCompendiums);
+    return this.getWithFallback("allowedCompendiums", DEFAULT_SETTINGS.allowedCompendiums as any);
   }
   get projectTemplates(): Settings["projectTemplates"] {
-    return this.getWithFallback("projectTemplates", DEFAULT_SETTINGS.projectTemplates);
+    return this.getWithFallback("projectTemplates", DEFAULT_SETTINGS.projectTemplates as any);
   }
   get autoSpend(): Settings["autoSpend"] {
-    return this.getWithFallback("autoSpend", DEFAULT_SETTINGS.autoSpend);
+    return this.getWithFallback("autoSpend", DEFAULT_SETTINGS.autoSpend as any);
   }
   get autoSpendUnits(): Settings["autoSpendUnits"] {
-    return this.getWithFallback("autoSpendUnits", DEFAULT_SETTINGS.autoSpendUnits);
+    return this.getWithFallback("autoSpendUnits", DEFAULT_SETTINGS.autoSpendUnits as any);
   }
 
   registerMenu(key: string, data: SettingMenuConfig): void {

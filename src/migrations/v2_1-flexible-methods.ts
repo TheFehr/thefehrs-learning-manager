@@ -68,7 +68,8 @@ export async function migrateToV2_1() {
     }
 
     // 2. Operator Migration: Project Templates in Settings
-    const templates = (game.settings.get(Settings.ID, "projectTemplates") as any[]) || [];
+    const templates =
+      (game.settings.get(Settings.ID, "projectTemplates") as unknown as any[]) || [];
     let templatesUpdated = false;
 
     const newTemplates = templates.map((tpl) => {
@@ -85,7 +86,7 @@ export async function migrateToV2_1() {
     }
 
     // 3. Operator Migration: Actor Items
-    const actors = game.actors || [];
+    const actors = (game.actors as unknown as any[]) || [];
     for (const actor of actors) {
       const projects = (actor as any).items.filter(
         (i: any) =>
@@ -94,7 +95,7 @@ export async function migrateToV2_1() {
 
       const updates: any[] = [];
       for (const item of projects) {
-        const projectData = item.getFlag(Settings.ID, "projectData");
+        const projectData = (item as any).getFlag(Settings.ID, "projectData");
         if (projectData?.requirements) {
           const { newRequirements, changed } = migrateRequirementOperators(
             projectData.requirements,
@@ -128,7 +129,7 @@ export async function migrateToV2_1() {
         const documents = await pack.getDocuments();
         const updates: any[] = [];
         for (const item of documents) {
-          const projectData = item.getFlag(Settings.ID, "projectData") as any;
+          const projectData = (item as any).getFlag(Settings.ID, "projectData") as any;
           if (projectData?.requirements) {
             const { newRequirements, changed } = migrateRequirementOperators(
               projectData.requirements,

@@ -35,7 +35,7 @@ export type ActorSystem5e =
   | NPCActorSystemData
   | GroupActorSystemData
   | VehicleActorSystemData;
-export type ItemSystem5e =
+export type ItemSystem5e = (
   | FeatItemSystemData
   | SpellItemSystemData
   | ConsumableItemSystemData
@@ -47,7 +47,11 @@ export type ItemSystem5e =
   | SubclassItemSystemData
   | RaceItemSystemData
   | FacilityItemSystemData
-  | ContainerItemSystemData;
+  | ContainerItemSystemData
+) & {
+  activities?: Record<string, any>;
+  description?: { value: string; [key: string]: any };
+};
 
 // --- Augmented Documents ---
 
@@ -60,8 +64,28 @@ export type Item5e = Omit<Item, "system"> & {
   system: ItemSystem5e;
 };
 
-/** Augmented ActivityData to allow null in visibility levels (standard dnd5e behavior) */
-export interface ActivityData5e extends Omit<ActivityData, "visibility"> {
+/** Augmented shared dnd5e types to include missing fields like 'override' */
+export type ActivationData5e = ActivationData & { override?: boolean };
+export type DurationData5e = DurationData & { override?: boolean; concentration?: boolean };
+export type RangeData5e = RangeData & { override?: boolean };
+export type TargetData5e = TargetData & { override?: boolean; prompt?: boolean };
+export type ConsumptionData5e = {
+  value: string;
+  scaling: { allowed: boolean; max: string };
+  spellSlot: boolean;
+  targets: any[];
+};
+
+/** Augmented ActivityData to allow null in visibility levels (standard dnd5e behavior) and use augmented shared types */
+export interface ActivityData5e extends Omit<
+  ActivityData,
+  "visibility" | "activation" | "duration" | "range" | "target" | "consumption"
+> {
+  activation: ActivationData5e;
+  duration: DurationData5e;
+  range: RangeData5e;
+  target: TargetData5e;
+  consumption: ConsumptionData5e;
   visibility: Omit<ActivityData["visibility"], "level"> & {
     level: {
       min: number | null;
@@ -99,6 +123,7 @@ export interface GuidanceTier {
   costs: Record<string, number>;
   progress: Record<string, number>;
   _migratedGpToCp?: boolean;
+  _migratedToV2?: boolean;
 }
 
 export type RewardType = "item" | "effect";
@@ -181,6 +206,39 @@ declare global {
   namespace foundry {
     namespace applications {
       namespace api {
+        interface ApplicationV2Options {
+          id?: string;
+          tag?: string;
+          window?: {
+            title?: string;
+            icon?: string;
+            controls?: any[];
+            resizable?: boolean;
+            [key: string]: unknown;
+          };
+          position?: {
+            width?: number;
+            height?: number;
+            left?: number;
+            top?: number;
+            [key: string]: unknown;
+          };
+          [key: string]: unknown;
+        }
+
+        class ApplicationV2 {
+          constructor(options?: Partial<ApplicationV2Options>);
+          static DEFAULT_OPTIONS: Partial<ApplicationV2Options>;
+          render(options?: { force?: boolean; [key: string]: any }): Promise<any>;
+          element: HTMLElement;
+          id: string;
+          close(options?: object): Promise<void>;
+
+          protected _renderHTML(context: object, options: any): Promise<string>;
+          protected _replaceHTML(result: string, content: HTMLElement, options: any): void;
+          protected _onRender(context: object, options: any): Promise<void>;
+        }
+
         interface DialogV2Button {
           action: string;
           label: string;
@@ -206,7 +264,7 @@ declare global {
             controls?: any[];
             [key: string]: unknown;
           };
-          content?: string;
+          content?: string | HTMLElement;
           buttons?: DialogV2Button[];
           submit?: DialogV2SubmitCallback;
           close?: (event: Event, dialog: any) => void;
@@ -215,11 +273,8 @@ declare global {
           [key: string]: unknown;
         }
 
-        class DialogV2 {
+        class DialogV2 extends ApplicationV2 {
           constructor(options: Partial<DialogV2Options>);
-          render(options?: { force?: boolean; [key: string]: any }): Promise<any>;
-          element: HTMLElement;
-          close(options?: object): Promise<void>;
 
           static wait(options: Partial<DialogV2Options>): Promise<any>;
           static confirm(options: Partial<DialogV2Options>): Promise<any>;
@@ -238,6 +293,7 @@ declare global {
         _d?: number,
       ): T & U;
       function escapeHTML(str: string): string;
+      function deepClone<T>(obj: T): T;
     }
   }
 
@@ -255,6 +311,9 @@ declare global {
     SpotlightOmnisearch?: {
       prompt: (options: { query: string }) => Promise<{ data?: { uuid: string } } | null>;
     };
+    Item: {
+      documentClass: any;
+    };
   }
 
   interface SettingConfig {
@@ -264,6 +323,8 @@ declare global {
     "thefehrs-learning-manager.allowedCompendiums": string[];
     "thefehrs-learning-manager.projectTemplates": unknown[];
     "thefehrs-learning-manager.migrationVersion": string;
+    "thefehrs-learning-manager.autoSpend": boolean;
+    "thefehrs-learning-manager.autoSpendUnits": string[];
   }
 
   interface FlagConfig {
@@ -302,9 +363,9 @@ export type {
 export type { Tidy5eSheetsApi as Tidy5eApi };
 
 export interface OnRenderParams {
-  app: unknown;
+  app: { id: string; [key: string]: any };
   element: HTMLElement;
-  data: unknown;
+  data: any;
   isFullRender: boolean;
 }
 

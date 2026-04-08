@@ -17,7 +17,7 @@ export class PartyTabLogic {
    * Opens an actor's sheet by UUID.
    */
   static async openActorSheet(uuid: string) {
-    const doc = await fromUuid(uuid);
+    const doc = await fromUuid(uuid as `Actor.${string}`);
     if (doc && "sheet" in doc && doc.sheet) {
       (doc.sheet as { render: (force: boolean) => unknown }).render(true);
     }
@@ -35,7 +35,7 @@ export class PartyTabLogic {
 
     let successCount = 0;
     for (const id of selectedIds) {
-      const actor = game.actors?.get(id);
+      const actor = (game.actors as any)?.get(id);
       if (!actor) continue;
       try {
         const proxy = ActorProxy.forActor(actor as unknown as Actor);
@@ -98,7 +98,7 @@ export class PartyTabLogic {
       },
     });
 
-    await dialog.render(true);
+    await dialog.render({ force: true });
 
     const target = dialog.element.querySelector(".thefehrs-learning-manager-svelte-root");
     if (target) {
@@ -127,7 +127,7 @@ export class PartyTabLogic {
     isGM: boolean,
   ) {
     if (!isGM) return;
-    const targetActor = game.actors?.get(actorId) as unknown as Actor5e;
+    const targetActor = (game.actors as any)?.get(actorId) as unknown as Actor5e;
     if (!targetActor) return;
 
     const tiers = Settings.guidanceTiers;
@@ -136,7 +136,7 @@ export class PartyTabLogic {
     const item = targetActor.items.get(project.id);
     if (item) {
       await item.update({
-        "flags.thefehrs-learning-manager.projectData.tutelageId": tier?.id ?? "",
+        ["flags.thefehrs-learning-manager.projectData.tutelageId" as string]: tier?.id ?? "",
       });
     }
   }
@@ -151,7 +151,7 @@ export class PartyTabLogic {
     isGM: boolean,
   ) {
     if (!isGM) return;
-    const targetActor = game.actors?.get(actorId) as unknown as Actor5e;
+    const targetActor = (game.actors as any)?.get(actorId) as unknown as Actor5e;
     if (!targetActor) return;
 
     const item = targetActor.items.get(project.id);
@@ -162,6 +162,7 @@ export class PartyTabLogic {
 
       projectData.progress = Math.max(0, Math.min(newProgress, projectData.target || 0));
       if (
+        projectData.target &&
         projectData.target > 0 &&
         projectData.progress >= projectData.target &&
         !projectData.isCompleted
@@ -183,7 +184,7 @@ export class PartyTabLogic {
     isGM: boolean,
   ) {
     if (!isGM) return;
-    const targetActor = game.actors?.get(actorId) as unknown as Actor5e;
+    const targetActor = (game.actors as any)?.get(actorId) as unknown as Actor5e;
     if (!targetActor) return;
 
     const item = targetActor.items.get(project.id);
@@ -199,7 +200,12 @@ export class PartyTabLogic {
       );
 
       if (oldTarget !== projectData.target) {
-        if (projectData.target > 0 && projectData.progress >= projectData.target) {
+        if (
+          projectData.target &&
+          projectData.target > 0 &&
+          projectData.progress !== undefined &&
+          projectData.progress >= projectData.target
+        ) {
           await ProjectEngine.updateItemWithProgress(item as unknown as Item5e, projectData);
           await ProjectEngine.completeProject(item as unknown as Item5e);
           return;
@@ -219,7 +225,7 @@ export class PartyTabLogic {
    * Orchestrates project deletion/abortion.
    */
   static async deleteProject(actorId: string, project: ProjectMappedData, isGM: boolean) {
-    const targetActor = game.actors?.get(actorId) as unknown as Actor5e;
+    const targetActor = (game.actors as any)?.get(actorId) as unknown as Actor5e;
     if (!targetActor || !targetActor.isOwner) {
       ui.notifications?.warn("You do not have permission to modify this actor's projects.");
       return;
@@ -246,7 +252,7 @@ export class PartyTabLogic {
         title: "Abort Project",
         contentClasses: ["thefehrs-learning-manager-dialog"],
       },
-      content: container as HTMLDivElement,
+      content: container as unknown as string,
       buttons: [
         {
           action: "yes",
@@ -270,6 +276,6 @@ export class PartyTabLogic {
       close: () => {
         unmount(svelteInstance);
       },
-    }).render(true);
+    }).render({ force: true });
   }
 }

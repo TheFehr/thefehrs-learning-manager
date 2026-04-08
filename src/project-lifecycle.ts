@@ -89,7 +89,7 @@ export class ProjectLifecycle {
     };
 
     const [created] = await (actor as unknown as Actor5e).createEmbeddedDocuments("Item", [
-      updateData as unknown as object,
+      updateData as any,
     ]);
     if (!created) {
       console.error(
@@ -150,7 +150,9 @@ export class ProjectLifecycle {
     let sourceItem: Item5e | null = null;
     if (stashedSourceUuid) {
       try {
-        sourceItem = (await fromUuid(stashedSourceUuid)) as unknown as Item5e | null;
+        sourceItem = (await fromUuid(
+          stashedSourceUuid as `Item.${string}`,
+        )) as unknown as Item5e | null;
       } catch (e) {
         console.warn(`Downtime Engine | Could not find source item ${stashedSourceUuid}:`, e);
       }
@@ -302,9 +304,9 @@ export class ProjectLifecycle {
     projectDataFlags: ProjectFlagData,
     completedFlags: any,
   ): Promise<boolean> {
-    const clonedData = item.toObject();
+    const clonedData = item.toObject() as any;
     clonedData.type = stashedType;
-    delete (clonedData as any)._id;
+    delete clonedData._id;
 
     // Update flags and basic info in the clone
     clonedData.name = projectDataFlags.stashedName || (item as unknown as Item).name;
@@ -312,7 +314,7 @@ export class ProjectLifecycle {
 
     // Replace system data with deep clone of stashed system to prevent artifact survival
     if (projectDataFlags.stashedSystem) {
-      clonedData.system = foundry.utils.deepClone(projectDataFlags.stashedSystem);
+      clonedData.system = foundry.utils.deepClone(projectDataFlags.stashedSystem as any);
     }
 
     clonedData.flags = {
@@ -322,7 +324,9 @@ export class ProjectLifecycle {
 
     // Restore stashed activities in the clone using deep clone
     if (projectDataFlags.stashedActivities) {
-      clonedData.system.activities = foundry.utils.deepClone(projectDataFlags.stashedActivities);
+      clonedData.system.activities = foundry.utils.deepClone(
+        projectDataFlags.stashedActivities as any,
+      );
     }
 
     const [created] = await (actor as unknown as Actor).createEmbeddedDocuments("Item", [
@@ -369,7 +373,8 @@ export class ProjectLifecycle {
     }
 
     // Prepare sanitized system without activities
-    const { activities: _ignored, ...sanitizedSystem } = projectDataFlags.stashedSystem || {};
+    const { activities: _ignored, ...sanitizedSystem } =
+      (projectDataFlags.stashedSystem as any) || {};
 
     // Merge stashed activities (non-learning ones)
     const systemToUpdate: any = { ...sanitizedSystem };
@@ -430,7 +435,7 @@ export class ProjectLifecycle {
 
     await (item as unknown as Item).update({
       name: `${stashedName} (${projectData.progress}/${projectData.target})`,
-      "system.description.value": progressHtml + stashedDescription,
+      ["system.description.value" as string]: progressHtml + stashedDescription,
       [`flags.${Settings.ID}.projectData`]: projectData,
     });
   }

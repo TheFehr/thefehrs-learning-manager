@@ -181,7 +181,7 @@ export class ProjectEngine {
       anySuccess = true;
       consecutiveFailures = 0;
 
-      const updatedProject = actor.items.get(item.id) as ProjectItem | undefined;
+      const updatedProject = (actor as any).items.get(item.id) as ProjectItem | undefined;
       if (!updatedProject || !updatedProject.system?.activities) break;
 
       const isCompleted = updatedProject.getFlag(Settings.ID, "projectData")?.isCompleted;
@@ -350,7 +350,9 @@ export class ProjectEngine {
       await this.completeProject(item as unknown as Item5e);
 
       if (excessProgress > 0 && projectDataFlags.followUpProjectId) {
-        const followUpItem = (await fromUuid(projectDataFlags.followUpProjectId)) as Item5e | null;
+        const followUpItem = (await fromUuid(
+          projectDataFlags.followUpProjectId as `Item.${string}`,
+        )) as unknown as Item5e | null;
         if (followUpItem && "getFlag" in followUpItem) {
           const escapedItemName = foundry.utils.escapeHTML(item.name || "");
           const escapedFollowUpName = foundry.utils.escapeHTML(followUpItem.name || "");
@@ -377,7 +379,7 @@ export class ProjectEngine {
             } else {
               const newItem = await this.initiateProjectFromItem(
                 actor as unknown as Actor,
-                followUpItem,
+                followUpItem as unknown as Item,
                 projectDataFlags.tutelageId,
               );
               if (newItem) {
@@ -404,9 +406,7 @@ export class ProjectEngine {
       await this.updateItemWithProgress(item as unknown as Item5e, projectDataFlags);
 
       // Ensure we have the latest document instance before displaying the card
-      const freshItem = (actor as unknown as Actor).items.get(item.id) as Item5e & {
-        displayCard?: (options?: object) => Promise<unknown>;
-      };
+      const freshItem = (actor as any).items.get(item.id) as any;
       if (freshItem && typeof freshItem.displayCard === "function") {
         await freshItem.displayCard({ rollMode: rules.rollMode });
       }
@@ -424,7 +424,7 @@ export class ProjectEngine {
           {
             flavor: `${actor.name} tries to learn ${item.name} (DC ${rules.checkDC ?? 12})`,
           },
-          { rollMode: rules.rollMode || "gmroll" },
+          { rollMode: (rules.rollMode || "gmroll") as any },
         );
       }
     }

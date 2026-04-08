@@ -27,7 +27,7 @@ export async function migrateToV1_2() {
     }
 
     if (changed) {
-      await game.settings.set(Settings.ID, "rules", updatedRules);
+      await game.settings.set(Settings.ID, "rules", updatedRules as any);
       ui.notifications?.info("Critical hit rules migrated successfully!");
     }
   } catch (error) {

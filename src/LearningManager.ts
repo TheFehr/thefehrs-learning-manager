@@ -1,4 +1,11 @@
-import type { Tidy5eApi, DowntimeGroupActor, OnRenderTabParams, Actor5e, Item5e } from "./types.js";
+import type {
+  Tidy5eApi,
+  DowntimeGroupActor,
+  OnRenderTabParams,
+  OnRenderParams,
+  Actor5e,
+  Item5e,
+} from "./types.js";
 import { ProjectEngine } from "./project-engine.js";
 import { Settings, SettingsManager } from "./core/settings.js";
 import { LearningConfigApp } from "./apps/settings-app.js";
@@ -147,7 +154,7 @@ export class LearningManager {
             sidebarEntry?.dataset.actorId;
 
           if (actorId) {
-            const member = game.actors?.get(actorId);
+            const member = (game.actors as any)?.get(actorId);
             if (member) targetActor = member as unknown as Actor5e;
           } else {
             // If we can't find a specific member via the event target,
@@ -275,11 +282,11 @@ export class LearningManager {
         },
         enabled: (data: { document?: Actor5e; actor?: Actor5e }) => {
           const actor = data.document || data.actor;
-          return actor?.type === "character";
+          return (actor as any)?.type === "character";
         },
-        onRender: (params: OnRenderTabParams) => {
+        onRender: (params: OnRenderParams) => {
           this.renderSvelte(
-            params,
+            params as OnRenderTabParams,
             ".downtime-engine-time-bank-bar-root",
             TimeBankBar,
             (actor: Actor5e) => ({ actor }),
