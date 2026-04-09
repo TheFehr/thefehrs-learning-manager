@@ -1,5 +1,3 @@
-import { Settings } from "../core/settings.js";
-
 interface GuidanceTier {
   id: string;
   name: string;
@@ -14,7 +12,7 @@ interface GuidanceTier {
  * Migration v1.1: Multiplies guidance tier costs by 100 (GP to CP conversion).
  */
 export async function migrateV1_1GpToCp() {
-  const SETTINGS_ID = Settings.ID;
+  const SETTINGS_ID = "thefehrs-learning-manager";
   try {
     const tiers = game.settings.get(
       SETTINGS_ID,

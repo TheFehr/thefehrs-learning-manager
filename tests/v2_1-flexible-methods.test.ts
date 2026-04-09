@@ -2,24 +2,19 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { migrateToV2_1, migrateToV2_1_1 } from "../src/migrations/v2_1-flexible-methods";
 import { Settings } from "../src/core/settings";
 
-vi.mock("../src/core/settings", () => ({
-  Settings: {
-    ID: "thefehrs-learning-manager",
-    get: vi.fn(),
-    set: vi.fn(),
-    allowedCompendiums: [],
-  },
-}));
-
 describe("Migration v2.1", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.mocked(Settings.get).mockReturnValue({}); // Default rules
     (global as any).ui = { notifications: { info: vi.fn(), error: vi.fn() } };
     (global as any).game = {
       settings: {
-        get: vi.fn(),
-        set: vi.fn(),
+        get: vi.fn().mockImplementation((ns, key) => {
+          if (key === "rules") return {};
+          if (key === "projectTemplates") return [];
+          if (key === "allowedCompendiums") return [];
+          return null;
+        }),
+        set: vi.fn().mockResolvedValue(true),
       },
       actors: [],
       packs: {
@@ -30,9 +25,13 @@ describe("Migration v2.1", () => {
 
   describe("Rules Migration (Method split)", () => {
     it("should migrate 'direct' method", async () => {
-      vi.mocked(Settings.get).mockReturnValue({ method: "direct" });
+      vi.mocked(game.settings.get).mockImplementation((ns, key) => {
+        if (key === "rules") return { method: "direct" };
+        return [];
+      });
       await migrateToV2_1();
-      expect(Settings.set).toHaveBeenCalledWith(
+      expect(game.settings.set).toHaveBeenCalledWith(
+        "thefehrs-learning-manager",
         "rules",
         expect.objectContaining({
           nonBulkMethod: "direct",
@@ -42,9 +41,13 @@ describe("Migration v2.1", () => {
     });
 
     it("should migrate 'roll' method", async () => {
-      vi.mocked(Settings.get).mockReturnValue({ method: "roll" });
+      vi.mocked(game.settings.get).mockImplementation((ns, key) => {
+        if (key === "rules") return { method: "roll" };
+        return [];
+      });
       await migrateToV2_1();
-      expect(Settings.set).toHaveBeenCalledWith(
+      expect(game.settings.set).toHaveBeenCalledWith(
+        "thefehrs-learning-manager",
         "rules",
         expect.objectContaining({
           nonBulkMethod: "roll",
@@ -54,9 +57,13 @@ describe("Migration v2.1", () => {
     });
 
     it("should migrate 'mathematical' method", async () => {
-      vi.mocked(Settings.get).mockReturnValue({ method: "mathematical" });
+      vi.mocked(game.settings.get).mockImplementation((ns, key) => {
+        if (key === "rules") return { method: "mathematical" };
+        return [];
+      });
       await migrateToV2_1();
-      expect(Settings.set).toHaveBeenCalledWith(
+      expect(game.settings.set).toHaveBeenCalledWith(
+        "thefehrs-learning-manager",
         "rules",
         expect.objectContaining({
           nonBulkMethod: "roll",
@@ -74,7 +81,10 @@ describe("Migration v2.1", () => {
           requirements: [{ operator: "===" }, { operator: "!==" }, { operator: ">=" }],
         },
       ];
-      vi.mocked(game.settings.get).mockReturnValue(templates);
+      vi.mocked(game.settings.get).mockImplementation((ns, key) => {
+        if (key === "projectTemplates") return templates;
+        return [];
+      });
 
       await migrateToV2_1();
 
@@ -142,7 +152,7 @@ describe("Migration v2.1", () => {
 
       const mockPack = {
         collection: "test-pack",
-        metadata: { type: "Item" },
+        metadata: { type: "Item", id: "pack1" },
         locked: true,
         configure: vi.fn().mockResolvedValue(true),
         getDocuments: vi.fn().mockResolvedValue([mockItem]),
@@ -152,7 +162,10 @@ describe("Migration v2.1", () => {
       };
 
       vi.mocked(game.packs.get).mockReturnValue(mockPack as any);
-      (Settings as any).allowedCompendiums = ["pack1"];
+      vi.mocked(game.settings.get).mockImplementation((ns, key) => {
+        if (key === "allowedCompendiums") return ["pack1"];
+        return [];
+      });
 
       await migrateToV2_1();
 
@@ -175,26 +188,45 @@ describe("Migration v2.1", () => {
   describe("migrateToV2_1_1 (Formula Refresh)", () => {
     it("should refresh bulk formula if it matches old buggy default", async () => {
       const oldBuggyDefault = "round(@hours * (22 - max(1, @dc - @abilities.int.mod)) / 20)";
-      vi.mocked(Settings.get).mockReturnValue({ bulkExpectedFormula: oldBuggyDefault });
+      vi.mocked(game.settings.get).mockImplementation((ns, key) => {
+        if (key === "rules") return { bulkExpectedFormula: oldBuggyDefault };
+        return null;
+      });
 
       await migrateToV2_1_1();
 
-      expect(Settings.set).toHaveBeenCalledWith(
+      expect(game.settings.set).toHaveBeenCalledWith(
+        "thefehrs-learning-manager",
         "rules",
         expect.objectContaining({
           bulkExpectedFormula: expect.stringContaining("@tutelage"),
         }),
       );
-      expect(Settings.set).toHaveBeenCalledWith("migrationVersion", "2.1.1");
+      expect(game.settings.set).toHaveBeenCalledWith(
+        "thefehrs-learning-manager",
+        "migrationVersion",
+        "2.1.1",
+      );
     });
 
     it("should not refresh formula if it does not match default, but still set version", async () => {
-      vi.mocked(Settings.get).mockReturnValue({ bulkExpectedFormula: "custom-formula" });
+      vi.mocked(game.settings.get).mockImplementation((ns, key) => {
+        if (key === "rules") return { bulkExpectedFormula: "custom-formula" };
+        return null;
+      });
 
       await migrateToV2_1_1();
 
-      expect(Settings.set).not.toHaveBeenCalledWith("rules", expect.anything());
-      expect(Settings.set).toHaveBeenCalledWith("migrationVersion", "2.1.1");
+      expect(game.settings.set).not.toHaveBeenCalledWith(
+        "thefehrs-learning-manager",
+        "rules",
+        expect.anything(),
+      );
+      expect(game.settings.set).toHaveBeenCalledWith(
+        "thefehrs-learning-manager",
+        "migrationVersion",
+        "2.1.1",
+      );
     });
   });
 });

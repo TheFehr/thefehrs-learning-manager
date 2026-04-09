@@ -1,6 +1,12 @@
 import { ProjectEngine } from "../project-engine.js";
 import type { Actor5e, Item5e } from "../types.js";
 
+/**
+ * NOTE: This file is allowed to call "production" code (like ProjectEngine).
+ * If the production code changes in a way that breaks these migration utils,
+ * consider implementing a migration-specific version here to keep migrations standalone.
+ */
+
 export interface LegacyProject {
   id?: string;
   name?: string;
