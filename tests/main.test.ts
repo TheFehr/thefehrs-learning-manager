@@ -1,14 +1,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { mount, unmount } from "svelte";
 import { LearningManager } from "../src/LearningManager";
-import { TabLogic } from "../src/tab-logic";
-import { ActorProxy } from "../src/actor-proxy";
-import { ProjectEngine } from "../src/project-engine";
+import { TabLogic } from "../src/logic/tab-logic";
+import { ActorProxy } from "../src/logic/actor-proxy";
+import { ProjectEngine } from "../src/logic/project-engine";
 import { Socket } from "../src/core/socket";
 import type { Actor5e, TimeUnit } from "../src/types";
 import { migrateData } from "../src/migrations/migration";
 
-vi.mock("../src/project-engine", () => ({
+vi.mock("../src/logic/project-engine", () => ({
   ProjectEngine: {
     initiateProjectFromItem: vi.fn(),
     processTraining: vi.fn(),

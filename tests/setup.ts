@@ -1,4 +1,5 @@
 import { vi } from "vitest";
+import { MODULE_ID } from "../src/global";
 
 globalThis.foundry = {
   appv1: {
@@ -223,7 +224,7 @@ globalThis.game = {
     contents: [],
     get: vi.fn(),
   },
-  ID: "thefehrs-learning-manager",
+  ID: MODULE_ID,
 } as any;
 
 export function toggleUserGM(isGM: boolean) {

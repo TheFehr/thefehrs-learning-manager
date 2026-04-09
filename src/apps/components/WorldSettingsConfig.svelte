@@ -4,7 +4,7 @@
   import CompendiumConfig from "./CompendiumConfig.svelte";
   import TimeUnitsConfig from "./TimeUnitsConfig.svelte";
   import GuidanceConfig from "./GuidanceConfig.svelte";
-  import { validateSettings } from "../settings-logic.js";
+  import { validateSettings } from "../../logic/settings-logic.js";
 
   interface Pack {
     id: string;

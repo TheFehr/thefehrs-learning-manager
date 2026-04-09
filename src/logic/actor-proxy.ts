@@ -1,5 +1,5 @@
-import type { TimeBank, LearningActor, LearningProject, Actor5e } from "./types.js";
-import { Settings } from "./core/settings.js";
+import type { TimeBank, LearningActor, LearningProject, Actor5e } from "../types.js";
+import { Settings } from "../core/settings.js";
 
 export class ActorProxy {
   private actor: Actor5e;
@@ -69,11 +69,11 @@ export class ActorProxy {
     return await this.actor.update(data);
   }
 
-  async createEmbeddedDocuments(type: any, data: object[]): Promise<any[]> {
+  async createEmbeddedDocuments(type: "Item" | "ActiveEffect", data: object[]): Promise<any[]> {
     return await this.actor.createEmbeddedDocuments(type, data as any[]);
   }
 
-  async deleteEmbeddedDocuments(type: any, ids: string[]): Promise<any[]> {
+  async deleteEmbeddedDocuments(type: "Item" | "ActiveEffect", ids: string[]): Promise<any[]> {
     return await this.actor.deleteEmbeddedDocuments(type, ids);
   }
 

@@ -1,12 +1,12 @@
 import { Settings } from "../core/settings.js";
-import { ActorProxy } from "../actor-proxy.js";
-import { TabLogic } from "../tab-logic.js";
-import { ProjectEngine } from "../project-engine.js";
-import type { ProjectItem, ProjectFlagData } from "../project-item.js";
-import type { MemberMappedData, ProjectMappedData } from "../party-tab.js";
+import { ActorProxy } from "./actor-proxy.js";
+import { TabLogic } from "./tab-logic.js";
+import { ProjectEngine } from "./project-engine.js";
+import type { ProjectItem, ProjectFlagData } from "./project-item.js";
+import type { MemberMappedData, ProjectMappedData } from "../apps/party-tab.js";
 import type { Item5e, Actor5e } from "../types.js";
-import AbortProjectDialog from "./dialogs/AbortProjectDialog.svelte";
-import GrantTimeDialog from "./dialogs/GrantTimeDialog.svelte";
+import AbortProjectDialog from "../apps/dialogs/AbortProjectDialog.svelte";
+import GrantTimeDialog from "../apps/dialogs/GrantTimeDialog.svelte";
 import { mount, unmount } from "svelte";
 
 /**
@@ -127,7 +127,7 @@ export class PartyTabLogic {
     isGM: boolean,
   ) {
     if (!isGM) return;
-    const targetActor = (game.actors as unknown as Actors).get(actorId) as unknown as Actor5e;
+    const targetActor = game.actors.get(actorId) as Actor5e;
     if (!targetActor) return;
 
     const tiers = Settings.get("guidanceTiers");
@@ -151,7 +151,7 @@ export class PartyTabLogic {
     isGM: boolean,
   ) {
     if (!isGM) return;
-    const targetActor = (game.actors as unknown as Actors).get(actorId) as unknown as Actor5e;
+    const targetActor = game.actors.get(actorId) as Actor5e;
     if (!targetActor) return;
 
     const item = targetActor.items.get(project.id);
@@ -184,7 +184,7 @@ export class PartyTabLogic {
     isGM: boolean,
   ) {
     if (!isGM) return;
-    const targetActor = (game.actors as unknown as Actors).get(actorId) as unknown as Actor5e;
+    const targetActor = game.actors.get(actorId) as Actor5e;
     if (!targetActor) return;
 
     const item = targetActor.items.get(project.id);
@@ -225,7 +225,7 @@ export class PartyTabLogic {
    * Orchestrates project deletion/abortion.
    */
   static async deleteProject(actorId: string, project: ProjectMappedData, isGM: boolean) {
-    const targetActor = (game.actors as unknown as Actors).get(actorId) as unknown as Actor5e;
+    const targetActor = game.actors.get(actorId) as Actor5e;
     if (!targetActor || !targetActor.isOwner) {
       ui.notifications?.warn("You do not have permission to modify this actor's projects.");
       return;

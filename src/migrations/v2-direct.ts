@@ -1,4 +1,5 @@
 import { createProjectItemFromTemplate, type LegacyProject } from "./migration-utils.js";
+import { MODULE_ID } from "../global";
 
 interface ProjectTemplateLegacy {
   id: string;
@@ -22,22 +23,20 @@ interface GuidanceTier {
 export async function migrateToV2Direct() {
   ui.notifications?.info("Downtime Engine: Performing direct migration to v2.0.0...");
 
-  const SETTINGS_ID = "thefehrs-learning-manager";
-
   try {
     // 1. Rules Migration (v3 equivalent)
-    const rules = game.settings.get(SETTINGS_ID, "rules") as any;
+    const rules = game.settings.get(MODULE_ID, "rules") as any;
     if (rules && !rules.critDoubleStrategy) {
       const updatedRules = {
         ...rules,
         critDoubleStrategy: "never" as const,
         critThreshold: 10,
       };
-      await game.settings.set(SETTINGS_ID, "rules", updatedRules);
+      await game.settings.set(MODULE_ID, "rules", updatedRules);
     }
 
     // 2. Guidance Tiers Migration (v2 equivalent)
-    const tiers = game.settings.get(SETTINGS_ID, "guidanceTiers") as unknown as GuidanceTier[];
+    const tiers = game.settings.get(MODULE_ID, "guidanceTiers") as unknown as GuidanceTier[];
     let tiersUpdated = false;
     if (tiers && Array.isArray(tiers)) {
       for (const tier of tiers) {
@@ -51,19 +50,19 @@ export async function migrateToV2Direct() {
       }
     }
     if (tiersUpdated) {
-      await game.settings.set(SETTINGS_ID, "guidanceTiers", tiers);
+      await game.settings.set(MODULE_ID, "guidanceTiers", tiers);
     }
 
     // 3. Library and Item Migration (v1 + v4 + v5 equivalent)
     const library =
-      (game.settings.get(SETTINGS_ID, "projectTemplates") as unknown as ProjectTemplateLegacy[]) ||
+      (game.settings.get(MODULE_ID, "projectTemplates") as unknown as ProjectTemplateLegacy[]) ||
       [];
     let libraryUpdated = false;
     const actors = (game.actors || []) as Actor[];
 
     let allSuccessful = true;
     for (const actor of actors) {
-      const projects = (actor.getFlag(SETTINGS_ID, "projects") || []) as LegacyProject[];
+      const projects = (actor.getFlag(MODULE_ID, "projects") || []) as LegacyProject[];
       if (projects.length === 0) continue;
 
       const remainingProjects: LegacyProject[] = [];
@@ -118,15 +117,15 @@ export async function migrateToV2Direct() {
       }
 
       // Update legacy projects flag with only those that failed to migrate
-      await actor.setFlag(SETTINGS_ID, "projects", remainingProjects);
+      await actor.setFlag(MODULE_ID, "projects", remainingProjects);
     }
 
     if (libraryUpdated) {
-      await game.settings.set(SETTINGS_ID, "projectTemplates", library);
+      await game.settings.set(MODULE_ID, "projectTemplates", library);
     }
 
     if (allSuccessful) {
-      await game.settings.set(SETTINGS_ID, "migrationVersion", "2.0.0");
+      await game.settings.set(MODULE_ID, "migrationVersion", "2.0.0");
       ui?.notifications?.info("Downtime Engine direct migration to v2.0.0 successful!");
     } else {
       ui?.notifications?.warn(

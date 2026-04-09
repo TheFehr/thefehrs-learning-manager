@@ -1,5 +1,5 @@
 import type { FeatItemSystemData } from "@dnd5e/data/item/_types.mjs";
-import type { LearningActor, Item5e, ActivityData5e } from "./types.js";
+import type { LearningActor, Item5e, ActivityData5e } from "../types.js";
 
 export const LearningFeatType = "learning-project" as const;
 
@@ -64,6 +64,6 @@ export interface ProjectItem extends Omit<Item<any>, "system"> {
   displayCard(options?: object): Promise<unknown>;
 }
 
-export function projectData(item: ProjectItem): ProjectFlagData {
+export function projectData(item: Item5e): ProjectFlagData {
   return item.getFlag("thefehrs-learning-manager", "projectData");
 }

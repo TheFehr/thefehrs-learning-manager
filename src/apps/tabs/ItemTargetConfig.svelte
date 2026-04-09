@@ -2,7 +2,7 @@
   import { Settings } from "../../core/settings.js";
   import type { ProjectRequirement, ComparisonOperator, Item5e } from "../../types.js";
   import { untrack } from "svelte";
-  import { ItemConfigLogic } from "../item-config-logic.js";
+  import { ItemConfigLogic } from "../../logic/item-config-logic.js";
 
   let { item } = $props<{ item: Item5e }>();
 

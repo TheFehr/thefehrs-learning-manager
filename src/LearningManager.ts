@@ -6,19 +6,19 @@ import type {
   Actor5e,
   Item5e,
 } from "./types.js";
-import { ProjectEngine } from "./project-engine.js";
+import { ProjectEngine } from "./logic/project-engine.js";
 import { Settings, SettingsManager } from "./core/settings.js";
 import { LearningConfigApp } from "./apps/settings-app.js";
-import { TabLogic } from "./tab-logic.js";
+import { TabLogic } from "./logic/tab-logic.js";
 import {
   ProjectItem,
   projectData,
   LearningFeatType,
   LearningActivityData,
-} from "./project-item.js";
+} from "./logic/project-item.js";
 import { mount, unmount } from "svelte";
 import PartyTab from "./apps/tabs/PartyTab.svelte";
-import { PartyTab as PartyTabLogic } from "./party-tab.js";
+import { PartyTab as PartyTabLogic } from "./apps/party-tab.js";
 import ItemTargetConfig from "./apps/tabs/ItemTargetConfig.svelte";
 import TimeBankBar from "./apps/components/TimeBankBar.svelte";
 import { Socket } from "./core/socket";
@@ -166,19 +166,21 @@ export class LearningManager {
 
         fromUuid(data.uuid as `Item.${string}`)
           .then(async (item) => {
-            if (item && "system" in item) {
-              const item5e = item as Item;
-              const projectFlagData = projectData(item5e as any);
-              const requirements = projectFlagData.requirements || [];
-              const { eligible, reason } = TabLogic.meetsRequirements(targetActor, requirements);
-
-              if (!eligible) {
-                ui.notifications?.warn(`Requirements not met for ${item5e.name}: ${reason}`);
-                return;
-              }
-
-              await ProjectEngine.initiateProjectFromItem(targetActor, item5e);
+            if (!item || !("system" in item)) {
+              return;
             }
+
+            const item5e = item as Item5e;
+            const projectFlagData = projectData(item5e);
+            const requirements = projectFlagData.requirements || [];
+            const { eligible, reason } = TabLogic.meetsRequirements(targetActor, requirements);
+
+            if (!eligible) {
+              ui.notifications?.warn(`Requirements not met for ${item5e.name}: ${reason}`);
+              return;
+            }
+
+            await ProjectEngine.initiateProjectFromItem(targetActor, item5e);
           })
           .catch((err) => {
             console.error(

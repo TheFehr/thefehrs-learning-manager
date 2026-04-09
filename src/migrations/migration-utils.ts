@@ -1,4 +1,4 @@
-import { ProjectEngine } from "../project-engine.js";
+import { ProjectEngine } from "../logic/project-engine.js";
 import type { Actor5e, Item5e } from "../types.js";
 
 /**

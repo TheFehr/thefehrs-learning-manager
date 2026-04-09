@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Settings } from "../core/settings.js";
   import type { SystemRules, TimeUnit, GuidanceTier } from "../types.js";
-  import { saveSettings, getAvailablePacks } from "./settings-logic.js";
+  import { saveSettings, getAvailablePacks } from "../logic/settings-logic.js";
   import WorldSettingsConfig from "./components/WorldSettingsConfig.svelte";
   import UserPreferencesConfig from "./components/UserPreferencesConfig.svelte";
 

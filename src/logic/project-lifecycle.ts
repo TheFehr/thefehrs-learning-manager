@@ -1,8 +1,8 @@
-import { Settings } from "./core/settings.js";
-import { ProjectUI } from "./core/project-ui.js";
-import { ActivityManager } from "./core/activity-manager.js";
+import { Settings } from "../core/settings.js";
+import { ProjectUI } from "../core/project-ui.js";
+import { ActivityManager } from "../core/activity-manager.js";
 import { LearningFeatType, ProjectFlagData, ProjectItem } from "./project-item.js";
-import type { Actor5e, Item5e } from "./types.js";
+import type { Actor5e, Item5e } from "../types.js";
 
 export class ProjectLifecycle {
   /**

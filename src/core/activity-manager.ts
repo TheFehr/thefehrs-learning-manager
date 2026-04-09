@@ -1,7 +1,7 @@
 import { Settings } from "./settings.js";
 import { createBaseActivityTemplate } from "./constants.js";
 import type { Actor5e, Item5e, ActivityData5e } from "../types.js";
-import type { ProjectItem } from "../project-item.js";
+import type { ProjectItem } from "../logic/project-item.js";
 
 export class ActivityManager {
   /**

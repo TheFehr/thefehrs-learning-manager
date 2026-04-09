@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { GrantTimeLogic } from "../src/apps/grant-time-logic";
+import { GrantTimeLogic } from "../src/logic/grant-time-logic";
 
 describe("GrantTimeLogic", () => {
   describe("prepareSubmitData", () => {

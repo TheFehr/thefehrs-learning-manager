@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { migrateToV2_1, migrateToV2_1_1 } from "../src/migrations/v2_1-flexible-methods";
 import { Settings } from "../src/core/settings";
+import { MODULE_ID } from "../src/global";
 
 describe("Migration v2.1", () => {
   beforeEach(() => {
@@ -31,7 +32,7 @@ describe("Migration v2.1", () => {
       });
       await migrateToV2_1();
       expect(game.settings.set).toHaveBeenCalledWith(
-        "thefehrs-learning-manager",
+        MODULE_ID,
         "rules",
         expect.objectContaining({
           nonBulkMethod: "direct",
@@ -47,7 +48,7 @@ describe("Migration v2.1", () => {
       });
       await migrateToV2_1();
       expect(game.settings.set).toHaveBeenCalledWith(
-        "thefehrs-learning-manager",
+        MODULE_ID,
         "rules",
         expect.objectContaining({
           nonBulkMethod: "roll",
@@ -63,7 +64,7 @@ describe("Migration v2.1", () => {
       });
       await migrateToV2_1();
       expect(game.settings.set).toHaveBeenCalledWith(
-        "thefehrs-learning-manager",
+        MODULE_ID,
         "rules",
         expect.objectContaining({
           nonBulkMethod: "roll",
@@ -88,19 +89,15 @@ describe("Migration v2.1", () => {
 
       await migrateToV2_1();
 
-      expect(game.settings.set).toHaveBeenCalledWith(
-        "thefehrs-learning-manager",
-        "projectTemplates",
-        [
-          expect.objectContaining({
-            requirements: [
-              expect.objectContaining({ operator: "==" }),
-              expect.objectContaining({ operator: "!=" }),
-              expect.objectContaining({ operator: ">=" }),
-            ],
-          }),
-        ],
-      );
+      expect(game.settings.set).toHaveBeenCalledWith(MODULE_ID, "projectTemplates", [
+        expect.objectContaining({
+          requirements: [
+            expect.objectContaining({ operator: "==" }),
+            expect.objectContaining({ operator: "!=" }),
+            expect.objectContaining({ operator: ">=" }),
+          ],
+        }),
+      ]);
     });
 
     it("should migrate actor items", async () => {
@@ -196,17 +193,13 @@ describe("Migration v2.1", () => {
       await migrateToV2_1_1();
 
       expect(game.settings.set).toHaveBeenCalledWith(
-        "thefehrs-learning-manager",
+        MODULE_ID,
         "rules",
         expect.objectContaining({
           bulkExpectedFormula: expect.stringContaining("@tutelage"),
         }),
       );
-      expect(game.settings.set).toHaveBeenCalledWith(
-        "thefehrs-learning-manager",
-        "migrationVersion",
-        "2.1.1",
-      );
+      expect(game.settings.set).toHaveBeenCalledWith(MODULE_ID, "migrationVersion", "2.1.1");
     });
 
     it("should not refresh formula if it does not match default, but still set version", async () => {
@@ -217,16 +210,8 @@ describe("Migration v2.1", () => {
 
       await migrateToV2_1_1();
 
-      expect(game.settings.set).not.toHaveBeenCalledWith(
-        "thefehrs-learning-manager",
-        "rules",
-        expect.anything(),
-      );
-      expect(game.settings.set).toHaveBeenCalledWith(
-        "thefehrs-learning-manager",
-        "migrationVersion",
-        "2.1.1",
-      );
+      expect(game.settings.set).not.toHaveBeenCalledWith(MODULE_ID, "rules", expect.anything());
+      expect(game.settings.set).toHaveBeenCalledWith(MODULE_ID, "migrationVersion", "2.1.1");
     });
   });
 });

@@ -21,9 +21,14 @@ export interface SettingsSchema {
   autoSpendUnits: string[];
 }
 
+const WORLD_SCOPE = "world" as const;
+const USER_SCOPE = "user" as const;
+
+export type SettingScope = typeof WORLD_SCOPE | typeof USER_SCOPE;
+
 export interface SettingMetadata<T> {
   default: T;
-  scope: "world" | "user";
+  scope: SettingScope;
   config?: boolean;
 }
 
@@ -170,7 +175,7 @@ export class SettingsManager {
       }
 
       const config = {
-        scope: metadata.scope === "world" ? ("world" as const) : ("client" as const),
+        scope: metadata.scope,
         config: metadata.config ?? false,
         type: type as foundry.helpers.ClientSettings.Type,
         default: defaultValue,

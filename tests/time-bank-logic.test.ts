@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { TimeBankLogic } from "../src/apps/time-bank-logic";
+import { TimeBankLogic } from "../src/logic/time-bank-logic";
 import type { TimeUnit } from "../src/types";
 
 describe("TimeBankLogic", () => {

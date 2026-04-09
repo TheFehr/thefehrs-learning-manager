@@ -1,8 +1,8 @@
+import { MODULE_ID } from "../global";
 import type { Actor5e, Item5e } from "../types.js";
 import { createProjectItemFromTemplate, type LegacyProject } from "./migration-utils.js";
 
 export async function migrateToV2() {
-  const SETTINGS_ID = "thefehrs-learning-manager";
   ui.notifications?.info("Migrating Downtime Engine projects to native Items (v2.0.0)...");
   try {
     const compendiumLabel = "UDE Migration";
@@ -18,8 +18,7 @@ export async function migrateToV2() {
       });
     }
 
-    const templates =
-      (game.settings.get(SETTINGS_ID, "projectTemplates") as unknown as any[]) || [];
+    const templates = (game.settings.get(MODULE_ID, "projectTemplates") as unknown as any[]) || [];
     const actors = (game.actors || []) as Actor[];
 
     let migratedCount = 0;
@@ -28,13 +27,13 @@ export async function migrateToV2() {
 
     // Count for progress bar
     for (const actor of actors) {
-      const projects = (actor.getFlag(SETTINGS_ID, "projects" as any) || []) as any[];
+      const projects = (actor.getFlag(MODULE_ID, "projects" as any) || []) as any[];
       totalProjects += projects.length;
     }
 
     for (const actor of actors) {
       // Step 1: Migrate legacy actor projects to Items
-      const projects = (actor.getFlag(SETTINGS_ID, "projects" as any) || []) as LegacyProject[];
+      const projects = (actor.getFlag(MODULE_ID, "projects" as any) || []) as LegacyProject[];
 
       if (projects.length > 0) {
         const remainingProjects: LegacyProject[] = [];
@@ -81,29 +80,25 @@ export async function migrateToV2() {
             allSuccessful = false;
           }
         }
-        await actor.setFlag(SETTINGS_ID, "projects" as any, remainingProjects);
+        await actor.setFlag(MODULE_ID, "projects" as any, remainingProjects);
       }
 
       // Step 2: Ensure all existing Item-projects have targets
       const learningItems = actor.items.filter(
-        (i) =>
-          i.getFlag("thefehrs-learning-manager", "isLearningProject") ||
-          i.getFlag("thefehrs-learning-manager", "isLearnedReward"),
+        (i) => i.getFlag(MODULE_ID, "isLearningProject") || i.getFlag(MODULE_ID, "isLearnedReward"),
       );
 
       for (const item of learningItems) {
         const item5e = item as unknown as Item5e;
-        const projectData = item5e.getFlag("thefehrs-learning-manager", "projectData") as
-          | LegacyProject
-          | undefined;
-        const isLearnedReward = item5e.getFlag("thefehrs-learning-manager", "isLearnedReward");
+        const projectData = item5e.getFlag(MODULE_ID, "projectData") as LegacyProject | undefined;
+        const isLearnedReward = item5e.getFlag(MODULE_ID, "isLearnedReward");
         const updates: Record<string, unknown> = {};
 
         if (projectData && typeof projectData.target === "undefined") {
           const tpl = templates.find((t: any) => t.id === projectData.templateId);
           if (tpl) {
             projectData.target = tpl.target;
-            updates[`flags.${SETTINGS_ID}.projectData`] = projectData;
+            updates[`flags.${MODULE_ID}.projectData`] = projectData;
           }
         }
 
@@ -120,7 +115,7 @@ export async function migrateToV2() {
     }
 
     if (allSuccessful) {
-      await game.settings.set(SETTINGS_ID, "migrationVersion", "2.0.0");
+      await game.settings.set(MODULE_ID, "migrationVersion", "2.0.0");
       ui?.notifications?.info(`Successfully migrated to v2.0.0!`);
     } else {
       ui?.notifications?.warn(

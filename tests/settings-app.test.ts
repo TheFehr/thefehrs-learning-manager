@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { LearningConfigApp } from "../src/apps/settings-app";
 import { Settings } from "../src/core/settings";
-import { saveSettings } from "../src/apps/settings-logic";
+import { saveSettings } from "../src/logic/settings-logic";
 
 describe("LearningConfigApp", () => {
   beforeEach(() => {

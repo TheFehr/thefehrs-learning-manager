@@ -36,7 +36,11 @@ import type {
 } from "@dnd5e/data/shared/_types.mjs";
 import type { ActivityData } from "@dnd5e/data/activity/_types.mjs";
 import type { Tidy5eSheetsApi } from "@tidy5e/api/Tidy5eSheetsApi.js";
-import type { ProjectFlagData, ProjectRequirement, ComparisonOperator } from "./project-item.js";
+import type {
+  ProjectFlagData,
+  ProjectRequirement,
+  ComparisonOperator,
+} from "./logic/project-item.js";
 
 // --- Project Configuration Types ---
 

@@ -1,3 +1,5 @@
+import { MODULE_ID } from "../global";
+
 interface LegacyProjectV1 {
   id?: string;
   name?: string;
@@ -19,18 +21,15 @@ interface ProjectTemplateV1 {
 }
 
 export async function migrateToV1Relational() {
-  const SETTINGS_ID = "thefehrs-learning-manager";
   try {
     const library =
-      (game.settings.get(
-        SETTINGS_ID,
-        "projectTemplates" as any,
-      ) as unknown as ProjectTemplateV1[]) || [];
+      (game.settings.get(MODULE_ID, "projectTemplates" as any) as unknown as ProjectTemplateV1[]) ||
+      [];
     let libraryUpdated = false;
     const actors = (game.actors || []) as Actor[];
 
     for (const actor of actors) {
-      const projects = (actor.getFlag(SETTINGS_ID, "projects" as any) || []) as LegacyProjectV1[];
+      const projects = (actor.getFlag(MODULE_ID, "projects" as any) || []) as LegacyProjectV1[];
       if (projects.length === 0) continue;
 
       for (const p of projects) {
@@ -60,11 +59,11 @@ export async function migrateToV1Relational() {
 
         p.templateId = tpl.id;
       }
-      await actor.setFlag(SETTINGS_ID, "projects" as any, projects);
+      await actor.setFlag(MODULE_ID, "projects" as any, projects);
     }
 
     if (libraryUpdated) {
-      await game.settings.set(SETTINGS_ID, "projectTemplates" as any, library);
+      await game.settings.set(MODULE_ID, "projectTemplates" as any, library);
     }
   } catch (error) {
     console.error("Downtime Engine relational migration failed:", error);

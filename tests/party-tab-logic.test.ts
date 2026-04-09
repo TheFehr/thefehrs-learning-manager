@@ -1,14 +1,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { PartyTabLogic } from "../src/apps/party-tab-logic";
+import { PartyTabLogic } from "../src/logic/party-tab-logic";
 import { Settings } from "../src/core/settings";
-import { TabLogic } from "../src/tab-logic";
-import { ActorProxy } from "../src/actor-proxy";
-import { ProjectEngine } from "../src/project-engine";
+import { TabLogic } from "../src/logic/tab-logic";
+import { ActorProxy } from "../src/logic/actor-proxy";
+import { ProjectEngine } from "../src/logic/project-engine";
 
 vi.mock("../src/core/settings");
-vi.mock("../src/tab-logic");
-vi.mock("../src/actor-proxy");
-vi.mock("../src/project-engine");
+vi.mock("../src/logic/tab-logic");
+vi.mock("../src/logic/actor-proxy");
+vi.mock("../src/logic/project-engine");
 
 describe("PartyTabLogic", () => {
   let originalActors: any;

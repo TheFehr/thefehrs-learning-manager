@@ -7,3 +7,4 @@ coverage/
 dist/
 
 .env.foundryvtt.local
+/.junie/

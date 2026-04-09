@@ -1,7 +1,7 @@
-import { ActorProxy } from "../actor-proxy.js";
+import { ActorProxy } from "../logic/actor-proxy.js";
 import { Actor5e } from "../types";
 
-function resolveControlledActor(): Actor | undefined {
+function resolveControlledActor(): Actor5e | undefined {
   if (typeof canvas === "undefined" || !canvas?.ready) return undefined;
 
   let actor = game.user?.character;
@@ -40,7 +40,7 @@ export const DebugHelpers = {
       return;
     }
 
-    const proxy = ActorProxy.forActor(actor as unknown as Actor5e);
+    const proxy = ActorProxy.forActor(actor);
     const bank = proxy.bank;
     const newTotal = Math.max(0, (bank.total || 0) + validatedHours);
     const diff = newTotal - (bank.total || 0);
@@ -85,7 +85,7 @@ export const DebugHelpers = {
       return;
     }
 
-    const proxy = ActorProxy.forActor(actor as unknown as Actor5e);
+    const proxy = ActorProxy.forActor(actor);
     const current = proxy.currency;
     const newGP = Math.max(0, (current.gp || 0) + validatedGP);
     const diff = newGP - (current.gp || 0);

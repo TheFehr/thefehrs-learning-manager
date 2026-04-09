@@ -4,15 +4,14 @@ import { migrateToV1_2 } from "./v1_2-crit-rules.js";
 import { migrateToV2 } from "./v2-native-items.js";
 import { migrateToV2Direct } from "./v2-direct.js";
 import { migrateToV2_1, migrateToV2_1_1 } from "./v2_1-flexible-methods.js";
+import { MODULE_ID } from "../global";
 
 export async function migrateData() {
   if (!game.user?.isGM) return;
 
-  const SETTINGS_ID = "thefehrs-learning-manager";
-
   try {
     let currentVersion =
-      (game.settings.get(SETTINGS_ID, "migrationVersion") as unknown as string) || "0";
+      (game.settings.get(MODULE_ID, "migrationVersion") as unknown as string) || "0";
 
     // Normalize legacy integer versions > 0 to 1.2.0 so only the v2 migration runs.
     if (/^\d+$/.test(currentVersion) && currentVersion !== "0") {

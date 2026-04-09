@@ -1,3 +1,5 @@
+import { MODULE_ID } from "../global";
+
 interface LegacyRules {
   method?: string;
   nonBulkMethod?: string;
@@ -37,11 +39,9 @@ function migrateRequirementOperators(requirements: any[]): {
 export async function migrateToV2_1() {
   ui.notifications?.info("Downtime Engine: Performing v2.1.0 migration...");
 
-  const SETTINGS_ID = "thefehrs-learning-manager";
-
   try {
     // 1. Rules Migration (Method split)
-    const rules = game.settings.get(SETTINGS_ID, "rules") as unknown as LegacyRules;
+    const rules = game.settings.get(MODULE_ID, "rules") as unknown as LegacyRules;
 
     if (rules && rules.method && !rules.nonBulkMethod) {
       const oldMethod = rules.method;
@@ -63,12 +63,12 @@ export async function migrateToV2_1() {
         updatedRules.bulkMethod = "direct";
       }
 
-      await game.settings.set(SETTINGS_ID, "rules", updatedRules);
+      await game.settings.set(MODULE_ID, "rules", updatedRules);
     }
 
     // 2. Operator Migration: Project Templates in Settings
     const templates =
-      (game.settings.get(SETTINGS_ID, "projectTemplates") as unknown as unknown[]) || [];
+      (game.settings.get(MODULE_ID, "projectTemplates") as unknown as unknown[]) || [];
     let templatesUpdated = false;
 
     const newTemplates = templates.map((tpl: any) => {
@@ -81,7 +81,7 @@ export async function migrateToV2_1() {
     });
 
     if (templatesUpdated) {
-      await game.settings.set(SETTINGS_ID, "projectTemplates", newTemplates);
+      await game.settings.set(MODULE_ID, "projectTemplates", newTemplates);
     }
 
     // 3. Operator Migration: Actor Items
@@ -89,13 +89,13 @@ export async function migrateToV2_1() {
     for (const actor of actors as any[]) {
       const projects = actor.items.filter(
         (i: any) =>
-          i.getFlag(SETTINGS_ID, "isLearningProject") || i.getFlag(SETTINGS_ID, "isLearnedReward"),
+          i.getFlag(MODULE_ID, "isLearningProject") || i.getFlag(MODULE_ID, "isLearnedReward"),
       );
 
       const updates: any[] = [];
       for (const item of projects) {
         const projectData = (item as unknown as { getFlag: (s: string, k: string) => any }).getFlag(
-          SETTINGS_ID,
+          MODULE_ID,
           "projectData",
         );
         if (projectData?.requirements) {
@@ -105,7 +105,7 @@ export async function migrateToV2_1() {
           if (changed) {
             updates.push({
               _id: item.id,
-              [`flags.${SETTINGS_ID}.projectData.requirements`]: newRequirements,
+              [`flags.${MODULE_ID}.projectData.requirements`]: newRequirements,
             });
           }
         }
@@ -118,7 +118,7 @@ export async function migrateToV2_1() {
 
     // 4. Operator Migration: Items in Allowed Compendiums
     const allowedPacks =
-      (game.settings.get(SETTINGS_ID, "allowedCompendiums") as unknown as string[]) || [];
+      (game.settings.get(MODULE_ID, "allowedCompendiums") as unknown as string[]) || [];
     let hasFailures = false;
 
     for (const packId of allowedPacks) {
@@ -134,7 +134,7 @@ export async function migrateToV2_1() {
         for (const item of documents) {
           const projectData = (
             item as unknown as { getFlag: (s: string, k: string) => any }
-          ).getFlag(SETTINGS_ID, "projectData");
+          ).getFlag(MODULE_ID, "projectData");
           if (projectData?.requirements) {
             const { newRequirements, changed } = migrateRequirementOperators(
               projectData.requirements,
@@ -142,7 +142,7 @@ export async function migrateToV2_1() {
             if (changed) {
               updates.push({
                 _id: item.id,
-                [`flags.${SETTINGS_ID}.projectData.requirements`]: newRequirements,
+                [`flags.${MODULE_ID}.projectData.requirements`]: newRequirements,
               });
             }
           }
@@ -178,7 +178,7 @@ export async function migrateToV2_1() {
       throw new Error("One or more compendium packs failed to migrate.");
     }
 
-    await game.settings.set(SETTINGS_ID, "migrationVersion", "2.1.0");
+    await game.settings.set(MODULE_ID, "migrationVersion", "2.1.0");
     ui.notifications?.info("Downtime Engine: Migration to v2.1.0 complete.");
   } catch (err) {
     console.error("Downtime Engine | Migration to v2.1.0 failed:", err);

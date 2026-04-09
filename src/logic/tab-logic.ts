@@ -7,7 +7,7 @@ import type {
   SystemRules,
   GuidanceTier,
   Actor5e,
-} from "./types.js";
+} from "../types.js";
 
 /**
  * Utility class for downtime resolution logic.
