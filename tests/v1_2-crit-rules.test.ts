@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { migrateToV1_2 } from "../src/migrations/v1_2-crit-rules";
 import { Settings } from "../src/core/settings";
+import { MODULE_ID } from "../src/global";
 
 vi.mock("../src/core/settings", () => ({
   Settings: {
