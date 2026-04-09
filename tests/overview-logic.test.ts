@@ -182,4 +182,43 @@ describe("overview-logic", () => {
     expect(result).toHaveLength(0);
     expect(pack1.getIndex).toHaveBeenCalled();
   });
+
+  it("should handle pack.getIndex failure by logging and continuing to next pack", async () => {
+    const pack1 = game.packs.get("pack1") as any;
+    const pack2 = game.packs.get("pack2") as any;
+
+    pack1.getIndex.mockRejectedValue(new Error("Index load failed"));
+    pack2.getIndex.mockResolvedValue([]);
+
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const result = await getInvalidProjects();
+
+    expect(result).toHaveLength(0);
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Failed to read index for compendium "pack1": Index load failed'),
+    );
+    expect(pack2.getIndex).toHaveBeenCalled();
+
+    consoleSpy.mockRestore();
+  });
+
+  it("should handle pack.getDocument failure by adding an invalid reason and continuing", async () => {
+    const invalidEntry = {
+      _id: "item1",
+      name: "Broken Item",
+      // Reasons will trigger because no projectData
+    };
+
+    const pack1 = game.packs.get("pack1") as any;
+    pack1.getIndex.mockResolvedValue([invalidEntry]);
+    pack1.getDocument.mockRejectedValue(new Error("Document load failed"));
+
+    const result = await getInvalidProjects();
+
+    expect(result).toHaveLength(1);
+    expect(result[0].itemId).toBe("item1");
+    expect(result[0].itemName).toBe("Broken Item");
+    expect(result[0].reasons).toContain("failed to read item: Document load failed");
+  });
 });
