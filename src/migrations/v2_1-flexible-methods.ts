@@ -195,20 +195,18 @@ export async function migrateToV2_1() {
 export async function migrateToV2_1_1() {
   ui.notifications?.info("Downtime Engine: Migration v2.1.1 (Formula refresh)...");
 
-  const SETTINGS_ID = "thefehrs-learning-manager";
-
   try {
-    const rules = (game.settings.get(SETTINGS_ID, "rules") as any) || {};
+    const rules = (game.settings.get(MODULE_ID, "rules") as any) || {};
     const oldBuggyDefault = "round(@hours * (22 - max(1, @dc - @abilities.int.mod)) / 20)";
     const newDefault = "round(@hours * (22 - max(1, @dc - (@abilities.int.mod + @tutelage))) / 20)";
 
     if (rules && rules.bulkExpectedFormula === oldBuggyDefault) {
       const updatedRules = { ...rules, bulkExpectedFormula: newDefault };
-      await game.settings.set(SETTINGS_ID, "rules", updatedRules);
+      await game.settings.set(MODULE_ID, "rules", updatedRules);
       ui.notifications?.info("Downtime Engine: Bulk mathematical formula updated to new default.");
     }
 
-    await game.settings.set(SETTINGS_ID, "migrationVersion", "2.1.1");
+    await game.settings.set(MODULE_ID, "migrationVersion", "2.1.1");
   } catch (err) {
     console.error("Downtime Engine | Migration to v2.1.1 failed:", err);
     ui.notifications?.error(

@@ -31,10 +31,12 @@ export async function getInvalidProjects(): Promise<InvalidProjectReason[]> {
       continue;
     }
 
-    const documents = (await pack.getDocuments()) as Item5e[];
+    const index = (await pack.getIndex({
+      fields: [`flags.${MODULE_ID}.projectData`, "system.description.value"],
+    } as any)) as unknown as any[];
 
-    for (const item of documents) {
-      const projectData = item.getFlag(MODULE_ID, "projectData") as ProjectFlagData | undefined;
+    for (const indexEntry of index) {
+      const projectData = indexEntry.flags?.[MODULE_ID]?.projectData as ProjectFlagData | undefined;
       const reasons: string[] = [];
 
       // Criteria 1: Missing isLearningProject flag in projectData
@@ -52,15 +54,17 @@ export async function getInvalidProjects(): Promise<InvalidProjectReason[]> {
       }
 
       // Criteria 3: Missing name or description
-      if (!item.name || item.name.trim().length === 0) {
+      if (!indexEntry.name || indexEntry.name.trim().length === 0) {
         reasons.push("Project name is missing or empty.");
       }
 
-      if (!item.system?.description?.value || item.system.description.value.trim().length === 0) {
+      const description = indexEntry.system?.description?.value;
+      if (!description || description.trim().length === 0) {
         reasons.push("Project description is missing or empty.");
       }
 
       if (reasons.length > 0) {
+        const item = (await pack.getDocument(indexEntry._id)) as Item5e;
         invalidProjects.push({
           item,
           packName: pack.metadata.label,
