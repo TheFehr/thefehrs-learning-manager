@@ -221,4 +221,43 @@ describe("overview-logic", () => {
     expect(result[0].itemName).toBe("Broken Item");
     expect(result[0].reasons).toContain("failed to read item: Document load failed");
   });
+
+  it("should identify projects where isLearningProject is truthy but not literal boolean true", async () => {
+    const invalidEntryString = {
+      _id: "item1",
+      name: "String True Project",
+      system: { description: { value: "A valid description" } },
+      flags: {
+        [MODULE_ID]: {
+          projectData: { isLearningProject: "true", target: 10 },
+        },
+      },
+    };
+
+    const invalidEntryNumber = {
+      _id: "item2",
+      name: "Number One Project",
+      system: { description: { value: "A valid description" } },
+      flags: {
+        [MODULE_ID]: {
+          projectData: { isLearningProject: 1, target: 10 },
+        },
+      },
+    };
+
+    const pack1 = game.packs.get("pack1") as any;
+    pack1.getIndex.mockResolvedValue([invalidEntryString, invalidEntryNumber]);
+    pack1.getDocument.mockImplementation((id: string) =>
+      Promise.resolve({ id, name: id === "item1" ? "String True Project" : "Number One Project" }),
+    );
+
+    const result = await getInvalidProjects();
+    expect(result).toHaveLength(2);
+    expect(result[0].reasons).toContain(
+      "Missing or invalid isLearningProject flag in projectData.",
+    );
+    expect(result[1].reasons).toContain(
+      "Missing or invalid isLearningProject flag in projectData.",
+    );
+  });
 });

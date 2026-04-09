@@ -50,7 +50,7 @@ export async function getInvalidProjects(): Promise<InvalidProjectReason[]> {
       const reasons: string[] = [];
 
       // Criteria 1: Missing isLearningProject flag in projectData
-      if (!projectData?.isLearningProject) {
+      if (projectData?.isLearningProject !== true) {
         reasons.push("Missing or invalid isLearningProject flag in projectData.");
       }
 
