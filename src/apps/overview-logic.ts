@@ -4,7 +4,7 @@ import type { Item5e } from "../types.js";
 import type { ProjectFlagData } from "../logic/project-item.js";
 
 export interface InvalidProjectReason {
-  item: Item5e;
+  item: { name: string; sheet?: { render: (force: boolean) => void } };
   packName: string;
   reasons: string[];
 }
@@ -31,12 +31,27 @@ export async function getInvalidProjects(): Promise<InvalidProjectReason[]> {
       continue;
     }
 
+    interface IndexEntry {
+      _id: string;
+      name: string;
+      flags?: {
+        [MODULE_ID]?: {
+          projectData?: ProjectFlagData;
+        };
+      };
+      system?: {
+        description?: {
+          value?: string;
+        };
+      };
+    }
+
     const index = (await pack.getIndex({
-      fields: [`flags.${MODULE_ID}.projectData`, "system.description.value"],
-    } as any)) as unknown as any[];
+      fields: [`flags.${MODULE_ID}.projectData`, "system.description.value"] as any,
+    })) as unknown as IndexEntry[];
 
     for (const indexEntry of index) {
-      const projectData = indexEntry.flags?.[MODULE_ID]?.projectData as ProjectFlagData | undefined;
+      const projectData = indexEntry.flags?.[MODULE_ID]?.projectData;
       const reasons: string[] = [];
 
       // Criteria 1: Missing isLearningProject flag in projectData
@@ -64,12 +79,25 @@ export async function getInvalidProjects(): Promise<InvalidProjectReason[]> {
       }
 
       if (reasons.length > 0) {
-        const item = (await pack.getDocument(indexEntry._id)) as Item5e;
-        invalidProjects.push({
-          item,
-          packName: pack.metadata.label,
-          reasons,
-        });
+        try {
+          const item = (await pack.getDocument(indexEntry._id)) as Item5e;
+          invalidProjects.push({
+            item,
+            packName: pack.metadata.label,
+            reasons,
+          });
+        } catch (error) {
+          console.warn(
+            `Downtime Engine | Failed to load document "${indexEntry._id}" from "${packId}":`,
+            error,
+          );
+          // Use index data as fallback for display
+          invalidProjects.push({
+            item: { name: indexEntry.name || "Unknown Item" },
+            packName: pack.metadata.label,
+            reasons: [...reasons, "Failed to load full item data."],
+          });
+        }
       }
     }
   }

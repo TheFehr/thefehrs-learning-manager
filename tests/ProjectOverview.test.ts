@@ -35,10 +35,21 @@ describe("ProjectOverview.svelte", () => {
   it("should show empty state if no invalid projects found", async () => {
     (overviewLogic.getInvalidProjects as any).mockResolvedValue([]);
     instance = mount(ProjectOverview, { target });
+    // Multiple ticks ensure all async onMount logic and reactive updates are settled
     await tick();
     await tick();
 
     expect(target.innerHTML).toContain("All projects are valid!");
+  });
+
+  it("should show error state if fetching projects fails", async () => {
+    (overviewLogic.getInvalidProjects as any).mockRejectedValue(new Error("Network Error"));
+    instance = mount(ProjectOverview, { target });
+    // Multiple ticks ensure all async onMount logic and reactive updates are settled
+    await tick();
+    await tick();
+
+    expect(target.innerHTML).toContain("Failed to load invalid projects");
   });
 
   it("should render invalid projects with reasons", async () => {
@@ -52,6 +63,7 @@ describe("ProjectOverview.svelte", () => {
     (overviewLogic.getInvalidProjects as any).mockResolvedValue(mockInvalidProjects);
 
     instance = mount(ProjectOverview, { target });
+    // Multiple ticks ensure all async onMount logic and reactive updates are settled
     await tick();
     await tick();
 
@@ -73,6 +85,7 @@ describe("ProjectOverview.svelte", () => {
     (overviewLogic.getInvalidProjects as any).mockResolvedValue(mockInvalidProjects);
 
     instance = mount(ProjectOverview, { target });
+    // Multiple ticks ensure all async onMount logic and reactive updates are settled
     await tick();
     await tick();
 
@@ -94,6 +107,7 @@ describe("ProjectOverview.svelte", () => {
     (overviewLogic.getInvalidProjects as any).mockResolvedValue(mockInvalidProjects);
 
     instance = mount(ProjectOverview, { target });
+    // Multiple ticks ensure all async onMount logic and reactive updates are settled
     await tick();
     await tick();
 

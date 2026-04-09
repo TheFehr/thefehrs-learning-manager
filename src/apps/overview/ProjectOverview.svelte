@@ -4,18 +4,24 @@
 
   let invalidProjects = $state<InvalidProjectReason[]>([]);
   let isLoading = $state(true);
+  let errorMessage = $state<string | null>(null);
 
   onMount(async () => {
     try {
       invalidProjects = await getInvalidProjects();
     } catch (error) {
       console.error("Downtime Engine | Error fetching invalid projects:", error);
+      errorMessage = "Failed to load invalid projects. Check console for details.";
     } finally {
       isLoading = false;
     }
   });
 
   function openItemSheet(item: any) {
+    if (!item?.sheet) {
+      console.warn("Downtime Engine | Cannot open sheet: item or sheet is undefined");
+      return;
+    }
     item.sheet.render(true);
   }
 </script>
@@ -24,6 +30,10 @@
   {#if isLoading}
     <div class="loading-state">
       <i class="fas fa-spinner fa-spin"></i> Loading invalid projects...
+    </div>
+  {:else if errorMessage}
+    <div class="error-state">
+      <i class="fas fa-exclamation-triangle"></i> {errorMessage}
     </div>
   {:else if invalidProjects.length === 0}
     <div class="no-invalid-projects">
@@ -84,7 +94,8 @@
   }
 
   .loading-state,
-  .no-invalid-projects {
+  .no-invalid-projects,
+  .error-state {
     display: flex;
     flex-direction: column;
     align-items: center;
@@ -94,6 +105,10 @@
     font-size: 1.1rem;
     gap: 0.5rem;
     opacity: 0.7;
+  }
+
+  .error-state {
+    color: var(--t5e-prepared-color, #d61c1c);
   }
 
   .invalid-projects-list {

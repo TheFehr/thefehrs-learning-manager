@@ -1,12 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { migrateV1_1GpToCp } from "../src/migrations/v1_1-gp-to-cp";
-import { Settings } from "../src/core/settings";
-
-vi.mock("../src/core/settings", () => ({
-  Settings: {
-    ID: "thefehrs-learning-manager",
-  },
-}));
+import { MODULE_ID } from "../src/global";
 
 describe("Migration v1.1 (GP to CP)", () => {
   beforeEach(() => {
@@ -26,7 +20,7 @@ describe("Migration v1.1 (GP to CP)", () => {
 
     await migrateV1_1GpToCp();
 
-    expect(game.settings.set).toHaveBeenCalledWith(Settings.ID, "guidanceTiers", [
+    expect(game.settings.set).toHaveBeenCalledWith(MODULE_ID, "guidanceTiers", [
       expect.objectContaining({ costs: { hour: 100, day: 1000 }, _migratedGpToCp: true }),
     ]);
   });
@@ -46,7 +40,7 @@ describe("Migration v1.1 (GP to CP)", () => {
     await migrateV1_1GpToCp();
     // It should still mark as migrated even if costs were empty to avoid re-processing
     expect(game.settings.set).toHaveBeenCalledWith(
-      Settings.ID,
+      MODULE_ID,
       "guidanceTiers",
       expect.arrayContaining([expect.objectContaining({ _migratedGpToCp: true })]),
     );

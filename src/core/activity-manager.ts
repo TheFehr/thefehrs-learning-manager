@@ -107,7 +107,9 @@ export class ActivityManager {
 
       if (Object.keys(activityUpdates).length > 0) {
         await item.update({ "system.activities": activityUpdates } as any);
-        console.debug(`Downtime Engine | Successfully synced activities for "${item.name}".`);
+        console.debug(
+          `Downtime Engine | Successfully synced activities for "${(item as unknown as Item).name}".`,
+        );
         return true;
       }
       return false;

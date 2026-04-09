@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { migrateToV2_1, migrateToV2_1_1 } from "../src/migrations/v2_1-flexible-methods";
-import { Settings } from "../src/core/settings";
 import { MODULE_ID } from "../src/global";
 
 describe("Migration v2.1", () => {

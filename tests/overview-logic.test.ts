@@ -168,6 +168,33 @@ describe("overview-logic", () => {
     const result = await getInvalidProjects();
     expect(result).toHaveLength(1);
     expect(result[0].reasons).toHaveLength(4);
+    expect(result[0].reasons).toContain(
+      "Missing or invalid isLearningProject flag in projectData.",
+    );
+    expect(result[0].reasons).toContain("Missing or invalid project target (must be > 0).");
+    expect(result[0].reasons).toContain("Project name is missing or empty.");
+    expect(result[0].reasons).toContain("Project description is missing or empty.");
+  });
+
+  it("should handle failures when retrieving full document", async () => {
+    const invalidEntry = {
+      _id: "broken-id",
+      name: "Broken Item",
+      system: { description: { value: "Desc" } },
+      // Missing flags
+    };
+
+    const pack1 = game.packs.get("pack1") as any;
+    pack1.getIndex.mockResolvedValue([invalidEntry]);
+    pack1.getDocument.mockRejectedValue(new Error("Database error"));
+
+    const result = await getInvalidProjects();
+    expect(result).toHaveLength(1);
+    expect(result[0].item.name).toBe("Broken Item");
+    expect(result[0].reasons).toContain(
+      "Missing or invalid isLearningProject flag in projectData.",
+    );
+    expect(result[0].reasons).toContain("Failed to load full item data.");
   });
 
   it("should skip compendiums that are not found or not Item type", async () => {
