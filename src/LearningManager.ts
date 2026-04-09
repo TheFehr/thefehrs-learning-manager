@@ -133,11 +133,11 @@ export class LearningManager {
 
         const parts = data.uuid.split(".");
         const packId = `${parts[1]}.${parts[2]}`;
-        const allowed = Settings.allowedCompendiums;
+        const allowed = Settings.get("allowedCompendiums");
 
         if (!allowed.includes(packId)) return true;
 
-        let targetActor = actor as unknown as Actor5e;
+        let targetActor = actor;
 
         if ((targetActor.type as string) === "group") {
           // Find the actual drag event from the global window object (legacy but often necessary in Foundry hooks)
@@ -154,8 +154,8 @@ export class LearningManager {
             sidebarEntry?.dataset.actorId;
 
           if (actorId) {
-            const member = (game.actors as any)?.get(actorId);
-            if (member) targetActor = member as unknown as Actor5e;
+            const member = game.actors.get(actorId);
+            if (member) targetActor = member;
           } else {
             // If we can't find a specific member via the event target,
             // we might be dropping on the general sheet or we can't resolve the target.
@@ -164,27 +164,20 @@ export class LearningManager {
           }
         }
 
-        fromUuid(data.uuid as unknown as `Item.${string}`)
+        fromUuid(data.uuid as `Item.${string}`)
           .then(async (item) => {
             if (item && "system" in item) {
-              const item5e = item as unknown as Item5e;
-              const itemProxy = item5e as unknown as ProjectItem;
-              const projectFlagData = projectData(itemProxy);
+              const item5e = item as Item;
+              const projectFlagData = projectData(item5e as any);
               const requirements = projectFlagData.requirements || [];
-              const { eligible, reason } = TabLogic.meetsRequirements(
-                targetActor as unknown as Actor,
-                requirements,
-              );
+              const { eligible, reason } = TabLogic.meetsRequirements(targetActor, requirements);
 
               if (!eligible) {
                 ui.notifications?.warn(`Requirements not met for ${item5e.name}: ${reason}`);
                 return;
               }
 
-              await ProjectEngine.initiateProjectFromItem(
-                targetActor as unknown as Actor,
-                item5e as unknown as Item,
-              );
+              await ProjectEngine.initiateProjectFromItem(targetActor, item5e);
             }
           })
           .catch((err) => {
@@ -240,24 +233,23 @@ export class LearningManager {
         iconClass: "fa-solid fa-book-open-cover",
         tabId: `${this.ID}-item-target-config`,
         html: '<div class="downtime-engine-svelte-root" style="height: 100%;"></div>',
-        enabled: (context: { item?: Item5e; document?: Item5e }) => {
+        enabled: (context: { item?: Item; document?: Item }) => {
           if (!game.user?.isGM) return false;
           const item = context?.item || context?.document;
           if (!item) return false;
 
           const isLearningType =
             (item.type as string) === "feat" &&
-            (item.system as unknown as { type: { value: string } }).type?.value ===
-              LearningFeatType;
+            (item.system as any).type?.value === LearningFeatType;
           const isProject = item.getFlag("thefehrs-learning-manager", "isLearningProject");
 
           if (isLearningType || isProject) return true;
 
-          const uuid = (item as unknown as { uuid: string }).uuid || "";
+          const uuid = (item as any).uuid || "";
           if (uuid.startsWith("Compendium.")) {
             const parts = uuid.split(".");
             const packId = `${parts[1]}.${parts[2]}`;
-            return Settings.allowedCompendiums.includes(packId);
+            return Settings.get("allowedCompendiums").includes(packId);
           }
 
           return false;
@@ -267,7 +259,7 @@ export class LearningManager {
             params,
             ".downtime-engine-svelte-root",
             ItemTargetConfig,
-            (item: Item5e) => ({ item }),
+            (item: Item) => ({ item }),
           );
         },
       }),
@@ -280,16 +272,16 @@ export class LearningManager {
           selector: '[data-tab-contents-for="features"]',
           position: "beforeend",
         },
-        enabled: (data: { document?: Actor5e; actor?: Actor5e }) => {
+        enabled: (data: { document?: Actor; actor?: Actor }) => {
           const actor = data.document || data.actor;
-          return (actor as any)?.type === "character";
+          return (actor?.type as string) === "character";
         },
         onRender: (params: OnRenderParams) => {
           this.renderSvelte(
             params as OnRenderTabParams,
             ".downtime-engine-time-bank-bar-root",
             TimeBankBar,
-            (actor: Actor5e) => ({ actor }),
+            (actor: Actor) => ({ actor }),
             `time-bank-bar-${params.app.id}`,
           );
         },

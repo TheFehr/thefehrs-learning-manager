@@ -1,4 +1,5 @@
 import { ActorProxy } from "../actor-proxy.js";
+import { Actor5e } from "../types";
 
 function resolveControlledActor(): Actor | undefined {
   if (typeof canvas === "undefined" || !canvas?.ready) return undefined;
@@ -39,7 +40,7 @@ export const DebugHelpers = {
       return;
     }
 
-    const proxy = ActorProxy.forActor(actor);
+    const proxy = ActorProxy.forActor(actor as unknown as Actor5e);
     const bank = proxy.bank;
     const newTotal = Math.max(0, (bank.total || 0) + validatedHours);
     const diff = newTotal - (bank.total || 0);
@@ -84,7 +85,7 @@ export const DebugHelpers = {
       return;
     }
 
-    const proxy = ActorProxy.forActor(actor);
+    const proxy = ActorProxy.forActor(actor as unknown as Actor5e);
     const current = proxy.currency;
     const newGP = Math.max(0, (current.gp || 0) + validatedGP);
     const diff = newGP - (current.gp || 0);

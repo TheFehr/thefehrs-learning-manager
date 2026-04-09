@@ -13,20 +13,17 @@ export class ProjectLifecycle {
     actor: Actor,
     rewardDoc: Item,
     tutelageId: string = "",
-  ): Promise<Item5e | null> {
-    const item5e = rewardDoc as unknown as Item5e;
-    const itemData = item5e.toObject();
+  ): Promise<Item | null> {
+    const itemData = rewardDoc.toObject();
     const stashedEffects = itemData.effects || [];
     const stashedActivities = foundry.utils.deepClone(itemData.system.activities || {});
     const stashedType = itemData.type || "";
     const stashedName = itemData.name || "";
     const stashedDescription = itemData.system.description?.value || "";
     const stashedSystem = foundry.utils.deepClone(itemData.system || {});
-    const stashedSourceUuid = (rewardDoc as { uuid?: string }).uuid || "";
+    const stashedSourceUuid = rewardDoc.uuid || "";
 
-    const projectItem = rewardDoc as unknown as ProjectItem;
-    const projectDataFlags = projectItem.getFlag("thefehrs-learning-manager", "projectData");
-    const target = projectDataFlags?.target ?? 0;
+    const target = rewardDoc.getFlag("thefehrs-learning-manager", "projectData")?.target ?? 0;
 
     if (target <= 0) {
       console.error(
@@ -38,9 +35,11 @@ export class ProjectLifecycle {
       return null;
     }
 
-    const stashedRequirements = projectDataFlags?.requirements ?? [];
+    const stashedRequirements =
+      rewardDoc.getFlag("thefehrs-learning-manager", "projectData")?.requirements ?? [];
 
-    const tier = Settings.guidanceTiers.find((t) => t.id === tutelageId);
+    const guidanceTiers = Settings.get("guidanceTiers");
+    const tier = guidanceTiers.find((t) => t.id === tutelageId);
     const tutelageName = tier?.name ?? "None";
 
     // Prepare item data for stashing
@@ -88,9 +87,7 @@ export class ProjectLifecycle {
       }),
     };
 
-    const [created] = await (actor as unknown as Actor5e).createEmbeddedDocuments("Item", [
-      updateData as any,
-    ]);
+    const [created] = await actor.createEmbeddedDocuments("Item", [updateData as any]);
     if (!created) {
       console.error(
         `Downtime Engine | Failed to create embedded item "${rewardDoc.name}" on actor ${actor.name}`,
@@ -131,10 +128,9 @@ export class ProjectLifecycle {
   /**
    * Restores a project item to its original state upon completion.
    */
-  static async completeProject(item: Item5e) {
+  static async completeProject(item: Item) {
     const isProject = item.getFlag("thefehrs-learning-manager", "isLearningProject");
     if (!isProject) return;
-    const projectItem = item as unknown as ProjectItem;
     const actor = item.actor;
     if (!actor) {
       console.warn(
@@ -143,16 +139,16 @@ export class ProjectLifecycle {
       return;
     }
 
-    const projectDataFlags = projectItem.getFlag("thefehrs-learning-manager", "projectData");
+    const projectDataFlags = item.getFlag("thefehrs-learning-manager", "projectData");
     if (!projectDataFlags) return;
     const stashedSourceUuid = projectDataFlags.stashedSourceUuid;
 
-    let sourceItem: Item5e | null = null;
+    let sourceItem: Item | null = null;
     if (stashedSourceUuid) {
       try {
         sourceItem = (await fromUuid(
           stashedSourceUuid as `Item.${string}`,
-        )) as unknown as Item5e | null;
+        )) as unknown as Item | null;
       } catch (e) {
         console.warn(`Downtime Engine | Could not find source item ${stashedSourceUuid}:`, e);
       }
@@ -186,11 +182,7 @@ export class ProjectLifecycle {
     }
 
     // Fallback Restoration: Restore in-place (or recreate if type differs)
-    console.warn(
-      `Downtime Engine | Falling back to in-place restoration for ${
-        (item as unknown as Item).name
-      }`,
-    );
+    console.warn(`Downtime Engine | Falling back to in-place restoration for ${item.name}`);
 
     const stashedType = projectDataFlags.stashedType || item.type;
     const needsTypeChange = stashedType !== item.type;
@@ -207,7 +199,7 @@ export class ProjectLifecycle {
       if (!success) {
         console.error(
           `Downtime Engine | Type change recreation failed for ${
-            projectDataFlags.stashedName || (item as unknown as Item).name
+            projectDataFlags.stashedName || item.name
           }. Completion aborted.`,
         );
         return;
@@ -220,9 +212,9 @@ export class ProjectLifecycle {
   }
 
   private static async restoreFromSource(
-    item: Item5e,
+    item: Item,
     actor: Actor,
-    sourceItem: Item5e,
+    sourceItem: Item,
     completedFlags: any,
   ): Promise<boolean> {
     const isItem =
@@ -239,16 +231,14 @@ export class ProjectLifecycle {
         },
       };
 
-      const [created] = await (actor as unknown as Actor).createEmbeddedDocuments("Item", [
-        createData,
-      ]);
+      const [created] = await actor.createEmbeddedDocuments("Item", [createData]);
 
       if (created) {
         return this.handlePostCreationCleanup(
           actor,
           item,
-          created as unknown as Item,
-          Settings.rules.rollMode,
+          created as Item,
+          Settings.get("rules").rollMode || "gmroll",
         );
       }
     } else {
@@ -266,14 +256,14 @@ export class ProjectLifecycle {
    */
   private static async handlePostCreationCleanup(
     actor: Actor,
-    oldItem: Item5e,
+    oldItem: Item,
     newItem: Item,
     rollMode: string,
   ): Promise<boolean> {
     // Delete the old in-progress item
-    const createdItem = newItem as unknown as Item;
+    const createdItem = newItem;
     try {
-      await (oldItem as unknown as Item).delete();
+      await oldItem.delete();
     } catch (err) {
       console.error(
         `Downtime Engine | Failed to delete original project item after restoration. New item created: ${createdItem.name} (${createdItem.id})`,
@@ -288,64 +278,61 @@ export class ProjectLifecycle {
       return true;
     }
     ui.notifications?.info(`Learning Complete: ${createdItem.name} is now fully available!`);
-    const created5e = createdItem as unknown as Item5e & {
-      displayCard?: (options?: object) => Promise<unknown>;
-    };
-    if (typeof created5e.displayCard === "function") {
-      await created5e.displayCard({ rollMode });
+    if (typeof (createdItem as any).displayCard === "function") {
+      await (createdItem as any).displayCard({ rollMode });
     }
     return true;
   }
 
   private static async recreateWithTypeChange(
-    item: Item5e,
+    item: Item,
     actor: Actor,
     stashedType: string,
     projectDataFlags: ProjectFlagData,
     completedFlags: any,
   ): Promise<boolean> {
-    const clonedData = item.toObject() as any;
+    const clonedData = item.toObject() as unknown as Record<string, unknown>;
     clonedData.type = stashedType;
     delete clonedData._id;
 
     // Update flags and basic info in the clone
-    clonedData.name = projectDataFlags.stashedName || (item as unknown as Item).name;
-    clonedData.effects = projectDataFlags.stashedEffects || [];
+    clonedData.name = projectDataFlags.stashedName || item.name;
+    clonedData.effects = (projectDataFlags.stashedEffects || []) as unknown as any[];
 
     // Replace system data with deep clone of stashed system to prevent artifact survival
     if (projectDataFlags.stashedSystem) {
-      clonedData.system = foundry.utils.deepClone(projectDataFlags.stashedSystem as any);
+      clonedData.system = foundry.utils.deepClone(
+        projectDataFlags.stashedSystem as unknown as object,
+      );
     }
 
     clonedData.flags = {
-      ...(clonedData.flags || {}),
+      ...((clonedData.flags as object) || {}),
       ...completedFlags,
     };
 
     // Restore stashed activities in the clone using deep clone
     if (projectDataFlags.stashedActivities) {
-      clonedData.system.activities = foundry.utils.deepClone(
-        projectDataFlags.stashedActivities as any,
+      (clonedData.system as any).activities = foundry.utils.deepClone(
+        projectDataFlags.stashedActivities as unknown as object,
       );
     }
 
-    const [created] = await (actor as unknown as Actor).createEmbeddedDocuments("Item", [
-      clonedData,
-    ]);
+    const [created] = await actor.createEmbeddedDocuments("Item", [clonedData as any]);
 
     if (created) {
       return this.handlePostCreationCleanup(
         actor,
         item,
         created as unknown as Item,
-        Settings.rules.rollMode,
+        Settings.get("rules").rollMode || "gmroll",
       );
     }
     return false;
   }
 
   private static async updateInPlace(
-    item: Item5e,
+    item: Item,
     stashedType: string,
     projectDataFlags: ProjectFlagData,
     completedFlags: any,
@@ -356,7 +343,7 @@ export class ProjectLifecycle {
     }
 
     // Identify learning activities to explicitly remove via dot-path
-    const existingActivities = item.system.activities as any;
+    const existingActivities = (item.system as any).activities as any;
     if (existingActivities) {
       const activityList =
         typeof existingActivities.values === "function"
@@ -374,19 +361,19 @@ export class ProjectLifecycle {
 
     // Prepare sanitized system without activities
     const { activities: _ignored, ...sanitizedSystem } =
-      (projectDataFlags.stashedSystem as any) || {};
+      (projectDataFlags.stashedSystem as unknown as { activities: unknown }) || {};
 
     // Merge stashed activities (non-learning ones)
-    const systemToUpdate: any = { ...sanitizedSystem };
+    const systemToUpdate: Record<string, unknown> = { ...(sanitizedSystem as any) };
     if (projectDataFlags.stashedActivities) {
       systemToUpdate.activities = {
-        ...(systemToUpdate.activities || {}),
+        ...((systemToUpdate.activities as Record<string, unknown>) || {}),
         ...projectDataFlags.stashedActivities,
       };
     }
 
     const primaryUpdate = {
-      name: projectDataFlags.stashedName || (item as unknown as Item).name,
+      name: projectDataFlags.stashedName || item.name,
       effects: projectDataFlags.stashedEffects || [],
       system: systemToUpdate,
       ...dotFlags,
@@ -394,25 +381,20 @@ export class ProjectLifecycle {
 
     try {
       // 1. Update basic data, nested system, flags and activity removals atomically
-      await (item as unknown as Item).update(primaryUpdate);
+      await item.update(primaryUpdate);
     } catch (err) {
       console.error(`Downtime Engine | Failed to update item in-place:`, err);
       ui.notifications?.error(
         `Downtime Engine | Failed to complete project in-place for ${
-          (item as unknown as Item).name
+          item.name
         }. See console for details.`,
       );
       return false;
     }
 
-    ui.notifications?.info(
-      `Learning Complete: ${(item as unknown as Item).name} is now fully available!`,
-    );
-    const item5e = item as unknown as Item5e & {
-      displayCard?: (options?: object) => Promise<unknown>;
-    };
-    if (typeof item5e.displayCard === "function") {
-      await item5e.displayCard({ rollMode: Settings.rules.rollMode });
+    ui.notifications?.info(`Learning Complete: ${item.name} is now fully available!`);
+    if (typeof (item as any).displayCard === "function") {
+      await (item as any).displayCard({ rollMode: Settings.get("rules").rollMode });
     }
     return true;
   }
@@ -421,19 +403,20 @@ export class ProjectLifecycle {
    * Updates an item's name and description based on current progress.
    * Uses stashed values as the base to avoid duplication bugs.
    */
-  static async updateItemWithProgress(item: Item5e, projectData: ProjectFlagData) {
-    const tier = Settings.guidanceTiers.find((t) => t.id === projectData.tutelageId);
+  static async updateItemWithProgress(item: Item, projectData: ProjectFlagData) {
+    const guidanceTiers = Settings.get("guidanceTiers");
+    const tier = guidanceTiers.find((t) => t.id === projectData.tutelageId);
     const tutelageName = tier?.name ?? "None";
     const progressHtml = ProjectUI.generateProgressHtml(
-      projectData.progress,
-      projectData.target,
+      projectData.progress ?? 0,
+      projectData.target ?? 0,
       tutelageName,
     );
 
-    const stashedName = projectData.stashedName || (item as unknown as Item).name;
+    const stashedName = projectData.stashedName || item.name;
     const stashedDescription = projectData.stashedDescription || "";
 
-    await (item as unknown as Item).update({
+    await item.update({
       name: `${stashedName} (${projectData.progress}/${projectData.target})`,
       ["system.description.value" as string]: progressHtml + stashedDescription,
       [`flags.${Settings.ID}.projectData`]: projectData,

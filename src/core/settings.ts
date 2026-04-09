@@ -102,43 +102,46 @@ export interface SettingMenuConfig {
   label: string;
   hint?: string;
   icon?: string;
-  type: typeof foundry.applications.api.ApplicationV2 | any;
+  type: typeof foundry.applications.api.ApplicationV2 | unknown;
   restricted: boolean;
 }
 
-export class SettingsManager<Settings extends Record<string, any> = SettingsSchema> {
+export class SettingsManager {
   static readonly ID = "thefehrs-learning-manager" as const;
 
   get ID() {
     return SettingsManager.ID;
   }
 
-  private get settings() {
+  /**
+   * Internal accessor for game.settings with a refined interface to avoid 'any' elsewhere.
+   */
+  private get settings(): ClientSettings {
     return game.settings;
   }
 
   /**
    * Generic getter for a setting.
    */
-  get<K extends keyof Settings>(key: K): Settings[K] {
-    return (game.settings as any).get(SettingsManager.ID, key as string) as Settings[K];
+  get<K extends keyof SettingsSchema>(key: K): SettingsSchema[K] {
+    return this.getWithFallback(key, DEFAULT_SETTINGS[key]);
   }
 
   /**
    * Generic setter for a setting.
    */
-  async set<K extends keyof Settings>(key: K, value: Settings[K]): Promise<void> {
-    await (game.settings as any).set(SettingsManager.ID, key as string, value);
+  async set<K extends keyof SettingsSchema>(key: K, value: SettingsSchema[K]): Promise<void> {
+    await game.settings.set(SettingsManager.ID, key as any, value);
   }
 
   /**
    * Register all settings defined in the schema.
    * @param overrides - Optional overrides for registration (e.g., onChange handlers)
    */
-  static registerAll(overrides: Partial<Record<keyof SettingsSchema, any>> = {}) {
+  static registerAll(overrides: Partial<Record<keyof SettingsSchema, unknown>> = {}) {
     for (const [key, metadata] of Object.entries(SETTINGS_DEFINITIONS)) {
       const defaultValue = metadata.default;
-      let type: any = Object;
+      let type: unknown = Object;
 
       if (defaultValue !== null && defaultValue !== undefined) {
         if (Array.isArray(defaultValue)) {
@@ -152,8 +155,11 @@ export class SettingsManager<Settings extends Record<string, any> = SettingsSche
         }
       }
 
-      const safeOverrides: any = {};
-      const providedOverrides = overrides[key as keyof SettingsSchema] || {};
+      const safeOverrides: Record<string, unknown> = {};
+      const providedOverrides = (overrides[key as keyof SettingsSchema] || {}) as Record<
+        string,
+        unknown
+      >;
 
       // Whitelist only safe override properties
       const SAFE_PROPS = ["onChange", "requiresReload", "hint", "choices", "name", "config"];
@@ -164,25 +170,27 @@ export class SettingsManager<Settings extends Record<string, any> = SettingsSche
       }
 
       const config = {
-        scope: metadata.scope,
+        scope: metadata.scope === "world" ? ("world" as const) : ("client" as const),
         config: metadata.config ?? false,
-        type,
+        type: type as foundry.helpers.ClientSettings.Type,
         default: defaultValue,
         ...safeOverrides,
       };
 
-      // @ts-expect-error - Complex registration data types
-      game.settings.register(SettingsManager.ID, key, config);
+      game.settings.register(SettingsManager.ID, key as any, config as any);
     }
   }
 
   private seenMissing = new Set<string>();
 
   /**
-   * Generic getter for a setting with a fallback value and a debug log if uninitialized.
+   * Internal getter that fetches from game.settings and merges defaults if necessary.
    */
-  private getWithFallback<K extends keyof Settings>(key: K, fallback: Settings[K]): Settings[K] {
-    const val = this.get(key);
+  private getWithFallback<K extends keyof SettingsSchema>(
+    key: K,
+    fallback: SettingsSchema[K],
+  ): SettingsSchema[K] {
+    const val = game.settings.get(SettingsManager.ID, key as any) as unknown as SettingsSchema[K];
     if (val === undefined || val === null) {
       const keyStr = key as string;
       if (!this.seenMissing.has(keyStr)) {
@@ -201,41 +209,16 @@ export class SettingsManager<Settings extends Record<string, any> = SettingsSche
       fallback !== null &&
       !Array.isArray(fallback)
     ) {
-      return foundry.utils.mergeObject(fallback, val, { inplace: false }) as Settings[K];
+      return foundry.utils.mergeObject(fallback, val, {
+        inplace: false,
+      }) as SettingsSchema[K];
     }
 
     return val;
   }
 
-  // --- Legacy Accessors (kept for backward compatibility, now thin wrappers) ---
-
-  get migrationVersion(): Settings["migrationVersion"] {
-    return this.getWithFallback("migrationVersion", DEFAULT_SETTINGS.migrationVersion as any);
-  }
-  get rules(): Settings["rules"] {
-    return this.getWithFallback("rules", DEFAULT_SETTINGS.rules as any);
-  }
-  get timeUnits(): Settings["timeUnits"] {
-    return this.getWithFallback("timeUnits", DEFAULT_SETTINGS.timeUnits as any);
-  }
-  get guidanceTiers(): Settings["guidanceTiers"] {
-    return this.getWithFallback("guidanceTiers", DEFAULT_SETTINGS.guidanceTiers as any);
-  }
-  get allowedCompendiums(): Settings["allowedCompendiums"] {
-    return this.getWithFallback("allowedCompendiums", DEFAULT_SETTINGS.allowedCompendiums as any);
-  }
-  get projectTemplates(): Settings["projectTemplates"] {
-    return this.getWithFallback("projectTemplates", DEFAULT_SETTINGS.projectTemplates as any);
-  }
-  get autoSpend(): Settings["autoSpend"] {
-    return this.getWithFallback("autoSpend", DEFAULT_SETTINGS.autoSpend as any);
-  }
-  get autoSpendUnits(): Settings["autoSpendUnits"] {
-    return this.getWithFallback("autoSpendUnits", DEFAULT_SETTINGS.autoSpendUnits as any);
-  }
-
   registerMenu(key: string, data: SettingMenuConfig): void {
-    this.settings.registerMenu(SettingsManager.ID, key, data as any);
+    game.settings.registerMenu(SettingsManager.ID, key as any, data as any);
   }
 }
 

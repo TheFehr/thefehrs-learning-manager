@@ -1,4 +1,4 @@
-import type { TimeBank, LearningActor, LearningProject, Actor5e, Item5e } from "./types.js";
+import type { TimeBank, LearningActor, LearningProject, Actor5e } from "./types.js";
 import { Settings } from "./core/settings.js";
 
 export class ActorProxy {
@@ -21,11 +21,7 @@ export class ActorProxy {
   }
 
   get tokenImg(): string | null {
-    const actor = this.actor as unknown as {
-      prototypeToken?: { texture?: { src?: string } };
-      img: string | null;
-    };
-    return actor.prototypeToken?.texture?.src ?? actor.img;
+    return this.actor.prototypeToken?.texture?.src ?? this.actor.img;
   }
 
   get uuid(): string {
@@ -37,19 +33,20 @@ export class ActorProxy {
   }
 
   getMappedProjects() {
-    return (this.actor.items as unknown as Item5e[])
+    return this.actor.items
       .filter((i) => i.getFlag("thefehrs-learning-manager", "isLearningProject"))
       .map((i) => {
         const projectData = i.getFlag("thefehrs-learning-manager", "projectData");
-        const tier = Settings.guidanceTiers.find((t) => t.id === projectData?.tutelageId);
+        const guidanceTiers = Settings.get("guidanceTiers");
+        const tier = guidanceTiers.find((t) => t.id === projectData?.tutelageId);
         return {
           id: i.id,
           name: i.name,
           progress: projectData?.progress ?? 0,
           target: projectData?.target ?? 0,
           percentage:
-            projectData && projectData.target > 0
-              ? Math.min(100, Math.round((projectData.progress / projectData.target) * 100))
+            projectData && projectData.target && projectData.target > 0
+              ? Math.min(100, Math.round(((projectData.progress ?? 0) / projectData.target) * 100))
               : 0,
           tutelageName: tier?.name ?? "None",
         };
@@ -69,25 +66,19 @@ export class ActorProxy {
   }
 
   async update(data: object): Promise<Actor> {
-    return await (this.actor as unknown as Actor).update(data);
+    return await this.actor.update(data);
   }
 
-  async createEmbeddedDocuments(type: string, data: object[]): Promise<any[]> {
-    return await (this.actor as unknown as Actor).createEmbeddedDocuments(
-      type as never,
-      data as never,
-    );
+  async createEmbeddedDocuments(type: any, data: object[]): Promise<any[]> {
+    return await this.actor.createEmbeddedDocuments(type, data as any[]);
   }
 
-  async deleteEmbeddedDocuments(type: string, ids: string[]): Promise<any[]> {
-    return await (this.actor as unknown as Actor).deleteEmbeddedDocuments(
-      type as never,
-      ids as never,
-    );
+  async deleteEmbeddedDocuments(type: any, ids: string[]): Promise<any[]> {
+    return await this.actor.deleteEmbeddedDocuments(type, ids);
   }
 
   get currency(): { gp: number; sp: number; cp: number } {
-    const currency = (this.actor as unknown as LearningActor).system?.currency;
+    const currency = (this.actor as LearningActor).system?.currency;
     return {
       gp: currency?.gp ?? 0,
       sp: currency?.sp ?? 0,
@@ -96,14 +87,14 @@ export class ActorProxy {
   }
 
   async updateCurrency(currency: { gp: number; sp: number; cp: number }): Promise<Actor> {
-    return await (this.actor as unknown as Actor).update({
+    return await this.actor.update({
       system: {
         currency,
       },
     });
   }
 
-  static forActor(actor: Actor): ActorProxy {
-    return new ActorProxy(actor as unknown as Actor5e);
+  static forActor(actor: Actor5e): ActorProxy {
+    return new ActorProxy(actor);
   }
 }

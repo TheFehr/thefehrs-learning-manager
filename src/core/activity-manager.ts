@@ -16,7 +16,7 @@ export class ActivityManager {
   static getActivitiesData(target: number): ActivityData5e[] {
     if (target <= 0) return [];
 
-    const timeUnits = Settings.timeUnits;
+    const timeUnits = Settings.get("timeUnits");
     const activities: ActivityData5e[] = timeUnits.map((tu) => ({
       ...createBaseActivityTemplate(),
       _id: (foundry.utils as any).randomID(),
@@ -106,11 +106,8 @@ export class ActivityManager {
       }
 
       if (Object.keys(activityUpdates).length > 0) {
-        // @ts-expect-error - complex activities update
-        await (item as unknown as Item).update({ "system.activities": activityUpdates });
-        console.debug(
-          `Downtime Engine | Successfully synced activities for "${(item as unknown as Item).name}".`,
-        );
+        await item.update({ "system.activities": activityUpdates } as any);
+        console.debug(`Downtime Engine | Successfully synced activities for "${item.name}".`);
         return true;
       }
       return false;

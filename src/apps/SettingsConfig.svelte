@@ -9,10 +9,10 @@
   const isGM = !!game.user?.isGM;
 
   // State
-  let rules = $state<SystemRules>(Settings.rules);
-  let timeUnits = $state<TimeUnit[]>(Settings.timeUnits);
-  let guidanceTiers = $state<GuidanceTier[]>(Settings.guidanceTiers);
-  let allowedCompendiums = $state<string[]>(Settings.allowedCompendiums);
+  let rules = $state<SystemRules>(Settings.get("rules"));
+  let timeUnits = $state<TimeUnit[]>(Settings.get("timeUnits"));
+  let guidanceTiers = $state<GuidanceTier[]>(Settings.get("guidanceTiers"));
+  let allowedCompendiums = $state<string[]>(Settings.get("allowedCompendiums"));
 
   // User Preferences
   let autoSpend = $state<boolean>(!isGM ? Settings.get("autoSpend") : false);

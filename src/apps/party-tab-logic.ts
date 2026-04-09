@@ -27,7 +27,7 @@ export class PartyTabLogic {
    * Processes the distribution of training time to multiple actors.
    */
   static async processGrantTime(timeValues: Record<string, number>, selectedIds: string[]) {
-    const timeUnits = Settings.timeUnits;
+    const timeUnits = Settings.get("timeUnits");
     const totalBase = TabLogic.calculateTotalBaseTime(timeValues, timeUnits);
 
     if (totalBase === 0) return ui.notifications?.warn("No time entered.");
@@ -35,10 +35,10 @@ export class PartyTabLogic {
 
     let successCount = 0;
     for (const id of selectedIds) {
-      const actor = (game.actors as any)?.get(id);
+      const actor = (game.actors as unknown as Actors).get(id);
       if (!actor) continue;
       try {
-        const proxy = ActorProxy.forActor(actor as unknown as Actor);
+        const proxy = ActorProxy.forActor(actor as unknown as Actor5e);
         const bank = proxy.bank;
         await proxy.setBank({ total: (bank.total || 0) + totalBase });
         successCount++;
@@ -65,7 +65,7 @@ export class PartyTabLogic {
    * Orchestrates the Grant Time dialog.
    */
   static async grantTime(members: MemberMappedData[], actor: Actor) {
-    const timeUnits = Settings.timeUnits;
+    const timeUnits = Settings.get("timeUnits");
     const isParty = (actor.type as string) === "group";
 
     interface GrantTimeInstance {
@@ -127,17 +127,17 @@ export class PartyTabLogic {
     isGM: boolean,
   ) {
     if (!isGM) return;
-    const targetActor = (game.actors as any)?.get(actorId) as unknown as Actor5e;
+    const targetActor = (game.actors as unknown as Actors).get(actorId) as unknown as Actor5e;
     if (!targetActor) return;
 
-    const tiers = Settings.guidanceTiers;
+    const tiers = Settings.get("guidanceTiers");
     const tier = tiers.find((tier) => tier.id === tierId);
 
     const item = targetActor.items.get(project.id);
     if (item) {
       await item.update({
-        ["flags.thefehrs-learning-manager.projectData.tutelageId" as string]: tier?.id ?? "",
-      });
+        ["flags.thefehrs-learning-manager.projectData.tutelageId"]: tier?.id ?? "",
+      } as Record<string, unknown>);
     }
   }
 
@@ -151,7 +151,7 @@ export class PartyTabLogic {
     isGM: boolean,
   ) {
     if (!isGM) return;
-    const targetActor = (game.actors as any)?.get(actorId) as unknown as Actor5e;
+    const targetActor = (game.actors as unknown as Actors).get(actorId) as unknown as Actor5e;
     if (!targetActor) return;
 
     const item = targetActor.items.get(project.id);
@@ -184,7 +184,7 @@ export class PartyTabLogic {
     isGM: boolean,
   ) {
     if (!isGM) return;
-    const targetActor = (game.actors as any)?.get(actorId) as unknown as Actor5e;
+    const targetActor = (game.actors as unknown as Actors).get(actorId) as unknown as Actor5e;
     if (!targetActor) return;
 
     const item = targetActor.items.get(project.id);
@@ -225,7 +225,7 @@ export class PartyTabLogic {
    * Orchestrates project deletion/abortion.
    */
   static async deleteProject(actorId: string, project: ProjectMappedData, isGM: boolean) {
-    const targetActor = (game.actors as any)?.get(actorId) as unknown as Actor5e;
+    const targetActor = (game.actors as unknown as Actors).get(actorId) as unknown as Actor5e;
     if (!targetActor || !targetActor.isOwner) {
       ui.notifications?.warn("You do not have permission to modify this actor's projects.");
       return;
@@ -252,7 +252,7 @@ export class PartyTabLogic {
         title: "Abort Project",
         contentClasses: ["thefehrs-learning-manager-dialog"],
       },
-      content: container as unknown as string,
+      content: container,
       buttons: [
         {
           action: "yes",

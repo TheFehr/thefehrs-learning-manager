@@ -34,8 +34,8 @@ export class PartyTab {
       };
     }
     const rawMembers = (partyActor.system.members || []) as PartyMemberData[];
-    const timeUnits = Settings.timeUnits;
-    const tiers = Settings.guidanceTiers;
+    const timeUnits = Settings.get("timeUnits");
+    const tiers = Settings.get("guidanceTiers");
 
     const tierOptions = tiers.reduce((acc: Record<string, string>, t) => {
       const sign = t.modifier > 0 ? "+" : "";
@@ -62,7 +62,7 @@ export class PartyTab {
 
     if (!globalThis.Actor || !(actualActor instanceof globalThis.Actor)) return null;
     const a = actualActor as unknown as Actor5e;
-    const proxy = ActorProxy.forActor(actualActor);
+    const proxy = ActorProxy.forActor(a);
 
     const bank = proxy.bank;
 
@@ -78,7 +78,8 @@ export class PartyTab {
 
         const isLearnedReward = i.getFlag("thefehrs-learning-manager", "isLearnedReward");
 
-        const tier = Settings.guidanceTiers.find((t) => t.id === projectData.tutelageId);
+        const guidanceTiers = Settings.get("guidanceTiers");
+        const tier = guidanceTiers.find((t) => t.id === projectData.tutelageId);
 
         return {
           ...projectData,
