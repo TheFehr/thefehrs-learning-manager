@@ -5,6 +5,16 @@ import * as overviewLogic from "../src/apps/overview-logic.js";
 
 vi.unmock("svelte");
 
+async function waitForLoading(target: HTMLElement) {
+  for (let i = 0; i < 20; i++) {
+    await tick();
+    if (!target.querySelector(".loading-state")) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+}
+
 vi.mock("../src/apps/overview-logic.js", () => ({
   getInvalidProjects: vi.fn(),
 }));
@@ -35,9 +45,7 @@ describe("ProjectOverview.svelte", () => {
   it("should show empty state if no invalid projects found", async () => {
     (overviewLogic.getInvalidProjects as any).mockResolvedValue([]);
     instance = mount(ProjectOverview, { target });
-    // Multiple ticks ensure all async onMount logic and reactive updates are settled
-    await tick();
-    await tick();
+    await waitForLoading(target);
 
     expect(target.innerHTML).toContain("All projects are valid!");
   });
@@ -45,9 +53,7 @@ describe("ProjectOverview.svelte", () => {
   it("should show error state if fetching projects fails", async () => {
     (overviewLogic.getInvalidProjects as any).mockRejectedValue(new Error("Network Error"));
     instance = mount(ProjectOverview, { target });
-    // Multiple ticks ensure all async onMount logic and reactive updates are settled
-    await tick();
-    await tick();
+    await waitForLoading(target);
 
     expect(target.innerHTML).toContain("Failed to load invalid projects");
   });
@@ -63,9 +69,7 @@ describe("ProjectOverview.svelte", () => {
     (overviewLogic.getInvalidProjects as any).mockResolvedValue(mockInvalidProjects);
 
     instance = mount(ProjectOverview, { target });
-    // Multiple ticks ensure all async onMount logic and reactive updates are settled
-    await tick();
-    await tick();
+    await waitForLoading(target);
 
     expect(target.innerHTML).toContain("Broken Project");
     expect(target.innerHTML).toContain("Test Pack");
@@ -85,9 +89,7 @@ describe("ProjectOverview.svelte", () => {
     (overviewLogic.getInvalidProjects as any).mockResolvedValue(mockInvalidProjects);
 
     instance = mount(ProjectOverview, { target });
-    // Multiple ticks ensure all async onMount logic and reactive updates are settled
-    await tick();
-    await tick();
+    await waitForLoading(target);
 
     const projectName = target.querySelector(".project-name") as HTMLElement;
     expect(projectName).not.toBeNull();
@@ -108,14 +110,45 @@ describe("ProjectOverview.svelte", () => {
     (overviewLogic.getInvalidProjects as any).mockResolvedValue(mockInvalidProjects);
 
     instance = mount(ProjectOverview, { target });
-    // Multiple ticks ensure all async onMount logic and reactive updates are settled
-    await tick();
-    await tick();
+    await waitForLoading(target);
 
-    const fixButton = target.querySelector("button.tidy-button") as HTMLButtonElement;
+    const fixButton = target.querySelector("button.fix-button") as HTMLButtonElement;
     expect(fixButton).not.toBeNull();
     fixButton.click();
 
     expect(renderSpy).toHaveBeenCalledWith(true);
+  });
+
+  it("should refresh invalid projects when clicking the refresh button", async () => {
+    const mockInvalidProjects1 = [
+      {
+        item: { name: "Broken Project 1", sheet: { render: vi.fn() } },
+        packName: "Test Pack",
+        reasons: ["Reason 1"],
+      },
+    ];
+    const mockInvalidProjects2 = [
+      {
+        item: { name: "Broken Project 2", sheet: { render: vi.fn() } },
+        packName: "Test Pack",
+        reasons: ["Reason 2"],
+      },
+    ];
+
+    (overviewLogic.getInvalidProjects as any).mockResolvedValueOnce(mockInvalidProjects1);
+    (overviewLogic.getInvalidProjects as any).mockResolvedValueOnce(mockInvalidProjects2);
+
+    instance = mount(ProjectOverview, { target });
+    await waitForLoading(target);
+
+    expect(target.innerHTML).toContain("Broken Project 1");
+
+    const refreshButton = target.querySelector("button.refresh-button") as HTMLButtonElement;
+    expect(refreshButton).not.toBeNull();
+    refreshButton.click();
+
+    await waitForLoading(target);
+
+    expect(target.innerHTML).toContain("Broken Project 2");
   });
 });

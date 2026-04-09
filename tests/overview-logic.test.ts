@@ -38,14 +38,17 @@ describe("overview-logic", () => {
     );
   });
 
-  it("should return an empty array if all projects are valid", async () => {
+  it("should return an empty array if all projects are valid (even without isLearningProject flag)", async () => {
     const validEntry = {
       _id: "item1",
       name: "Valid Project",
-      system: { description: { value: "A valid description" } },
+      system: {
+        description: { value: "A valid description" },
+        activities: { a: {} },
+      },
       flags: {
         [MODULE_ID]: {
-          projectData: { isLearningProject: true, target: 10 },
+          projectData: { target: 10 },
         },
       },
     };
@@ -58,30 +61,6 @@ describe("overview-logic", () => {
     expect(pack1.getDocument).not.toHaveBeenCalled();
   });
 
-  it("should identify projects missing isLearningProject flag", async () => {
-    const invalidEntry = {
-      _id: "item1",
-      name: "Invalid Project",
-      system: { description: { value: "A valid description" } },
-      flags: {
-        [MODULE_ID]: {
-          projectData: { target: 10 }, // Missing isLearningProject: true
-        },
-      },
-    };
-
-    const pack1 = game.packs.get("pack1") as any;
-    pack1.getIndex.mockResolvedValue([invalidEntry]);
-    pack1.getDocument.mockResolvedValue({ ...invalidEntry, getFlag: vi.fn() });
-
-    const result = await getInvalidProjects();
-    expect(result).toHaveLength(1);
-    expect(result[0].reasons).toContain(
-      "Missing or invalid isLearningProject flag in projectData.",
-    );
-    expect(pack1.getDocument).toHaveBeenCalledWith("item1");
-  });
-
   it("should identify projects with missing or invalid target", async () => {
     const entryNoTarget = {
       _id: "item1",
@@ -89,7 +68,7 @@ describe("overview-logic", () => {
       system: { description: { value: "Desc" } },
       flags: {
         [MODULE_ID]: {
-          projectData: { isLearningProject: true },
+          projectData: {},
         },
       },
     };
@@ -100,7 +79,7 @@ describe("overview-logic", () => {
       system: { description: { value: "Desc" } },
       flags: {
         [MODULE_ID]: {
-          projectData: { isLearningProject: true, target: 0 },
+          projectData: { target: 0 },
         },
       },
     };
@@ -122,10 +101,13 @@ describe("overview-logic", () => {
     const entryNoName = {
       _id: "item1",
       name: "",
-      system: { description: { value: "Desc" } },
+      system: {
+        description: { value: "Desc" },
+        activities: { a: {} },
+      },
       flags: {
         [MODULE_ID]: {
-          projectData: { isLearningProject: true, target: 10 },
+          projectData: { target: 10 },
         },
       },
     };
@@ -133,10 +115,13 @@ describe("overview-logic", () => {
     const entryNoDesc = {
       _id: "item2",
       name: "Name",
-      system: { description: { value: "  " } },
+      system: {
+        description: { value: "  " },
+        activities: { a: {} },
+      },
       flags: {
         [MODULE_ID]: {
-          projectData: { isLearningProject: true, target: 10 },
+          projectData: { target: 10 },
         },
       },
     };
@@ -153,11 +138,73 @@ describe("overview-logic", () => {
     expect(result[1].reasons).toContain("Project description is missing or empty.");
   });
 
+  it("should identify projects with neither activities nor effects", async () => {
+    const entryNoActivitiesNoEffects = {
+      _id: "item1",
+      name: "No activities or effects",
+      system: {
+        description: { value: "A valid description" },
+        activities: {}, // Empty
+      },
+      effects: [], // Empty
+      flags: {
+        [MODULE_ID]: {
+          projectData: { target: 10 },
+        },
+      },
+    };
+
+    const entryOnlyActivities = {
+      _id: "item2",
+      name: "Has activities",
+      system: {
+        description: { value: "A valid description" },
+        activities: { a: {} },
+      },
+      flags: {
+        [MODULE_ID]: {
+          projectData: { target: 10 },
+        },
+      },
+    };
+
+    const entryOnlyEffects = {
+      _id: "item3",
+      name: "Has effects",
+      system: {
+        description: { value: "A valid description" },
+      },
+      effects: [{ _id: "e1" }],
+      flags: {
+        [MODULE_ID]: {
+          projectData: { target: 10 },
+        },
+      },
+    };
+
+    const pack1 = game.packs.get("pack1") as any;
+    pack1.getIndex.mockResolvedValue([
+      entryNoActivitiesNoEffects,
+      entryOnlyActivities,
+      entryOnlyEffects,
+    ]);
+    pack1.getDocument.mockImplementation((id: string) => Promise.resolve({ id, name: id }));
+
+    const result = await getInvalidProjects();
+    expect(result).toHaveLength(1);
+    expect(result[0].item.name).toBe("item1");
+    expect(result[0].reasons).toContain("Project has neither activities nor effects.");
+  });
+
   it("should handle multiple invalidity reasons for a single project", async () => {
     const veryInvalidEntry = {
       _id: "item1",
       name: " ",
-      system: { description: { value: "" } },
+      system: {
+        description: { value: "" },
+        activities: {},
+      },
+      effects: [],
       // No flags at all
     };
 
@@ -171,10 +218,11 @@ describe("overview-logic", () => {
     const result = await getInvalidProjects();
     expect(result).toHaveLength(1);
     expect(result[0].reasons).toHaveLength(4);
-    expect(result[0].reasons).toContain(
+    expect(result[0].reasons).not.toContain(
       "Missing or invalid isLearningProject flag in projectData.",
     );
     expect(result[0].reasons).toContain("Missing or invalid project target (must be > 0).");
+    expect(result[0].reasons).toContain("Project has neither activities nor effects.");
     expect(result[0].reasons).toContain("Project name is missing or empty.");
     expect(result[0].reasons).toContain("Project description is missing or empty.");
   });
@@ -194,10 +242,52 @@ describe("overview-logic", () => {
     const result = await getInvalidProjects();
     expect(result).toHaveLength(1);
     expect(result[0].item.name).toBe("Broken Item");
-    expect(result[0].reasons).toContain(
+    expect(result[0].reasons).not.toContain(
       "Missing or invalid isLearningProject flag in projectData.",
     );
     expect(result[0].reasons).toContain("Failed to load full item data.");
+  });
+
+  it("should not include a project if the index is stale but the full document is valid", async () => {
+    // Index says no activities/effects
+    const staleEntry = {
+      _id: "item1",
+      name: "Stale Project",
+      system: {
+        description: { value: "A valid description" },
+        activities: {},
+      },
+      effects: [],
+      flags: {
+        [MODULE_ID]: {
+          projectData: { target: 10 },
+        },
+      },
+    };
+
+    // Full document says it HAS an effect
+    const freshDocument = {
+      _id: "item1",
+      name: "Stale Project",
+      system: {
+        description: { value: "A valid description" },
+        activities: {},
+      },
+      effects: { size: 1 }, // Collection-like
+      flags: {
+        [MODULE_ID]: {
+          projectData: { target: 10 },
+        },
+      },
+    };
+
+    const pack1 = game.packs.get("pack1") as any;
+    pack1.getIndex.mockResolvedValue([staleEntry]);
+    pack1.getDocument.mockResolvedValue(freshDocument);
+
+    const result = await getInvalidProjects();
+    expect(result).toHaveLength(0);
+    expect(pack1.getDocument).toHaveBeenCalledWith("item1");
   });
 
   it("should skip compendiums that are not found or not Item type", async () => {

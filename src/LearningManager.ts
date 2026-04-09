@@ -9,6 +9,7 @@ import type {
 import { ProjectEngine } from "./logic/project-engine.js";
 import { Settings, SettingsManager } from "./core/settings.js";
 import { LearningConfigApp } from "./apps/settings-app.js";
+import { ProjectOverviewApp } from "./apps/overview-app.js";
 import { TabLogic } from "./logic/tab-logic.js";
 import {
   ProjectItem,
@@ -44,6 +45,15 @@ export class LearningManager {
       icon: "fas fa-cogs",
       type: LearningConfigApp,
       restricted: false,
+    });
+
+    Settings.registerMenu("overviewMenu", {
+      name: "Project Overview",
+      label: "Project Overview",
+      hint: "View invalid learning projects",
+      icon: "fas fa-eye",
+      type: ProjectOverviewApp,
+      restricted: true,
     });
   }
 

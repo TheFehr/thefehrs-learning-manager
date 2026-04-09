@@ -5,17 +5,29 @@
   let invalidProjects = $state<InvalidProjectReason[]>([]);
   let isLoading = $state(true);
   let errorMessage = $state<string | null>(null);
+  let isRefreshing = $state(false);
 
-  onMount(async () => {
+  async function loadProjects() {
     try {
+      errorMessage = null;
       invalidProjects = await getInvalidProjects();
     } catch (error) {
       console.error("Downtime Engine | Error fetching invalid projects:", error);
       errorMessage = "Failed to load invalid projects. Check console for details.";
-    } finally {
-      isLoading = false;
     }
+  }
+
+  onMount(async () => {
+    isLoading = true;
+    await loadProjects();
+    isLoading = false;
   });
+
+  async function handleRefresh() {
+    isRefreshing = true;
+    await loadProjects();
+    isRefreshing = false;
+  }
 
   function openItemSheet(item: any) {
     if (!item?.sheet) {
@@ -27,6 +39,20 @@
 </script>
 
 <div class="project-overview-container">
+  <div class="overview-header">
+    <h3>Invalid Learning Projects</h3>
+    <button
+      type="button"
+      class="refresh-button tidy-button"
+      onclick={handleRefresh}
+      disabled={isLoading || isRefreshing}
+      title="Refresh list"
+    >
+      <i class="fas fa-sync {isRefreshing ? 'fa-spin' : ''}"></i>
+      {isRefreshing ? "Refreshing..." : "Refresh"}
+    </button>
+  </div>
+
   {#if isLoading}
     <div class="loading-state">
       <i class="fas fa-spinner fa-spin"></i> Loading invalid projects...
@@ -70,7 +96,7 @@
           <div class="actions">
             <button
               type="button"
-              class="tidy-button"
+              class="fix-button tidy-button"
               onclick={() => openItemSheet(item)}
               title="Open Item Sheet"
             >
@@ -91,6 +117,21 @@
     display: flex;
     flex-direction: column;
     gap: 0.5rem;
+  }
+
+  .overview-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid var(--t5e-faint-color, #ccc);
+    padding-bottom: 0.5rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .overview-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    border: none;
   }
 
   .loading-state,
