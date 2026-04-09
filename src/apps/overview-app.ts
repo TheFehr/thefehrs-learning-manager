@@ -28,6 +28,7 @@ export class ProjectOverviewApp extends ApplicationV2 {
   }
 
   protected override async _onRender(_context: object, _options: any) {
+    await super._onRender?.(_context, _options);
     const target = this.element.querySelector(".window-content") || this.element;
 
     if (this.svelteInstance) {

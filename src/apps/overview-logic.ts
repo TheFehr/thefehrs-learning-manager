@@ -89,6 +89,8 @@ export async function getInvalidProjects(): Promise<InvalidProjectReason[]> {
       continue;
     }
 
+    // Foundry's getIndex typing doesn't support custom fields, but the API does.
+    // We use double type assertions to bypass the strict compiler checks.
     const index = (await pack.getIndex({
       fields: [
         `flags.${MODULE_ID}.projectData`,
