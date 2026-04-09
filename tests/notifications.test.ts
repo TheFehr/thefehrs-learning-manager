@@ -4,7 +4,7 @@ import { Settings } from "../src/core/settings";
 
 vi.mock("../src/core/settings", () => ({
   Settings: {
-    rules: { notificationLevel: "info" },
+    get: vi.fn(),
   },
 }));
 
@@ -30,14 +30,14 @@ describe("Logger", () => {
   });
 
   it("should show info notification and log to console", () => {
-    Settings.rules.notificationLevel = "info";
+    vi.spyOn(Settings, "get").mockReturnValue({ notificationLevel: "info" } as any);
     Logger.info("test info");
     expect(ui.notifications.info).toHaveBeenCalledWith("test info");
     expect(console.info).toHaveBeenCalledWith(expect.stringContaining("test info"));
   });
 
   it("should respect notification level (error only)", () => {
-    Settings.rules.notificationLevel = "error";
+    vi.spyOn(Settings, "get").mockReturnValue({ notificationLevel: "error" } as any);
     Logger.info("hidden info");
     expect(ui.notifications.info).not.toHaveBeenCalled();
     expect(console.info).not.toHaveBeenCalled();
@@ -47,7 +47,7 @@ describe("Logger", () => {
   });
 
   it("should handle debug logs", () => {
-    Settings.rules.notificationLevel = "debug";
+    vi.spyOn(Settings, "get").mockReturnValue({ notificationLevel: "debug" } as any);
     Logger.debug("debug message", { key: "val" });
     expect(console.debug).toHaveBeenCalledWith(expect.stringContaining("debug message"), {
       key: "val",

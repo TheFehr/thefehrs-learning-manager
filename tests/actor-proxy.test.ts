@@ -5,9 +5,12 @@ import { Settings } from "../src/core/settings";
 describe("ActorProxy", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    vi.spyOn(Settings, "guidanceTiers", "get").mockReturnValue([
-      { id: "tier1", name: "Tier 1", modifier: 2, costs: {}, progress: {} },
-    ]);
+    vi.spyOn(Settings, "get").mockImplementation((key) => {
+      if (key === "guidanceTiers") {
+        return [{ id: "tier1", name: "Tier 1", modifier: 2, costs: {}, progress: {} }] as any;
+      }
+      return null;
+    });
   });
 
   it("getMappedProjects should return correctly mapped data", () => {

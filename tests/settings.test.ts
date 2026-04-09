@@ -39,15 +39,15 @@ describe("SettingsManager", () => {
     expect(game.settings.set).toHaveBeenCalledWith(Settings.ID, "migrationVersion", "new-value");
   });
 
-  it("should provide legacy accessors with defaults and debug logs", () => {
+  it("should provide accessors with defaults and debug logs", () => {
     vi.mocked(game.settings.get).mockReturnValue(undefined);
 
-    expect(Settings.timeUnits).toEqual(SETTINGS_DEFINITIONS.timeUnits.default);
+    expect(Settings.get("timeUnits")).toEqual(SETTINGS_DEFINITIONS.timeUnits.default);
     expect(console.debug).toHaveBeenCalledWith(
       expect.stringContaining("'timeUnits' is uninitialized"),
     );
 
-    expect(Settings.autoSpend).toBe(SETTINGS_DEFINITIONS.autoSpend.default);
+    expect(Settings.get("autoSpend")).toBe(SETTINGS_DEFINITIONS.autoSpend.default);
     expect(console.debug).toHaveBeenCalledWith(
       expect.stringContaining("'autoSpend' is uninitialized"),
     );

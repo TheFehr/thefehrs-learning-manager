@@ -18,8 +18,12 @@ describe("PartyTabLogic", () => {
     vi.clearAllMocks();
     originalFoundry = (global as any).foundry;
 
-    // Mock Settings.timeUnits
-    vi.spyOn(Settings, "timeUnits", "get").mockReturnValue([]);
+    // Mock Settings.get
+    vi.spyOn(Settings, "get").mockImplementation((key) => {
+      if (key === "timeUnits") return [];
+      if (key === "guidanceTiers") return [];
+      return null;
+    });
 
     // Mock ChatMessage.implementation
     (global as any).ChatMessage = {
@@ -97,7 +101,10 @@ describe("PartyTabLogic", () => {
       const mockItem = { update: vi.fn().mockResolvedValue(true) };
       const mockActor = { items: { get: vi.fn().mockReturnValue(mockItem) } };
       (game.actors as any).set("actor1", mockActor);
-      vi.spyOn(Settings, "guidanceTiers", "get").mockReturnValue([{ id: "tier1" } as any]);
+      vi.mocked(Settings.get).mockImplementation((key) => {
+        if (key === "guidanceTiers") return [{ id: "tier1" } as any];
+        return null;
+      });
 
       await PartyTabLogic.updateGuidance("actor1", { id: "item1" } as any, "tier1", true);
 
