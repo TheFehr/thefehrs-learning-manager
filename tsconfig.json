@@ -8,9 +8,12 @@
     "skipLibCheck": true,
     "esModuleInterop": true,
     "noEmit": true,
-    "types": ["@league-of-foundry-developers/foundry-vtt-types"],
+    "types": ["@league-of-foundry-developers/foundry-vtt-types", "vite/client"],
     "baseUrl": ".",
     "paths": {
+      "fvtt-types/configuration": [
+        "./node_modules/@league-of-foundry-developers/foundry-vtt-types/src/configuration/index.d.mts"
+      ],
       "@dnd5e/*": ["./external-dts/dnd5e/*"],
       "@tidy5e/*": ["./external-dts/tidy-5e/*"]
     },

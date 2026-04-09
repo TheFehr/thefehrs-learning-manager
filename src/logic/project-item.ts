@@ -1,5 +1,5 @@
 import type { FeatItemSystemData } from "@dnd5e/data/item/_types.mjs";
-import type { LearningActor, Item5e, ActivityData5e } from "./types.js";
+import type { LearningActor, Item5e, ActivityData5e } from "../types.js";
 
 export const LearningFeatType = "learning-project" as const;
 
@@ -22,8 +22,8 @@ export type ProjectFlagData = {
   isLearnedReward?: boolean;
   isCompleted?: boolean;
   tutelageId?: string;
-  progress: number;
-  target: number;
+  progress?: number;
+  target?: number;
   followUpProjectId?: string;
   requirements?: ProjectRequirement[];
   stashedType?: string;
@@ -55,14 +55,15 @@ export interface LearningFeatItemData extends Omit<FeatItemSystemData, "activiti
   activities: Record<string, LearningActivityData>;
 }
 
-export interface ProjectItem extends Omit<Item5e, "system" | "actor"> {
+export interface ProjectItem extends Omit<Item<any>, "system"> {
   system: LearningFeatItemData;
   actor: LearningActor | null;
 
   getFlag(scope: "thefehrs-learning-manager", key: "projectData"): ProjectFlagData;
   getFlag<T>(scope: string, key: string): T;
+  displayCard(options?: object): Promise<unknown>;
 }
 
-export function projectData(item: ProjectItem): ProjectFlagData {
+export function projectData(item: Item5e): ProjectFlagData {
   return item.getFlag("thefehrs-learning-manager", "projectData");
 }

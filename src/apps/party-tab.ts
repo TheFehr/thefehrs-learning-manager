@@ -1,8 +1,9 @@
-import { Settings } from "./core/settings.js";
-import { ActorProxy } from "./actor-proxy.js";
-import { TabLogic } from "./tab-logic.js";
-import type { DowntimeGroupActor, TimeUnit, Actor5e, Item5e, ProjectFlagData } from "./types.js";
+import { Settings } from "../core/settings.js";
+import { ActorProxy } from "../logic/actor-proxy.js";
+import { TabLogic } from "../logic/tab-logic.js";
+import type { DowntimeGroupActor, TimeUnit, Actor5e, Item5e, ProjectFlagData } from "../types.js";
 import type { PartyMemberData } from "@dnd5e/data/actor/_types.mjs";
+import { MODULE_ID } from "../global";
 
 export type ProjectMappedData = ProjectFlagData & {
   id: string;
@@ -34,8 +35,8 @@ export class PartyTab {
       };
     }
     const rawMembers = (partyActor.system.members || []) as PartyMemberData[];
-    const timeUnits = Settings.timeUnits;
-    const tiers = Settings.guidanceTiers;
+    const timeUnits = Settings.get("timeUnits");
+    const tiers = Settings.get("guidanceTiers");
 
     const tierOptions = tiers.reduce((acc: Record<string, string>, t) => {
       const sign = t.modifier > 0 ? "+" : "";
@@ -58,27 +59,26 @@ export class PartyTab {
   ): MemberMappedData | null {
     const actualActor =
       member.actor ||
-      (this.getMemberId(member) ? game.actors?.get(this.getMemberId(member)!) : null);
+      (this.getMemberId(member) ? (game.actors as any)?.get(this.getMemberId(member)!) : null);
 
     if (!globalThis.Actor || !(actualActor instanceof globalThis.Actor)) return null;
     const a = actualActor as unknown as Actor5e;
-    const proxy = ActorProxy.forActor(actualActor);
+    const proxy = ActorProxy.forActor(a);
 
     const bank = proxy.bank;
 
     const itemProjects = (a.items as unknown as Item5e[])
       .filter(
-        (i) =>
-          i.getFlag("thefehrs-learning-manager", "isLearningProject") ||
-          i.getFlag("thefehrs-learning-manager", "isLearnedReward"),
+        (i) => i.getFlag(MODULE_ID, "isLearningProject") || i.getFlag(MODULE_ID, "isLearnedReward"),
       )
       .map((i): ProjectMappedData | null => {
-        const projectData = i.getFlag("thefehrs-learning-manager", "projectData");
+        const projectData = i.getFlag(MODULE_ID, "projectData");
         if (!projectData) return null;
 
-        const isLearnedReward = i.getFlag("thefehrs-learning-manager", "isLearnedReward");
+        const isLearnedReward = i.getFlag(MODULE_ID, "isLearnedReward");
 
-        const tier = Settings.guidanceTiers.find((t) => t.id === projectData.tutelageId);
+        const guidanceTiers = Settings.get("guidanceTiers");
+        const tier = guidanceTiers.find((t) => t.id === projectData.tutelageId);
 
         return {
           ...projectData,

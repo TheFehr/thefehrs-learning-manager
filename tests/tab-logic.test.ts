@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { TabLogic } from "../src/tab-logic";
+import { TabLogic } from "../src/logic/tab-logic";
 
 describe("TabLogic", () => {
   let originalRoll: any;
@@ -301,13 +301,13 @@ describe("TabLogic", () => {
     });
 
     it("should deduct currency correctly", async () => {
-      const { TabLogic } = await import("../src/tab-logic");
+      const { TabLogic } = await import("../src/logic/tab-logic");
       const actor = {} as any;
       const mockProxy = {
         currency: { gp: 1, sp: 0, cp: 0 },
         updateCurrency: vi.fn().mockResolvedValue(true),
       };
-      const { ActorProxy } = await import("../src/actor-proxy");
+      const { ActorProxy } = await import("../src/logic/actor-proxy");
       vi.spyOn(ActorProxy, "forActor").mockReturnValue(mockProxy as any);
 
       const success = await TabLogic.deductCurrency(actor, 50); // deduct 50cp from 100cp
@@ -316,13 +316,13 @@ describe("TabLogic", () => {
     });
 
     it("should fail if insufficient funds", async () => {
-      const { TabLogic } = await import("../src/tab-logic");
+      const { TabLogic } = await import("../src/logic/tab-logic");
       const actor = {} as any;
       const mockProxy = {
         currency: { gp: 0, sp: 0, cp: 10 },
         updateCurrency: vi.fn(),
       };
-      const { ActorProxy } = await import("../src/actor-proxy");
+      const { ActorProxy } = await import("../src/logic/actor-proxy");
       vi.spyOn(ActorProxy, "forActor").mockReturnValue(mockProxy as any);
       vi.spyOn(ui.notifications, "warn").mockImplementation(() => {});
 
@@ -332,7 +332,7 @@ describe("TabLogic", () => {
     });
 
     it("should return false if cost is negative or NaN", async () => {
-      const { TabLogic } = await import("../src/tab-logic");
+      const { TabLogic } = await import("../src/logic/tab-logic");
       const actor = {} as any;
 
       expect(await TabLogic.deductCurrency(actor, -10)).toBe(false);

@@ -4,7 +4,12 @@ import { Settings } from "../src/core/settings";
 
 vi.mock("../src/core/settings", () => ({
   Settings: {
-    timeUnits: [{ id: "hour", name: "Hour", short: "h", isBulk: false, ratio: 1 }],
+    get: vi.fn().mockImplementation((key) => {
+      if (key === "timeUnits") {
+        return [{ id: "hour", name: "Hour", short: "h", isBulk: false, ratio: 1 }];
+      }
+      return null;
+    }),
     ID: "thefehrs-learning-manager",
   },
 }));

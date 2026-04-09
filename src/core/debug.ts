@@ -1,6 +1,7 @@
-import { ActorProxy } from "../actor-proxy.js";
+import { ActorProxy } from "../logic/actor-proxy.js";
+import { Actor5e } from "../types";
 
-function resolveControlledActor(): Actor | undefined {
+function resolveControlledActor(): Actor5e | undefined {
   if (typeof canvas === "undefined" || !canvas?.ready) return undefined;
 
   let actor = game.user?.character;

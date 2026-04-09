@@ -1,14 +1,14 @@
 <script lang="ts">
   import { Settings } from "../../core/settings.js";
-  import { ActorProxy } from "../../actor-proxy.js";
+  import { ActorProxy } from "../../logic/actor-proxy.js";
   import type { Actor5e, TimeUnit } from "../../types.js";
-  import { TimeBankLogic } from "../time-bank-logic.js";
+  import { TimeBankLogic } from "../../logic/time-bank-logic.js";
 
   let { actor }: { actor: Actor5e } = $props();
 
   let proxy = $derived(ActorProxy.forActor(actor));
   let bank = $derived(proxy.bank);
-  let sortedUnits = $derived([...Settings.timeUnits].sort((a, b) => b.ratio - a.ratio));
+  let sortedUnits = $derived([...Settings.get("timeUnits")].sort((a, b) => b.ratio - a.ratio));
 
   function getTimeValue(unit: TimeUnit, total: number) {
     return TimeBankLogic.getTimeValue(unit, total, sortedUnits);

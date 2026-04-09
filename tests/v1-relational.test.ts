@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { migrateToV1Relational } from "../src/migrations/v1-relational";
+import { MODULE_ID } from "../src/global";
 
 describe("Migration v1 (Relational)", () => {
   beforeEach(() => {
@@ -32,7 +33,7 @@ describe("Migration v1 (Relational)", () => {
     await migrateToV1Relational();
 
     expect(mockActor.setFlag).toHaveBeenCalledWith(
-      "thefehrs-learning-manager",
+      MODULE_ID,
       "projects",
       expect.arrayContaining([
         expect.objectContaining({
@@ -43,7 +44,7 @@ describe("Migration v1 (Relational)", () => {
       ]),
     );
     expect((global as any).game.settings.set).toHaveBeenCalledWith(
-      "thefehrs-learning-manager",
+      MODULE_ID,
       "projectTemplates",
       expect.arrayContaining([
         expect.objectContaining({

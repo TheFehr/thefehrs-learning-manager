@@ -1,4 +1,4 @@
-import { Settings } from "../core/settings.js";
+import { MODULE_ID } from "../global";
 
 interface GuidanceTier {
   id: string;
@@ -14,12 +14,8 @@ interface GuidanceTier {
  * Migration v1.1: Multiplies guidance tier costs by 100 (GP to CP conversion).
  */
 export async function migrateV1_1GpToCp() {
-  const SETTINGS_ID = Settings.ID;
   try {
-    const tiers = game.settings.get(
-      SETTINGS_ID,
-      "guidanceTiers" as any,
-    ) as unknown as GuidanceTier[];
+    const tiers = game.settings.get(MODULE_ID, "guidanceTiers" as any) as unknown as GuidanceTier[];
     let tiersUpdated = false;
     for (const tier of tiers) {
       if (tier._migratedToV2 && !tier._migratedGpToCp) {
@@ -34,7 +30,7 @@ export async function migrateV1_1GpToCp() {
       }
     }
     if (tiersUpdated) {
-      await game.settings.set(SETTINGS_ID, "guidanceTiers" as any, tiers);
+      await game.settings.set(MODULE_ID, "guidanceTiers" as any, tiers);
     }
   } catch (error) {
     console.error("Downtime Engine v1.1 migration failed:", error);

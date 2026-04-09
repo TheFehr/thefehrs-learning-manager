@@ -1,12 +1,12 @@
 import { Settings } from "../core/settings.js";
-import { ActorProxy } from "../actor-proxy.js";
-import { TabLogic } from "../tab-logic.js";
-import { ProjectEngine } from "../project-engine.js";
-import type { ProjectItem, ProjectFlagData } from "../project-item.js";
-import type { MemberMappedData, ProjectMappedData } from "../party-tab.js";
+import { ActorProxy } from "./actor-proxy.js";
+import { TabLogic } from "./tab-logic.js";
+import { ProjectEngine } from "./project-engine.js";
+import type { ProjectItem, ProjectFlagData } from "./project-item.js";
+import type { MemberMappedData, ProjectMappedData } from "../apps/party-tab.js";
 import type { Item5e, Actor5e } from "../types.js";
-import AbortProjectDialog from "./dialogs/AbortProjectDialog.svelte";
-import GrantTimeDialog from "./dialogs/GrantTimeDialog.svelte";
+import AbortProjectDialog from "../apps/dialogs/AbortProjectDialog.svelte";
+import GrantTimeDialog from "../apps/dialogs/GrantTimeDialog.svelte";
 import { mount, unmount } from "svelte";
 
 /**
@@ -17,7 +17,7 @@ export class PartyTabLogic {
    * Opens an actor's sheet by UUID.
    */
   static async openActorSheet(uuid: string) {
-    const doc = await fromUuid(uuid);
+    const doc = await fromUuid(uuid as `Actor.${string}`);
     if (doc && "sheet" in doc && doc.sheet) {
       (doc.sheet as { render: (force: boolean) => unknown }).render(true);
     }
@@ -27,7 +27,7 @@ export class PartyTabLogic {
    * Processes the distribution of training time to multiple actors.
    */
   static async processGrantTime(timeValues: Record<string, number>, selectedIds: string[]) {
-    const timeUnits = Settings.timeUnits;
+    const timeUnits = Settings.get("timeUnits");
     const totalBase = TabLogic.calculateTotalBaseTime(timeValues, timeUnits);
 
     if (totalBase === 0) return ui.notifications?.warn("No time entered.");
@@ -35,10 +35,10 @@ export class PartyTabLogic {
 
     let successCount = 0;
     for (const id of selectedIds) {
-      const actor = game.actors?.get(id);
+      const actor = (game.actors as unknown as Actors).get(id);
       if (!actor) continue;
       try {
-        const proxy = ActorProxy.forActor(actor as unknown as Actor);
+        const proxy = ActorProxy.forActor(actor as unknown as Actor5e);
         const bank = proxy.bank;
         await proxy.setBank({ total: (bank.total || 0) + totalBase });
         successCount++;
@@ -65,7 +65,7 @@ export class PartyTabLogic {
    * Orchestrates the Grant Time dialog.
    */
   static async grantTime(members: MemberMappedData[], actor: Actor) {
-    const timeUnits = Settings.timeUnits;
+    const timeUnits = Settings.get("timeUnits");
     const isParty = (actor.type as string) === "group";
 
     interface GrantTimeInstance {
@@ -98,7 +98,7 @@ export class PartyTabLogic {
       },
     });
 
-    await dialog.render(true);
+    await dialog.render({ force: true });
 
     const target = dialog.element.querySelector(".thefehrs-learning-manager-svelte-root");
     if (target) {
@@ -127,17 +127,17 @@ export class PartyTabLogic {
     isGM: boolean,
   ) {
     if (!isGM) return;
-    const targetActor = game.actors?.get(actorId) as unknown as Actor5e;
+    const targetActor = game.actors.get(actorId) as Actor5e;
     if (!targetActor) return;
 
-    const tiers = Settings.guidanceTiers;
+    const tiers = Settings.get("guidanceTiers");
     const tier = tiers.find((tier) => tier.id === tierId);
 
     const item = targetActor.items.get(project.id);
     if (item) {
       await item.update({
-        "flags.thefehrs-learning-manager.projectData.tutelageId": tier?.id ?? "",
-      });
+        ["flags.thefehrs-learning-manager.projectData.tutelageId"]: tier?.id ?? "",
+      } as Record<string, unknown>);
     }
   }
 
@@ -151,7 +151,7 @@ export class PartyTabLogic {
     isGM: boolean,
   ) {
     if (!isGM) return;
-    const targetActor = game.actors?.get(actorId) as unknown as Actor5e;
+    const targetActor = game.actors.get(actorId) as Actor5e;
     if (!targetActor) return;
 
     const item = targetActor.items.get(project.id);
@@ -162,6 +162,7 @@ export class PartyTabLogic {
 
       projectData.progress = Math.max(0, Math.min(newProgress, projectData.target || 0));
       if (
+        projectData.target &&
         projectData.target > 0 &&
         projectData.progress >= projectData.target &&
         !projectData.isCompleted
@@ -183,7 +184,7 @@ export class PartyTabLogic {
     isGM: boolean,
   ) {
     if (!isGM) return;
-    const targetActor = game.actors?.get(actorId) as unknown as Actor5e;
+    const targetActor = game.actors.get(actorId) as Actor5e;
     if (!targetActor) return;
 
     const item = targetActor.items.get(project.id);
@@ -199,7 +200,12 @@ export class PartyTabLogic {
       );
 
       if (oldTarget !== projectData.target) {
-        if (projectData.target > 0 && projectData.progress >= projectData.target) {
+        if (
+          projectData.target &&
+          projectData.target > 0 &&
+          projectData.progress !== undefined &&
+          projectData.progress >= projectData.target
+        ) {
           await ProjectEngine.updateItemWithProgress(item as unknown as Item5e, projectData);
           await ProjectEngine.completeProject(item as unknown as Item5e);
           return;
@@ -219,7 +225,7 @@ export class PartyTabLogic {
    * Orchestrates project deletion/abortion.
    */
   static async deleteProject(actorId: string, project: ProjectMappedData, isGM: boolean) {
-    const targetActor = game.actors?.get(actorId) as unknown as Actor5e;
+    const targetActor = game.actors.get(actorId) as Actor5e;
     if (!targetActor || !targetActor.isOwner) {
       ui.notifications?.warn("You do not have permission to modify this actor's projects.");
       return;
@@ -246,7 +252,7 @@ export class PartyTabLogic {
         title: "Abort Project",
         contentClasses: ["thefehrs-learning-manager-dialog"],
       },
-      content: container as HTMLDivElement,
+      content: container,
       buttons: [
         {
           action: "yes",
@@ -270,6 +276,6 @@ export class PartyTabLogic {
       close: () => {
         unmount(svelteInstance);
       },
-    }).render(true);
+    }).render({ force: true });
   }
 }

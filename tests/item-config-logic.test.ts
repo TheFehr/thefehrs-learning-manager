@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { ItemConfigLogic } from "../src/apps/item-config-logic";
+import { ItemConfigLogic } from "../src/logic/item-config-logic";
 import { getModuleAPI } from "../src/types";
 
 vi.mock("../src/types", () => ({

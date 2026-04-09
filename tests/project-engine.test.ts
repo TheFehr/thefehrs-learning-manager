@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { ProjectEngine } from "../src/project-engine";
+import { ProjectEngine } from "../src/logic/project-engine";
 import { Settings } from "../src/core/settings";
-import { LearningManager } from "../src/LearningManager";
-import { TabLogic } from "../src/tab-logic";
+import { TabLogic } from "../src/logic/tab-logic";
 import { Socket } from "../src/core/socket";
-import { ActorProxy } from "../src/actor-proxy";
+import { ActorProxy } from "../src/logic/actor-proxy";
+import { MODULE_ID } from "../src/global";
 
-vi.mock("../src/tab-logic", () => ({
+vi.mock("../src/logic/tab-logic", () => ({
   TabLogic: {
     computeProgress: vi.fn().mockResolvedValue({ progressGained: 1 }),
     deductCurrency: vi.fn().mockResolvedValue(true),
@@ -54,9 +54,12 @@ describe("ProjectEngine", () => {
     } as any;
 
     // Default mocks that can be overridden in specific tests
-    vi.spyOn(Settings, "timeUnits", "get").mockReturnValue(timeUnits);
-    vi.spyOn(Settings, "rules", "get").mockReturnValue({ method: "direct" } as any);
-    vi.spyOn(Settings, "guidanceTiers", "get").mockReturnValue(guidanceTiers);
+    vi.spyOn(Settings, "get").mockImplementation((key) => {
+      if (key === "timeUnits") return timeUnits;
+      if (key === "rules") return { method: "direct" } as any;
+      if (key === "guidanceTiers") return guidanceTiers;
+      return null;
+    });
 
     global.game = {
       settings: {
@@ -115,7 +118,7 @@ describe("ProjectEngine", () => {
               }),
             }),
             flags: expect.objectContaining({
-              "thefehrs-learning-manager": expect.objectContaining({
+              [MODULE_ID]: expect.objectContaining({
                 isLearningProject: true,
                 projectData: expect.objectContaining({
                   progress: 0,
@@ -156,7 +159,12 @@ describe("ProjectEngine", () => {
         return null;
       });
 
-      vi.spyOn(Settings, "timeUnits", "get").mockReturnValue(timeUnits);
+      vi.mocked(Settings.get).mockImplementation((key) => {
+        if (key === "timeUnits") return timeUnits;
+        if (key === "guidanceTiers") return guidanceTiers;
+        if (key === "rules") return { method: "direct" } as any;
+        return null;
+      });
 
       await ProjectEngine.injectActivities(item);
 
@@ -222,7 +230,7 @@ describe("ProjectEngine", () => {
           type: "weapon",
           system: { damage: "1d8" },
           flags: expect.objectContaining({
-            "thefehrs-learning-manager": expect.objectContaining({
+            [MODULE_ID]: expect.objectContaining({
               isLearningProject: false,
               isLearnedReward: true,
               projectData: expect.objectContaining({ isCompleted: true }),
@@ -253,10 +261,7 @@ describe("ProjectEngine", () => {
       item.type = "weapon";
       item.delete = vi.fn();
       const activitiesMap = new Map([
-        [
-          "act1",
-          { id: "act1", flags: { "thefehrs-learning-manager": { isLearningActivity: true } } },
-        ],
+        ["act1", { id: "act1", flags: { [MODULE_ID]: { isLearningActivity: true } } }],
         ["act2", { id: "act2" }],
       ]);
       item.system = {
@@ -333,7 +338,7 @@ describe("ProjectEngine", () => {
     it("should progress the project and handle completion", async () => {
       const actor = new Actor() as any;
       actor.flags = {
-        "thefehrs-learning-manager": {
+        [MODULE_ID]: {
           bank: { total: 100 },
         },
       };
@@ -365,13 +370,18 @@ describe("ProjectEngine", () => {
       const activity = {
         item,
         flags: {
-          "thefehrs-learning-manager": {
+          [MODULE_ID]: {
             timeUnitId: "hour",
           },
         },
       };
 
-      vi.spyOn(Settings, "timeUnits", "get").mockReturnValue(timeUnits);
+      vi.mocked(Settings.get).mockImplementation((key) => {
+        if (key === "timeUnits") return timeUnits;
+        if (key === "guidanceTiers") return guidanceTiers;
+        if (key === "rules") return { method: "direct" } as any;
+        return null;
+      });
 
       const result = await ProjectEngine.processTraining(activity as any);
 
@@ -392,7 +402,7 @@ describe("ProjectEngine", () => {
       expect(completionUpdate.system.description.value).toBeDefined();
 
       expect(actor.setFlag).toHaveBeenCalledWith(
-        "thefehrs-learning-manager",
+        MODULE_ID,
         "bank",
         expect.objectContaining({ total: 99 }),
       );
@@ -436,7 +446,7 @@ describe("ProjectEngine", () => {
         update: vi.fn().mockResolvedValue(true),
       } as any);
 
-      const activity = { item, flags: { "thefehrs-learning-manager": { timeUnitId: "hour" } } };
+      const activity = { item, flags: { [MODULE_ID]: { timeUnitId: "hour" } } };
       vi.mocked(TabLogic.computeProgress).mockResolvedValue({ progressGained: 5 }); // 4 excess
 
       await ProjectEngine.processTraining(activity as any);
@@ -447,7 +457,7 @@ describe("ProjectEngine", () => {
     it("should whisper the roll to the player and GM", async () => {
       const actor = new Actor() as any;
       actor.flags = {
-        "thefehrs-learning-manager": {
+        [MODULE_ID]: {
           bank: { total: 100 },
         },
       };
@@ -461,7 +471,7 @@ describe("ProjectEngine", () => {
       const activity = {
         item,
         flags: {
-          "thefehrs-learning-manager": {
+          [MODULE_ID]: {
             timeUnitId: "hour",
           },
         },
@@ -476,11 +486,17 @@ describe("ProjectEngine", () => {
         roll: mockRoll as any,
       });
 
-      vi.spyOn(Settings, "rules", "get").mockReturnValue({
-        method: "roll",
-        rollMode: "blindroll",
-        checkDC: 10,
-      } as any);
+      vi.mocked(Settings.get).mockImplementation((key) => {
+        if (key === "timeUnits") return timeUnits;
+        if (key === "guidanceTiers") return guidanceTiers;
+        if (key === "rules")
+          return {
+            method: "roll",
+            rollMode: "blindroll",
+            checkDC: 10,
+          } as any;
+        return null;
+      });
 
       await ProjectEngine.processTraining(activity as any);
 
@@ -493,7 +509,7 @@ describe("ProjectEngine", () => {
     it("should notify user with reason on failed training", async () => {
       const actor = new Actor() as any;
       actor.flags = {
-        "thefehrs-learning-manager": {
+        [MODULE_ID]: {
           bank: { total: 100 },
         },
       };
@@ -516,7 +532,7 @@ describe("ProjectEngine", () => {
       const activity = {
         item,
         flags: {
-          "thefehrs-learning-manager": {
+          [MODULE_ID]: {
             timeUnitId: "hour",
           },
         },
@@ -536,7 +552,7 @@ describe("ProjectEngine", () => {
 
     it("should fail and not deduct time if no tutelage tier is selected", async () => {
       const actor = new Actor() as any;
-      actor.flags = { "thefehrs-learning-manager": { bank: { total: 100 } } };
+      actor.flags = { [MODULE_ID]: { bank: { total: 100 } } };
 
       const item = new Item() as any;
       item.actor = actor;
@@ -544,7 +560,7 @@ describe("ProjectEngine", () => {
 
       const activity = {
         item,
-        flags: { "thefehrs-learning-manager": { timeUnitId: "hour" } },
+        flags: { [MODULE_ID]: { timeUnitId: "hour" } },
       };
 
       const result = await ProjectEngine.processTraining(activity as any);
@@ -553,16 +569,12 @@ describe("ProjectEngine", () => {
       expect(ui.notifications.warn).toHaveBeenCalledWith(
         "Please select a tutelage tier for this project.",
       );
-      expect(actor.setFlag).not.toHaveBeenCalledWith(
-        "thefehrs-learning-manager",
-        "bank",
-        expect.any(Object),
-      );
+      expect(actor.setFlag).not.toHaveBeenCalledWith(MODULE_ID, "bank", expect.any(Object));
     });
 
     it("should not duplicate progress indicators in name and description", async () => {
       const actor = new Actor() as any;
-      actor.flags = { "thefehrs-learning-manager": { bank: { total: 100 } } };
+      actor.flags = { [MODULE_ID]: { bank: { total: 100 } } };
       actor.system = { currency: { gp: 10, sp: 0, cp: 0 } };
 
       const item = new Item() as any;
@@ -586,11 +598,16 @@ describe("ProjectEngine", () => {
 
       const activity = {
         item,
-        flags: { "thefehrs-learning-manager": { timeUnitId: "hour" } },
+        flags: { [MODULE_ID]: { timeUnitId: "hour" } },
       };
 
       vi.mocked(TabLogic.computeProgress).mockResolvedValueOnce({ progressGained: 1 });
-      vi.spyOn(Settings, "timeUnits", "get").mockReturnValue(timeUnits);
+      vi.mocked(Settings.get).mockImplementation((key) => {
+        if (key === "timeUnits") return timeUnits;
+        if (key === "guidanceTiers") return guidanceTiers;
+        if (key === "rules") return { method: "direct" } as any;
+        return null;
+      });
 
       await ProjectEngine.processTraining(activity as any);
 
@@ -637,10 +654,15 @@ describe("ProjectEngine", () => {
     });
 
     it("should return activities for positive target", () => {
-      vi.spyOn(Settings, "timeUnits", "get").mockReturnValue(timeUnits);
+      vi.mocked(Settings.get).mockImplementation((key) => {
+        if (key === "timeUnits") return timeUnits;
+        if (key === "guidanceTiers") return guidanceTiers;
+        if (key === "rules") return { method: "direct" } as any;
+        return null;
+      });
       const data = ProjectEngine.getActivitiesData(10);
       expect(data).toHaveLength(3);
-      const spendAllActivity = data.find((a) => a.flags["thefehrs-learning-manager"]?.isSpendAll);
+      const spendAllActivity = data.find((a) => a.flags[MODULE_ID]?.isSpendAll);
       expect(spendAllActivity).toBeDefined();
       expect(spendAllActivity?.name).toBe("Spend all time");
     });
@@ -665,7 +687,7 @@ describe("ProjectEngine", () => {
         activities: [
           {
             flags: {
-              "thefehrs-learning-manager": {
+              [MODULE_ID]: {
                 isLearningActivity: true,
                 timeUnitId: "hour",
               },
@@ -676,9 +698,12 @@ describe("ProjectEngine", () => {
 
       const mockProxy = { bank: { total: 10 } };
       vi.spyOn(ActorProxy, "forActor").mockReturnValue(mockProxy as any);
-      vi.spyOn(Settings, "timeUnits", "get").mockReturnValue([
-        { id: "hour", name: "Hour", ratio: 1 } as any,
-      ]);
+      vi.mocked(Settings.get).mockImplementation((key) => {
+        if (key === "timeUnits") return [{ id: "hour", name: "Hour", ratio: 1 } as any];
+        if (key === "guidanceTiers") return guidanceTiers;
+        if (key === "rules") return { method: "direct" } as any;
+        return null;
+      });
 
       const confirmSpy = vi
         .mocked(foundry.applications.api.DialogV2.confirm)
@@ -699,7 +724,7 @@ describe("ProjectEngine", () => {
         activities: [
           {
             flags: {
-              "thefehrs-learning-manager": { isLearningActivity: true, timeUnitId: "hour" },
+              [MODULE_ID]: { isLearningActivity: true, timeUnitId: "hour" },
             },
           },
         ],
@@ -738,7 +763,7 @@ describe("ProjectEngine", () => {
         activities: [
           {
             flags: {
-              "thefehrs-learning-manager": { isLearningActivity: true, timeUnitId: "hour" },
+              [MODULE_ID]: { isLearningActivity: true, timeUnitId: "hour" },
             },
           },
         ],

@@ -6,7 +6,8 @@ import type {
   ComparisonOperator,
   SystemRules,
   GuidanceTier,
-} from "./types.js";
+  Actor5e,
+} from "../types.js";
 
 /**
  * Utility class for downtime resolution logic.
@@ -202,7 +203,7 @@ export class TabLogic {
       );
       return false;
     }
-    const proxy = ActorProxy.forActor(actor);
+    const proxy = ActorProxy.forActor(actor as unknown as Actor5e);
     const cur = proxy.currency;
     const totalCp = cur.gp * 100 + cur.sp * 10 + cur.cp;
 

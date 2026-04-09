@@ -14,7 +14,7 @@ export function createBaseActivityTemplate(): Omit<
       override: false,
       condition: "",
       value: 1,
-    },
+    } as any,
     consumption: {
       value: "1",
       scaling: {
@@ -23,7 +23,7 @@ export function createBaseActivityTemplate(): Omit<
       },
       spellSlot: false,
       targets: [],
-    },
+    } as any,
     description: {
       chatFlavor: "",
     },
@@ -33,7 +33,7 @@ export function createBaseActivityTemplate(): Omit<
       concentration: false,
       override: false,
       special: "",
-    },
+    } as any,
     effects: [],
     flags: {},
     range: {
@@ -41,7 +41,7 @@ export function createBaseActivityTemplate(): Omit<
       units: "self",
       override: false,
       special: "",
-    },
+    } as any,
     target: {
       template: {
         count: "1",
@@ -60,7 +60,7 @@ export function createBaseActivityTemplate(): Omit<
       },
       override: false,
       prompt: false,
-    },
+    } as any,
     uses: {
       spent: 0,
       recovery: [],

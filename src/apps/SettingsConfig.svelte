@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Settings } from "../core/settings.js";
   import type { SystemRules, TimeUnit, GuidanceTier } from "../types.js";
-  import { saveSettings, getAvailablePacks } from "./settings-logic.js";
+  import { saveSettings, getAvailablePacks } from "../logic/settings-logic.js";
   import WorldSettingsConfig from "./components/WorldSettingsConfig.svelte";
   import UserPreferencesConfig from "./components/UserPreferencesConfig.svelte";
 
@@ -9,10 +9,10 @@
   const isGM = !!game.user?.isGM;
 
   // State
-  let rules = $state<SystemRules>(Settings.rules);
-  let timeUnits = $state<TimeUnit[]>(Settings.timeUnits);
-  let guidanceTiers = $state<GuidanceTier[]>(Settings.guidanceTiers);
-  let allowedCompendiums = $state<string[]>(Settings.allowedCompendiums);
+  let rules = $state<SystemRules>(Settings.get("rules"));
+  let timeUnits = $state<TimeUnit[]>(Settings.get("timeUnits"));
+  let guidanceTiers = $state<GuidanceTier[]>(Settings.get("guidanceTiers"));
+  let allowedCompendiums = $state<string[]>(Settings.get("allowedCompendiums"));
 
   // User Preferences
   let autoSpend = $state<boolean>(!isGM ? Settings.get("autoSpend") : false);

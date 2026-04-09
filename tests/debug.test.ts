@@ -1,8 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { DebugHelpers } from "../src/core/debug";
-import { ActorProxy } from "../src/actor-proxy";
+import { ActorProxy } from "../src/logic/actor-proxy";
 
-vi.mock("../src/actor-proxy", () => ({
+vi.mock("../src/logic/actor-proxy", () => ({
   ActorProxy: {
     forActor: vi.fn(),
   },

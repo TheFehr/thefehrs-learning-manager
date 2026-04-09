@@ -13,15 +13,15 @@ export class LearningConfigApp extends ApplicationV2 {
 
   private svelteInstance: Record<string, unknown> | null = null;
 
-  protected override async _renderHTML(context: unknown, options: unknown): Promise<string> {
+  protected override async _renderHTML(context: object, options: any): Promise<string> {
     return ""; // Svelte handles the DOM
   }
 
-  protected override _replaceHTML(result: string, content: HTMLElement, options: unknown): void {
+  protected override _replaceHTML(result: string, content: HTMLElement, options: any): void {
     // No-op, Svelte handles the content
   }
 
-  protected override async _onRender(context: unknown, options: unknown) {
+  protected override async _onRender(context: object, options: any) {
     const target = this.element.querySelector(".window-content") || this.element;
 
     if (this.svelteInstance) {

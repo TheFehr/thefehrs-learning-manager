@@ -1,12 +1,12 @@
-import { Settings } from "./core/settings.js";
+import { Settings } from "../core/settings.js";
 import { ActorProxy } from "./actor-proxy.js";
-import { ActivityManager } from "./core/activity-manager.js";
+import { ActivityManager } from "../core/activity-manager.js";
 import { ProjectLifecycle } from "./project-lifecycle.js";
 import { LearningActivityData, ProjectFlagData, ProjectItem } from "./project-item.js";
-import type { Item5e, LearningActor, TimeUnit, SystemRules } from "./types.js";
-import { Socket } from "./core/socket.js";
+import type { Item5e, Actor5e, LearningActor, TimeUnit, SystemRules } from "../types.js";
+import { Socket } from "../core/socket.js";
 
-import { ProjectUI } from "./core/project-ui.js";
+import { ProjectUI } from "../core/project-ui.js";
 
 export class ProjectEngine {
   /**
@@ -52,7 +52,11 @@ export class ProjectEngine {
     rewardDoc: Item,
     tutelageId: string = "",
   ): Promise<Item5e | null> {
-    return ProjectLifecycle.initiateProjectFromItem(actor, rewardDoc, tutelageId);
+    return (await ProjectLifecycle.initiateProjectFromItem(
+      actor,
+      rewardDoc,
+      tutelageId,
+    )) as any as Item5e;
   }
 
   /**
@@ -84,7 +88,7 @@ export class ProjectEngine {
     const actor = item.actor;
     if (!actor) return false;
 
-    const proxy = ActorProxy.forActor(actor as unknown as Actor);
+    const proxy = ActorProxy.forActor(actor);
     const bank = proxy.bank;
     if (!bank.total || bank.total <= 0) {
       if (!allowedUnitIds) {
@@ -113,7 +117,8 @@ export class ProjectEngine {
       )
       .map((a) => {
         const unitId = a.flags?.[Settings.ID]?.timeUnitId;
-        const unit = Settings.timeUnits.find((u) => u.id === unitId);
+        const timeUnits = Settings.get("timeUnits");
+        const unit = timeUnits.find((u) => u.id === unitId);
         return { activity: a, ratio: unit?.ratio || 0, unitId, name: unit?.name };
       })
       .filter((a) => a.ratio > 0 && (!allowedUnitIds || allowedUnitIds.includes(a.unitId || "")))
@@ -128,7 +133,7 @@ export class ProjectEngine {
     // If manual (no allowedUnitIds), ask for confirmation
     if (!allowedUnitIds) {
       const { TabLogic } = await this.importTabLogic();
-      const formattedTime = TabLogic.formatTimeBank(bank.total, Settings.timeUnits);
+      const formattedTime = TabLogic.formatTimeBank(bank.total, Settings.get("timeUnits"));
       const safeFormattedTime = foundry.utils.escapeHTML(formattedTime);
       const safeItemName = foundry.utils.escapeHTML(item.name);
 
@@ -181,7 +186,7 @@ export class ProjectEngine {
       anySuccess = true;
       consecutiveFailures = 0;
 
-      const updatedProject = actor.items.get(item.id) as ProjectItem | undefined;
+      const updatedProject = actor.items.get(item.id) as unknown as ProjectItem | undefined;
       if (!updatedProject || !updatedProject.system?.activities) break;
 
       const isCompleted = updatedProject.getFlag(Settings.ID, "projectData")?.isCompleted;
@@ -216,7 +221,7 @@ export class ProjectEngine {
 
     // Handle "Spend all" activity
     if (learningActivity.flags?.[Settings.ID]?.isSpendAll) {
-      return await this.processSpendAll(item as unknown as Item5e);
+      return await this.processSpendAll(item as any);
     }
 
     const projectDataFlags = item.getFlag("thefehrs-learning-manager", "projectData");
@@ -227,24 +232,26 @@ export class ProjectEngine {
 
     const flags = learningActivity.flags["thefehrs-learning-manager"];
     const timeUnitId = flags?.timeUnitId;
-    const tu = Settings.timeUnits.find((u) => u.id === timeUnitId);
+    const timeUnits = Settings.get("timeUnits");
+    const tu = timeUnits.find((u) => u.id === timeUnitId);
     if (!tu) return false;
 
-    const proxy = ActorProxy.forActor(actor as unknown as Actor);
+    const proxy = ActorProxy.forActor(actor);
     const bank = proxy.bank;
     if (bank.total < tu.ratio) {
       ui.notifications?.warn(`Not enough time!`);
       return false;
     }
 
-    const tier = Settings.guidanceTiers.find((t) => t.id === projectDataFlags.tutelageId);
+    const guidanceTiers = Settings.get("guidanceTiers");
+    const tier = guidanceTiers.find((t) => t.id === projectDataFlags.tutelageId);
     if (!tier) {
       ui.notifications?.warn("Please select a tutelage tier for this project.");
       return false;
     }
 
     // If it's a bulk unit, ensure the tier actually provides progress for it
-    if (tu.isBulk && Settings.rules.bulkMethod === "direct") {
+    if (tu.isBulk && Settings.get("rules").bulkMethod === "direct") {
       const bulkProgress = tier.progress?.[tu.id] || 0;
       if (bulkProgress <= 0) {
         ui.notifications?.warn(
@@ -265,7 +272,7 @@ export class ProjectEngine {
 
     const { TabLogic } = await this.importTabLogic();
 
-    const rules = Settings.rules;
+    const rules = Settings.get("rules");
     let isSeparate = false;
 
     if (
@@ -313,7 +320,7 @@ export class ProjectEngine {
 
     // Transactions - Deduct currency first
     if (costCp > 0) {
-      const success = await TabLogic.deductCurrency(actor as unknown as Actor, costCp);
+      const success = await TabLogic.deductCurrency(actor, costCp);
       if (!success) return false; // TabLogic.deductCurrency handles the warning
     }
 
@@ -347,11 +354,13 @@ export class ProjectEngine {
     await proxy.setBank({ total: bank.total - tu.ratio });
 
     if (completedNow) {
-      await this.completeProject(item as unknown as Item5e);
+      await this.completeProject(item as any);
 
       if (excessProgress > 0 && projectDataFlags.followUpProjectId) {
-        const followUpItem = (await fromUuid(projectDataFlags.followUpProjectId)) as Item5e | null;
-        if (followUpItem && "getFlag" in followUpItem) {
+        const followUpItem = (await fromUuid(
+          projectDataFlags.followUpProjectId as `Item.${string}`,
+        )) as unknown as Item | null;
+        if (followUpItem) {
           const escapedItemName = foundry.utils.escapeHTML(item.name || "");
           const escapedFollowUpName = foundry.utils.escapeHTML(followUpItem.name || "");
 
@@ -365,10 +374,7 @@ export class ProjectEngine {
           if (proceed) {
             const followUpFlags = followUpItem.getFlag("thefehrs-learning-manager", "projectData");
             const reqs = followUpFlags?.requirements || [];
-            const { eligible, reason: reqReason } = TabLogic.meetsRequirements(
-              actor as unknown as Actor,
-              reqs,
-            );
+            const { eligible, reason: reqReason } = TabLogic.meetsRequirements(actor, reqs);
 
             if (!eligible) {
               ui.notifications?.warn(
@@ -376,7 +382,7 @@ export class ProjectEngine {
               );
             } else {
               const newItem = await this.initiateProjectFromItem(
-                actor as unknown as Actor,
+                actor,
                 followUpItem,
                 projectDataFlags.tutelageId,
               );
@@ -401,14 +407,12 @@ export class ProjectEngine {
         }
       }
     } else {
-      await this.updateItemWithProgress(item as unknown as Item5e, projectDataFlags);
+      await this.updateItemWithProgress(item as any, projectDataFlags);
 
       // Ensure we have the latest document instance before displaying the card
-      const freshItem = (actor as unknown as Actor).items.get(item.id) as Item5e & {
-        displayCard?: (options?: object) => Promise<unknown>;
-      };
-      if (freshItem && typeof freshItem.displayCard === "function") {
-        await freshItem.displayCard({ rollMode: rules.rollMode });
+      const freshItem = actor.items.get(item.id);
+      if (freshItem && typeof (freshItem as any).displayCard === "function") {
+        await (freshItem as any).displayCard({ rollMode: rules.rollMode });
       }
     }
 
@@ -424,7 +428,7 @@ export class ProjectEngine {
           {
             flavor: `${actor.name} tries to learn ${item.name} (DC ${rules.checkDC ?? 12})`,
           },
-          { rollMode: rules.rollMode || "gmroll" },
+          { rollMode: (rules.rollMode || "gmroll") as foundry.dice.RollMode },
         );
       }
     }
@@ -460,7 +464,7 @@ export class ProjectEngine {
 
     if (projects.length === 1) {
       const project = projects[0];
-      await this.processSpendAll(project as unknown as Item5e, autoSpendUnits);
+      await this.processSpendAll(project as any, autoSpendUnits);
     } else if (projects.length > 1) {
       ui.notifications?.warn(
         "Downtime Engine | You have auto-spending enabled, but more than one active project. Please open your character sheet and spend the time yourself.",

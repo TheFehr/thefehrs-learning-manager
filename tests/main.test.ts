@@ -1,14 +1,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { mount, unmount } from "svelte";
 import { LearningManager } from "../src/LearningManager";
-import { TabLogic } from "../src/tab-logic";
-import { ActorProxy } from "../src/actor-proxy";
-import { ProjectEngine } from "../src/project-engine";
+import { TabLogic } from "../src/logic/tab-logic";
+import { ActorProxy } from "../src/logic/actor-proxy";
+import { ProjectEngine } from "../src/logic/project-engine";
 import { Socket } from "../src/core/socket";
-import type { TimeUnit } from "../src/types";
+import type { Actor5e, TimeUnit } from "../src/types";
 import { migrateData } from "../src/migrations/migration";
 
-vi.mock("../src/project-engine", () => ({
+vi.mock("../src/logic/project-engine", () => ({
   ProjectEngine: {
     initiateProjectFromItem: vi.fn(),
     processTraining: vi.fn(),
@@ -226,7 +226,7 @@ describe("LearningManager", () => {
 
   describe("ActorProxy", () => {
     it("should handle bank and projects", async () => {
-      const actor = new Actor() as any;
+      const actor = new Actor() as unknown as Actor5e;
       actor.flags = {
         "thefehrs-learning-manager": {
           bank: { total: 10 },

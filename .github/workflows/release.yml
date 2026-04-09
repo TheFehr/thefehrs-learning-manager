@@ -39,6 +39,9 @@ jobs:
       - name: Check Formatting
         run: npm run fmt:check
 
+      - name: Type Check
+        run: npx tsc
+
       - name: Run Tests with Coverage
         run: npm run test -- --coverage
 

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { PartyTab } from "../src/party-tab";
+import { PartyTab } from "../src/apps/party-tab";
 import { LearningManager } from "../src/LearningManager";
 import { Settings } from "../src/core/settings";
 
@@ -7,12 +7,15 @@ describe("PartyTab", () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    vi.spyOn(Settings, "timeUnits", "get").mockReturnValue([
-      { id: "hour", name: "Hour", short: "h", isBulk: false, ratio: 1 },
-    ]);
-    vi.spyOn(Settings, "guidanceTiers", "get").mockReturnValue([
-      { id: "tier1", name: "Tier 1", modifier: 2, costs: {}, progress: {} },
-    ]);
+    vi.spyOn(Settings, "get").mockImplementation((key) => {
+      if (key === "timeUnits") {
+        return [{ id: "hour", name: "Hour", short: "h", isBulk: false, ratio: 1 }];
+      }
+      if (key === "guidanceTiers") {
+        return [{ id: "tier1", name: "Tier 1", modifier: 2, costs: {}, progress: {} }];
+      }
+      return null;
+    });
 
     global.game = {
       user: { isGM: true },

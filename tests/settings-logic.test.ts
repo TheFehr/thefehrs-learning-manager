@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { validateSettings, saveSettings } from "../src/apps/settings-logic";
+import { validateSettings, saveSettings } from "../src/logic/settings-logic";
 import { Settings } from "../src/core/settings";
 import { toggleUserGM } from "./setup";
 

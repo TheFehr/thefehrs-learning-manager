@@ -1,5 +1,5 @@
 import type { TimeUnit, Actor5e } from "../types.js";
-import type { ActorProxy } from "../actor-proxy.js";
+import type { ActorProxy } from "./actor-proxy.js";
 
 /**
  * Logic for the Time Bank Bar component.
