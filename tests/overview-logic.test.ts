@@ -163,7 +163,10 @@ describe("overview-logic", () => {
 
     const pack1 = game.packs.get("pack1") as any;
     pack1.getIndex.mockResolvedValue([veryInvalidEntry]);
-    pack1.getDocument.mockResolvedValue({ _id: "item1" });
+    pack1.getDocument.mockResolvedValue({
+      ...veryInvalidEntry,
+      getFlag: vi.fn().mockReturnValue(undefined),
+    });
 
     const result = await getInvalidProjects();
     expect(result).toHaveLength(1);

@@ -90,6 +90,7 @@ describe("ProjectOverview.svelte", () => {
     await tick();
 
     const projectName = target.querySelector(".project-name") as HTMLElement;
+    expect(projectName).not.toBeNull();
     projectName.click();
 
     expect(renderSpy).toHaveBeenCalledWith(true);
@@ -112,6 +113,7 @@ describe("ProjectOverview.svelte", () => {
     await tick();
 
     const fixButton = target.querySelector("button.tidy-button") as HTMLButtonElement;
+    expect(fixButton).not.toBeNull();
     fixButton.click();
 
     expect(renderSpy).toHaveBeenCalledWith(true);

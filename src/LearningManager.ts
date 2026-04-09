@@ -280,7 +280,7 @@ export class LearningManager {
         },
         onRender: (params: OnRenderParams) => {
           this.renderSvelte(
-            params as OnRenderTabParams,
+            params,
             ".downtime-engine-time-bank-bar-root",
             TimeBankBar,
             (actor: Actor) => ({ actor }),

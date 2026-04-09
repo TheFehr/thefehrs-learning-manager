@@ -1,4 +1,5 @@
 import type { GuidanceTier, ProjectRequirement, SystemRules, TimeUnit } from "../types.js";
+import { MODULE_ID } from "../global.js";
 
 export interface ProjectTemplate {
   id: string;
@@ -112,7 +113,7 @@ export interface SettingMenuConfig {
 }
 
 export class SettingsManager {
-  static readonly ID = "thefehrs-learning-manager" as const;
+  static readonly ID = MODULE_ID;
 
   get ID() {
     return SettingsManager.ID;

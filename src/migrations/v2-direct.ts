@@ -30,7 +30,7 @@ export async function migrateToV2Direct() {
       const updatedRules = {
         ...rules,
         critDoubleStrategy: "never" as const,
-        critThreshold: 10,
+        critThreshold: 20,
       };
       await game.settings.set(MODULE_ID, "rules", updatedRules);
     }
