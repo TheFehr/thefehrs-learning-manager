@@ -3,6 +3,7 @@ import { ActorProxy } from "./actor-proxy.js";
 import { ActivityManager } from "../core/activity-manager.js";
 import { ProjectLifecycle } from "./project-lifecycle.js";
 import { LearningActivityData, ProjectFlagData, ProjectItem } from "./project-item.js";
+import { isActor5e } from "../types.js";
 import type { Item5e, Actor5e, LearningActor, TimeUnit, SystemRules } from "../types.js";
 import { Socket } from "../core/socket.js";
 
@@ -82,9 +83,9 @@ export class ProjectEngine {
    */
   static async processSpendAll(item: Item5e, allowedUnitIds?: string[]) {
     const actor = item.actor;
-    if (!actor) return false;
+    if (!actor || !isActor5e(actor)) return false;
 
-    const proxy = ActorProxy.forActor(actor as Actor5e);
+    const proxy = ActorProxy.forActor(actor);
     const bank = proxy.bank;
     if (!bank.total || bank.total <= 0) {
       if (!allowedUnitIds) {
@@ -213,7 +214,7 @@ export class ProjectEngine {
     const item = learningActivity.item;
 
     const actor = item.actor;
-    if (!actor) return false;
+    if (!actor || !isActor5e(actor)) return false;
 
     // Handle "Spend all" activity
     if (learningActivity.flags?.[Settings.ID]?.isSpendAll) {
@@ -232,7 +233,7 @@ export class ProjectEngine {
     const tu = timeUnits.find((u) => u.id === timeUnitId);
     if (!tu) return false;
 
-    const proxy = ActorProxy.forActor(actor as Actor5e);
+    const proxy = ActorProxy.forActor(actor);
     const bank = proxy.bank;
     if (bank.total < tu.ratio) {
       ui.notifications?.warn(`Not enough time!`);
@@ -354,7 +355,7 @@ export class ProjectEngine {
 
       if (excessProgress > 0 && projectDataFlags.followUpProjectId) {
         const doc = await fromUuid(projectDataFlags.followUpProjectId as `Item.${string}`);
-        const followUpItem = doc instanceof Item ? (doc as Item) : null;
+        const followUpItem = doc instanceof Item ? doc : null;
         if (followUpItem) {
           const escapedItemName = foundry.utils.escapeHTML(item.name || "");
           const escapedFollowUpName = foundry.utils.escapeHTML(followUpItem.name || "");

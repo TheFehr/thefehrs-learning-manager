@@ -252,7 +252,7 @@ export class LearningManager {
           const isLearningType =
             String(item5e.type) === "feat" &&
             (item5e.system as FeatItemSystemData).type?.value === LearningFeatType;
-          const isProject = item5e.getFlag("thefehrs-learning-manager", "isLearningProject");
+          const isProject = item5e.getFlag(LearningManager.ID, "isLearningProject");
 
           if (isLearningType || isProject) return true;
 

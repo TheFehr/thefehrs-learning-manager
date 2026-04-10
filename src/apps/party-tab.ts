@@ -1,7 +1,14 @@
 import { Settings } from "../core/settings.js";
 import { ActorProxy } from "../logic/actor-proxy.js";
 import { TabLogic } from "../logic/tab-logic.js";
-import type { DowntimeGroupActor, TimeUnit, Actor5e, Item5e, ProjectFlagData } from "../types.js";
+import {
+  isActor5e,
+  type DowntimeGroupActor,
+  type TimeUnit,
+  type Actor5e,
+  type Item5e,
+  type ProjectFlagData,
+} from "../types.js";
 import type { PartyMemberData } from "@dnd5e/data/actor/_types.mjs";
 import { MODULE_ID } from "../global";
 
@@ -61,13 +68,12 @@ export class PartyTab {
       member.actor ||
       (this.getMemberId(member) ? (game.actors as any)?.get(this.getMemberId(member)!) : null);
 
-    if (!globalThis.Actor || !(actualActor instanceof globalThis.Actor)) return null;
-    const a = actualActor as unknown as Actor5e;
-    const proxy = ActorProxy.forActor(a);
+    if (!isActor5e(actualActor)) return null;
+    const proxy = ActorProxy.forActor(actualActor);
 
     const bank = proxy.bank;
 
-    const itemProjects = (a.items as unknown as Item5e[])
+    const itemProjects = (actualActor.items as unknown as Item5e[])
       .filter(
         (i) => i.getFlag(MODULE_ID, "isLearningProject") || i.getFlag(MODULE_ID, "isLearnedReward"),
       )

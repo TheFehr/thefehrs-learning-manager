@@ -208,6 +208,13 @@ export type Actor5e = Actor<any> & {
 };
 
 /**
+ * Type guard to check if an actor is a valid dnd5e actor with required properties.
+ */
+export function isActor5e(actor: any): actor is Actor5e {
+  return actor instanceof Actor && !!(actor as any).system;
+}
+
+/**
  * Augmented Item type.
  */
 export type Item5e = Item<any> & {
