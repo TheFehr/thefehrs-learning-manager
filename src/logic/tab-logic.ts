@@ -82,7 +82,7 @@ export class TabLogic {
         }
 
         if (roll.total >= Number(rules.checkDC ?? DEFAULT_DC)) {
-          progressGained = 1 * multiplier;
+          progressGained = multiplier;
         } else {
           reason = `Roll total ${roll.total} failed to meet DC ${Number(rules.checkDC ?? DEFAULT_DC)}.`;
         }

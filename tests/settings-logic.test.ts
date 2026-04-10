@@ -34,7 +34,7 @@ describe("settings-logic", () => {
         },
       };
       const validated = validateSettings(data);
-      expect(validated.rules?.checkDC).toBe(12); // default
+      expect(validated.rules?.checkDC).toBe(DEFAULT_DC); // default
       expect(validated.rules?.critThreshold).toBe(20); // default
     });
 

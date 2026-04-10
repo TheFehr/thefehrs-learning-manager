@@ -294,9 +294,7 @@ export class ProjectEngine {
       let separateValue: string | number = "unavailable";
       let expectedPerRoll: number = NaN;
 
-      if (isSeparateRoll || isBulkRoll) {
-        expectedPerRoll = await TabLogic.calculateExpectedProgress(actor, rules, tier);
-      }
+      expectedPerRoll = await TabLogic.calculateExpectedProgress(actor, rules, tier);
 
       if (isSeparateRoll) {
         const prob = await TabLogic.calculateSuccessProbability(actor, rules, tier);
@@ -546,15 +544,19 @@ export class ProjectEngine {
     isSeparateRoll: boolean = true,
   ): string {
     const safeTuName = foundry.utils.escapeHTML(tu.name);
+    const safeBulkValue = foundry.utils.escapeHTML(String(bulkValue));
+    const safeChancePercent = foundry.utils.escapeHTML(String(chancePercent));
+    const safeSeparateValue = foundry.utils.escapeHTML(String(separateValue));
+
     const bulkMethodLabel = isBulkRoll ? "Expected progress" : "Gaining";
     const bulkMethodValue = isBulkRoll
-      ? `<strong>${bulkValue}</strong> (one roll)`
-      : `<strong>${bulkValue}</strong> progress fixed`;
+      ? `<strong>${safeBulkValue}</strong> (one roll)`
+      : `<strong>${safeBulkValue}</strong> progress fixed`;
 
     const sepMethodLabel = isSeparateRoll ? "Expected progress" : "Gaining";
     const sepMethodValue = isSeparateRoll
-      ? `<strong>${separateValue}</strong> across ${tu.ratio} rolls`
-      : `<strong>${separateValue}</strong> progress fixed`;
+      ? `<strong>${safeSeparateValue}</strong> across ${tu.ratio} rolls`
+      : `<strong>${safeSeparateValue}</strong> progress fixed`;
 
     return `
       <div style="margin-bottom: 1rem;">
@@ -568,9 +570,9 @@ export class ProjectEngine {
             ${
               isSeparateRoll
                 ? `<br><small style="opacity: 0.8;">${
-                    chancePercent === "unavailable"
+                    safeChancePercent === "unavailable"
                       ? "Probability unavailable"
-                      : `Each hour has a <strong>${chancePercent}%</strong> chance of success (DC ${Number(
+                      : `Each hour has a <strong>${safeChancePercent}%</strong> chance of success (DC ${Number(
                           rules.checkDC ?? DEFAULT_DC,
                         )}).`
                   }</small>`
