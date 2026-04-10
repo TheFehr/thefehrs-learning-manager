@@ -80,7 +80,7 @@ describe("ItemConfigLogic", () => {
 
       const result = await ItemConfigLogic.searchFollowUp();
       expect(result).toBe("spotlight-uuid");
-      expect(CONFIG.SpotlightOmnisearch.prompt).toHaveBeenCalled();
+      expect((global as any).CONFIG.SpotlightOmnisearch.prompt).toHaveBeenCalled();
     });
 
     it("should use QuickInsert if Spotlight is unavailable", async () => {

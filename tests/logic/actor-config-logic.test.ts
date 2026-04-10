@@ -31,7 +31,9 @@ describe("ActorConfigLogic", () => {
 
       const result = await ActorConfigLogic.searchProject();
       expect(result).toBe("item-uuid");
-      expect(CONFIG.SpotlightOmnisearch.prompt).toHaveBeenCalledWith({ query: "!item " });
+      expect((global as any).CONFIG.SpotlightOmnisearch.prompt).toHaveBeenCalledWith({
+        query: "!item ",
+      });
     });
 
     it("should return null if no search module is found", async () => {

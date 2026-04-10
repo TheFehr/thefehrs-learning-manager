@@ -458,9 +458,11 @@ export class ProjectEngine {
             } else {
               const newItem = await this.initiateProjectFromItem(actor, followUpItem);
               if (newItem) {
-                const newFlags = (newItem as unknown as ProjectItem).getFlag(
-                  "thefehrs-learning-manager",
-                  "projectData",
+                const newFlags = foundry.utils.deepClone(
+                  (newItem as unknown as ProjectItem).getFlag(
+                    "thefehrs-learning-manager",
+                    "projectData",
+                  ),
                 );
                 newFlags.progress = Math.min(
                   excessProgress,

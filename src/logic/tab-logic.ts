@@ -163,8 +163,8 @@ export class TabLogic {
       };
 
       // 1. Construct the roll and evaluate it once to resolve data references
-      const roll = new Roll(rules.checkFormula, rollData);
-      await roll.evaluate();
+      let roll = new Roll(rules.checkFormula, rollData);
+      roll = await roll.evaluate();
       const dice = roll.dice;
 
       // 2. Handle the deterministic case (no dice)
@@ -174,15 +174,11 @@ export class TabLogic {
 
       // 3. Brute force outcomes by forcing the d20 result (1-20).
       // We only support formulas with exactly one d20 term and no other dice.
-      const isSimpleD20 =
-        dice.length === 1 &&
-        dice[0].faces === 20 &&
-        dice[0].number === 1 &&
-        (dice[0].modifiers?.length || 0) === 0;
+      const isSimpleD20 = dice.length === 1 && dice[0].faces === 20 && dice[0].number === 1;
 
       if (!isSimpleD20) {
-        console.debug(
-          "Downtime Engine | Success probability estimation skipped: formula is complex or contains multiple dice.",
+        Logger.warn(
+          "Success probability estimation skipped: formula is complex or contains multiple dice.",
           rules.checkFormula,
         );
         return 0;

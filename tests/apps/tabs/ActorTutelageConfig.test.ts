@@ -15,7 +15,7 @@ describe("ActorTutelageConfig.svelte", () => {
   let target: HTMLElement;
   let instance: any;
 
-  const mockTimeUnits = [{ id: "hour", name: "Hour", isBulk: false }];
+  const mockTimeUnits = [{ id: "hour", name: "Hour", short: "h", isBulk: false, ratio: 1 }];
 
   beforeEach(() => {
     vi.clearAllMocks();

@@ -84,7 +84,7 @@ export class PartyTab {
       })
       .filter((p): p is ProjectMappedData => p !== null);
 
-    const allProjects = [...itemProjects];
+    const allProjects = itemProjects;
 
     return {
       id: proxy.id,

@@ -27,6 +27,9 @@ describe("DebugHelpers", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    delete (global as any).game;
+    delete (global as any).canvas;
+    delete (global as any).ui;
   });
 
   describe("addTime", () => {

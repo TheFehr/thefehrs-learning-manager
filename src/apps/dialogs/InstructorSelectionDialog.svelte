@@ -56,7 +56,7 @@
       />
       <span class="name">
         Self-Study
-        {#if bestBookMod > 0}
+        {#if bestBookMod > 0 && bestBookNames}
             ({bestBookNames})
         {/if}
       </span>

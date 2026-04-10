@@ -1,4 +1,4 @@
-import type { TimeUnit, Actor5e } from "../types.js";
+import type { TimeUnit } from "../types.js";
 import type { ActorProxy } from "./actor-proxy.js";
 
 /**

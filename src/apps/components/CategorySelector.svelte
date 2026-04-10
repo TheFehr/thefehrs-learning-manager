@@ -45,7 +45,6 @@
         bind:value={categories[index]}
         onchange={(e) => { e.stopPropagation(); onValueChange(e.currentTarget.value); }}
         oninput={(e) => e.stopPropagation()}
-        onblur={(e) => { e.stopPropagation(); onValueChange(e.currentTarget.value); }}
         list={listId}
         {placeholder}
         style="flex: 1;"

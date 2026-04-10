@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ActorProxy } from "../../src/logic/actor-proxy";
-import { Settings } from "../../src/core/settings";
 
 describe("ActorProxy", () => {
   beforeEach(() => {

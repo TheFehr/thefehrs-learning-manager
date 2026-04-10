@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { PartyTab } from "../../src/apps/party-tab";
-import { LearningManager } from "../../src/LearningManager";
 import { Settings } from "../../src/core/settings";
 
 describe("PartyTab", () => {

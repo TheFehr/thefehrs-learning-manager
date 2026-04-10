@@ -21,9 +21,11 @@ describe("TutelageResolverService", () => {
               _id: "actor1",
               name: "Instructor 1",
               uuid: "Compendium.pack1.Actor.actor1",
-              [`flags.${MODULE_ID}.teacherOfferings`]: [
-                { name: "Lesson 1", modifier: 5, categories: ["magic"] },
-              ],
+              flags: {
+                [MODULE_ID]: {
+                  teacherOfferings: [{ name: "Lesson 1", modifier: 5, categories: ["magic"] }],
+                },
+              },
             },
           ]),
         }),
@@ -31,8 +33,8 @@ describe("TutelageResolverService", () => {
     };
     (global as any).foundry = {
       utils: {
-        getProperty: vi.fn((obj, path) => {
-          return obj[path];
+        getProperty: vi.fn((obj: any, path: string) => {
+          return path.split(".").reduce((o, i) => (o ? o[i] : undefined), obj);
         }),
       },
     };
@@ -75,7 +77,11 @@ describe("TutelageResolverService", () => {
         _id: "actor2",
         name: "Universal Teacher",
         uuid: "Compendium.pack1.Actor.actor2",
-        [`flags.${MODULE_ID}.teacherOfferings`]: [{ name: "Lesson", modifier: 2, categories: [] }],
+        flags: {
+          [MODULE_ID]: {
+            teacherOfferings: [{ name: "Lesson", modifier: 2, categories: [] }],
+          },
+        },
       },
     ]);
 

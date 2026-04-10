@@ -39,4 +39,31 @@ describe("v1_2-crit-rules migration", () => {
       }),
     );
   });
+
+  it("should not call game.settings.set if rules already contain both keys", async () => {
+    const initialRules = {
+      method: "roll",
+      critDoubleStrategy: "any",
+      critThreshold: 19,
+    };
+    vi.mocked(game.settings.get).mockReturnValue(initialRules);
+
+    await migrateToV1_2();
+
+    expect(game.settings.set).not.toHaveBeenCalled();
+  });
+
+  it("should log error and rethrow if migration fails", async () => {
+    const error = new Error("Migration failed");
+    vi.mocked(game.settings.get).mockImplementation(() => {
+      throw error;
+    });
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await expect(migrateToV1_2()).rejects.toThrow(error);
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("migration to v1.2.0 failed"),
+      error,
+    );
+  });
 });

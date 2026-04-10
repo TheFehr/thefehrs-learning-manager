@@ -11,7 +11,9 @@ describe("TimeUnitsConfig.svelte", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    (global as any).foundry = { utils: { randomID: vi.fn().mockReturnValue("rand123") } };
+    (global as any).foundry = (global as any).foundry || {};
+    (global as any).foundry.utils = (global as any).foundry.utils || {};
+    (global as any).foundry.utils.randomID = vi.fn().mockReturnValue("rand123");
     target = document.createElement("div");
     document.body.appendChild(target);
   });

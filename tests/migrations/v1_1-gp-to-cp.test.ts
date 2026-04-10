@@ -45,4 +45,14 @@ describe("Migration v1.1 (GP to CP)", () => {
       expect.arrayContaining([expect.objectContaining({ _migratedGpToCp: true })]),
     );
   });
+
+  it("should log and rethrow when game.settings.set fails", async () => {
+    vi.mocked(game.settings.get).mockReturnValue([{ id: "tier1", costs: { hour: 1 } }]);
+    const error = new Error("Save failed");
+    vi.mocked(game.settings.set).mockRejectedValue(error);
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    await expect(migrateV1_1GpToCp()).rejects.toThrow(error);
+    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining("v1.1 migration failed"), error);
+  });
 });
