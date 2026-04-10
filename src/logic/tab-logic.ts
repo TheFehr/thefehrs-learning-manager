@@ -48,7 +48,7 @@ export class TabLogic {
         // If bulk, show expected progress for the one roll.
         // If separate rolls, it's handled differently by the dialog,
         // but for bulk preview we assume one roll.
-        progressGained = Number((1 * prob).toFixed(2));
+        progressGained = Number(prob.toFixed(2));
       } else {
         try {
           roll = await new Roll(
@@ -69,7 +69,7 @@ export class TabLogic {
 
         let multiplier = 1;
         const strategy = rules.critDoubleStrategy ?? "never";
-        const threshold = rules.critThreshold ?? 20;
+        const threshold = Number(rules.critThreshold ?? 20);
 
         if (strategy !== "never") {
           const d20s = (roll.dice ?? []).filter((die) => die.faces === 20);
@@ -84,16 +84,16 @@ export class TabLogic {
           }
         }
 
-        if (roll.total >= (rules.checkDC ?? DEFAULT_DC)) {
+        if (roll.total >= Number(rules.checkDC ?? DEFAULT_DC)) {
           progressGained = 1 * multiplier;
         } else {
-          reason = `Roll total ${roll.total} failed to meet DC ${rules.checkDC ?? DEFAULT_DC}.`;
+          reason = `Roll total ${roll.total} failed to meet DC ${Number(rules.checkDC ?? DEFAULT_DC)}.`;
         }
       }
     } else if (effectiveMethod === "mathematical") {
       const hours = tu.ratio;
       const tutelageMod = tier?.modifier || 0;
-      const dc = rules.checkDC ?? DEFAULT_DC;
+      const dc = Number(rules.checkDC ?? DEFAULT_DC);
       const bulkFormula =
         rules.bulkExpectedFormula ||
         "round(@hours * (22 - max(1, @dc - (@abilities.int.mod + @tutelage))) / 20)";
@@ -197,7 +197,7 @@ export class TabLogic {
       );
 
       const totalSuccesses = outcomes.filter(
-        (r) => r.total >= (rules.checkDC ?? DEFAULT_DC),
+        (r) => r.total >= Number(rules.checkDC ?? DEFAULT_DC),
       ).length;
       return totalSuccesses / 20;
     } catch (err) {

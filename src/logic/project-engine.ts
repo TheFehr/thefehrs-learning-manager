@@ -292,7 +292,11 @@ export class ProjectEngine {
         ),
         buttons: [
           { action: "bulk", label: `Use Bulk`, icon: "fas fa-calculator" },
-          { action: "separate", label: `Roll separately`, icon: "fas fa-dice-d20" },
+          {
+            action: "separate",
+            label: tu.ratio > 5 ? `Roll separately (${tu.ratio} rolls!)` : `Roll separately`,
+            icon: "fas fa-dice-d20",
+          },
         ],
         rejectClose: false,
         modal: true,
@@ -414,7 +418,9 @@ export class ProjectEngine {
 
     const BATCH_THRESHOLD = 12;
     if (isSeparate && tu.ratio > BATCH_THRESHOLD) {
-      const successCount = rolls.filter((r) => r.total >= (rules.checkDC ?? DEFAULT_DC)).length;
+      const successCount = rolls.filter(
+        (r) => r.total >= Number(rules.checkDC ?? DEFAULT_DC),
+      ).length;
       ui.notifications?.info(
         `Training complete: Gained ${totalProgressGained} progress from ${tu.ratio} separate rolls (${successCount} successes).`,
       );
@@ -422,7 +428,7 @@ export class ProjectEngine {
       for (const r of rolls) {
         await r.toMessage(
           {
-            flavor: `${actor.name} tries to learn ${item.name} (DC ${rules.checkDC ?? DEFAULT_DC})`,
+            flavor: `${actor.name} tries to learn ${item.name} (DC ${Number(rules.checkDC ?? DEFAULT_DC)})`,
           },
           { rollMode: (rules.rollMode || "gmroll") as foundry.dice.RollMode },
         );
@@ -491,8 +497,13 @@ export class ProjectEngine {
             <i class="fas fa-calculator"></i> <b>Bulk Method</b>: Gaining <strong>${bulkProgress}</strong> progress fixed.
           </div>
           <div style="padding: 0.5rem; border: 1px solid var(--t5e-faint-color); border-radius: 4px; background: rgba(0,0,0,0.05);">
-            <i class="fas fa-dice-d20"></i> <b>Separate Rolls</b>: Each hour has a <strong>${chancePercent}%</strong> chance of success (DC ${rules.checkDC ?? DEFAULT_DC}).
+            <i class="fas fa-dice-d20"></i> <b>Separate Rolls</b>: Each hour has a <strong>${chancePercent}%</strong> chance of success (DC ${Number(rules.checkDC ?? DEFAULT_DC)}).
             <br><small style="opacity: 0.8;">Statistically expected progress: ${expectedFromSeparate} across ${tu.ratio} rolls.</small>
+            ${
+              tu.ratio > 5
+                ? `<br><small style="color: #8a6d3b;"><i class="fas fa-exclamation-triangle"></i> Note: This will trigger ${tu.ratio} separate roll messages.</small>`
+                : ""
+            }
           </div>
         </div>
       </div>
