@@ -30,25 +30,16 @@ export class PartyTab {
     if (!partyActor?.system) {
       return {
         members: [],
-        tierOptions: {},
         isGM: game.user?.isGM,
       };
     }
     const rawMembers = (partyActor.system.members || []) as PartyMemberData[];
     const timeUnits = Settings.get("timeUnits");
-    const tiers = Settings.get("guidanceTiers");
-
-    const tierOptions = tiers.reduce((acc: Record<string, string>, t) => {
-      const sign = t.modifier > 0 ? "+" : "";
-      acc[t.id] = `${t.name} (${sign}${t.modifier})`;
-      return acc;
-    }, {});
 
     return {
       members: rawMembers
         .map((m) => this.mapMemberData(m, timeUnits))
         .filter((m): m is MemberMappedData => !!m),
-      tierOptions,
       isGM: game.user?.isGM,
     };
   }
@@ -77,15 +68,12 @@ export class PartyTab {
 
         const isLearnedReward = i.getFlag(MODULE_ID, "isLearnedReward");
 
-        const guidanceTiers = Settings.get("guidanceTiers");
-        const tier = guidanceTiers.find((t) => t.id === projectData.tutelageId);
-
         return {
           ...projectData,
           id: i.id!,
           name: i.name!,
           maxProgress: projectData.target,
-          guidanceType: tier ? tier.name : "None",
+          guidanceType: projectData.lastInstructorName || "Self-Study",
           progressPercentage:
             projectData.target > 0
               ? Math.min(100, Math.round((projectData.progress / projectData.target) * 100))

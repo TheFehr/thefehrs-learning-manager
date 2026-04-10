@@ -1,5 +1,6 @@
 import type { TimeBank, LearningActor, LearningProject, Actor5e } from "../types.js";
 import { Settings } from "../core/settings.js";
+import { DocumentUtils } from "../core/document-utils.js";
 
 export class ActorProxy {
   private actor: Actor5e;
@@ -37,8 +38,6 @@ export class ActorProxy {
       .filter((i) => i.getFlag("thefehrs-learning-manager", "isLearningProject"))
       .map((i) => {
         const projectData = i.getFlag("thefehrs-learning-manager", "projectData");
-        const guidanceTiers = Settings.get("guidanceTiers");
-        const tier = guidanceTiers.find((t) => t.id === projectData?.tutelageId);
         return {
           id: i.id,
           name: i.name,
@@ -48,12 +47,19 @@ export class ActorProxy {
             projectData && projectData.target && projectData.target > 0
               ? Math.min(100, Math.round(((projectData.progress ?? 0) / projectData.target) * 100))
               : 0,
-          tutelageName: tier?.name ?? "None",
+          tutelageName: projectData?.lastInstructorName ?? "Self-Study",
         };
       });
   }
 
-  async setProjects(projects: LearningProject[]): Promise<Actor> {
+  async setProjects(
+    projects: LearningProject[],
+    options: { render?: boolean } = {},
+  ): Promise<Actor> {
+    if (options.render === false) {
+      await DocumentUtils.setFlagsSilently(this.actor, { projects });
+      return this.actor as any;
+    }
     return await this.actor.setFlag("thefehrs-learning-manager", "projects", projects);
   }
 
@@ -61,12 +67,16 @@ export class ActorProxy {
     return this.actor.getFlag("thefehrs-learning-manager", "bank") || { total: 0 };
   }
 
-  async setBank(bank: TimeBank): Promise<Actor> {
+  async setBank(bank: TimeBank, options: { render?: boolean } = {}): Promise<Actor> {
+    if (options.render === false) {
+      await DocumentUtils.setFlagsSilently(this.actor, { bank });
+      return this.actor as any;
+    }
     return await this.actor.setFlag("thefehrs-learning-manager", "bank", bank);
   }
 
-  async update(data: object): Promise<Actor> {
-    return await this.actor.update(data);
+  async update(data: object, options: { render?: boolean } = {}): Promise<Actor> {
+    return await this.actor.update(data, options);
   }
 
   async createEmbeddedDocuments(type: "Item" | "ActiveEffect", data: object[]): Promise<any[]> {
@@ -86,12 +96,18 @@ export class ActorProxy {
     };
   }
 
-  async updateCurrency(currency: { gp: number; sp: number; cp: number }): Promise<Actor> {
-    return await this.actor.update({
-      system: {
-        currency,
+  async updateCurrency(
+    currency: { gp: number; sp: number; cp: number },
+    options: { render?: boolean } = {},
+  ): Promise<Actor> {
+    return await this.actor.update(
+      {
+        system: {
+          currency,
+        },
       },
-    });
+      options,
+    );
   }
 
   static forActor(actor: Actor5e): ActorProxy {

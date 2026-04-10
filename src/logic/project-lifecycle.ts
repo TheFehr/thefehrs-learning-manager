@@ -1,19 +1,17 @@
 import { Settings } from "../core/settings.js";
+import { Logger } from "../core/logger.js";
 import { ProjectUI } from "../core/project-ui.js";
 import { ActivityManager } from "../core/activity-manager.js";
 import { LearningFeatType, ProjectFlagData, ProjectItem } from "./project-item.js";
 import type { Actor5e, Item5e } from "../types.js";
+import { DocumentUtils } from "../core/document-utils.js";
 
 export class ProjectLifecycle {
   /**
    * Stashes an item as a learning project.
    * Wipes Active Effects and Activities, then appends the isLearningProject flag.
    */
-  static async initiateProjectFromItem(
-    actor: Actor,
-    rewardDoc: Item,
-    tutelageId: string = "",
-  ): Promise<Item | null> {
+  static async initiateProjectFromItem(actor: Actor, rewardDoc: Item): Promise<Item | null> {
     const itemData = rewardDoc.toObject();
     const stashedEffects = itemData.effects || [];
     const stashedActivities = foundry.utils.deepClone(itemData.system.activities || {});
@@ -26,11 +24,8 @@ export class ProjectLifecycle {
     const target = rewardDoc.getFlag("thefehrs-learning-manager", "projectData")?.target ?? 0;
 
     if (target <= 0) {
-      console.error(
-        `Downtime Engine | Cannot create project for "${rewardDoc.name}": Invalid target value (${target}). Target must be a positive number.`,
-      );
-      ui.notifications?.error(
-        `Downtime Engine | Failed to create project: Invalid target value for "${rewardDoc.name}".`,
+      Logger.error(
+        `Cannot create project for "${rewardDoc.name}": Invalid target value (${target}). Target must be a positive number.`,
       );
       return null;
     }
@@ -38,15 +33,13 @@ export class ProjectLifecycle {
     const stashedRequirements =
       rewardDoc.getFlag("thefehrs-learning-manager", "projectData")?.requirements ?? [];
 
-    const guidanceTiers = Settings.get("guidanceTiers");
-    const tier = guidanceTiers.find((t) => t.id === tutelageId);
-    const tutelageName = tier?.name ?? "None";
+    const tutelageName = "Self-Study";
 
     // Prepare item data for stashing
     const projectData: ProjectFlagData = {
       progress: 0,
       target: target,
-      tutelageId: tutelageId,
+      tutelageId: "",
       isLearnedReward: false,
       isLearningProject: true,
       requirements: stashedRequirements,
@@ -89,15 +82,13 @@ export class ProjectLifecycle {
 
     const [created] = await actor.createEmbeddedDocuments("Item", [updateData as any]);
     if (!created) {
-      console.error(
-        `Downtime Engine | Failed to create embedded item "${rewardDoc.name}" on actor ${actor.name}`,
-      );
+      Logger.error(`Failed to create embedded item "${rewardDoc.name}" on actor ${actor.name}`);
       return null;
     }
 
     const createdItem = created as unknown as Item5e;
-    console.debug(
-      `Downtime Engine | Created embedded item "${(created as unknown as Item).name}" (ID: ${createdItem.id}). Injecting activities...`,
+    Logger.debug(
+      `Created embedded item "${(created as unknown as Item).name}" (ID: ${createdItem.id}). Injecting activities...`,
     );
     try {
       const injected = await ActivityManager.injectActivities(createdItem, projectData.target);
@@ -105,18 +96,15 @@ export class ProjectLifecycle {
         throw new Error("No learning activities were injected for the created project item.");
       }
     } catch (err) {
-      console.error(
-        `Downtime Engine | Failed to inject activities for item "${createdItem.name}". Cleaning up...`,
+      Logger.error(
+        `Failed to inject activities for item "${createdItem.name}". Project creation aborted.`,
         err,
-      );
-      ui.notifications?.error(
-        `Downtime Engine | Failed to inject activities for item "${createdItem.name}". Project creation aborted.`,
       );
       try {
         await createdItem.delete();
       } catch (deleteErr) {
-        console.error(
-          `Downtime Engine | Secondary failure: Failed to delete orphaned item "${createdItem.name}" (ID: ${createdItem.id}) during project creation rollback:`,
+        Logger.error(
+          `Secondary failure: Failed to delete orphaned item "${createdItem.name}" (ID: ${createdItem.id}) during project creation rollback:`,
           deleteErr,
         );
       }
@@ -133,8 +121,8 @@ export class ProjectLifecycle {
     if (!isProject) return;
     const actor = item.actor;
     if (!actor) {
-      console.warn(
-        `Downtime Engine | Cannot complete project "${item.name}" (ID: ${item.id}) - missing parent actor.`,
+      Logger.warn(
+        `Cannot complete project "${item.name}" (ID: ${item.id}) - missing parent actor.`,
       );
       return;
     }
@@ -403,20 +391,21 @@ export class ProjectLifecycle {
    * Updates an item's name and description based on current progress.
    * Uses stashed values as the base to avoid duplication bugs.
    */
-  static async updateItemWithProgress(item: Item, projectData: ProjectFlagData) {
-    const guidanceTiers = Settings.get("guidanceTiers");
-    const tier = guidanceTiers.find((t) => t.id === projectData.tutelageId);
-    const tutelageName = tier?.name ?? "None";
+  static async updateItemWithProgress(
+    item: Item,
+    projectData: ProjectFlagData,
+    instructorName: string = "None",
+  ) {
     const progressHtml = ProjectUI.generateProgressHtml(
       projectData.progress ?? 0,
       projectData.target ?? 0,
-      tutelageName,
+      instructorName,
     );
 
     const stashedName = projectData.stashedName || item.name;
     const stashedDescription = projectData.stashedDescription || "";
 
-    await item.update({
+    await DocumentUtils.updateSilently(item, {
       name: `${stashedName} (${projectData.progress}/${projectData.target})`,
       ["system.description.value" as string]: progressHtml + stashedDescription,
       [`flags.${Settings.ID}.projectData`]: projectData,

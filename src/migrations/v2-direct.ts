@@ -1,14 +1,5 @@
 import { createProjectItemFromTemplate, type LegacyProject } from "./migration-utils.js";
-import { MODULE_ID } from "../global";
-
-interface ProjectTemplateLegacy {
-  id: string;
-  name: string;
-  target: number;
-  rewardUuid: string;
-  rewardType: string;
-  requirements: unknown[];
-}
+import { MODULE_ID } from "../global.js";
 
 interface GuidanceTier {
   id: string;
@@ -18,6 +9,21 @@ interface GuidanceTier {
   progress: Record<string, number>;
   _migratedGpToCp?: boolean;
   _migratedToV2?: boolean;
+}
+
+declare module "fvtt-types/configuration" {
+  interface SettingConfig {
+    "thefehrs-learning-manager.guidanceTiers": any[];
+  }
+}
+
+interface ProjectTemplateLegacy {
+  id: string;
+  name: string;
+  target: number;
+  rewardUuid: string;
+  rewardType: string;
+  requirements: unknown[];
 }
 
 export async function migrateToV2Direct() {

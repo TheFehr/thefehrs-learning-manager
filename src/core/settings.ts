@@ -1,3 +1,4 @@
+import { Logger } from "./logger.js";
 import type { GuidanceTier, ProjectRequirement, SystemRules, TimeUnit } from "../types.js";
 import { MODULE_ID } from "../global.js";
 
@@ -14,12 +15,14 @@ export interface ProjectTemplate {
 export interface SettingsSchema {
   rules: SystemRules;
   timeUnits: TimeUnit[];
-  guidanceTiers: GuidanceTier[];
+  teacherCompendiums: string[];
+  bookCompendiums: string[];
   allowedCompendiums: string[];
   projectTemplates: ProjectTemplate[];
   migrationVersion: string;
   autoSpend: boolean;
   autoSpendUnits: string[];
+  categories: string[];
 }
 
 const WORLD_SCOPE = "world" as const;
@@ -59,17 +62,13 @@ export const SETTINGS_DEFINITIONS: {
       { id: "week", name: "Week", short: "w", isBulk: true, ratio: 70 },
     ],
   },
-  guidanceTiers: {
+  teacherCompendiums: {
     scope: WORLD_SCOPE,
-    default: [
-      {
-        id: "example_tier",
-        name: "Example Tier",
-        modifier: 2,
-        costs: { hour: 0, day: 0, week: 0 },
-        progress: { day: 1, week: 7 },
-      },
-    ],
+    default: [],
+  },
+  bookCompendiums: {
+    scope: WORLD_SCOPE,
+    default: [],
   },
   allowedCompendiums: {
     scope: WORLD_SCOPE,
@@ -81,7 +80,7 @@ export const SETTINGS_DEFINITIONS: {
   },
   migrationVersion: {
     scope: WORLD_SCOPE,
-    default: "2.1.1",
+    default: "3.0.0",
   },
   autoSpend: {
     scope: USER_SCOPE,
@@ -90,6 +89,35 @@ export const SETTINGS_DEFINITIONS: {
   autoSpendUnits: {
     scope: USER_SCOPE,
     default: [],
+  },
+  categories: {
+    scope: WORLD_SCOPE,
+    default: [
+      "strength",
+      "dexterity",
+      "constitution",
+      "intelligence",
+      "wisdom",
+      "charisma",
+      "acrobatics",
+      "animal handling",
+      "arcana",
+      "athletics",
+      "deception",
+      "history",
+      "insight",
+      "intimidation",
+      "investigation",
+      "medicine",
+      "nature",
+      "perception",
+      "performance",
+      "persuasion",
+      "religion",
+      "sleight of hand",
+      "stealth",
+      "survival",
+    ],
   },
 };
 
@@ -193,7 +221,7 @@ export class SettingsManager {
     if (val === undefined || val === null) {
       const keyStr = key as string;
       if (!this.seenMissing.has(keyStr)) {
-        console.debug(`Downtime Engine | Setting '${keyStr}' is uninitialized or null.`);
+        Logger.debug(`Setting '${keyStr}' is uninitialized or null.`);
         this.seenMissing.add(keyStr);
       }
       return fallback;

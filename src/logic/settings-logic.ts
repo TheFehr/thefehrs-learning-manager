@@ -1,5 +1,6 @@
+import { MODULE_ID } from "../global.js";
 import { Settings, type SettingsSchema } from "../core/settings.js";
-import { Logger } from "../core/notifications.js";
+import { Logger } from "../core/logger.js";
 import type { SystemRules, TimeUnit, GuidanceTier, NotificationLevel } from "../types.js";
 
 /**
@@ -8,7 +9,8 @@ import type { SystemRules, TimeUnit, GuidanceTier, NotificationLevel } from "../
 export async function saveSettings(
   rules: SystemRules,
   timeUnits: TimeUnit[],
-  guidanceTiers: GuidanceTier[],
+  teacherCompendiums: string[],
+  bookCompendiums: string[],
   allowedCompendiums: string[],
   autoSpend?: boolean,
   autoSpendUnits?: string[],
@@ -20,7 +22,8 @@ export async function saveSettings(
   if (isGM) {
     toSave.rules = rules;
     toSave.timeUnits = timeUnits;
-    toSave.guidanceTiers = guidanceTiers;
+    toSave.teacherCompendiums = teacherCompendiums;
+    toSave.bookCompendiums = bookCompendiums;
     toSave.allowedCompendiums = allowedCompendiums;
   }
   if (autoSpend !== undefined) toSave.autoSpend = autoSpend;
@@ -63,6 +66,27 @@ export async function saveSettings(
   Logger.info("Settings saved successfully.", true);
 }
 
+/**
+ * Checks if a category exists in the global list, and prompts the user to add it if it doesn't.
+ */
+export async function ensureCategoryExists(category: string): Promise<void> {
+  if (!category) return;
+  const categories = Settings.get("categories") || [];
+  if (categories.includes(category)) return;
+
+  const confirm = await foundry.applications.api.DialogV2.confirm({
+    window: { title: "Downtime Engine | New Category" },
+    content: `<p>The category "<strong>${category}</strong>" is not in the global list. Would you like to add it?</p>`,
+    rejectClose: false,
+    modal: true,
+  });
+
+  if (confirm) {
+    await Settings.set("categories", [...categories, category]);
+    Logger.info(`Added "${category}" to the global categories list.`, true);
+  }
+}
+
 interface PackLike {
   metadata: {
     type: string;
@@ -71,17 +95,56 @@ interface PackLike {
   };
 }
 
+export interface PackInfo {
+  id: string;
+  label: string;
+  isFitting?: boolean;
+}
+
 /**
- * Returns a list of available Item compendiums.
+ * Returns a list of available compendiums of a given type.
  */
-export function getAvailablePacks() {
-  const packs = (game.packs as unknown as { contents: PackLike[] }).contents;
-  return packs
-    .filter((pack) => pack.metadata.type === "Item")
-    .map((pack) => ({
-      id: pack.metadata.id,
-      label: pack.metadata.label,
-    }));
+export async function getAvailablePacks(
+  type: "Item" | "Actor" = "Item",
+  flagToMatch?: string,
+): Promise<PackInfo[]> {
+  const packs = (game.packs as any).contents || [];
+  const results: PackInfo[] = [];
+
+  for (const pack of packs) {
+    if (pack.metadata.type !== type && pack.documentName !== type) continue;
+
+    const id = pack.metadata.id;
+    const label = pack.metadata.label;
+    let isFitting = false;
+
+    // A pack is fitting if:
+    // 1. We don't have a flag to match (then any pack of correct type is fitting)
+    // 2. It contains items with the specified flag
+    if (!flagToMatch) {
+      isFitting = true;
+    } else {
+      try {
+        // We only check the index, which is fast
+        const flagPath = `flags.${MODULE_ID}.${flagToMatch}`;
+        const index = await pack.getIndex({ fields: [flagPath] });
+        isFitting = index.some((entry: any) => {
+          const flagData = foundry.utils.getProperty(entry, flagPath) || entry[flagPath];
+          const hasFlag = flagData !== undefined && flagData !== null;
+          if (hasFlag) {
+            Logger.debug(`Found fitting entry ${entry.name} in pack ${id}`);
+          }
+          return hasFlag;
+        });
+      } catch (err) {
+        Logger.warn(`Failed to check index for pack ${id}:`, err);
+      }
+    }
+
+    results.push({ id, label, isFitting });
+  }
+
+  return results;
 }
 
 const isPlainObject = (obj: unknown): obj is Record<string, unknown> =>
@@ -104,7 +167,8 @@ export function validateSettings(data: unknown) {
   const result: {
     rules?: SystemRules;
     timeUnits?: TimeUnit[];
-    guidanceTiers?: GuidanceTier[];
+    teacherCompendiums?: string[];
+    bookCompendiums?: string[];
     allowedCompendiums?: string[];
   } = {};
 
@@ -187,22 +251,18 @@ export function validateSettings(data: unknown) {
     }));
   }
 
-  // 3. Validate Guidance Tiers
-  if (Array.isArray(data.guidanceTiers)) {
-    result.guidanceTiers = data.guidanceTiers
-      .filter(
-        (tier: unknown): tier is Record<string, unknown> =>
-          isPlainObject(tier) && typeof tier.id === "string",
-      )
-      .map((tier) => ({
-        id: String(tier.id),
-        name: typeof tier.name === "string" ? tier.name : "New Tier",
-        modifier:
-          typeof tier.modifier === "number" && Number.isFinite(tier.modifier) ? tier.modifier : 0,
-        costs: sanitizeNumericRecord(tier.costs) ?? {},
-        progress: sanitizeNumericRecord(tier.progress) ?? {},
-        _migratedToV2: typeof tier._migratedToV2 === "boolean" ? tier._migratedToV2 : false,
-      }));
+  // 3. Validate Teacher Compendiums
+  if (Array.isArray(data.teacherCompendiums)) {
+    result.teacherCompendiums = data.teacherCompendiums.filter(
+      (compendium: unknown): compendium is string => typeof compendium === "string",
+    );
+  }
+
+  // 3b. Validate Book Compendiums
+  if (Array.isArray(data.bookCompendiums)) {
+    result.bookCompendiums = data.bookCompendiums.filter(
+      (compendium: unknown): compendium is string => typeof compendium === "string",
+    );
   }
 
   // 4. Validate Allowed Compendiums

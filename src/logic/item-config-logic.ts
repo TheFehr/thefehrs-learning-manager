@@ -1,3 +1,5 @@
+import { DocumentUtils } from "../core/document-utils.js";
+import { Logger } from "../core/logger.js";
 import { getModuleAPI, type Item5e, type ProjectRequirement } from "../types.js";
 
 /**
@@ -12,20 +14,24 @@ export class ItemConfigLogic {
     target: number,
     followUpProjectId: string,
     requirements: ProjectRequirement[],
+    categories: string[],
+    bookModifier: number,
+    bookProjectUuids: string[],
+    bookCategories: string[],
   ) {
-    try {
-      await item.setFlag("thefehrs-learning-manager", "projectData", {
+    return await DocumentUtils.setFlagsSilently(item, {
+      projectData: {
         target,
         followUpProjectId,
         requirements,
-      });
-      return true;
-    } catch (err) {
-      console.error("Downtime Engine | Failed to save item configuration:", err);
-      const msg = err instanceof Error ? err.message : String(err);
-      ui.notifications?.error("Downtime Engine | Failed to save configuration: " + msg);
-      throw err;
-    }
+        categories,
+      },
+      learningBookBonus: {
+        modifier: bookModifier,
+        projectUuids: bookProjectUuids,
+        categories: bookCategories,
+      },
+    });
   }
 
   /**
@@ -50,8 +56,9 @@ export class ItemConfigLogic {
       });
     }
 
-    ui.notifications?.info(
+    Logger.info(
       "Spotlight Omnisearch or Quick Insert not found. You can drag and drop an item into the input field.",
+      true,
     );
     return null;
   }
@@ -70,7 +77,7 @@ export class ItemConfigLogic {
         return data.uuid;
       }
     } catch (err) {
-      console.error("Downtime Engine | Failed to parse drop data:", err);
+      Logger.error("Failed to parse drop data:", err);
     }
     return null;
   }

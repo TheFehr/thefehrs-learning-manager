@@ -1,4 +1,4 @@
-import { MODULE_ID } from "../global";
+import { MODULE_ID } from "../global.js";
 
 interface GuidanceTier {
   id: string;
@@ -8,6 +8,12 @@ interface GuidanceTier {
   progress: Record<string, number>;
   _migratedGpToCp?: boolean;
   _migratedToV2?: boolean;
+}
+
+declare module "fvtt-types/configuration" {
+  interface SettingConfig {
+    "thefehrs-learning-manager.guidanceTiers": any[];
+  }
 }
 
 /**

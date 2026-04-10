@@ -83,6 +83,16 @@
     </select>
   </div>
 
+  <div class="form-group">
+    <label for="rule-notification-level">Log Level</label>
+    <select id="rule-notification-level" bind:value={rules.notificationLevel}>
+      <option value="none">None</option>
+      <option value="error">Error</option>
+      <option value="info">Info</option>
+      <option value="debug">Debug</option>
+    </select>
+  </div>
+
   {#if needsCheckFields}
     <div class="form-group">
       <label for="rule-dc">Check DC</label>

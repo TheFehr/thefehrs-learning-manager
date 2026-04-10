@@ -11,6 +11,22 @@
   - Define necessary interfaces or types locally within the migration file to represent the data structure as it existed at the time of the migration.
   - Use constants like `MODULE_ID` if they are considered stable and unlikely to change.
 
+### Handling Legacy Settings
+
+When a migration needs to access a setting that has been removed from the current `SettingsSchema` or global `SettingConfig`:
+
+- **Do NOT** keep the legacy key in the global `SettingConfig` interface in `src/types.ts`.
+- **Augment locally**: Use TypeScript's module augmentation to add the legacy key to the `SettingConfig` interface _inside_ the migration file.
+- **Example**:
+  ```typescript
+  declare module "fvtt-types/configuration" {
+    interface SettingConfig {
+      "thefehrs-learning-manager.legacySettingKey": any;
+    }
+  }
+  ```
+- **Registration**: Ensure the legacy setting is registered (e.g., in `migration.ts` or at the start of the migration function) using `game.settings.register` to avoid runtime errors when calling `game.settings.get`.
+
 ## Code Quality & Reviews
 
 - **Address Findings Safely**: When addressing CodeRabbit or other AI review findings, ensure that suggested improvements (like adding type safety or using managers) do not violate the isolation rules for migrations.

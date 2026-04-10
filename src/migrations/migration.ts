@@ -4,10 +4,28 @@ import { migrateToV1_2 } from "./v1_2-crit-rules.js";
 import { migrateToV2 } from "./v2-native-items.js";
 import { migrateToV2Direct } from "./v2-direct.js";
 import { migrateToV2_1, migrateToV2_1_1 } from "./v2_1-flexible-methods.js";
+import { migrateToV3 } from "./v3-tutelage-selection.js";
 import { MODULE_ID } from "../global";
 
 export async function migrateData() {
   if (!game.user?.isGM) return;
+
+  if (!game.settings.settings.has(`${MODULE_ID}.guidanceTiers`)) {
+    game.settings.register(MODULE_ID, "guidanceTiers", {
+      scope: "world",
+      config: false,
+      type: Array,
+      default: [],
+    });
+  }
+  if (!game.settings.settings.has(`${MODULE_ID}.allowedCompendiums`)) {
+    game.settings.register(MODULE_ID, "allowedCompendiums", {
+      scope: "world",
+      config: false,
+      type: Array,
+      default: [],
+    });
+  }
 
   try {
     const raw = game.settings.get(MODULE_ID, "migrationVersion");
@@ -46,6 +64,10 @@ export async function migrateData() {
 
     if (isNewerVersion("2.1.1", currentVersion)) {
       await migrateToV2_1_1();
+    }
+
+    if (isNewerVersion("3.0.0", currentVersion)) {
+      await migrateToV3();
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

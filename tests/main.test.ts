@@ -7,6 +7,22 @@ import { ProjectEngine } from "../src/logic/project-engine";
 import { Socket } from "../src/core/socket";
 import type { Actor5e, TimeUnit } from "../src/types";
 import { migrateData } from "../src/migrations/migration";
+import { Logger } from "../src/core/logger";
+
+vi.mock("svelte", () => ({
+  mount: vi.fn(),
+  unmount: vi.fn(),
+  tick: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock("../src/core/logger", () => ({
+  Logger: {
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  },
+}));
 
 vi.mock("../src/logic/project-engine", () => ({
   ProjectEngine: {
@@ -64,6 +80,8 @@ describe("LearningManager", () => {
         registerActorTab: vi.fn(),
         registerItemTab: vi.fn(),
         registerGroupTab: vi.fn(),
+        registerCharacterTab: vi.fn(),
+        registerNpcTab: vi.fn(),
         registerItemContent: vi.fn(),
         registerCharacterContent: vi.fn(),
         models: {
@@ -181,16 +199,14 @@ describe("LearningManager", () => {
       vi.spyOn(ProjectEngine, "handleAutoTrainSignal").mockRejectedValue(
         new Error("Auto-train failed"),
       );
-      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
       LearningManager.registerSocketListeners();
 
       if (registeredHandler) {
         await registeredHandler({ type: "timeGrantedSignal", data: null });
-        expect(errorSpy).toHaveBeenCalledWith(
+        expect(Logger.error).toHaveBeenCalledWith(
           expect.stringContaining("Failed to handle auto-train signal"),
           expect.any(Error),
-          expect.any(String),
         );
       }
     });
@@ -198,9 +214,8 @@ describe("LearningManager", () => {
 
   describe("ready", () => {
     it("should log initialized message and run migrations", async () => {
-      const consoleSpy = vi.spyOn(console, "debug");
       await LearningManager.ready();
-      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining("Initialized"));
+      expect(Logger.debug).toHaveBeenCalledWith(expect.stringContaining("Initialized"));
       expect(migrateData).toHaveBeenCalled();
     });
   });
@@ -332,6 +347,8 @@ describe("LearningManager", () => {
           registeredTab = tab;
         }),
         registerGroupTab: vi.fn(),
+        registerCharacterTab: vi.fn(),
+        registerNpcTab: vi.fn(),
         registerItemContent: vi.fn(),
         registerCharacterContent: vi.fn(),
         models: {
@@ -369,7 +386,10 @@ describe("LearningManager", () => {
     it("should unmount Svelte instance when application is closed", async () => {
       LearningManager.init();
       const mockInstance = { some: "instance" };
-      LearningManager.svelteInstances.set("app123", mockInstance as any);
+      LearningManager.svelteInstances.set("app123", {
+        instance: mockInstance,
+        target: document.createElement("div"),
+      });
 
       const closeHook = vi.mocked(Hooks.on).mock.calls.find((c) => c[0] === "closeApplication");
       expect(closeHook).toBeDefined();
@@ -384,7 +404,10 @@ describe("LearningManager", () => {
       const mockOldInstance = { old: true };
       const actor = { id: "actor1" };
       const app = { id: "app1", actor };
-      LearningManager.svelteInstances.set("app1", mockOldInstance as any);
+      LearningManager.svelteInstances.set("app1", {
+        instance: mockOldInstance,
+        target: document.createElement("div"),
+      });
 
       const params = { app, element: document.createElement("div") };
       const selector = ".root";

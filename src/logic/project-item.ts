@@ -22,8 +22,11 @@ export type ProjectFlagData = {
   isLearnedReward?: boolean;
   isCompleted?: boolean;
   tutelageId?: string;
+  lastInstructorUuid?: string;
+  lastInstructorName?: string;
   progress?: number;
   target?: number;
+  categories?: string[];
   followUpProjectId?: string;
   requirements?: ProjectRequirement[];
   stashedType?: string;

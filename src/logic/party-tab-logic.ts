@@ -118,30 +118,6 @@ export class PartyTabLogic {
   }
 
   /**
-   * Updates the tutelage tier for a project.
-   */
-  static async updateGuidance(
-    actorId: string,
-    project: ProjectMappedData,
-    tierId: string,
-    isGM: boolean,
-  ) {
-    if (!isGM) return;
-    const targetActor = game.actors.get(actorId) as Actor5e;
-    if (!targetActor) return;
-
-    const tiers = Settings.get("guidanceTiers");
-    const tier = tiers.find((tier) => tier.id === tierId);
-
-    const item = targetActor.items.get(project.id);
-    if (item) {
-      await item.update({
-        ["flags.thefehrs-learning-manager.projectData.tutelageId"]: tier?.id ?? "",
-      } as Record<string, unknown>);
-    }
-  }
-
-  /**
    * Manually updates project progress.
    */
   static async updateProgress(

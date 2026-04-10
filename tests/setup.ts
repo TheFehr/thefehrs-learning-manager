@@ -209,6 +209,7 @@ globalThis.game = {
     registerMenu: vi.fn(),
     get: vi.fn(),
     set: vi.fn(),
+    settings: new Map(),
   },
   i18n: {
     localize: vi.fn((key: string) => key),
@@ -222,6 +223,9 @@ globalThis.game = {
   actors: new ActorsCollection(),
   packs: {
     contents: [],
+    get: vi.fn(),
+  },
+  modules: {
     get: vi.fn(),
   },
   ID: MODULE_ID,

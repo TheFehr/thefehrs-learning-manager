@@ -34,6 +34,7 @@ export default defineConfig({
   },
 
   server: {
+    host: "0.0.0.0",
     port: 30001,
     proxy: {
       // Proxy everything EXCEPT your module assets to the real Foundry

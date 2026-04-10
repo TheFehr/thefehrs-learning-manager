@@ -3,34 +3,35 @@
   import RulesConfig from "./RulesConfig.svelte";
   import CompendiumConfig from "./CompendiumConfig.svelte";
   import TimeUnitsConfig from "./TimeUnitsConfig.svelte";
-  import GuidanceConfig from "./GuidanceConfig.svelte";
-  import { validateSettings } from "../../logic/settings-logic.js";
-
-  interface Pack {
-    id: string;
-    label: string;
-    [key: string]: any;
-  }
+  import { validateSettings, type PackInfo } from "../../logic/settings-logic.js";
+  import { TutelageResolverService } from "../../logic/tutelage-resolver.js";
 
   let {
     rules = $bindable(),
     timeUnits = $bindable(),
-    guidanceTiers = $bindable(),
+    teacherCompendiums = $bindable(),
+    bookCompendiums = $bindable(),
     allowedCompendiums = $bindable(),
-    availablePacks = [],
+    availableItemPacks = [],
+    instructorPacks = [],
+    bookPacks = [],
   } = $props<{
     rules: SystemRules;
     timeUnits: TimeUnit[];
-    guidanceTiers: GuidanceTier[];
+    teacherCompendiums: string[];
+    bookCompendiums: string[];
     allowedCompendiums: string[];
-    availablePacks: Pack[];
+    availableItemPacks: PackInfo[];
+    instructorPacks: PackInfo[];
+    bookPacks: PackInfo[];
   }>();
 
   function exportSettings() {
     const data = {
       rules,
       timeUnits,
-      guidanceTiers,
+      teacherCompendiums,
+      bookCompendiums,
       allowedCompendiums,
     };
     foundry.utils.saveDataToFile(
@@ -104,7 +105,10 @@
 
             if (validated.rules !== undefined) rules = validated.rules;
             if (validated.timeUnits !== undefined) timeUnits = validated.timeUnits;
-            if (validated.guidanceTiers !== undefined) guidanceTiers = validated.guidanceTiers;
+            if (validated.teacherCompendiums !== undefined)
+              teacherCompendiums = validated.teacherCompendiums;
+            if (validated.bookCompendiums !== undefined)
+              bookCompendiums = validated.bookCompendiums;
             if (validated.allowedCompendiums !== undefined)
               allowedCompendiums = validated.allowedCompendiums;
 
@@ -138,6 +142,11 @@
       if (input.parentNode) input.remove();
     }
   }
+
+  function clearCache() {
+    TutelageResolverService.clearCache();
+    ui.notifications?.info("Downtime Engine | Tutelage cache cleared.");
+  }
 </script>
 
 <div class="world-settings">
@@ -158,15 +167,36 @@
     >
       <i class="fas fa-file-import"></i> Import
     </button>
+    <button
+      type="button"
+      class="tidy-button"
+      onclick={clearCache}
+      title="Clear Tutelage Cache"
+    >
+      <i class="fas fa-sync"></i> Clear Cache
+    </button>
   </div>
 
   <RulesConfig bind:rules />
   <hr />
-  <CompendiumConfig bind:allowedCompendiums {availablePacks} />
+  <h3>Template Compendiums (Items)</h3>
+  <CompendiumConfig bind:allowedCompendiums availablePacks={availableItemPacks} />
+  <hr />
+  <h3>Instructor Compendiums (Actors)</h3>
+  <CompendiumConfig 
+    bind:allowedCompendiums={teacherCompendiums} 
+    availablePacks={instructorPacks} 
+    notes="Compendiums containing actors with Teacher Offerings."
+  />
+  <hr />
+  <h3>Book Compendiums (Items)</h3>
+  <CompendiumConfig 
+    bind:allowedCompendiums={bookCompendiums} 
+    availablePacks={bookPacks} 
+    notes="Compendiums containing items with Learning Book bonuses."
+  />
   <hr />
   <TimeUnitsConfig bind:timeUnits />
-  <hr />
-  <GuidanceConfig bind:guidanceTiers {timeUnits} {rules} />
 </div>
 
 <style lang="scss">

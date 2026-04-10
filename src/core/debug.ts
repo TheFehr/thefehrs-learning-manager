@@ -1,5 +1,9 @@
 import { ActorProxy } from "../logic/actor-proxy.js";
 import { Actor5e } from "../types";
+import { TutelageResolverService } from "../logic/tutelage-resolver.js";
+import { Settings } from "./settings.js";
+import { getAvailablePacks } from "../logic/settings-logic.js";
+import { Logger } from "./logger.js";
 
 function resolveControlledActor(): Actor5e | undefined {
   if (typeof canvas === "undefined" || !canvas?.ready) return undefined;
@@ -28,15 +32,14 @@ export const DebugHelpers = {
     const validatedHours = Number(hours);
     if (!Number.isFinite(validatedHours)) {
       const msg = `Invalid hours: ${hours}. Must be a finite number.`;
-      console.warn(`Downtime Engine | ${msg}`);
-      ui.notifications?.warn(`Downtime Engine | ${msg}`);
+      Logger.warn(msg);
       return;
     }
 
     const actor = resolveControlledActor();
 
     if (!actor) {
-      console.warn("Downtime Engine | No character controlled or token selected.");
+      Logger.warn("No character controlled or token selected.");
       return;
     }
 
@@ -46,7 +49,7 @@ export const DebugHelpers = {
     const diff = newTotal - (bank.total || 0);
 
     if (diff === 0 && validatedHours !== 0) {
-      ui.notifications?.warn(`Downtime Engine | Bank already empty, cannot remove more time.`);
+      Logger.warn("Bank already empty, cannot remove more time.");
       return;
     }
 
@@ -54,10 +57,7 @@ export const DebugHelpers = {
     const action = diff >= 0 ? "Added" : "Removed";
     const absDiff = Math.abs(diff);
 
-    ui.notifications?.info(
-      `Downtime Engine | ${action} ${absDiff}h to ${actor.name}'s bank. New total: ${newTotal}h`,
-    );
-    console.log(`Downtime Engine | Cheat: ${action} ${absDiff}h to ${actor.name}'s bank.`, {
+    Logger.info(`${action} ${absDiff}h to ${actor.name}'s bank. New total: ${newTotal}h`, true, {
       previous: bank.total,
       change: validatedHours,
       actualDiff: diff,
@@ -73,15 +73,14 @@ export const DebugHelpers = {
     const validatedGP = Number(gp);
     if (!Number.isFinite(validatedGP)) {
       const msg = `Invalid gp: ${gp}. Must be a finite number.`;
-      console.warn(`Downtime Engine | ${msg}`);
-      ui.notifications?.warn(`Downtime Engine | ${msg}`);
+      Logger.warn(msg);
       return;
     }
 
     const actor = resolveControlledActor();
 
     if (!actor) {
-      console.warn("Downtime Engine | No character controlled or token selected.");
+      Logger.warn("No character controlled or token selected.");
       return;
     }
 
@@ -91,7 +90,7 @@ export const DebugHelpers = {
     const diff = newGP - (current.gp || 0);
 
     if (diff === 0 && validatedGP !== 0) {
-      ui.notifications?.warn(`Downtime Engine | No GP available to remove.`);
+      Logger.warn("No GP available to remove.");
       return;
     }
 
@@ -103,31 +102,115 @@ export const DebugHelpers = {
       gp: newGP,
     });
 
-    ui.notifications?.info(
-      `Downtime Engine | ${action} ${absDiff}gp to ${actor.name}. New total: ${newGP}gp`,
-    );
-    console.log(`Downtime Engine | Cheat: ${action} ${absDiff}gp to ${actor.name}.`, {
+    Logger.info(`${action} ${absDiff}gp to ${actor.name}. New total: ${newGP}gp`, true, {
       previous: current.gp,
       change: validatedGP,
       actualDiff: diff,
       newTotal: newGP,
     });
   },
+
+  /**
+   * Clear the instructor and book cache.
+   */
+  clearCache() {
+    TutelageResolverService.clearCache();
+    Logger.info("Tutelage cache cleared.", true);
+  },
+
+  /**
+   * Get the current instructor cache.
+   */
+  getCache() {
+    const cache = TutelageResolverService.getCache();
+    if (!cache) return null;
+    return {
+      size: cache.length,
+      instructors: cache.map((i) => ({
+        actorUuid: i.actorUuid,
+        actorName: i.name,
+        offeringName: i.offering.name,
+        modifier: i.offering.modifier,
+        projects: i.offering.projectUuids,
+      })),
+    };
+  },
+
+  /**
+   * Refresh the instructor cache.
+   */
+  async refreshCache() {
+    await TutelageResolverService.refreshCache();
+    return this.getCache();
+  },
+
+  /**
+   * Get the current tutelage configuration.
+   */
+  getConfig() {
+    return {
+      teacherCompendiums: Settings.get("teacherCompendiums"),
+      bookCompendiums: Settings.get("bookCompendiums"),
+    };
+  },
+
+  /**
+   * Find all compendiums that contain relevant tutelage data.
+   */
+  async findFittingCompendiums() {
+    const actors = await getAvailablePacks("Actor", "teacherOfferings");
+    const items = await getAvailablePacks("Item", "learningBookBonus");
+    return {
+      instructors: actors.filter((p) => p.isFitting),
+      books: items.filter((p) => p.isFitting),
+    };
+  },
+
+  /**
+   * Test instructor filtering for a specific project by UUID.
+   */
+  async testInstructorsByUuid(itemUuid: string) {
+    const item = await fromUuid(itemUuid as any);
+    if (!item) {
+      Logger.warn(`Item not found: ${itemUuid}`);
+      return [];
+    }
+
+    // @ts-ignore
+    return await TutelageResolverService.getAvailableInstructors(item);
+  },
+
+  /**
+   * Run the migration logic.
+   */
+  async runMigration() {
+    const { migrateData } = await import("../migrations/migration.js");
+    await migrateData();
+  },
+
+  /**
+   * Reset the migration version and rerun migration.
+   * @param version - The version to reset to (default: "0").
+   */
+  async resetMigration(version = "0") {
+    await Settings.set("migrationVersion", version);
+    Logger.info(`Migration version reset to ${version}. Rerunning migration...`, true);
+    await this.runMigration();
+  },
 };
 
 /**
- * Initialize debug helpers on the window object if in development mode.
+ * Initialize debug helpers on the window object.
  */
 export function initDebugHelpers() {
   // ude = User Downtime Engine - short and easy to type in console
   // We use ude to avoid naming collisions with common global variables
   // and to make it discoverable
+  (window as unknown as { ude: typeof DebugHelpers }).ude = DebugHelpers;
+
   if (import.meta.env.DEV) {
-    (window as unknown as { ude: typeof DebugHelpers }).ude = DebugHelpers;
     Hooks.once("ready", () => {
-      console.debug(
-        "Downtime Engine | Debug helpers initialized. Use `ude.addTime(hours)` in the console.",
-      );
+      Logger.debug("Debug helpers initialized. Use `ude.addTime(hours)` in the console.");
     });
   }
 }

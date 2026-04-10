@@ -1,10 +1,14 @@
 import { Settings } from "../core/settings.js";
+import { Logger } from "../core/logger.js";
 import { ActorProxy } from "./actor-proxy.js";
 import { ActivityManager } from "../core/activity-manager.js";
 import { ProjectLifecycle } from "./project-lifecycle.js";
 import { LearningActivityData, ProjectFlagData, ProjectItem } from "./project-item.js";
 import type { Item5e, Actor5e, LearningActor, TimeUnit, SystemRules } from "../types.js";
 import { Socket } from "../core/socket.js";
+import { mount, unmount } from "svelte";
+import { TutelageResolverService } from "./tutelage-resolver.js";
+import InstructorSelectionDialog from "../apps/dialogs/InstructorSelectionDialog.svelte";
 
 import { ProjectUI } from "../core/project-ui.js";
 
@@ -47,16 +51,8 @@ export class ProjectEngine {
   /**
    * Forwards call to ProjectLifecycle
    */
-  static async initiateProjectFromItem(
-    actor: Actor,
-    rewardDoc: Item,
-    tutelageId: string = "",
-  ): Promise<Item5e | null> {
-    return (await ProjectLifecycle.initiateProjectFromItem(
-      actor,
-      rewardDoc,
-      tutelageId,
-    )) as any as Item5e;
+  static async initiateProjectFromItem(actor: Actor, rewardDoc: Item): Promise<Item5e | null> {
+    return (await ProjectLifecycle.initiateProjectFromItem(actor, rewardDoc)) as any as Item5e;
   }
 
   /**
@@ -69,8 +65,12 @@ export class ProjectEngine {
   /**
    * Forwards call to ProjectLifecycle
    */
-  static async updateItemWithProgress(item: Item5e, projectData: ProjectFlagData) {
-    return ProjectLifecycle.updateItemWithProgress(item, projectData);
+  static async updateItemWithProgress(
+    item: Item5e,
+    projectData: ProjectFlagData,
+    instructorName: string = "None",
+  ) {
+    return ProjectLifecycle.updateItemWithProgress(item, projectData, instructorName);
   }
 
   static _tabLogicModule: any = null;
@@ -92,9 +92,9 @@ export class ProjectEngine {
     const bank = proxy.bank;
     if (!bank.total || bank.total <= 0) {
       if (!allowedUnitIds) {
-        ui.notifications?.warn("No training time in your bank!");
+        Logger.warn("No training time in your bank!");
       } else {
-        console.debug("Downtime Engine | No training time in bank, skipping auto-spend.");
+        Logger.debug("No training time in bank, skipping auto-spend.");
       }
       return false;
     }
@@ -160,14 +160,13 @@ export class ProjectEngine {
 
       const result = await this.processTraining(fitting.activity, { skipPrompt: true });
       if (!result) {
-        console.warn(
-          `Downtime Engine | Failed to process training for "${fitting.name}" unit in Spend All loop. Skipping...`,
+        Logger.warn(
+          `Failed to process training for "${fitting.name}" unit in Spend All loop. Skipping...`,
         );
         consecutiveFailures++;
         if (consecutiveFailures >= maxConsecutiveFailures) {
           const msg = `Spend All loop aborted after ${consecutiveFailures} consecutive failures.`;
-          console.error(`Downtime Engine | ${msg}`);
-          ui.notifications?.error(`Downtime Engine | ${msg}`);
+          Logger.error(msg);
           break;
         }
         iterations++;
@@ -178,8 +177,7 @@ export class ProjectEngine {
       const newBank = proxy.bank.total || 0;
       if (newBank >= currentBank) {
         const msg = `Spend All loop detected no decrease in bank total after successful training for "${fitting.name}". Aborting to prevent infinite loop.`;
-        console.error(`Downtime Engine | ${msg}`);
-        ui.notifications?.error(`Downtime Engine | ${msg}`);
+        Logger.error(msg);
         break;
       }
 
@@ -197,8 +195,7 @@ export class ProjectEngine {
 
     if (iterations >= maxIterations) {
       const msg = `processSpendAll reached maximum iterations (${maxIterations}) for project "${item.name}". Possible infinite loop logic or extremely large bank.`;
-      console.warn(`Downtime Engine | ${msg}`);
-      ui.notifications?.warn(`Downtime Engine | ${msg}`);
+      Logger.warn(msg);
     }
 
     return anySuccess;
@@ -243,25 +240,103 @@ export class ProjectEngine {
       return false;
     }
 
-    const guidanceTiers = Settings.get("guidanceTiers");
-    const tier = guidanceTiers.find((t) => t.id === projectDataFlags.tutelageId);
-    if (!tier) {
-      ui.notifications?.warn("Please select a tutelage tier for this project.");
-      return false;
-    }
+    const instructors = await TutelageResolverService.getAvailableInstructors(item as any);
+    const books = TutelageResolverService.getAvailableBooks(actor, item as any);
+    const bestBookMod = books.reduce((max, b) => Math.max(max, b.modifier), 0);
+    const bestBooks = books.filter((b) => b.modifier === bestBookMod && bestBookMod > 0);
+    const bestBookNames = bestBooks.map((b) => b.name).join(", ");
 
-    // If it's a bulk unit, ensure the tier actually provides progress for it
-    if (tu.isBulk && Settings.get("rules").bulkMethod === "direct") {
-      const bulkProgress = tier.progress?.[tu.id] || 0;
-      if (bulkProgress <= 0) {
-        ui.notifications?.warn(
-          `The "${tier.name}" tier provides no progress for ${tu.name} sessions.`,
-        );
-        return false;
+    let selectedInstructor = null;
+    let rememberChoice = false;
+
+    if (instructors.length > 0 || bestBookMod > 0) {
+      const lastId = projectDataFlags.lastInstructorUuid;
+      const lastName = projectDataFlags.lastInstructorName;
+
+      const remembered = instructors.find(
+        (i) => i.actorUuid === lastId && i.offering.name === lastName,
+      );
+
+      if (options.skipPrompt && remembered) {
+        selectedInstructor = remembered;
+      } else if (!options.skipPrompt) {
+        let dialogInstance: any;
+        const choice = (await new Promise((resolve) => {
+          const dialog = new (foundry.applications.api.DialogV2 as any)({
+            window: {
+              title: `Select Instructor: ${item.name}`,
+              contentClasses: ["thefehrs-learning-manager-dialog"],
+            },
+            content: '<div class="ude-instructor-dialog-root"></div>',
+            buttons: [
+              {
+                action: "confirm",
+                label: "Confirm",
+                default: true,
+                callback: (_event: any, _button: any, _dialog: any) => {
+                  resolve(dialogInstance?.getResult());
+                },
+              },
+              {
+                action: "cancel",
+                label: "Cancel",
+                callback: () => resolve("cancel"),
+              },
+            ],
+            close: () => {
+              if (dialogInstance) unmount(dialogInstance);
+              resolve(null);
+            },
+            modal: true,
+            rejectClose: false,
+          });
+
+          dialog.render({ force: true }).then(() => {
+            const root = dialog.element.querySelector(".ude-instructor-dialog-root");
+            if (root) {
+              Logger.debug("ProjectEngine | Mounting InstructorSelectionDialog to dialog root.");
+              dialogInstance = mount(InstructorSelectionDialog, {
+                target: root,
+                props: {
+                  instructors,
+                  bestBookMod,
+                  bestBookNames,
+                  timeUnit: tu,
+                  lastInstructorUuid: lastId,
+                  lastInstructorName: lastName,
+                  resolve: () => {},
+                },
+              });
+            } else {
+              Logger.error(
+                "ProjectEngine | Could not find ude-instructor-dialog-root in dialog element!",
+                dialog.element,
+              );
+            }
+          });
+        })) as any;
+
+        if (!choice || choice === "cancel") return false;
+        selectedInstructor = choice.instructor;
+        rememberChoice = choice.remember;
       }
     }
 
-    const costCp = tier.costs?.[tu.id] || 0;
+    const resolution = TutelageResolverService.resolveTutelage(
+      actor,
+      item as any,
+      selectedInstructor?.actorUuid,
+      selectedInstructor?.offering.name,
+    );
+    const tutelageMod = resolution.modifier;
+    const costCp = resolution.costs[tu.id] || 0;
+    const instructorName = resolution.instructorName;
+
+    if (rememberChoice) {
+      projectDataFlags.lastInstructorUuid = selectedInstructor?.actorUuid || "";
+      projectDataFlags.lastInstructorName = selectedInstructor?.offering.name || "Self-Study";
+    }
+
     const cur = proxy.currency;
     const totalCp = cur.gp * 100 + cur.sp * 10 + cur.cp;
 
@@ -281,8 +356,8 @@ export class ProjectEngine {
       rules.nonBulkMethod === "roll" &&
       rules.bulkMethod !== "roll"
     ) {
-      const bulkResult = await TabLogic.computeProgress(actor, rules, tier, tu);
-      const prob = await TabLogic.calculateSuccessProbability(actor, rules, tier);
+      const bulkResult = await TabLogic.computeProgress(actor, rules, tutelageMod, tu);
+      const prob = await TabLogic.calculateSuccessProbability(actor, rules, tutelageMod);
       const chancePercent = Math.round(prob * 100);
       const expectedFromSeparate = (tu.ratio * prob).toFixed(1);
 
@@ -332,7 +407,7 @@ export class ProjectEngine {
     const baseTu = isSeparate ? { ...tu, isBulk: false, ratio: 1 } : tu;
 
     for (let i = 0; i < iterations; i++) {
-      const result = await TabLogic.computeProgress(actor, rules, tier, baseTu);
+      const result = await TabLogic.computeProgress(actor, rules, tutelageMod, baseTu);
       totalProgressGained += result.progressGained;
       if (result.roll) rolls.push(result.roll);
       if (result.reason) reasons.push(result.reason);
@@ -381,11 +456,7 @@ export class ProjectEngine {
                 `Could not start follow-up project: Requirements not met for ${escapedFollowUpName}: ${reqReason}`,
               );
             } else {
-              const newItem = await this.initiateProjectFromItem(
-                actor,
-                followUpItem,
-                projectDataFlags.tutelageId,
-              );
+              const newItem = await this.initiateProjectFromItem(actor, followUpItem);
               if (newItem) {
                 const newFlags = (newItem as unknown as ProjectItem).getFlag(
                   "thefehrs-learning-manager",
@@ -407,7 +478,7 @@ export class ProjectEngine {
         }
       }
     } else {
-      await this.updateItemWithProgress(item as any, projectDataFlags);
+      await this.updateItemWithProgress(item as any, projectDataFlags, instructorName);
 
       // Ensure we have the latest document instance before displaying the card
       const freshItem = actor.items.get(item.id);

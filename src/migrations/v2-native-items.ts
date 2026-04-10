@@ -1,5 +1,4 @@
-import { MODULE_ID } from "../global";
-import type { Actor5e, Item5e } from "../types.js";
+import { MODULE_ID } from "../global.js";
 import { createProjectItemFromTemplate, type LegacyProject } from "./migration-utils.js";
 
 export async function migrateToV2() {
@@ -53,7 +52,7 @@ export async function migrateToV2() {
             }
 
             const created = await createProjectItemFromTemplate(
-              actor as unknown as Actor5e,
+              actor as any,
               tpl.rewardUuid,
               p,
               tpl.target,
@@ -89,7 +88,7 @@ export async function migrateToV2() {
       );
 
       for (const item of learningItems) {
-        const item5e = item as unknown as Item5e;
+        const item5e = item as any;
         const projectData = item5e.getFlag(MODULE_ID, "projectData") as LegacyProject | undefined;
         const isLearnedReward = item5e.getFlag(MODULE_ID, "isLearnedReward");
         const updates: Record<string, unknown> = {};

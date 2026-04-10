@@ -1,12 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { Logger } from "../src/core/notifications";
-import { Settings } from "../src/core/settings";
-
-vi.mock("../src/core/settings", () => ({
-  Settings: {
-    get: vi.fn(),
-  },
-}));
+import { Logger } from "../src/core/logger";
 
 describe("Logger", () => {
   beforeEach(() => {
@@ -18,6 +11,11 @@ describe("Logger", () => {
         warn: vi.fn(),
       },
     };
+    (global as any).game = {
+      settings: {
+        get: vi.fn(),
+      },
+    };
     vi.spyOn(console, "info").mockImplementation(() => {});
     vi.spyOn(console, "error").mockImplementation(() => {});
     vi.spyOn(console, "warn").mockImplementation(() => {});
@@ -27,18 +25,19 @@ describe("Logger", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     delete (global as any).ui;
+    delete (global as any).game;
   });
 
-  it("should show info notification and log to console", () => {
-    vi.spyOn(Settings, "get").mockReturnValue({ notificationLevel: "info" } as any);
-    Logger.info("test info");
+  it("should show info notification and log to console when uiNotify is true", () => {
+    vi.mocked(game.settings.get).mockReturnValue({ notificationLevel: "info" } as any);
+    Logger.info("test info", true);
     expect(ui.notifications.info).toHaveBeenCalledWith("test info");
     expect(console.info).toHaveBeenCalledWith(expect.stringContaining("test info"));
   });
 
   it("should respect notification level (error only)", () => {
-    vi.spyOn(Settings, "get").mockReturnValue({ notificationLevel: "error" } as any);
-    Logger.info("hidden info");
+    vi.mocked(game.settings.get).mockReturnValue({ notificationLevel: "error" } as any);
+    Logger.info("hidden info", true);
     expect(ui.notifications.info).not.toHaveBeenCalled();
     expect(console.info).not.toHaveBeenCalled();
 
@@ -47,7 +46,7 @@ describe("Logger", () => {
   });
 
   it("should handle debug logs", () => {
-    vi.spyOn(Settings, "get").mockReturnValue({ notificationLevel: "debug" } as any);
+    vi.mocked(game.settings.get).mockReturnValue({ notificationLevel: "debug" } as any);
     Logger.debug("debug message", { key: "val" });
     expect(console.debug).toHaveBeenCalledWith(expect.stringContaining("debug message"), {
       key: "val",
@@ -55,10 +54,11 @@ describe("Logger", () => {
   });
 
   it("should handle UI failure gracefully", () => {
+    vi.mocked(game.settings.get).mockReturnValue({ notificationLevel: "info" } as any);
     (ui.notifications.info as any).mockImplementation(() => {
       throw new Error("UI dead");
     });
-    Logger.info("message");
+    Logger.info("message", true);
     expect(console.error).toHaveBeenCalledWith(
       expect.stringContaining("UI notification failed"),
       expect.any(Error),

@@ -40,6 +40,7 @@ import type {
   ProjectFlagData,
   ProjectRequirement,
   ComparisonOperator,
+  ProjectItem,
 } from "./logic/project-item.js";
 
 // --- Project Configuration Types ---
@@ -64,6 +65,19 @@ export interface SystemRules {
   critThreshold?: number;
   bulkExpectedFormula?: string;
   notificationLevel?: NotificationLevel;
+}
+
+export interface TeacherOffering {
+  name: string;
+  modifier: number;
+  costs: Record<string, number>;
+  categories?: string[];
+}
+
+export interface LearningBookBonus {
+  modifier: number;
+  projectUuids: string[];
+  categories?: string[];
 }
 
 export interface GuidanceTier {
@@ -118,12 +132,14 @@ declare module "fvtt-types/configuration" {
   interface SettingConfig {
     "thefehrs-learning-manager.rules": SystemRules;
     "thefehrs-learning-manager.timeUnits": TimeUnit[];
-    "thefehrs-learning-manager.guidanceTiers": GuidanceTier[];
-    "thefehrs-learning-manager.allowedCompendiums": string[];
+    "thefehrs-learning-manager.teacherCompendiums": string[];
     "thefehrs-learning-manager.projectTemplates": unknown[];
     "thefehrs-learning-manager.migrationVersion": string;
     "thefehrs-learning-manager.autoSpend": boolean;
     "thefehrs-learning-manager.autoSpendUnits": string[];
+    "thefehrs-learning-manager.bookCompendiums": string[];
+    "thefehrs-learning-manager.allowedCompendiums": string[];
+    "thefehrs-learning-manager.categories": string[];
   }
 
   interface FlagConfig {
@@ -131,6 +147,7 @@ declare module "fvtt-types/configuration" {
       "thefehrs-learning-manager": {
         projects: ProjectFlagData[];
         bank: TimeBank;
+        teacherOfferings?: TeacherOffering[];
       };
     };
     Item: {
@@ -141,6 +158,7 @@ declare module "fvtt-types/configuration" {
         stashedType?: string;
         stashedEffects?: unknown[];
         stashedActivities?: object;
+        learningBookBonus?: LearningBookBonus;
       };
       "tidy5e-sheet": {
         section?: string;
@@ -279,7 +297,7 @@ export function getModuleAPI<T extends string & keyof ModuleAPIs>(
 
 // --- Shared Data Types ---
 
-export type { ProjectRequirement, ComparisonOperator, ProjectFlagData };
+export type { ProjectRequirement, ComparisonOperator, ProjectFlagData, ProjectItem };
 
 // --- Tidy 5e Sheets API Types ---
 

@@ -1,9 +1,10 @@
 <script lang="ts">
   import { Settings } from "../core/settings.js";
   import type { SystemRules, TimeUnit, GuidanceTier } from "../types.js";
-  import { saveSettings, getAvailablePacks } from "../logic/settings-logic.js";
+  import { saveSettings, getAvailablePacks, type PackInfo } from "../logic/settings-logic.js";
   import WorldSettingsConfig from "./components/WorldSettingsConfig.svelte";
   import UserPreferencesConfig from "./components/UserPreferencesConfig.svelte";
+  import { onMount } from "svelte";
 
   // Auth
   const isGM = !!game.user?.isGM;
@@ -11,21 +12,36 @@
   // State
   let rules = $state<SystemRules>(Settings.get("rules"));
   let timeUnits = $state<TimeUnit[]>(Settings.get("timeUnits"));
-  let guidanceTiers = $state<GuidanceTier[]>(Settings.get("guidanceTiers"));
+  let teacherCompendiums = $state<string[]>(Settings.get("teacherCompendiums"));
+  let bookCompendiums = $state<string[]>(Settings.get("bookCompendiums"));
   let allowedCompendiums = $state<string[]>(Settings.get("allowedCompendiums"));
 
   // User Preferences
   let autoSpend = $state<boolean>(!isGM ? Settings.get("autoSpend") : false);
   let autoSpendUnits = $state<string[]>(!isGM ? Settings.get("autoSpendUnits") : []);
 
-  // Computed / Constant
-  const availablePacks = getAvailablePacks();
+  // Pack state
+  let availableItemPacks = $state<PackInfo[]>([]);
+  let instructorPacks = $state<PackInfo[]>([]);
+  let bookPacks = $state<PackInfo[]>([]);
+
+  onMount(async () => {
+    if (isGM) {
+      // General item packs for templates
+      availableItemPacks = await getAvailablePacks("Item");
+      // Specific instructor packs (all actor packs with isFitting based on flag)
+      instructorPacks = await getAvailablePacks("Actor", "teacherOfferings");
+      // Specific book packs (all item packs with isFitting based on flag)
+      bookPacks = await getAvailablePacks("Item", "learningBookBonus");
+    }
+  });
 
   async function save() {
     await saveSettings(
       rules,
       timeUnits,
-      guidanceTiers,
+      teacherCompendiums,
+      bookCompendiums,
       allowedCompendiums,
       autoSpend,
       autoSpendUnits,
@@ -38,9 +54,12 @@
     <WorldSettingsConfig
       bind:rules
       bind:timeUnits
-      bind:guidanceTiers
+      bind:teacherCompendiums
+      bind:bookCompendiums
       bind:allowedCompendiums
-      {availablePacks}
+      {availableItemPacks}
+      {instructorPacks}
+      {bookPacks}
     />
   {:else}
     <UserPreferencesConfig
