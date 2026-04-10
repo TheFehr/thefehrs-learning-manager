@@ -189,6 +189,7 @@
     outline: 2px solid var(--t5e-primary-accent-color, #ff6400);
     outline-offset: 2px;
     border-radius: 2px;
+    text-decoration: underline;
   }
 
   .pack-name {

@@ -20,7 +20,7 @@ interface ValidationData {
     description?: {
       value?: string;
     };
-    activities?: Record<string, any>;
+    activities?: any[] | Record<string, any> | { size: number };
   };
   effects?: any[] | { size: number };
 }
@@ -41,7 +41,15 @@ function validateProjectData(data: ValidationData): string[] {
   // Criteria 2: Missing activities or effects
   const activities = data.system?.activities || {};
   const effects = data.effects || [];
-  const hasActivities = Object.keys(activities).length > 0;
+
+  let hasActivities = false;
+  if (Array.isArray(activities)) {
+    hasActivities = activities.length > 0;
+  } else if (typeof activities === "object" && "size" in activities) {
+    hasActivities = (activities as any).size > 0;
+  } else {
+    hasActivities = Object.keys(activities).length > 0;
+  }
 
   let hasEffects = false;
   if (Array.isArray(effects)) {
