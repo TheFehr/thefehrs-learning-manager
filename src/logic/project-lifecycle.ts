@@ -23,7 +23,7 @@ export class ProjectLifecycle {
     const stashedSystem = foundry.utils.deepClone(itemData.system || {});
     const stashedSourceUuid = rewardDoc.uuid || "";
 
-    const target = rewardDoc.getFlag("thefehrs-learning-manager", "projectData")?.target ?? 0;
+    const target = rewardDoc.getFlag(Settings.ID, "projectData")?.target ?? 0;
 
     if (target <= 0) {
       console.error(
@@ -35,8 +35,7 @@ export class ProjectLifecycle {
       return null;
     }
 
-    const stashedRequirements =
-      rewardDoc.getFlag("thefehrs-learning-manager", "projectData")?.requirements ?? [];
+    const stashedRequirements = rewardDoc.getFlag(Settings.ID, "projectData")?.requirements ?? [];
 
     const guidanceTiers = Settings.get("guidanceTiers");
     const tier = guidanceTiers.find((t) => t.id === tutelageId);
@@ -76,7 +75,7 @@ export class ProjectLifecycle {
         },
       }),
       flags: foundry.utils.mergeObject(itemData.flags || {}, {
-        "thefehrs-learning-manager": {
+        [Settings.ID]: {
           projectData: projectData,
           isLearningProject: true,
           isLearnedReward: false,
@@ -129,7 +128,7 @@ export class ProjectLifecycle {
    * Restores a project item to its original state upon completion.
    */
   static async completeProject(item: Item) {
-    const isProject = item.getFlag("thefehrs-learning-manager", "isLearningProject");
+    const isProject = item.getFlag(Settings.ID, "isLearningProject");
     if (!isProject) return;
     const actor = item.actor;
     if (!actor) {
@@ -139,7 +138,7 @@ export class ProjectLifecycle {
       return;
     }
 
-    const projectDataFlags = item.getFlag("thefehrs-learning-manager", "projectData");
+    const projectDataFlags = item.getFlag(Settings.ID, "projectData");
     if (!projectDataFlags) return;
     const stashedSourceUuid = projectDataFlags.stashedSourceUuid;
 
@@ -354,7 +353,7 @@ export class ProjectLifecycle {
         id: string;
         flags?: Record<string, any>;
       }>) {
-        if (activity?.id && activity.flags?.["thefehrs-learning-manager"]?.isLearningActivity) {
+        if (activity?.id && activity.flags?.[Settings.ID]?.isLearningActivity) {
           dotFlags[`system.activities.-=${activity.id}`] = null;
         }
       }

@@ -213,13 +213,14 @@ export type Actor5e = Actor<any> & {
 /**
  * Type guard to check if an actor is a valid dnd5e actor with required properties.
  */
-export function isActor5e(actor: any): actor is Actor5e {
+export function isActor5e(actor: unknown): actor is Actor5e {
   return (
-    actor &&
+    !!actor &&
     typeof actor === "object" &&
     "system" in actor &&
-    typeof (actor as any).getFlag === "function" &&
-    typeof (actor as any).getRollData === "function"
+    typeof (actor as { getFlag?: unknown }).getFlag === "function" &&
+    typeof (actor as { setFlag?: unknown }).setFlag === "function" &&
+    typeof (actor as { getRollData?: unknown }).getRollData === "function"
   );
 }
 

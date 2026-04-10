@@ -17,14 +17,7 @@
     }
   });
 
-  interface ItemWithSheet {
-    name: string;
-    sheet?: {
-      render: (force: boolean) => void;
-    };
-  }
-
-  function openItemSheet(item: ItemWithSheet | null | undefined) {
+  function openItemSheet(item: InvalidProjectReason["item"] | null | undefined) {
     if (!item?.sheet) {
       console.warn("Downtime Engine | Cannot open sheet: item or sheet is undefined");
       return;
@@ -56,6 +49,7 @@
               onclick={() => openItemSheet(item)}
               type="button"
               aria-label="Open project details"
+              disabled={!item.sheet}
             >
               {item.name}
             </button>
