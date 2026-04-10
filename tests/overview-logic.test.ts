@@ -212,4 +212,81 @@ describe("overview-logic", () => {
     expect(result).toHaveLength(0);
     expect(pack1.getIndex).toHaveBeenCalled();
   });
+
+  it("should handle pack.getIndex failure by logging and continuing to next pack", async () => {
+    const pack1 = game.packs.get("pack1") as any;
+    const pack2 = game.packs.get("pack2") as any;
+
+    pack1.getIndex.mockRejectedValue(new Error("Index load failed"));
+    pack2.getIndex.mockResolvedValue([]);
+
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const result = await getInvalidProjects();
+
+    expect(result).toHaveLength(0);
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Failed to read index for compendium "pack1": Index load failed'),
+    );
+    expect(pack2.getIndex).toHaveBeenCalled();
+
+    consoleSpy.mockRestore();
+  });
+
+  it("should handle pack.getDocument failure by adding an invalid reason and continuing", async () => {
+    const invalidEntry = {
+      _id: "item1",
+      name: "Broken Item",
+      // Reasons will trigger because no projectData
+    };
+
+    const pack1 = game.packs.get("pack1") as any;
+    pack1.getIndex.mockResolvedValue([invalidEntry]);
+    pack1.getDocument.mockRejectedValue(new Error("Document load failed"));
+
+    const result = await getInvalidProjects();
+
+    expect(result).toHaveLength(1);
+    expect(result[0].item.name).toBe("Broken Item");
+    expect(result[0].reasons).toContain("Failed to load full item data.");
+  });
+
+  it("should identify projects where isLearningProject is truthy but not literal boolean true", async () => {
+    const invalidEntryString = {
+      _id: "item1",
+      name: "String True Project",
+      system: { description: { value: "A valid description" } },
+      flags: {
+        [MODULE_ID]: {
+          projectData: { isLearningProject: "true", target: 10 },
+        },
+      },
+    };
+
+    const invalidEntryNumber = {
+      _id: "item2",
+      name: "Number One Project",
+      system: { description: { value: "A valid description" } },
+      flags: {
+        [MODULE_ID]: {
+          projectData: { isLearningProject: 1, target: 10 },
+        },
+      },
+    };
+
+    const pack1 = game.packs.get("pack1") as any;
+    pack1.getIndex.mockResolvedValue([invalidEntryString, invalidEntryNumber]);
+    pack1.getDocument.mockImplementation((id: string) =>
+      Promise.resolve({ id, name: id === "item1" ? "String True Project" : "Number One Project" }),
+    );
+
+    const result = await getInvalidProjects();
+    expect(result).toHaveLength(2);
+    expect(result[0].reasons).toContain(
+      "Missing or invalid isLearningProject flag in projectData.",
+    );
+    expect(result[1].reasons).toContain(
+      "Missing or invalid isLearningProject flag in projectData.",
+    );
+  });
 });

@@ -46,16 +46,24 @@ export async function getInvalidProjects(): Promise<InvalidProjectReason[]> {
       };
     }
 
-    const index = (await pack.getIndex({
-      fields: [`flags.${MODULE_ID}.projectData`, "system.description.value"] as any,
-    })) as unknown as IndexEntry[];
+    let index: IndexEntry[] = [];
+    try {
+      index = (await pack.getIndex({
+        fields: [`flags.${MODULE_ID}.projectData`, "system.description.value"] as any,
+      })) as unknown as IndexEntry[];
+    } catch (error) {
+      console.error(
+        `Downtime Engine | Failed to read index for compendium "${packId}": ${error instanceof Error ? error.message : error}`,
+      );
+      continue;
+    }
 
     for (const indexEntry of index) {
       const projectData = indexEntry.flags?.[MODULE_ID]?.projectData;
       const reasons: string[] = [];
 
       // Criteria 1: Missing isLearningProject flag in projectData
-      if (!projectData?.isLearningProject) {
+      if (projectData?.isLearningProject !== true) {
         reasons.push("Missing or invalid isLearningProject flag in projectData.");
       }
 
