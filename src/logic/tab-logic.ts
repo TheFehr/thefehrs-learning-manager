@@ -79,16 +79,34 @@ export class TabLogic {
       }
     } else if (effectiveMethod === "mathematical") {
       const hours = tu.ratio;
-      const dc = Number(rules.checkDC) ?? 12;
+      const dc = Number(rules.checkDC) || 12;
+
+      let mod = 0;
+      if (rules.checkFormula) {
+        try {
+          const modFormula = rules.checkFormula.replace(/\b1?d20\b/i, "0");
+          const modRoll = new Roll(modFormula, {
+            ...actor.getRollData(),
+            tutelage: tutelageMod,
+          });
+          // Use synchronous evaluation if possible or just parse terms if we want to be safe,
+          // but Roll.evaluate() is async. We are in an async function though.
+          const evaluatedMod = await modRoll.evaluate();
+          mod = evaluatedMod.total;
+        } catch (err) {
+          Logger.error("Failed to calculate mod for mathematical progress:", err);
+        }
+      }
+
       const bulkFormula =
-        rules.bulkExpectedFormula ||
-        "round(@hours * (22 - max(1, @dc - (@abilities.int.mod + @tutelage))) / 20)";
+        rules.bulkExpectedFormula || "round(@hours * (22 - max(1, @dc - @mod)) / 20)";
 
       const formulaData = {
         ...actor.getRollData(),
         tutelage: tutelageMod,
         hours: hours,
         dc: dc,
+        mod: mod,
       };
 
       try {

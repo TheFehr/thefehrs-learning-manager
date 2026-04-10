@@ -75,9 +75,7 @@ describe("TutelageResolverService", () => {
         _id: "actor2",
         name: "Universal Teacher",
         uuid: "Compendium.pack1.Actor.actor2",
-        [`flags.${MODULE_ID}.teacherOfferings`]: [
-          { name: "Lesson", modifier: 2, projectUuids: [], categories: [] },
-        ],
+        [`flags.${MODULE_ID}.teacherOfferings`]: [{ name: "Lesson", modifier: 2, categories: [] }],
       },
     ]);
 

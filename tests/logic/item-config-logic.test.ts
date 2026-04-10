@@ -32,7 +32,6 @@ describe("ItemConfigLogic", () => {
       const requirements = [{ attribute: "system.abilities.int.value", operator: ">=", value: 13 }];
       const categories = ["magic"];
       const bookModifier = 2;
-      const bookProjectUuids = ["uuid456"];
       const bookCategories = ["arcana"];
 
       const result = await ItemConfigLogic.saveConfig(
@@ -42,7 +41,6 @@ describe("ItemConfigLogic", () => {
         requirements as any,
         categories,
         bookModifier,
-        bookProjectUuids,
         bookCategories,
       );
 
@@ -57,7 +55,6 @@ describe("ItemConfigLogic", () => {
           },
           "flags.thefehrs-learning-manager.learningBookBonus": {
             modifier: bookModifier,
-            projectUuids: bookProjectUuids,
             categories: bookCategories,
           },
         },
@@ -70,7 +67,7 @@ describe("ItemConfigLogic", () => {
         update: vi.fn().mockRejectedValue(new Error("Database error")),
       } as any;
 
-      const result = await ItemConfigLogic.saveConfig(mockItem, 10, "", [], [], 0, [], []);
+      const result = await ItemConfigLogic.saveConfig(mockItem, 10, "", [], [], 0, []);
       expect(result).toBe(false);
     });
   });

@@ -71,13 +71,12 @@ export interface TeacherOffering {
   name: string;
   modifier: number;
   costs: Record<string, number>;
-  categories?: string[];
+  categories: string[];
 }
 
 export interface LearningBookBonus {
   modifier: number;
-  projectUuids: string[];
-  categories?: string[];
+  categories: string[];
 }
 
 export interface GuidanceTier {

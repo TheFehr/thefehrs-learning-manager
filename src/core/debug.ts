@@ -131,7 +131,7 @@ export const DebugHelpers = {
         actorName: i.name,
         offeringName: i.offering.name,
         modifier: i.offering.modifier,
-        projects: i.offering.projectUuids,
+        categories: i.offering.categories,
       })),
     };
   },

@@ -19,8 +19,10 @@
   $effect(() => {
     if (untrack(() => initialized)) return;
     const data = (actor.getFlag("thefehrs-learning-manager", "teacherOfferings") as TeacherOffering[]) || [];
-    // Deep clone to avoid direct state mutation before we're ready
-    offerings = JSON.parse(JSON.stringify(data));
+    offerings = data.map(o => ({
+      ...o,
+      categories: o.categories || []
+    }));
     
     initialSnapshot = JSON.stringify(offerings);
     initialized = true;
@@ -59,6 +61,7 @@
       name: "New Lesson",
       modifier: 0,
       costs: {},
+      categories: [],
     }];
   }
 

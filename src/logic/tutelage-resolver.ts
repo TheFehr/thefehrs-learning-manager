@@ -42,32 +42,27 @@ export class TutelageResolverService {
       return [];
     }
 
-    const projectUuid = projectItem.uuid;
     const projectName = projectItem.name;
-    const projectSourceId = (projectItem as any).getFlag("core", "sourceId") as string | undefined;
     const projectCats = projectItem.getFlag(MODULE_ID, "projectData")?.categories || [];
 
     Logger.debug(
-      `Filtering ${this.instructorCache.length} instructors for project: "${projectName}" (${projectUuid}), categories: ${projectCats.join(", ")}`,
+      `Filtering ${this.instructorCache.length} instructors for project: "${projectName}", categories: ${projectCats.join(", ")}`,
     );
 
     const result = this.instructorCache.filter((instructor) => {
       const instructorCats = instructor.offering.categories || [];
       const hasCategoryList = instructorCats.length > 0;
 
-      if (!hasCategoryList) {
-        return true; // Match all
-      }
+      // Match all if no categories specified, otherwise match any category
+      const isApplicable = !hasCategoryList || projectCats.some((c) => instructorCats.includes(c));
 
-      const matches = projectCats.some((c) => instructorCats.includes(c));
-
-      if (matches) {
+      if (isApplicable) {
         Logger.debug(
           `Instructor ${instructor.name} (${instructor.offering.name}) matches project.`,
         );
       }
 
-      return matches;
+      return isApplicable;
     });
 
     Logger.debug(`Found ${result.length} applicable instructors.`);
@@ -133,9 +128,6 @@ export class TutelageResolverService {
     actor: Actor5e,
     projectItem: ProjectItem,
   ): { name: string; modifier: number }[] {
-    const projectUuid = projectItem.uuid;
-    const projectName = projectItem.name;
-    const projectSourceId = (projectItem as any).getFlag("core", "sourceId") as string | undefined;
     const projectCats = projectItem.getFlag(MODULE_ID, "projectData")?.categories || [];
     const books: { name: string; modifier: number }[] = [];
 
@@ -155,24 +147,11 @@ export class TutelageResolverService {
 
       const bonus = item.getFlag(MODULE_ID, "learningBookBonus") as LearningBookBonus;
       if (bonus) {
-        const uuids = bonus.projectUuids || [];
         const bookCats = bonus.categories || [];
-
-        const hasUuidList = uuids.length > 0;
         const hasCategoryList = bookCats.length > 0;
 
-        let isApplicable = !hasUuidList && !hasCategoryList;
-
-        if (hasUuidList) {
-          isApplicable = uuids.some(
-            (u) =>
-              u === projectUuid || u === projectName || (projectSourceId && u === projectSourceId),
-          );
-        }
-
-        if (!isApplicable && hasCategoryList) {
-          isApplicable = projectCats.some((c) => bookCats.includes(c));
-        }
+        // Match all if no categories specified, otherwise match any category
+        const isApplicable = !hasCategoryList || projectCats.some((c) => bookCats.includes(c));
 
         if (isApplicable) {
           books.push({

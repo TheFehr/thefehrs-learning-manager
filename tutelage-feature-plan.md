@@ -17,11 +17,11 @@ Improve the tutelage system by introducing "Learning Books" (Items) and "Instruc
 ### 1. Data Model & Flag Structure
 
 - **Teacher Actor Flags**: `thefehrs-learning-manager.teacherOfferings`
-  - Structure: `Array<{ name: string, modifier: number, costs: Record<string, number>, projectUuids: string[] }>`
+  - Structure: `Array<{ name: string, modifier: number, costs: Record<string, number>, categories: string[] }>`
   - `costs` maps `TimeUnit` IDs to costs in CP (Copper Pieces).
-  - `projectUuids`: List of specific Item UUIDs or Names to match against the project. (Note: Category matching like "Feat" is not supported).
+  - `categories`: List of project categories (e.g., "Feat", "Language", "Tool") to match against the project.
 - **Learning Book Item Flags**: `thefehrs-learning-manager.learningBookBonus`
-  - Structure: `{ modifier: number, projectUuids: string[] }`
+  - Structure: `{ modifier: number, categories: string[] }`
 - **Project Progress Flags**: Update `ProjectFlagData` to store the `lastInstructorUuid` (optional, for UI persistence).
 
 ### 2. Provider Discovery & Configuration
@@ -38,7 +38,7 @@ Improve the tutelage system by introducing "Learning Books" (Items) and "Instruc
 ### 3. Selection UI & Training Flow
 
 - **Instructor Selection Dialog**: Update the training flow in `ProjectEngine` to prompt the user to select an instructor if multiple are available. Include a "Remember Choice" checkbox to automatically use the selected instructor for future sessions of the same project.
-- **Project/Instructor Matching UI**: Implement a user-friendly UI for DMs to easily add multiple projects (by drag-and-drop or multi-select) to a teacher's offering or a book's bonus list.
+- **Project/Instructor Matching UI**: Implement a user-friendly UI for DMs to easily add multiple categories to a teacher's offering or a book's bonus list.
 - **Currency Deduction**: Ensure `TabLogic.deductCurrency` is called with the selected instructor's cost before progress is applied.
 - **UI Simplicity**: The best available book bonus will be _included_ in the overall tutelage calculation, but will not be displayed in the Party Tab. The Party Tab should no longer show a "Tutor/Guidance" column as tutelage is now a per-session choice.
 

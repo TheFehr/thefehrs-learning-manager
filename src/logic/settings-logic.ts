@@ -206,16 +206,17 @@ export function validateSettings(data: unknown) {
         : "direct",
       rollMode: typeof rawRules.rollMode === "string" ? rawRules.rollMode : "gmroll",
       checkDC:
-        typeof rawRules.checkDC === "number" && Number.isFinite(rawRules.checkDC)
-          ? rawRules.checkDC
-          : 10,
+        typeof rawRules.checkDC !== "undefined" && Number.isFinite(Number(rawRules.checkDC))
+          ? Number(rawRules.checkDC)
+          : 12,
       checkFormula: typeof rawRules.checkFormula === "string" ? rawRules.checkFormula : "",
       critDoubleStrategy: ["any", "all", "never"].includes(String(rawRules.critDoubleStrategy))
         ? (rawRules.critDoubleStrategy as "any" | "all" | "never")
         : "never",
       critThreshold:
-        typeof rawRules.critThreshold === "number" && Number.isFinite(rawRules.critThreshold)
-          ? rawRules.critThreshold
+        typeof rawRules.critThreshold !== "undefined" &&
+        Number.isFinite(Number(rawRules.critThreshold))
+          ? Number(rawRules.critThreshold)
           : 20,
       bulkExpectedFormula:
         typeof rawRules.bulkExpectedFormula === "string"

@@ -16,7 +16,6 @@ export class ItemConfigLogic {
     requirements: ProjectRequirement[],
     categories: string[],
     bookModifier: number,
-    bookProjectUuids: string[],
     bookCategories: string[],
   ) {
     return await DocumentUtils.setFlagsSilently(item, {
@@ -28,7 +27,6 @@ export class ItemConfigLogic {
       },
       learningBookBonus: {
         modifier: bookModifier,
-        projectUuids: bookProjectUuids,
         categories: bookCategories,
       },
     });

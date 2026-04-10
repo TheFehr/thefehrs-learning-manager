@@ -14,7 +14,6 @@
   let requirements = $state<ProjectRequirement[]>([]);
   let categories = $state<string[]>([]);
   let bookModifier = $state(0);
-  let bookProjectUuids = $state<string[]>([]);
   let bookCategories = $state<string[]>([]);
   let isSaving = $state(false);
   let saveError = $state<string | null>(null);
@@ -55,7 +54,6 @@
 
     const bookData = item.getFlag("thefehrs-learning-manager", "learningBookBonus");
     bookModifier = bookData?.modifier ?? 0;
-    bookProjectUuids = bookData?.projectUuids ? [...bookData.projectUuids] : [];
     bookCategories = bookData?.categories ? [...bookData.categories] : [];
     
     initialSnapshot = JSON.stringify({ 
@@ -64,7 +62,6 @@
       requirements, 
       categories,
       bookModifier, 
-      bookProjectUuids,
       bookCategories
     });
     initialized = true;
@@ -77,7 +74,6 @@
     const reqs = requirements;
     const cats = categories;
     const bMod = bookModifier;
-    const bProjects = bookProjectUuids;
     const bCats = bookCategories;
     
     if (!untrack(() => initialized)) return;
@@ -88,7 +84,6 @@
       requirements: reqs,
       categories: cats,
       bookModifier: bMod,
-      bookProjectUuids: bProjects,
       bookCategories: bCats
     });
     if (currentSnapshot === untrack(() => initialSnapshot)) return;
@@ -100,7 +95,6 @@
         JSON.parse(JSON.stringify(reqs)),
         [...cats],
         bMod,
-        [...bProjects],
         [...bCats]
       );
     }, 500);
@@ -114,20 +108,18 @@
     reqs: ProjectRequirement[],
     cats: string[],
     bMod: number,
-    bProjects: string[],
     bCats: string[]
   ) {
     isSaving = true;
     saveError = null;
     try {
-      await ItemConfigLogic.saveConfig(item, target, followUpId, reqs, cats, bMod, bProjects, bCats);
+      await ItemConfigLogic.saveConfig(item, target, followUpId, reqs, cats, bMod, bCats);
       initialSnapshot = JSON.stringify({ 
         target, 
         followUpProjectId: followUpId, 
         requirements: reqs,
         categories: cats,
         bookModifier: bMod,
-        bookProjectUuids: bProjects,
         bookCategories: bCats
       });
     } catch (err) {
@@ -158,28 +150,6 @@
   function handleDrop(e: DragEvent) {
     const uuid = ItemConfigLogic.handleDrop(e);
     if (uuid) followUpProjectId = uuid;
-  }
-
-  function addProjectToBook() {
-    bookProjectUuids = [...bookProjectUuids, ""];
-  }
-
-  function removeProjectFromBook(index: number) {
-    bookProjectUuids = bookProjectUuids.filter((_, i) => i !== index);
-  }
-
-  async function searchProjectForBook(index: number) {
-    const uuid = await ItemConfigLogic.searchFollowUp();
-    if (uuid) {
-      bookProjectUuids[index] = uuid;
-    }
-  }
-
-  function handleBookDrop(e: DragEvent, index: number) {
-    const uuid = ItemConfigLogic.handleDrop(e);
-    if (uuid) {
-      bookProjectUuids[index] = uuid;
-    }
   }
 </script>
 
@@ -285,36 +255,6 @@
             placeholder="e.g. 2"
           />
         </div>
-      </div>
-
-      <div class="form-group">
-        <label for="book-projects">Applicable Projects</label>
-        <p class="notes" style="margin-top: 0;">Specify which projects this book provides a bonus for (leave empty for all).</p>
-        <div class="requirements-list">
-          {#each bookProjectUuids as projectUuid, index}
-            <div class="requirement-row">
-              <input
-                type="text"
-                bind:value={bookProjectUuids[index]}
-                onchange={(e) => e.stopPropagation()}
-                oninput={(e) => e.stopPropagation()}
-                ondrop={(e) => { e.stopPropagation(); handleBookDrop(e, index); }}
-                ondragover={(e) => e.preventDefault()}
-                placeholder="Item UUID or Name"
-                style="flex: 1;"
-              />
-              <button type="button" class="tidy-button small" onclick={(e) => { e.stopPropagation(); searchProjectForBook(index); }} title="Search Project">
-                <i class="fas fa-search"></i>
-              </button>
-              <button type="button" class="tidy-button small danger" onclick={(e) => { e.stopPropagation(); removeProjectFromBook(index); }} title="Remove">
-                <i class="fas fa-trash"></i>
-              </button>
-            </div>
-          {/each}
-        </div>
-        <button type="button" class="tidy-button small" onclick={(e) => { e.stopPropagation(); addProjectToBook(); }}>
-          <i class="fas fa-plus"></i> Add Project
-        </button>
       </div>
 
       <div class="form-group">

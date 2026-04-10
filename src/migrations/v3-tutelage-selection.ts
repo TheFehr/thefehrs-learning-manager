@@ -11,14 +11,12 @@ interface TeacherOffering {
   name: string;
   modifier: number;
   costs: Record<string, number>;
-  projectUuids: string[];
-  categories?: string[];
+  categories: string[];
 }
 
 interface LearningBookBonus {
   modifier: number;
-  projectUuids: string[];
-  categories?: string[];
+  categories: string[];
 }
 
 interface ProjectFlagData {
@@ -136,7 +134,7 @@ export async function migrateToV3() {
         name: tier.name,
         modifier: tier.modifier,
         costs: tier.costs,
-        projectUuids: [], // We'll add project names later if we want but it can match by name if left empty and we use it as lastInstructorName
+        categories: [], // Match all by default
       };
       const actorData = {
         name: `${tier.name} (Legacy Instructor)`,
@@ -160,7 +158,7 @@ export async function migrateToV3() {
       // Create Learning Book Item
       const bonus: LearningBookBonus = {
         modifier: tier.modifier,
-        projectUuids: [], // Match all by default or we'll update it
+        categories: [], // Match all by default
       };
       const itemData = {
         name: `${tier.name} (Legacy Book)`,
@@ -224,9 +222,10 @@ export async function migrateToV3() {
 
           if (!existingBook) {
             const bookData = bookDoc.toObject();
-            // Update the book to only work for this project for now to match legacy behavior
+            // Update the book to only work for this project's categories to match legacy behavior
             const bonus = bookData.flags[MODULE_ID].learningBookBonus as LearningBookBonus;
-            bonus.projectUuids = [project.name || ""];
+            const detectedCats = detectCategories(project);
+            bonus.categories = detectedCats;
 
             // Set sourceId so the resolver recognizes it if compendium filtering is on
             bookData.flags.core = bookData.flags.core || {};
