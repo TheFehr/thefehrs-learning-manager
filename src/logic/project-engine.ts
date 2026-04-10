@@ -1,15 +1,25 @@
+import { DEFAULT_DC } from "../global.js";
 import { Settings } from "../core/settings.js";
 import { ActorProxy } from "./actor-proxy.js";
 import { ActivityManager } from "../core/activity-manager.js";
 import { ProjectLifecycle } from "./project-lifecycle.js";
 import { LearningActivityData, ProjectFlagData, ProjectItem } from "./project-item.js";
 import { isActor5e } from "../types.js";
-import type { Item5e, Actor5e, LearningActor, TimeUnit, SystemRules } from "../types.js";
+import type {
+  Item5e,
+  Actor5e,
+  LearningActor,
+  TimeUnit,
+  SystemRules,
+  TrainingRoll,
+} from "../types.js";
 import { Socket } from "../core/socket.js";
 
 import { ProjectUI } from "../core/project-ui.js";
 
 export class ProjectEngine {
+  static readonly BATCH_THRESHOLD = 12;
+
   /**
    * Forwards call to ProjectUI
    */
@@ -272,34 +282,80 @@ export class ProjectEngine {
     const rules = Settings.get("rules");
     let isSeparate = false;
 
-    if (
-      !options.skipPrompt &&
-      tu.isBulk &&
-      rules.nonBulkMethod === "roll" &&
-      rules.bulkMethod !== "roll"
-    ) {
-      const bulkResult = await TabLogic.computeProgress(actor, rules, tier, tu);
-      const prob = await TabLogic.calculateSuccessProbability(actor, rules, tier);
-      const chancePercent = Math.round(prob * 100);
-      const expectedFromSeparate = (tu.ratio * prob).toFixed(1);
+    const isBulkRoll = rules.bulkMethod === "roll";
+    const isSeparateRoll = rules.nonBulkMethod === "roll";
+
+    if (!options.skipPrompt && tu.isBulk && (isSeparateRoll || isBulkRoll)) {
+      const bulkResult = await TabLogic.computeProgress(actor, rules, tier, tu, {
+        preview: true,
+      });
+
+      let chancePercent: string | number = "unavailable";
+      let separateValue: string | number = "unavailable";
+      let expectedPerRoll: number = NaN;
+
+      expectedPerRoll = await TabLogic.calculateExpectedProgress(actor, rules, tier);
+
+      if (isSeparateRoll) {
+        const prob = await TabLogic.calculateSuccessProbability(actor, rules, tier);
+        chancePercent = prob === null ? "unavailable" : Math.round(prob * 100);
+        separateValue = isNaN(expectedPerRoll)
+          ? "unavailable"
+          : (tu.ratio * expectedPerRoll).toFixed(1);
+      } else {
+        const sepResult = await TabLogic.computeProgress(
+          actor,
+          rules,
+          tier,
+          { ...tu, isBulk: false, ratio: 1 },
+          { preview: true },
+        );
+        separateValue = tu.ratio * (sepResult.progressGained || 0);
+      }
+
+      const bulkValue = isBulkRoll
+        ? isNaN(expectedPerRoll)
+          ? "unavailable"
+          : expectedPerRoll.toFixed(2)
+        : bulkResult.progressGained;
 
       const choice = await foundry.applications.api.DialogV2.wait({
         window: { title: `Training Resolution: ${tu.name}` },
         content: this._renderTrainingResolutionDialog(
           tu,
-          bulkResult.progressGained,
+          bulkValue,
           chancePercent,
-          expectedFromSeparate,
+          separateValue,
           rules,
+          isBulkRoll,
+          isSeparateRoll,
         ),
         buttons: [
           { action: "bulk", label: `Use Bulk`, icon: "fas fa-calculator" },
-          { action: "separate", label: `Roll separately`, icon: "fas fa-dice-d20" },
+          {
+            action: "separate",
+            label: isSeparateRoll
+              ? tu.ratio > 5
+                ? `Roll separately (${tu.ratio} rolls!)`
+                : `Roll separately`
+              : `Process separately`,
+            icon: isSeparateRoll ? "fas fa-dice-d20" : "fas fa-list-ol",
+          },
         ],
         rejectClose: false,
         modal: true,
       });
       if (!choice) return false;
+
+      if (choice === "bulk" && bulkValue === "unavailable") {
+        ui.notifications?.warn(`The chosen bulk training path is unavailable.`);
+        return false;
+      }
+      if (choice === "separate" && separateValue === "unavailable") {
+        ui.notifications?.warn(`The chosen separate training path is unavailable.`);
+        return false;
+      }
+
       isSeparate = choice === "separate";
     }
 
@@ -322,7 +378,7 @@ export class ProjectEngine {
     }
 
     let totalProgressGained = 0;
-    let rolls: Roll[] = [];
+    let rolls: TrainingRoll[] = [];
     let reasons: string[] = [];
 
     const iterations = isSeparate ? tu.ratio : 1;
@@ -414,9 +470,10 @@ export class ProjectEngine {
       }
     }
 
-    const BATCH_THRESHOLD = 5;
-    if (isSeparate && tu.ratio > BATCH_THRESHOLD) {
-      const successCount = rolls.filter((r) => r.total >= (rules.checkDC ?? 12)).length;
+    if (isSeparate && tu.ratio > ProjectEngine.BATCH_THRESHOLD) {
+      const successCount = rolls.filter(
+        (r) => r.total >= Number(rules.checkDC ?? DEFAULT_DC),
+      ).length;
       ui.notifications?.info(
         `Training complete: Gained ${totalProgressGained} progress from ${tu.ratio} separate rolls (${successCount} successes).`,
       );
@@ -424,7 +481,7 @@ export class ProjectEngine {
       for (const r of rolls) {
         await r.toMessage(
           {
-            flavor: `${actor.name} tries to learn ${item.name} (DC ${rules.checkDC ?? 12})`,
+            flavor: `${actor.name} tries to learn ${item.name} (DC ${Number(rules.checkDC ?? DEFAULT_DC)})`,
           },
           { rollMode: (rules.rollMode || "gmroll") as foundry.dice.RollMode },
         );
@@ -437,7 +494,7 @@ export class ProjectEngine {
           ? `Training unsuccessful: ${reasons[0]}`
           : "Training unsuccessful - no progress gained.";
       ui.notifications?.info(msg);
-    } else if (isSeparate && tu.ratio <= BATCH_THRESHOLD) {
+    } else if (isSeparate && tu.ratio <= ProjectEngine.BATCH_THRESHOLD) {
       ui.notifications?.info(
         `Training complete: Gained ${totalProgressGained} progress from ${tu.ratio} separate rolls.`,
       );
@@ -479,22 +536,59 @@ export class ProjectEngine {
 
   private static _renderTrainingResolutionDialog(
     tu: TimeUnit,
-    bulkProgress: number,
-    chancePercent: number,
-    expectedFromSeparate: string,
+    bulkValue: string | number,
+    chancePercent: string | number,
+    separateValue: string | number,
     rules: SystemRules,
+    isBulkRoll: boolean = false,
+    isSeparateRoll: boolean = true,
   ): string {
     const safeTuName = foundry.utils.escapeHTML(tu.name);
+    const safeBulkValue = foundry.utils.escapeHTML(String(bulkValue));
+    const safeChancePercent = foundry.utils.escapeHTML(String(chancePercent));
+    const safeSeparateValue = foundry.utils.escapeHTML(String(separateValue));
+
+    const bulkMethodLabel = isBulkRoll ? "Expected progress" : "Gaining";
+    const bulkMethodValue = isBulkRoll
+      ? `<strong>${safeBulkValue}</strong> (one roll)`
+      : `<strong>${safeBulkValue}</strong> progress fixed`;
+
+    const sepMethodLabel = isSeparateRoll ? "Expected progress" : "Gaining";
+    const sepMethodValue = isSeparateRoll
+      ? `<strong>${safeSeparateValue}</strong> across ${tu.ratio} rolls`
+      : `<strong>${safeSeparateValue}</strong> progress fixed`;
+
     return `
       <div style="margin-bottom: 1rem;">
         <p>How would you like to resolve this <b>${safeTuName}</b> session?</p>
         <div style="display: flex; gap: 1rem; flex-direction: column;">
           <div style="padding: 0.5rem; border: 1px solid var(--t5e-faint-color); border-radius: 4px; background: rgba(0,0,0,0.05);">
-            <i class="fas fa-calculator"></i> <b>Bulk Method</b>: Gaining <strong>${bulkProgress}</strong> progress fixed.
+            <i class="fas fa-calculator"></i> <b>Bulk Method</b>: ${bulkMethodLabel} ${bulkMethodValue}.
           </div>
           <div style="padding: 0.5rem; border: 1px solid var(--t5e-faint-color); border-radius: 4px; background: rgba(0,0,0,0.05);">
-            <i class="fas fa-dice-d20"></i> <b>Separate Rolls</b>: Each hour has a <strong>${chancePercent}%</strong> chance of success (DC ${rules.checkDC ?? 12}).
-            <br><small style="opacity: 0.8;">Statistically expected progress: ${expectedFromSeparate} across ${tu.ratio} rolls.</small>
+            <i class="${isSeparateRoll ? "fas fa-dice-d20" : "fas fa-list-ol"}"></i> <b>Separate Method</b>: ${sepMethodLabel} ${sepMethodValue}.
+            ${
+              isSeparateRoll
+                ? `<br><small style="opacity: 0.8;">${
+                    safeChancePercent === "unavailable"
+                      ? "Probability unavailable"
+                      : `Each hour has a <strong>${safeChancePercent}%</strong> chance of success (DC ${Number(
+                          rules.checkDC ?? DEFAULT_DC,
+                        )}).`
+                  }</small>`
+                : ""
+            }
+            ${
+              isSeparateRoll && tu.ratio > 5
+                ? `<br><small style="color: #8a6d3b;"><i class="fas fa-exclamation-triangle"></i> Note: This will trigger ${
+                    tu.ratio
+                  } separate ${
+                    tu.ratio > ProjectEngine.BATCH_THRESHOLD
+                      ? "rolls (summarized in one message)"
+                      : "roll messages"
+                  }.</small>`
+                : ""
+            }
           </div>
         </div>
       </div>

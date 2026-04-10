@@ -243,6 +243,13 @@ export type DowntimeGroupActor = Actor5e & {
 
 export type LearningProject = ProjectFlagData;
 
+/**
+ * Specialized Roll type for training checks.
+ * We use a dedicated type here to avoid Roll<EmptyObject> defaults from the library
+ * when we inject custom 'tutelage' data into the roll, which causes assignment errors.
+ */
+export type TrainingRoll = Roll<{ tutelage: number } & Record<string, unknown>>;
+
 // --- Module Integration APIs ---
 
 export interface SearchItem {

@@ -1,3 +1,4 @@
+import { DEFAULT_DC } from "../global.js";
 import { ActorProxy } from "./actor-proxy.js";
 import { isActor5e } from "../types.js";
 import type {
@@ -8,6 +9,7 @@ import type {
   SystemRules,
   GuidanceTier,
   Actor5e,
+  TrainingRoll,
 } from "../types.js";
 
 /**
@@ -20,9 +22,10 @@ export class TabLogic {
     rules: SystemRules,
     tier: GuidanceTier | undefined,
     tu: TimeUnit,
-  ): Promise<{ progressGained: number; roll?: Roll<any>; reason?: string }> {
+    options: { preview?: boolean } = {},
+  ): Promise<{ progressGained: number; roll?: TrainingRoll; reason?: string }> {
     let progressGained = 0;
-    let roll: Roll<any> | undefined = undefined;
+    let roll: TrainingRoll | undefined = undefined;
     let reason: string | undefined = undefined;
 
     const effectiveMethod = tu.isBulk ? rules.bulkMethod : rules.nonBulkMethod;
@@ -41,49 +44,53 @@ export class TabLogic {
         return { progressGained: 0, reason: "No check formula defined in rules." };
       }
 
-      try {
-        roll = await new Roll(
-          rules.checkFormula,
-          {
-            ...actor.getRollData(),
-            tutelage: tier?.modifier || 0,
-          },
-          // @ts-expect-error - Foundry Roll constructor accepts target in options
-          { target: rules.checkDC },
-        ).evaluate();
-      } catch (err) {
-        return {
-          progressGained: 0,
-          reason: `Invalid check formula: ${err instanceof Error ? err.message : String(err)}`,
-        };
-      }
+      if (options.preview) {
+        progressGained = await this.calculateExpectedProgress(actor, rules, tier);
+      } else {
+        try {
+          roll = await new Roll(
+            rules.checkFormula,
+            {
+              ...actor.getRollData(),
+              tutelage: tier?.modifier || 0,
+            },
+            // @ts-expect-error - Foundry Roll constructor accepts target in options
+            { target: rules.checkDC },
+          ).evaluate();
+        } catch (err) {
+          return {
+            progressGained: 0,
+            reason: `Invalid check formula: ${err instanceof Error ? err.message : String(err)}`,
+          };
+        }
 
-      let multiplier = 1;
-      const strategy = rules.critDoubleStrategy ?? "never";
-      const threshold = rules.critThreshold ?? 20;
+        let multiplier = 1;
+        const strategy = rules.critDoubleStrategy ?? "never";
+        const threshold = Number(rules.critThreshold ?? 20);
 
-      if (strategy !== "never") {
-        const d20s = (roll.dice ?? []).filter((die) => die.faces === 20);
-        if (d20s.length > 0) {
-          if (strategy === "any") {
-            if (d20s.some((die) => die.results?.some((r) => r.active && r.result >= threshold)))
-              multiplier = 2;
-          } else if (strategy === "all") {
-            if (d20s.every((die) => die.results?.every((r) => r.active && r.result >= threshold)))
-              multiplier = 2;
+        if (strategy !== "never") {
+          const d20s = (roll.dice ?? []).filter((die) => die.faces === 20);
+          if (d20s.length > 0) {
+            if (strategy === "any") {
+              if (d20s.some((die) => die.results?.some((r) => r.active && r.result >= threshold)))
+                multiplier = 2;
+            } else if (strategy === "all") {
+              if (d20s.every((die) => die.results?.every((r) => r.active && r.result >= threshold)))
+                multiplier = 2;
+            }
           }
         }
-      }
 
-      if (roll.total >= (rules.checkDC || 0)) {
-        progressGained = 1 * multiplier;
-      } else {
-        reason = `Roll total ${roll.total} failed to meet DC ${rules.checkDC}.`;
+        if (roll.total >= Number(rules.checkDC ?? DEFAULT_DC)) {
+          progressGained = multiplier;
+        } else {
+          reason = `Roll total ${roll.total} failed to meet DC ${Number(rules.checkDC ?? DEFAULT_DC)}.`;
+        }
       }
     } else if (effectiveMethod === "mathematical") {
       const hours = tu.ratio;
       const tutelageMod = tier?.modifier || 0;
-      const dc = rules.checkDC ?? 12;
+      const dc = Number(rules.checkDC ?? DEFAULT_DC);
       const bulkFormula =
         rules.bulkExpectedFormula ||
         "round(@hours * (22 - max(1, @dc - (@abilities.int.mod + @tutelage))) / 20)";
@@ -132,15 +139,14 @@ export class TabLogic {
   }
 
   /**
-   * Calculates the success probability (0-1) for a training roll.
-   * Supports any formula containing a single simple d20 term.
+   * Internal helper to brute-force all 20 outcomes of a d20-based check.
    */
-  static async calculateSuccessProbability(
+  private static async _getOutcomes(
     actor: LearningActor,
     rules: SystemRules,
     tier: GuidanceTier | undefined,
-  ): Promise<number> {
-    if (!rules.checkFormula || rules.checkDC == null) return 0;
+  ): Promise<{ rolls: TrainingRoll[]; isDeterministic: boolean } | null> {
+    if (!rules.checkFormula) return null;
 
     try {
       const rollData = {
@@ -148,50 +154,89 @@ export class TabLogic {
         tutelage: tier?.modifier || 0,
       };
 
-      // 1. Construct the roll and evaluate it once to resolve data references
-      const roll = new Roll(rules.checkFormula, rollData);
+      const roll = new Roll(rules.checkFormula, rollData) as TrainingRoll;
       await roll.evaluate();
       const dice = roll.dice;
 
-      // 2. Handle the deterministic case (no dice)
       if (dice.length === 0) {
-        return roll.total >= (rules.checkDC || 0) ? 1 : 0;
+        return {
+          rolls: Array.from({ length: 20 }, () => roll),
+          isDeterministic: true,
+        };
       }
 
-      // 3. Brute force outcomes by forcing the d20 result (1-20).
-      // We only support formulas with exactly one d20 term and no other dice.
       const isSimpleD20 =
         dice.length === 1 &&
         dice[0].faces === 20 &&
         dice[0].number === 1 &&
         (dice[0].modifiers?.length || 0) === 0;
 
-      if (!isSimpleD20) {
-        console.debug(
-          "Downtime Engine | Success probability estimation skipped: formula is complex or contains multiple dice.",
-          rules.checkFormula,
-        );
-        return 0;
-      }
+      if (!isSimpleD20) return null;
 
-      // Use non-global, case-insensitive, word-boundary regex to replace the d20 token
       const baseFormula = rules.checkFormula.replace(/\b1?d20\b/i, "Outcome");
-
-      const outcomes = await Promise.all(
+      const rolls = await Promise.all(
         Array.from({ length: 20 }, (_, idx) => {
           const i = idx + 1;
           const formula = baseFormula.replace("Outcome", String(i));
-          const testRoll = new Roll(formula, rollData);
-          return testRoll.evaluate();
+          const testRoll = new Roll(formula, rollData) as TrainingRoll;
+          return testRoll.evaluate() as Promise<TrainingRoll>;
         }),
       );
-
-      const totalSuccesses = outcomes.filter((r) => r.total >= (rules.checkDC || 0)).length;
-      return totalSuccesses / 20;
+      return { rolls, isDeterministic: false };
     } catch (err) {
-      console.error("Downtime Engine | Failed to calculate success probability:", err);
-      return 0;
+      console.error("Downtime Engine | Failed to calculate outcomes:", err);
+      return null;
     }
+  }
+
+  /**
+   * Calculates the statistically expected progress for a single training roll,
+   * accounting for success DC and critDoubleStrategy.
+   */
+  static async calculateExpectedProgress(
+    actor: LearningActor,
+    rules: SystemRules,
+    tier: GuidanceTier | undefined,
+  ): Promise<number> {
+    const res = await this._getOutcomes(actor, rules, tier);
+    if (!res) return NaN;
+
+    const { rolls, isDeterministic } = res;
+    const strategy = rules.critDoubleStrategy ?? "never";
+    const threshold = Number(rules.critThreshold ?? 20);
+    const dc = Number(rules.checkDC ?? DEFAULT_DC);
+
+    let totalProgress = 0;
+    rolls.forEach((r, idx) => {
+      if (r.total >= dc) {
+        let multiplier = 1;
+        if (!isDeterministic && strategy !== "never") {
+          const rollValue = idx + 1;
+          if (rollValue >= threshold) {
+            multiplier = 2;
+          }
+        }
+        totalProgress += multiplier;
+      }
+    });
+
+    return totalProgress / 20;
+  }
+
+  /**
+   * Calculates the success probability (0-1) for a training roll.
+   * Supports any formula containing a single simple d20 term.
+   */
+  static async calculateSuccessProbability(
+    actor: LearningActor,
+    rules: SystemRules,
+    tier: GuidanceTier | undefined,
+  ): Promise<number | null> {
+    const res = await this._getOutcomes(actor, rules, tier);
+    if (!res) return null;
+    const dc = Number(rules.checkDC ?? DEFAULT_DC);
+    const successCount = res.rolls.filter((r) => r.total >= dc).length;
+    return successCount / 20;
   }
 
   /**
