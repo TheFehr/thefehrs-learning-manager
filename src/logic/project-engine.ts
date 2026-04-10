@@ -52,11 +52,7 @@ export class ProjectEngine {
     rewardDoc: Item,
     tutelageId: string = "",
   ): Promise<Item5e | null> {
-    return (await ProjectLifecycle.initiateProjectFromItem(
-      actor,
-      rewardDoc,
-      tutelageId,
-    )) as any as Item5e;
+    return await ProjectLifecycle.initiateProjectFromItem(actor, rewardDoc, tutelageId);
   }
 
   /**
@@ -357,9 +353,8 @@ export class ProjectEngine {
       await this.completeProject(item as any);
 
       if (excessProgress > 0 && projectDataFlags.followUpProjectId) {
-        const followUpItem = (await fromUuid(
-          projectDataFlags.followUpProjectId as `Item.${string}`,
-        )) as unknown as Item | null;
+        const doc = await fromUuid(projectDataFlags.followUpProjectId as string);
+        const followUpItem = doc instanceof Item ? (doc as Item) : null;
         if (followUpItem) {
           const escapedItemName = foundry.utils.escapeHTML(item.name || "");
           const escapedFollowUpName = foundry.utils.escapeHTML(followUpItem.name || "");

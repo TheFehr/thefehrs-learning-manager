@@ -8,7 +8,7 @@
 
   let proxy = $derived(ActorProxy.forActor(actor));
   let bank = $derived(proxy.bank);
-  let sortedUnits = $derived([...Settings.get("timeUnits")].sort((a, b) => b.ratio - a.ratio));
+  let sortedUnits = $derived([...(Settings.get("timeUnits") ?? [])].sort((a, b) => b.ratio - a.ratio));
 
   function getTimeValue(unit: TimeUnit, total: number) {
     return TimeBankLogic.getTimeValue(unit, total, sortedUnits);

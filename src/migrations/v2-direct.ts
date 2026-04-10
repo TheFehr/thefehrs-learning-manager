@@ -28,10 +28,14 @@ export async function migrateToV2Direct() {
     const rules = game.settings.get(MODULE_ID, "rules") as any;
     if (rules && !rules.critDoubleStrategy) {
       const updatedRules = {
-        ...rules,
         critDoubleStrategy: "never" as const,
-        critThreshold: 20,
+        critThreshold: typeof rules.critThreshold === "number" ? rules.critThreshold : 20,
+        ...rules,
       };
+      // Explicitly ensure new defaults are set if missing in original
+      if (!updatedRules.critDoubleStrategy) updatedRules.critDoubleStrategy = "never";
+      if (updatedRules.critThreshold === undefined) updatedRules.critThreshold = 20;
+
       await game.settings.set(MODULE_ID, "rules", updatedRules);
     }
 
@@ -54,11 +58,14 @@ export async function migrateToV2Direct() {
     }
 
     // 3. Library and Item Migration (v1 + v4 + v5 equivalent)
-    const library =
+    let library =
       (game.settings.get(MODULE_ID, "projectTemplates") as unknown as ProjectTemplateLegacy[]) ||
       [];
+    if (!Array.isArray(library)) {
+      library = [];
+    }
     let libraryUpdated = false;
-    const actors = (game.actors || []) as Actor[];
+    const actors = Array.from(game.actors?.values() || []) as Actor[];
 
     let allSuccessful = true;
     for (const actor of actors) {

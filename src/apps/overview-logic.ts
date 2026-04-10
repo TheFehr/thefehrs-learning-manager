@@ -48,9 +48,10 @@ export async function getInvalidProjects(): Promise<InvalidProjectReason[]> {
 
     let index: IndexEntry[] = [];
     try {
-      index = (await pack.getIndex({
+      const indexResult = (await pack.getIndex({
         fields: [`flags.${MODULE_ID}.projectData`, "system.description.value"] as any,
-      })) as unknown as IndexEntry[];
+      })) as unknown as any;
+      index = Array.from(indexResult.values()) as IndexEntry[];
     } catch (error) {
       console.error(
         `Downtime Engine | Failed to read index for compendium "${packId}": ${error instanceof Error ? error.message : error}`,
@@ -62,18 +63,22 @@ export async function getInvalidProjects(): Promise<InvalidProjectReason[]> {
       const projectData = indexEntry.flags?.[MODULE_ID]?.projectData;
       const reasons: string[] = [];
 
-      // Criteria 1: Missing isLearningProject flag in projectData
-      if (projectData?.isLearningProject !== true) {
-        reasons.push("Missing or invalid isLearningProject flag in projectData.");
-      }
+      if (!projectData) {
+        reasons.push("Missing project data.");
+      } else {
+        // Criteria 1: Missing isLearningProject flag in projectData
+        if (projectData.isLearningProject !== true) {
+          reasons.push("Missing or invalid isLearningProject flag in projectData.");
+        }
 
-      // Criteria 2: Missing or invalid target
-      if (
-        projectData?.target === undefined ||
-        projectData?.target === null ||
-        projectData?.target <= 0
-      ) {
-        reasons.push("Missing or invalid project target (must be > 0).");
+        // Criteria 2: Missing or invalid target
+        if (
+          projectData.target === undefined ||
+          projectData.target === null ||
+          projectData.target <= 0
+        ) {
+          reasons.push("Missing or invalid project target (must be > 0).");
+        }
       }
 
       // Criteria 3: Missing name or description

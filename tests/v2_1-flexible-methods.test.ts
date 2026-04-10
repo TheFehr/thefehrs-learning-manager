@@ -9,12 +9,16 @@ describe("Migration v2.1", () => {
     (global as any).game = {
       settings: {
         get: vi.fn().mockImplementation((ns, key) => {
+          if (ns !== MODULE_ID) return null;
           if (key === "rules") return {};
           if (key === "projectTemplates") return [];
           if (key === "allowedCompendiums") return [];
           return null;
         }),
-        set: vi.fn().mockResolvedValue(true),
+        set: vi.fn().mockImplementation((ns) => {
+          if (ns !== MODULE_ID) return Promise.reject(new Error("Incorrect namespace"));
+          return Promise.resolve(true);
+        }),
       },
       actors: [],
       packs: {

@@ -108,7 +108,7 @@ export interface SettingMenuConfig {
   label: string;
   hint?: string;
   icon?: string;
-  type: typeof foundry.applications.api.ApplicationV2 | unknown;
+  type: typeof foundry.applications.api.ApplicationV2;
   restricted: boolean;
 }
 

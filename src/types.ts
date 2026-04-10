@@ -129,13 +129,13 @@ declare module "fvtt-types/configuration" {
   interface FlagConfig {
     Actor: {
       "thefehrs-learning-manager": {
-        projects: ProjectFlagData[];
-        bank: TimeBank;
+        projects?: ProjectFlagData[];
+        bank?: TimeBank;
       };
     };
     Item: {
       "thefehrs-learning-manager": {
-        projectData: ProjectFlagData;
+        projectData?: ProjectFlagData;
         isLearningProject?: boolean;
         isLearnedReward?: boolean;
         stashedType?: string;
@@ -188,7 +188,7 @@ declare global {
  * while providing our system and flag types.
  */
 export type Actor5e = Actor<any> & {
-  system: any;
+  system: ActorSystem5e;
   getRollData(): any;
 };
 
@@ -196,7 +196,7 @@ export type Actor5e = Actor<any> & {
  * Augmented Item type.
  */
 export type Item5e = Item<any> & {
-  system: any;
+  system: ItemSystem5e;
   displayCard(options?: object): Promise<unknown>;
 };
 
@@ -305,7 +305,7 @@ export type ActivationData5e = ActivationData & { override?: boolean };
 export type DurationData5e = DurationData & { override?: boolean; concentration?: boolean };
 export type RangeData5e = RangeData & { override?: boolean };
 export type TargetData5e = TargetData & { override?: boolean; prompt?: boolean };
-export type ConsumptionData5e = {
+export type ConsumptionData5e = ActivityData["consumption"] & {
   value: string;
   scaling: { allowed: boolean; max: string };
   spellSlot: boolean;

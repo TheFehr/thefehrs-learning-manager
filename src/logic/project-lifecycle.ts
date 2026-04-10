@@ -13,7 +13,7 @@ export class ProjectLifecycle {
     actor: Actor,
     rewardDoc: Item,
     tutelageId: string = "",
-  ): Promise<Item | null> {
+  ): Promise<Item5e | null> {
     const itemData = rewardDoc.toObject();
     const stashedEffects = itemData.effects || [];
     const stashedActivities = foundry.utils.deepClone(itemData.system.activities || {});
@@ -146,9 +146,8 @@ export class ProjectLifecycle {
     let sourceItem: Item | null = null;
     if (stashedSourceUuid) {
       try {
-        sourceItem = (await fromUuid(
-          stashedSourceUuid as `Item.${string}`,
-        )) as unknown as Item | null;
+        const doc = await fromUuid(stashedSourceUuid as string);
+        sourceItem = doc instanceof Item ? (doc as Item) : null;
       } catch (e) {
         console.warn(`Downtime Engine | Could not find source item ${stashedSourceUuid}:`, e);
       }
@@ -418,8 +417,8 @@ export class ProjectLifecycle {
 
     await item.update({
       name: `${stashedName} (${projectData.progress}/${projectData.target})`,
-      ["system.description.value" as string]: progressHtml + stashedDescription,
+      "system.description.value": progressHtml + stashedDescription,
       [`flags.${Settings.ID}.projectData`]: projectData,
-    });
+    } as Record<string, any>);
   }
 }

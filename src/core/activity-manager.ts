@@ -16,7 +16,8 @@ export class ActivityManager {
   static getActivitiesData(target: number): ActivityData5e[] {
     if (target <= 0) return [];
 
-    const timeUnits = Settings.get("timeUnits");
+    const timeUnits = Settings.get("timeUnits") || [];
+    if (!Array.isArray(timeUnits)) return [];
     const activities: ActivityData5e[] = timeUnits.map((tu) => ({
       ...createBaseActivityTemplate(),
       _id: (foundry.utils as any).randomID(),

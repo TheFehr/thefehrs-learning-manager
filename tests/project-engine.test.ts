@@ -32,6 +32,13 @@ describe("ProjectEngine", () => {
     },
   ];
 
+  const mockSettingsGet = () => (key: string) => {
+    if (key === "timeUnits") return timeUnits;
+    if (key === "rules") return { method: "direct" } as any;
+    if (key === "guidanceTiers") return guidanceTiers;
+    return null;
+  };
+
   beforeEach(() => {
     vi.clearAllMocks();
     (global as any).ui = {
@@ -54,12 +61,7 @@ describe("ProjectEngine", () => {
     } as any;
 
     // Default mocks that can be overridden in specific tests
-    vi.spyOn(Settings, "get").mockImplementation((key) => {
-      if (key === "timeUnits") return timeUnits;
-      if (key === "rules") return { method: "direct" } as any;
-      if (key === "guidanceTiers") return guidanceTiers;
-      return null;
-    });
+    vi.spyOn(Settings, "get").mockImplementation(mockSettingsGet());
 
     global.game = {
       settings: {
@@ -433,10 +435,9 @@ describe("ProjectEngine", () => {
         update: vi.fn().mockResolvedValue(true),
       } as any;
 
-      const followUpItem = {
-        name: "Second Project",
-        getFlag: vi.fn().mockReturnValue({ requirements: [] }),
-      } as any;
+      const followUpItem = new Item() as any;
+      followUpItem.name = "Second Project";
+      followUpItem.getFlag.mockReturnValue({ requirements: [] });
       global.fromUuid = vi.fn().mockResolvedValue(followUpItem);
 
       vi.mocked(foundry.applications.api.DialogV2.confirm).mockResolvedValue(true);

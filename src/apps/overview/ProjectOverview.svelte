@@ -17,7 +17,13 @@
     }
   });
 
-  function openItemSheet(item: any) {
+  interface ItemWithSheet extends Item {
+    sheet: {
+      render: (arg?: boolean) => void;
+    };
+  }
+
+  function openItemSheet(item: ItemWithSheet | null | undefined) {
     if (!item?.sheet) {
       console.warn("Downtime Engine | Cannot open sheet: item or sheet is undefined");
       return;
@@ -44,20 +50,14 @@
       {#each invalidProjects as { item, packName, reasons }}
         <div class="invalid-project-card">
           <div class="project-info">
-            <div
+            <button
               class="project-name"
               onclick={() => openItemSheet(item)}
-              role="button"
-              tabindex="0"
-              onkeydown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  openItemSheet(item);
-                }
-              }}
+              type="button"
+              aria-label="Open project details"
             >
               {item.name}
-            </div>
+            </button>
             <div class="pack-name">
               <i class="fas fa-archive"></i> {packName}
             </div>

@@ -80,17 +80,17 @@ export class PartyTab {
         const guidanceTiers = Settings.get("guidanceTiers");
         const tier = guidanceTiers.find((t) => t.id === projectData.tutelageId);
 
+        const progress = projectData.progress || 0;
+        const target = projectData.target || 0;
+
         return {
           ...projectData,
           id: i.id!,
           name: i.name!,
-          maxProgress: projectData.target,
+          maxProgress: target,
           guidanceType: tier ? tier.name : "None",
-          progressPercentage:
-            projectData.target > 0
-              ? Math.min(100, Math.round((projectData.progress / projectData.target) * 100))
-              : 0,
-          canAbort: (projectData.progress === 0 && !isLearnedReward) || game.user?.isGM || false,
+          progressPercentage: target > 0 ? Math.min(100, Math.round((progress / target) * 100)) : 0,
+          canAbort: (progress === 0 && !isLearnedReward) || game.user?.isGM || false,
           isItemBased: true,
         };
       })

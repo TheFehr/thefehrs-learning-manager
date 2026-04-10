@@ -35,10 +35,10 @@ export class PartyTabLogic {
 
     let successCount = 0;
     for (const id of selectedIds) {
-      const actor = (game.actors as unknown as Actors).get(id);
+      const actor = game.actors.get(id) as Actor5e | undefined;
       if (!actor) continue;
       try {
-        const proxy = ActorProxy.forActor(actor as unknown as Actor5e);
+        const proxy = ActorProxy.forActor(actor);
         const bank = proxy.bank;
         await proxy.setBank({ total: (bank.total || 0) + totalBase });
         successCount++;

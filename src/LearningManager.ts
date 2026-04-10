@@ -164,7 +164,7 @@ export class LearningManager {
           }
         }
 
-        fromUuid(data.uuid as `Item.${string}`)
+        fromUuid(data.uuid)
           .then(async (item) => {
             if (!item || !("system" in item)) {
               return;
@@ -241,8 +241,7 @@ export class LearningManager {
           if (!item) return false;
 
           const isLearningType =
-            (item.type as string) === "feat" &&
-            (item.system as any).type?.value === LearningFeatType;
+            (item as any).type === "feat" && (item.system as any).type?.value === LearningFeatType;
           const isProject = item.getFlag("thefehrs-learning-manager", "isLearningProject");
 
           if (isLearningType || isProject) return true;

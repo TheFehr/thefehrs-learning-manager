@@ -170,11 +170,8 @@ describe("overview-logic", () => {
 
     const result = await getInvalidProjects();
     expect(result).toHaveLength(1);
-    expect(result[0].reasons).toHaveLength(4);
-    expect(result[0].reasons).toContain(
-      "Missing or invalid isLearningProject flag in projectData.",
-    );
-    expect(result[0].reasons).toContain("Missing or invalid project target (must be > 0).");
+    expect(result[0].reasons).toHaveLength(3);
+    expect(result[0].reasons).toContain("Missing project data.");
     expect(result[0].reasons).toContain("Project name is missing or empty.");
     expect(result[0].reasons).toContain("Project description is missing or empty.");
   });
@@ -194,9 +191,7 @@ describe("overview-logic", () => {
     const result = await getInvalidProjects();
     expect(result).toHaveLength(1);
     expect(result[0].item.name).toBe("Broken Item");
-    expect(result[0].reasons).toContain(
-      "Missing or invalid isLearningProject flag in projectData.",
-    );
+    expect(result[0].reasons).toContain("Missing project data.");
     expect(result[0].reasons).toContain("Failed to load full item data.");
   });
 
