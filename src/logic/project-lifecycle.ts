@@ -216,10 +216,7 @@ export class ProjectLifecycle {
     sourceItem: Item,
     completedFlags: any,
   ): Promise<boolean> {
-    const isItem =
-      sourceItem &&
-      (sourceItem instanceof Item ||
-        (sourceItem as { documentName: string }).documentName === "Item");
+    const isItem = sourceItem instanceof Item;
 
     if (isItem) {
       // Primary Restoration: Create a new copy from the source item

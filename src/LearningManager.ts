@@ -166,7 +166,7 @@ export class LearningManager {
           }
         }
 
-        fromUuid(data.uuid as `Item.${string}` | `Actor.${string}`)
+        fromUuid(data.uuid as `Item.${string}`)
           .then(async (item) => {
             if (!item || !("system" in item)) {
               return;

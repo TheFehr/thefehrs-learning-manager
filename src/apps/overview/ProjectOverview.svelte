@@ -17,9 +17,10 @@
     }
   });
 
-  interface ItemWithSheet extends Item {
-    sheet: {
-      render: (arg?: boolean) => void;
+  interface ItemWithSheet {
+    name: string;
+    sheet?: {
+      render: (force: boolean) => void;
     };
   }
 

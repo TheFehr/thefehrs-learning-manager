@@ -3,6 +3,7 @@ import ProjectOverview from "../src/apps/overview/ProjectOverview.svelte";
 import { mount, unmount, tick } from "svelte";
 import * as overviewLogic from "../src/apps/overview-logic.js";
 
+// Unmock Svelte to ensure components are rendered correctly during tests
 vi.unmock("svelte");
 
 vi.mock("../src/apps/overview-logic.js", () => ({
@@ -28,6 +29,7 @@ describe("ProjectOverview.svelte", () => {
   it("should show loading state initially", async () => {
     (overviewLogic.getInvalidProjects as any).mockReturnValue(new Promise(() => {})); // Never resolves
     instance = mount(ProjectOverview, { target });
+    await tick(); // Ensure initial render cycle completes
 
     expect(target.innerHTML).toContain("Loading invalid projects...");
   });

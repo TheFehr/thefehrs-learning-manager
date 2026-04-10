@@ -9,6 +9,21 @@ export interface InvalidProjectReason {
   reasons: string[];
 }
 
+interface IndexEntry {
+  _id: string;
+  name: string;
+  flags?: {
+    [MODULE_ID]?: {
+      projectData?: ProjectFlagData;
+    };
+  };
+  system?: {
+    description?: {
+      value?: string;
+    };
+  };
+}
+
 /**
  * Scans all configured compendiums for learning projects that are missing required flags,
  * targets, or basic metadata like name and description.
@@ -31,27 +46,12 @@ export async function getInvalidProjects(): Promise<InvalidProjectReason[]> {
       continue;
     }
 
-    interface IndexEntry {
-      _id: string;
-      name: string;
-      flags?: {
-        [MODULE_ID]?: {
-          projectData?: ProjectFlagData;
-        };
-      };
-      system?: {
-        description?: {
-          value?: string;
-        };
-      };
-    }
-
     let index: IndexEntry[] = [];
     try {
-      const indexResult = (await pack.getIndex({
+      const indexResult = await pack.getIndex({
         fields: [`flags.${MODULE_ID}.projectData`, "system.description.value"] as any,
-      })) as unknown as any;
-      index = Array.from(indexResult.values()) as IndexEntry[];
+      });
+      index = Array.from(indexResult.values()) as unknown as IndexEntry[];
     } catch (error) {
       console.error(
         `Downtime Engine | Failed to read index for compendium "${packId}": ${error instanceof Error ? error.message : error}`,

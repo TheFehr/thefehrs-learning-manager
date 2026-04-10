@@ -9,9 +9,12 @@
   let proxy = $derived(ActorProxy.forActor(actor));
   let bank = $derived(proxy.bank);
   let sortedUnits = $derived(
-    [
-      ...(Array.isArray(Settings.get("timeUnits")) ? Settings.get("timeUnits") : []),
-    ].sort((a, b) => b.ratio - a.ratio),
+    (() => {
+      const units = Settings.get("timeUnits");
+      return Array.isArray(units)
+        ? [...units].sort((a, b) => b.ratio - a.ratio)
+        : [];
+    })(),
   );
 
   function getTimeValue(unit: TimeUnit, total: number) {

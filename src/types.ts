@@ -2,10 +2,13 @@ import type {} from "@league-of-foundry-developers/foundry-vtt-types";
 
 declare global {
   interface LenientGlobalVariableTypes {
-    game: any;
-    canvas: any;
-    ui: any;
-    socket: any;
+    game: Game;
+    canvas: Canvas;
+    ui: {
+      notifications: Notifications;
+      [key: string]: any;
+    };
+    socket: io.Socket;
   }
 }
 import type {
