@@ -9,6 +9,7 @@ import type {
   SystemRules,
   GuidanceTier,
   Actor5e,
+  TrainingRoll,
 } from "../types.js";
 
 /**
@@ -22,9 +23,9 @@ export class TabLogic {
     tier: GuidanceTier | undefined,
     tu: TimeUnit,
     options: { preview?: boolean } = {},
-  ): Promise<{ progressGained: number; roll?: Roll<any>; reason?: string }> {
+  ): Promise<{ progressGained: number; roll?: TrainingRoll; reason?: string }> {
     let progressGained = 0;
-    let roll: Roll<any> | undefined = undefined;
+    let roll: TrainingRoll | undefined = undefined;
     let reason: string | undefined = undefined;
 
     const effectiveMethod = tu.isBulk ? rules.bulkMethod : rules.nonBulkMethod;
@@ -144,7 +145,7 @@ export class TabLogic {
     actor: LearningActor,
     rules: SystemRules,
     tier: GuidanceTier | undefined,
-  ): Promise<{ rolls: Roll[]; isDeterministic: boolean } | null> {
+  ): Promise<{ rolls: TrainingRoll[]; isDeterministic: boolean } | null> {
     if (!rules.checkFormula) return null;
 
     try {
@@ -153,7 +154,7 @@ export class TabLogic {
         tutelage: tier?.modifier || 0,
       };
 
-      const roll = new Roll(rules.checkFormula, rollData);
+      const roll = new Roll(rules.checkFormula, rollData) as TrainingRoll;
       await roll.evaluate();
       const dice = roll.dice;
 
@@ -177,8 +178,8 @@ export class TabLogic {
         Array.from({ length: 20 }, (_, idx) => {
           const i = idx + 1;
           const formula = baseFormula.replace("Outcome", String(i));
-          const testRoll = new Roll(formula, rollData);
-          return testRoll.evaluate();
+          const testRoll = new Roll(formula, rollData) as TrainingRoll;
+          return testRoll.evaluate() as Promise<TrainingRoll>;
         }),
       );
       return { rolls, isDeterministic: false };

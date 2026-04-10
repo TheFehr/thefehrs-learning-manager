@@ -5,7 +5,14 @@ import { ActivityManager } from "../core/activity-manager.js";
 import { ProjectLifecycle } from "./project-lifecycle.js";
 import { LearningActivityData, ProjectFlagData, ProjectItem } from "./project-item.js";
 import { isActor5e } from "../types.js";
-import type { Item5e, Actor5e, LearningActor, TimeUnit, SystemRules } from "../types.js";
+import type {
+  Item5e,
+  Actor5e,
+  LearningActor,
+  TimeUnit,
+  SystemRules,
+  TrainingRoll,
+} from "../types.js";
 import { Socket } from "../core/socket.js";
 
 import { ProjectUI } from "../core/project-ui.js";
@@ -329,7 +336,7 @@ export class ProjectEngine {
     }
 
     let totalProgressGained = 0;
-    let rolls: Roll[] = [];
+    let rolls: TrainingRoll[] = [];
     let reasons: string[] = [];
 
     const iterations = isSeparate ? tu.ratio : 1;
