@@ -13,8 +13,8 @@ const LEVELS: Record<NotificationLevel, number> = {
  */
 export class Logger {
   private static get currentLevel(): number {
-    const rules = Settings.get("rules") || {};
-    const level = (rules as any).notificationLevel || "info";
+    const rules = Settings.get("rules");
+    const level = rules.notificationLevel || "info";
     if (typeof LEVELS[level] === "number") {
       return LEVELS[level];
     }

@@ -36,7 +36,7 @@ export const SETTINGS_DEFINITIONS: {
   [K in keyof SettingsSchema]: SettingMetadata<SettingsSchema[K]>;
 } = {
   rules: {
-    scope: "world",
+    scope: WORLD_SCOPE,
     default: {
       nonBulkMethod: "roll",
       bulkMethod: "mathematical",
@@ -51,7 +51,7 @@ export const SETTINGS_DEFINITIONS: {
     },
   },
   timeUnits: {
-    scope: "world",
+    scope: WORLD_SCOPE,
     default: [
       { id: "hour", name: "Hour", short: "h", isBulk: false, ratio: 1 },
       { id: "day", name: "Day", short: "d", isBulk: true, ratio: 10 },
@@ -59,7 +59,7 @@ export const SETTINGS_DEFINITIONS: {
     ],
   },
   guidanceTiers: {
-    scope: "world",
+    scope: WORLD_SCOPE,
     default: [
       {
         id: "example_tier",
@@ -71,23 +71,23 @@ export const SETTINGS_DEFINITIONS: {
     ],
   },
   allowedCompendiums: {
-    scope: "world",
+    scope: WORLD_SCOPE,
     default: [],
   },
   projectTemplates: {
-    scope: "world",
+    scope: WORLD_SCOPE,
     default: [],
   },
   migrationVersion: {
-    scope: "world",
+    scope: WORLD_SCOPE,
     default: "2.1.1",
   },
   autoSpend: {
-    scope: "user",
+    scope: USER_SCOPE,
     default: false,
   },
   autoSpendUnits: {
-    scope: "user",
+    scope: USER_SCOPE,
     default: [],
   },
 };
@@ -116,13 +116,6 @@ export class SettingsManager {
 
   get ID() {
     return SettingsManager.ID;
-  }
-
-  /**
-   * Internal accessor for game.settings with a refined interface to avoid 'any' elsewhere.
-   */
-  private get settings(): ClientSettings {
-    return game.settings;
   }
 
   /**
