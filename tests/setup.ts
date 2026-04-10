@@ -22,6 +22,7 @@ globalThis.foundry = {
       HandlebarsApplicationMixin: (Base: any) => class extends Base {},
       DialogV2: {
         confirm: vi.fn().mockResolvedValue(true),
+        wait: vi.fn(),
       },
     },
   },

@@ -348,6 +348,16 @@ export class ProjectEngine {
         modal: true,
       });
       if (!choice) return false;
+
+      if (choice === "bulk" && bulkValue === "unavailable") {
+        ui.notifications?.warn(`The chosen bulk training path is unavailable.`);
+        return false;
+      }
+      if (choice === "separate" && separateValue === "unavailable") {
+        ui.notifications?.warn(`The chosen separate training path is unavailable.`);
+        return false;
+      }
+
       isSeparate = choice === "separate";
     }
 
