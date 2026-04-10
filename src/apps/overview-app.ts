@@ -9,7 +9,7 @@ export class ProjectOverviewApp extends ApplicationV2 {
     tag: "div",
     window: {
       title: "Learning Manager: Project Overview",
-      width: 600,
+      width: 750,
       resizable: true,
     },
     position: {

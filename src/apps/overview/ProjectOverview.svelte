@@ -122,6 +122,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 1rem;
     border-bottom: 1px solid var(--t5e-faint-color, #ccc);
     padding-bottom: 0.5rem;
     margin-bottom: 0.25rem;
