@@ -8,6 +8,7 @@ import type {
   FeatItemSystemData,
 } from "./types.js";
 import { ProjectEngine } from "./logic/project-engine.js";
+import { Logger } from "./core/notifications.js";
 import { Settings, SettingsManager } from "./core/settings.js";
 import { LearningConfigApp } from "./apps/settings-app.js";
 import { TabLogic } from "./logic/tab-logic.js";
@@ -173,7 +174,12 @@ export class LearningManager {
 
             const item5e = item as Item5e;
             const projectFlagData = projectData(item5e);
-            if (!projectFlagData) return;
+            if (!projectFlagData) {
+              Logger.warn(
+                `The compendium item ${item5e.name} lacks learning-project metadata. Skipping initiation.`,
+              );
+              return;
+            }
             const requirements = projectFlagData.requirements || [];
             const { eligible, reason } = TabLogic.meetsRequirements(targetActor, requirements);
 

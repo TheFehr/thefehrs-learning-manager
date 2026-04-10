@@ -28,13 +28,19 @@ export async function migrateToV2Direct() {
     const rules = game.settings.get(MODULE_ID, "rules") as any;
     if (rules && !rules.critDoubleStrategy) {
       const updatedRules = {
-        critDoubleStrategy: "never" as const,
-        critThreshold: typeof rules.critThreshold === "number" ? rules.critThreshold : 20,
         ...rules,
       };
-      // Explicitly ensure new defaults are set if missing in original
-      if (!updatedRules.critDoubleStrategy) updatedRules.critDoubleStrategy = "never";
-      if (updatedRules.critThreshold === undefined) updatedRules.critThreshold = 20;
+
+      if (
+        typeof updatedRules.critThreshold !== "number" ||
+        !Number.isFinite(updatedRules.critThreshold)
+      ) {
+        updatedRules.critThreshold = 20;
+      }
+
+      if (!updatedRules.critDoubleStrategy) {
+        updatedRules.critDoubleStrategy = "never";
+      }
 
       await game.settings.set(MODULE_ID, "rules", updatedRules);
     }
