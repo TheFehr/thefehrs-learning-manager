@@ -5,19 +5,31 @@
   let invalidProjects = $state<InvalidProjectReason[]>([]);
   let isLoading = $state(true);
   let errorMessage = $state<string | null>(null);
+  let isRefreshing = $state(false);
 
-  onMount(async () => {
+  async function loadProjects() {
     try {
+      errorMessage = null;
       invalidProjects = await getInvalidProjects();
     } catch (error) {
       console.error("Downtime Engine | Error fetching invalid projects:", error);
       errorMessage = "Failed to load invalid projects. Check console for details.";
-    } finally {
-      isLoading = false;
     }
+  }
+
+  onMount(async () => {
+    isLoading = true;
+    await loadProjects();
+    isLoading = false;
   });
 
-  function openItemSheet(item: InvalidProjectReason["item"] | null | undefined) {
+  async function handleRefresh() {
+    isRefreshing = true;
+    await loadProjects();
+    isRefreshing = false;
+  }
+
+  function openItemSheet(item: any) {
     if (!item?.sheet) {
       console.warn("Downtime Engine | Cannot open sheet: item or sheet is undefined");
       return;
@@ -27,6 +39,19 @@
 </script>
 
 <div class="project-overview-container">
+  <div class="overview-header">
+    <h3>Invalid Learning Projects</h3>
+    <button
+      type="button"
+      class="refresh-button tidy-button"
+      onclick={handleRefresh}
+      disabled={isLoading || isRefreshing}
+      title="Refresh list"
+    >
+      <i class="fas fa-sync {isRefreshing ? 'fa-spin' : ''}"></i>
+      {isRefreshing ? "Refreshing..." : "Refresh"}
+    </button>
+  </div>
   {#if isLoading}
     <div class="loading-state">
       <i class="fas fa-spinner fa-spin"></i> Loading invalid projects...
@@ -44,15 +69,20 @@
       {#each invalidProjects as { item, packName, reasons }}
         <div class="invalid-project-card">
           <div class="project-info">
-            <button
+            <div
               class="project-name"
               onclick={() => openItemSheet(item)}
-              type="button"
-              aria-label="Open project details"
-              disabled={!item.sheet}
+              role="button"
+              tabindex="0"
+              onkeydown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                  e.preventDefault();
+                  openItemSheet(item);
+                }
+              }}
             >
               {item.name}
-            </button>
+            </div>
             <div class="pack-name">
               <i class="fas fa-archive"></i> {packName}
             </div>
@@ -65,7 +95,7 @@
           <div class="actions">
             <button
               type="button"
-              class="tidy-button"
+              class="fix-button tidy-button"
               onclick={() => openItemSheet(item)}
               title="Open Item Sheet"
             >
@@ -88,6 +118,21 @@
     gap: 0.5rem;
   }
 
+  .overview-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 1rem;
+    border-bottom: 1px solid var(--t5e-faint-color, #ccc);
+    padding-bottom: 0.5rem;
+    margin-bottom: 0.25rem;
+  }
+
+  .overview-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+    border: none;
+  }
   .loading-state,
   .no-invalid-projects,
   .error-state {
@@ -137,6 +182,13 @@
   }
 
   .project-name:hover {
+    text-decoration: underline;
+  }
+
+  .project-name:focus-visible {
+    outline: 2px solid var(--t5e-primary-accent-color, #ff6400);
+    outline-offset: 2px;
+    border-radius: 2px;
     text-decoration: underline;
   }
 

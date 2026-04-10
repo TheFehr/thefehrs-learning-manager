@@ -107,7 +107,6 @@ export type {
   FacilityItemSystemData,
   ContainerItemSystemData,
 };
-
 export type ItemSystem5e = (
   | FeatItemSystemData
   | SpellItemSystemData

@@ -9,9 +9,8 @@ export interface InvalidProjectReason {
   reasons: string[];
 }
 
-interface IndexEntry {
-  _id: string;
-  name: string;
+interface ValidationData {
+  name?: string;
   flags?: {
     [MODULE_ID]?: {
       projectData?: ProjectFlagData;
@@ -21,7 +20,59 @@ interface IndexEntry {
     description?: {
       value?: string;
     };
+    activities?: any[] | Record<string, any> | { size: number };
   };
+  effects?: any[] | { size: number };
+}
+
+function validateProjectData(data: ValidationData): string[] {
+  const reasons: string[] = [];
+  const projectData = data.flags?.[MODULE_ID]?.projectData;
+
+  // Criteria 1: Missing or invalid target
+  if (
+    projectData?.target === undefined ||
+    projectData?.target === null ||
+    projectData?.target <= 0
+  ) {
+    reasons.push("Missing or invalid project target (must be > 0).");
+  }
+
+  // Criteria 2: Missing activities or effects
+  const activities = data.system?.activities || {};
+  const effects = data.effects || [];
+
+  let hasActivities = false;
+  if (Array.isArray(activities)) {
+    hasActivities = activities.length > 0;
+  } else if (typeof activities === "object" && "size" in activities) {
+    hasActivities = (activities as any).size > 0;
+  } else {
+    hasActivities = Object.keys(activities).length > 0;
+  }
+
+  let hasEffects = false;
+  if (Array.isArray(effects)) {
+    hasEffects = effects.length > 0;
+  } else if (typeof effects === "object" && "size" in effects) {
+    hasEffects = effects.size > 0;
+  }
+
+  if (!hasActivities && !hasEffects) {
+    reasons.push("Project has neither activities nor effects.");
+  }
+
+  // Criteria 3: Missing name or description
+  if (!data.name || data.name.trim().length === 0) {
+    reasons.push("Project name is missing or empty.");
+  }
+
+  const description = data.system?.description?.value;
+  if (!description || description.trim().length === 0) {
+    reasons.push("Project description is missing or empty.");
+  }
+
+  return reasons;
 }
 
 /**
@@ -46,59 +97,44 @@ export async function getInvalidProjects(): Promise<InvalidProjectReason[]> {
       continue;
     }
 
-    let index: IndexEntry[] = [];
+    // Foundry's getIndex typing doesn't support custom fields, but the API does.
+    // We use double type assertions to bypass the strict compiler checks.
+    let index: (ValidationData & { _id: string })[] = [];
     try {
-      const indexResult = await pack.getIndex({
-        fields: [`flags.${MODULE_ID}.projectData`, "system.description.value"] as any,
-      });
-      index = Array.from(indexResult.values()) as unknown as IndexEntry[];
+      index = (await pack.getIndex({
+        fields: [
+          `flags.${MODULE_ID}.projectData`,
+          "system.description.value",
+          "system.activities",
+          "effects",
+        ] as any,
+        force: true,
+      } as any)) as unknown as (ValidationData & { _id: string })[];
     } catch (error) {
       console.error(
-        `Downtime Engine | Failed to read index for compendium "${packId}": ${error instanceof Error ? error.message : error}`,
+        `Downtime Engine | Failed to read index for compendium "${packId}": ${
+          error instanceof Error ? error.message : error
+        }`,
       );
       continue;
     }
 
     for (const indexEntry of index) {
-      const projectData = indexEntry.flags?.[MODULE_ID]?.projectData;
-      const reasons: string[] = [];
+      const initialReasons = validateProjectData(indexEntry);
 
-      if (!projectData) {
-        reasons.push("Missing project data.");
-      } else {
-        // Criteria 1: Missing isLearningProject flag in projectData
-        if (projectData.isLearningProject !== true) {
-          reasons.push("Missing or invalid isLearningProject flag in projectData.");
-        }
-
-        // Criteria 2: Missing or invalid target
-        if (
-          projectData.target === undefined ||
-          projectData.target === null ||
-          projectData.target <= 0
-        ) {
-          reasons.push("Missing or invalid project target (must be > 0).");
-        }
-      }
-
-      // Criteria 3: Missing name or description
-      if (!indexEntry.name || indexEntry.name.trim().length === 0) {
-        reasons.push("Project name is missing or empty.");
-      }
-
-      const description = indexEntry.system?.description?.value;
-      if (!description || description.trim().length === 0) {
-        reasons.push("Project description is missing or empty.");
-      }
-
-      if (reasons.length > 0) {
+      if (initialReasons.length > 0) {
         try {
           const item = (await pack.getDocument(indexEntry._id)) as Item5e;
-          invalidProjects.push({
-            item,
-            packName: pack.metadata.label,
-            reasons,
-          });
+          // Re-validate against the full item data to ensure the index wasn't stale
+          const finalReasons = validateProjectData(item as unknown as ValidationData);
+
+          if (finalReasons.length > 0) {
+            invalidProjects.push({
+              item,
+              packName: pack.metadata.label,
+              reasons: finalReasons,
+            });
+          }
         } catch (error) {
           console.warn(
             `Downtime Engine | Failed to load document "${indexEntry._id}" from "${packId}":`,
@@ -108,7 +144,7 @@ export async function getInvalidProjects(): Promise<InvalidProjectReason[]> {
           invalidProjects.push({
             item: { name: indexEntry.name || "Unknown Item" },
             packName: pack.metadata.label,
-            reasons: [...reasons, "Failed to load full item data."],
+            reasons: [...initialReasons, "Failed to load full item data."],
           });
         }
       }

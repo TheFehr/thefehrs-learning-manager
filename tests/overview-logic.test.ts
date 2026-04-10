@@ -38,48 +38,26 @@ describe("overview-logic", () => {
     );
   });
 
-  it("should return an empty array if all projects are valid", async () => {
+  it("should return an empty array if all projects are valid (even without isLearningProject flag)", async () => {
     const validEntry = {
       _id: "item1",
       name: "Valid Project",
-      system: { description: { value: "A valid description" } },
+      system: {
+        description: { value: "A valid description" },
+        activities: { a: {} },
+      },
       flags: {
         [MODULE_ID]: {
-          projectData: { isLearningProject: true, target: 10 },
+          projectData: { target: 10 },
         },
       },
     };
-
     const pack1 = game.packs.get("pack1") as any;
     pack1.getIndex.mockResolvedValue([validEntry]);
 
     const result = await getInvalidProjects();
     expect(result).toHaveLength(0);
     expect(pack1.getDocument).not.toHaveBeenCalled();
-  });
-
-  it("should identify projects missing isLearningProject flag", async () => {
-    const invalidEntry = {
-      _id: "item1",
-      name: "Invalid Project",
-      system: { description: { value: "A valid description" } },
-      flags: {
-        [MODULE_ID]: {
-          projectData: { target: 10 }, // Missing isLearningProject: true
-        },
-      },
-    };
-
-    const pack1 = game.packs.get("pack1") as any;
-    pack1.getIndex.mockResolvedValue([invalidEntry]);
-    pack1.getDocument.mockResolvedValue({ ...invalidEntry, getFlag: vi.fn() });
-
-    const result = await getInvalidProjects();
-    expect(result).toHaveLength(1);
-    expect(result[0].reasons).toContain(
-      "Missing or invalid isLearningProject flag in projectData.",
-    );
-    expect(pack1.getDocument).toHaveBeenCalledWith("item1");
   });
 
   it("should identify projects with missing or invalid target", async () => {
@@ -89,7 +67,7 @@ describe("overview-logic", () => {
       system: { description: { value: "Desc" } },
       flags: {
         [MODULE_ID]: {
-          projectData: { isLearningProject: true },
+          projectData: {},
         },
       },
     };
@@ -100,7 +78,7 @@ describe("overview-logic", () => {
       system: { description: { value: "Desc" } },
       flags: {
         [MODULE_ID]: {
-          projectData: { isLearningProject: true, target: 0 },
+          projectData: { target: 0 },
         },
       },
     };
@@ -122,10 +100,13 @@ describe("overview-logic", () => {
     const entryNoName = {
       _id: "item1",
       name: "",
-      system: { description: { value: "Desc" } },
+      system: {
+        description: { value: "Desc" },
+        activities: { a: {} },
+      },
       flags: {
         [MODULE_ID]: {
-          projectData: { isLearningProject: true, target: 10 },
+          projectData: { target: 10 },
         },
       },
     };
@@ -133,10 +114,13 @@ describe("overview-logic", () => {
     const entryNoDesc = {
       _id: "item2",
       name: "Name",
-      system: { description: { value: "  " } },
+      system: {
+        description: { value: "  " },
+        activities: { a: {} },
+      },
       flags: {
         [MODULE_ID]: {
-          projectData: { isLearningProject: true, target: 10 },
+          projectData: { target: 10 },
         },
       },
     };
@@ -157,7 +141,11 @@ describe("overview-logic", () => {
     const veryInvalidEntry = {
       _id: "item1",
       name: " ",
-      system: { description: { value: "" } },
+      system: {
+        description: { value: "" },
+        activities: {},
+      },
+      effects: [],
       // No flags at all
     };
 
@@ -170,8 +158,12 @@ describe("overview-logic", () => {
 
     const result = await getInvalidProjects();
     expect(result).toHaveLength(1);
-    expect(result[0].reasons).toHaveLength(3);
-    expect(result[0].reasons).toContain("Missing project data.");
+    expect(result[0].reasons).toHaveLength(4);
+    expect(result[0].reasons).not.toContain(
+      "Missing or invalid isLearningProject flag in projectData.",
+    );
+    expect(result[0].reasons).toContain("Missing or invalid project target (must be > 0).");
+    expect(result[0].reasons).toContain("Project has neither activities nor effects.");
     expect(result[0].reasons).toContain("Project name is missing or empty.");
     expect(result[0].reasons).toContain("Project description is missing or empty.");
   });
@@ -191,10 +183,53 @@ describe("overview-logic", () => {
     const result = await getInvalidProjects();
     expect(result).toHaveLength(1);
     expect(result[0].item.name).toBe("Broken Item");
-    expect(result[0].reasons).toContain("Missing project data.");
+    expect(result[0].reasons).not.toContain(
+      "Missing or invalid isLearningProject flag in projectData.",
+    );
     expect(result[0].reasons).toContain("Failed to load full item data.");
   });
 
+  it("should not include a project if the index is stale but the full document is valid", async () => {
+    // Index says no activities/effects
+    const staleEntry = {
+      _id: "item1",
+      name: "Stale Project",
+      system: {
+        description: { value: "A valid description" },
+        activities: {},
+      },
+      effects: [],
+      flags: {
+        [MODULE_ID]: {
+          projectData: { target: 10 },
+        },
+      },
+    };
+
+    // Full document says it HAS an effect
+    const freshDocument = {
+      _id: "item1",
+      name: "Stale Project",
+      system: {
+        description: { value: "A valid description" },
+        activities: {},
+      },
+      effects: { size: 1 }, // Collection-like
+      flags: {
+        [MODULE_ID]: {
+          projectData: { target: 10 },
+        },
+      },
+    };
+
+    const pack1 = game.packs.get("pack1") as any;
+    pack1.getIndex.mockResolvedValue([staleEntry]);
+    pack1.getDocument.mockResolvedValue(freshDocument);
+
+    const result = await getInvalidProjects();
+    expect(result).toHaveLength(0);
+    expect(pack1.getDocument).toHaveBeenCalledWith("item1");
+  });
   it("should skip compendiums that are not found or not Item type", async () => {
     // pack1 and pack2 are in allowedCompendiums. pack3 is Actor type. pack4 is not found.
     (game.settings.get as any).mockReturnValue(["pack1", "pack3", "pack4"]);
@@ -207,7 +242,6 @@ describe("overview-logic", () => {
     expect(result).toHaveLength(0);
     expect(pack1.getIndex).toHaveBeenCalled();
   });
-
   it("should handle pack.getIndex failure by logging and continuing to next pack", async () => {
     const pack1 = game.packs.get("pack1") as any;
     const pack2 = game.packs.get("pack2") as any;
@@ -244,44 +278,5 @@ describe("overview-logic", () => {
     expect(result).toHaveLength(1);
     expect(result[0].item.name).toBe("Broken Item");
     expect(result[0].reasons).toContain("Failed to load full item data.");
-  });
-
-  it("should identify projects where isLearningProject is truthy but not literal boolean true", async () => {
-    const invalidEntryString = {
-      _id: "item1",
-      name: "String True Project",
-      system: { description: { value: "A valid description" } },
-      flags: {
-        [MODULE_ID]: {
-          projectData: { isLearningProject: "true", target: 10 },
-        },
-      },
-    };
-
-    const invalidEntryNumber = {
-      _id: "item2",
-      name: "Number One Project",
-      system: { description: { value: "A valid description" } },
-      flags: {
-        [MODULE_ID]: {
-          projectData: { isLearningProject: 1, target: 10 },
-        },
-      },
-    };
-
-    const pack1 = game.packs.get("pack1") as any;
-    pack1.getIndex.mockResolvedValue([invalidEntryString, invalidEntryNumber]);
-    pack1.getDocument.mockImplementation((id: string) =>
-      Promise.resolve({ id, name: id === "item1" ? "String True Project" : "Number One Project" }),
-    );
-
-    const result = await getInvalidProjects();
-    expect(result).toHaveLength(2);
-    expect(result[0].reasons).toContain(
-      "Missing or invalid isLearningProject flag in projectData.",
-    );
-    expect(result[1].reasons).toContain(
-      "Missing or invalid isLearningProject flag in projectData.",
-    );
   });
 });
