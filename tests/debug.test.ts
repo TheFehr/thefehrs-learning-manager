@@ -31,7 +31,8 @@ describe("DebugHelpers", () => {
 
   describe("addTime", () => {
     it("should add time to controlled character", async () => {
-      const mockActor = { name: "Character" };
+      const mockActor = new Actor() as any;
+      mockActor.name = "Character";
       game.user.character = mockActor;
       const mockProxy = { bank: { total: 10 }, setBank: vi.fn() };
       vi.mocked(ActorProxy.forActor).mockReturnValue(mockProxy as any);
@@ -43,7 +44,8 @@ describe("DebugHelpers", () => {
     });
 
     it("should fall back to selected token", async () => {
-      const mockActor = { name: "Token Actor" };
+      const mockActor = new Actor() as any;
+      mockActor.name = "Token Actor";
       (canvas as any).tokens.controlled = [{ actor: mockActor }];
       const mockProxy = { bank: { total: 0 }, setBank: vi.fn() };
       vi.mocked(ActorProxy.forActor).mockReturnValue(mockProxy as any);
@@ -77,7 +79,8 @@ describe("DebugHelpers", () => {
 
   describe("addGP", () => {
     it("should add GP to character", async () => {
-      const mockActor = { name: "Character" };
+      const mockActor = new Actor() as any;
+      mockActor.name = "Character";
       game.user.character = mockActor;
       const mockProxy = { currency: { gp: 10, sp: 0, cp: 0 }, updateCurrency: vi.fn() };
       vi.mocked(ActorProxy.forActor).mockReturnValue(mockProxy as any);

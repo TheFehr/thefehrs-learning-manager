@@ -211,7 +211,13 @@ export type Actor5e = Actor<any> & {
  * Type guard to check if an actor is a valid dnd5e actor with required properties.
  */
 export function isActor5e(actor: any): actor is Actor5e {
-  return actor instanceof Actor && !!(actor as any).system;
+  return (
+    actor &&
+    typeof actor === "object" &&
+    "system" in actor &&
+    typeof (actor as any).getFlag === "function" &&
+    typeof (actor as any).getRollData === "function"
+  );
 }
 
 /**
