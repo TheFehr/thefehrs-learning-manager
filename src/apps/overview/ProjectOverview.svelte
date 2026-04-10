@@ -185,6 +185,12 @@
     text-decoration: underline;
   }
 
+  .project-name:focus-visible {
+    outline: 2px solid var(--t5e-primary-accent-color, #ff6400);
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
   .pack-name {
     font-size: 0.75rem;
     color: var(--t5e-secondary-color, #666);

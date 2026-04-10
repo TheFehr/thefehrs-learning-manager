@@ -420,7 +420,7 @@ export class ProjectLifecycle {
 
     await item.update({
       name: `${stashedName} (${projectData.progress}/${projectData.target})`,
-      ["system.description.value" as string]: progressHtml + stashedDescription,
+      "system.description.value": progressHtml + stashedDescription,
       [`flags.${Settings.ID}.projectData`]: projectData,
     } as Record<string, any>);
   }

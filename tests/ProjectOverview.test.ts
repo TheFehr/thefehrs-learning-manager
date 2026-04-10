@@ -154,7 +154,12 @@ describe("ProjectOverview.svelte", () => {
     expect(refreshButton).not.toBeNull();
     refreshButton.click();
 
-    await waitForLoading(target);
+    // Give it a tick to start refreshing and then wait for the button to be re-enabled
+    for (let i = 0; i < 20; i++) {
+      await tick();
+      if (!refreshButton.disabled) break;
+      await new Promise((resolve) => setTimeout(resolve, 10));
+    }
 
     expect(target.innerHTML).toContain("Broken Project 2");
   });
