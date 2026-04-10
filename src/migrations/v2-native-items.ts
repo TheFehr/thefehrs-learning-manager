@@ -27,13 +27,13 @@ export async function migrateToV2() {
 
     // Count for progress bar
     for (const actor of actors) {
-      const projects = (actor.getFlag(MODULE_ID, "projects" as any) || []) as any[];
+      const projects = (actor.getFlag(MODULE_ID, "projects") as any[]) || [];
       totalProjects += projects.length;
     }
 
     for (const actor of actors) {
       // Step 1: Migrate legacy actor projects to Items
-      const projects = (actor.getFlag(MODULE_ID, "projects" as any) || []) as LegacyProject[];
+      const projects = (actor.getFlag(MODULE_ID, "projects") as any[]) || [];
 
       if (projects.length > 0) {
         const remainingProjects: LegacyProject[] = [];
@@ -80,7 +80,7 @@ export async function migrateToV2() {
             allSuccessful = false;
           }
         }
-        await actor.setFlag(MODULE_ID, "projects" as any, remainingProjects);
+        await actor.setFlag(MODULE_ID, "projects", remainingProjects);
       }
 
       // Step 2: Ensure all existing Item-projects have targets
@@ -102,7 +102,7 @@ export async function migrateToV2() {
           }
         }
 
-        if (!item5e.getFlag("tidy5e-sheet", "section" as any)) {
+        if (!item5e.getFlag("tidy5e-sheet", "section")) {
           updates["flags.tidy5e-sheet.section"] = isLearnedReward
             ? "Completed Learning"
             : "In-Progress Learning";

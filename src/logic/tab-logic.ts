@@ -1,4 +1,5 @@
 import { ActorProxy } from "./actor-proxy.js";
+import { isActor5e } from "../types.js";
 import type {
   LearningActor,
   TimeUnit,
@@ -203,7 +204,11 @@ export class TabLogic {
       );
       return false;
     }
-    const proxy = ActorProxy.forActor(actor as unknown as Actor5e);
+    if (!isActor5e(actor)) {
+      console.warn("Downtime Engine | Cannot deduct currency from non-dnd5e actor.");
+      return false;
+    }
+    const proxy = ActorProxy.forActor(actor);
     const cur = proxy.currency;
     const totalCp = cur.gp * 100 + cur.sp * 10 + cur.cp;
 

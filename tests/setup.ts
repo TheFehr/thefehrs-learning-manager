@@ -250,6 +250,8 @@ class MockActor {
     return this.flags?.[scope]?.[key];
   });
 
+  getRollData = vi.fn(() => this.system);
+
   setFlag = vi.fn(async (scope: string, key: string, value: any) => {
     if (!this.flags[scope]) this.flags[scope] = {};
     this.flags[scope][key] = value;

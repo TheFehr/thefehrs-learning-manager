@@ -4,11 +4,24 @@ import type { Item5e } from "../types.js";
 import type { ProjectFlagData } from "../logic/project-item.js";
 
 export interface InvalidProjectReason {
-  item?: Item5e;
-  itemId?: string;
-  itemName?: string;
+  item: { name: string; sheet?: { render: (force: boolean) => void } };
   packName: string;
   reasons: string[];
+}
+
+interface IndexEntry {
+  _id: string;
+  name: string;
+  flags?: {
+    [MODULE_ID]?: {
+      projectData?: ProjectFlagData;
+    };
+  };
+  system?: {
+    description?: {
+      value?: string;
+    };
+  };
 }
 
 /**
@@ -33,34 +46,39 @@ export async function getInvalidProjects(): Promise<InvalidProjectReason[]> {
       continue;
     }
 
-    let index;
+    let index: IndexEntry[] = [];
     try {
-      index = (await pack.getIndex({
-        fields: [`flags.${MODULE_ID}.projectData`, "system.description.value"],
-      } as any)) as unknown as any[];
-    } catch (error: any) {
+      const indexResult = await pack.getIndex({
+        fields: [`flags.${MODULE_ID}.projectData`, "system.description.value"] as any,
+      });
+      index = Array.from(indexResult.values()) as unknown as IndexEntry[];
+    } catch (error) {
       console.error(
-        `Downtime Engine | Failed to read index for compendium "${packId}": ${error.message}`,
+        `Downtime Engine | Failed to read index for compendium "${packId}": ${error instanceof Error ? error.message : error}`,
       );
       continue;
     }
 
     for (const indexEntry of index) {
-      const projectData = indexEntry.flags?.[MODULE_ID]?.projectData as ProjectFlagData | undefined;
+      const projectData = indexEntry.flags?.[MODULE_ID]?.projectData;
       const reasons: string[] = [];
 
-      // Criteria 1: Missing isLearningProject flag in projectData
-      if (projectData?.isLearningProject !== true) {
-        reasons.push("Missing or invalid isLearningProject flag in projectData.");
-      }
+      if (!projectData) {
+        reasons.push("Missing project data.");
+      } else {
+        // Criteria 1: Missing isLearningProject flag in projectData
+        if (projectData.isLearningProject !== true) {
+          reasons.push("Missing or invalid isLearningProject flag in projectData.");
+        }
 
-      // Criteria 2: Missing or invalid target
-      if (
-        projectData?.target === undefined ||
-        projectData?.target === null ||
-        projectData?.target <= 0
-      ) {
-        reasons.push("Missing or invalid project target (must be > 0).");
+        // Criteria 2: Missing or invalid target
+        if (
+          projectData.target === undefined ||
+          projectData.target === null ||
+          projectData.target <= 0
+        ) {
+          reasons.push("Missing or invalid project target (must be > 0).");
+        }
       }
 
       // Criteria 3: Missing name or description
@@ -81,12 +99,16 @@ export async function getInvalidProjects(): Promise<InvalidProjectReason[]> {
             packName: pack.metadata.label,
             reasons,
           });
-        } catch (error: any) {
+        } catch (error) {
+          console.warn(
+            `Downtime Engine | Failed to load document "${indexEntry._id}" from "${packId}":`,
+            error,
+          );
+          // Use index data as fallback for display
           invalidProjects.push({
-            itemId: indexEntry._id,
-            itemName: indexEntry.name,
+            item: { name: indexEntry.name || "Unknown Item" },
             packName: pack.metadata.label,
-            reasons: [...reasons, `failed to read item: ${error.message}`],
+            reasons: [...reasons, "Failed to load full item data."],
           });
         }
       }

@@ -4,7 +4,7 @@ import { TabLogic } from "./tab-logic.js";
 import { ProjectEngine } from "./project-engine.js";
 import type { ProjectItem, ProjectFlagData } from "./project-item.js";
 import type { MemberMappedData, ProjectMappedData } from "../apps/party-tab.js";
-import type { Item5e, Actor5e } from "../types.js";
+import { isActor5e, type Item5e, type Actor5e } from "../types.js";
 import AbortProjectDialog from "../apps/dialogs/AbortProjectDialog.svelte";
 import GrantTimeDialog from "../apps/dialogs/GrantTimeDialog.svelte";
 import { mount, unmount } from "svelte";
@@ -35,10 +35,10 @@ export class PartyTabLogic {
 
     let successCount = 0;
     for (const id of selectedIds) {
-      const actor = (game.actors as unknown as Actors).get(id);
-      if (!actor) continue;
+      const actor = game.actors.get(id);
+      if (!actor || !isActor5e(actor)) continue;
       try {
-        const proxy = ActorProxy.forActor(actor as unknown as Actor5e);
+        const proxy = ActorProxy.forActor(actor);
         const bank = proxy.bank;
         await proxy.setBank({ total: (bank.total || 0) + totalBase });
         successCount++;

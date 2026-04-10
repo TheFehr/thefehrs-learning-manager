@@ -163,11 +163,36 @@ describe("overview-logic", () => {
 
     const pack1 = game.packs.get("pack1") as any;
     pack1.getIndex.mockResolvedValue([veryInvalidEntry]);
-    pack1.getDocument.mockResolvedValue({ _id: "item1" });
+    pack1.getDocument.mockResolvedValue({
+      ...veryInvalidEntry,
+      getFlag: vi.fn().mockReturnValue(undefined),
+    });
 
     const result = await getInvalidProjects();
     expect(result).toHaveLength(1);
-    expect(result[0].reasons).toHaveLength(4);
+    expect(result[0].reasons).toHaveLength(3);
+    expect(result[0].reasons).toContain("Missing project data.");
+    expect(result[0].reasons).toContain("Project name is missing or empty.");
+    expect(result[0].reasons).toContain("Project description is missing or empty.");
+  });
+
+  it("should handle failures when retrieving full document", async () => {
+    const invalidEntry = {
+      _id: "broken-id",
+      name: "Broken Item",
+      system: { description: { value: "Desc" } },
+      // Missing flags
+    };
+
+    const pack1 = game.packs.get("pack1") as any;
+    pack1.getIndex.mockResolvedValue([invalidEntry]);
+    pack1.getDocument.mockRejectedValue(new Error("Database error"));
+
+    const result = await getInvalidProjects();
+    expect(result).toHaveLength(1);
+    expect(result[0].item.name).toBe("Broken Item");
+    expect(result[0].reasons).toContain("Missing project data.");
+    expect(result[0].reasons).toContain("Failed to load full item data.");
   });
 
   it("should skip compendiums that are not found or not Item type", async () => {
@@ -217,9 +242,8 @@ describe("overview-logic", () => {
     const result = await getInvalidProjects();
 
     expect(result).toHaveLength(1);
-    expect(result[0].itemId).toBe("item1");
-    expect(result[0].itemName).toBe("Broken Item");
-    expect(result[0].reasons).toContain("failed to read item: Document load failed");
+    expect(result[0].item.name).toBe("Broken Item");
+    expect(result[0].reasons).toContain("Failed to load full item data.");
   });
 
   it("should identify projects where isLearningProject is truthy but not literal boolean true", async () => {

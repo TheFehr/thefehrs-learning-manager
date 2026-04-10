@@ -1,5 +1,6 @@
 import { ActorProxy } from "../logic/actor-proxy.js";
-import { Actor5e } from "../types";
+import { isActor5e } from "../types";
+import type { Actor5e } from "../types";
 
 function resolveControlledActor(): Actor5e | undefined {
   if (typeof canvas === "undefined" || !canvas?.ready) return undefined;
@@ -12,7 +13,7 @@ function resolveControlledActor(): Actor5e | undefined {
     actor = controlledTokens[0].actor ?? undefined;
   }
 
-  return actor;
+  return isActor5e(actor) ? actor : undefined;
 }
 
 /**

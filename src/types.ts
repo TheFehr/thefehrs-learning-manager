@@ -2,10 +2,13 @@ import type {} from "@league-of-foundry-developers/foundry-vtt-types";
 
 declare global {
   interface LenientGlobalVariableTypes {
-    game: never;
-    canvas: never;
-    ui: never;
-    socket: never;
+    game: Game;
+    canvas: Canvas;
+    ui: {
+      notifications: Notifications;
+      [key: string]: any;
+    };
+    socket: io.Socket;
   }
 }
 import type {
@@ -90,6 +93,21 @@ export type ActorSystem5e =
   | GroupActorSystemData
   | VehicleActorSystemData;
 
+export type {
+  FeatItemSystemData,
+  SpellItemSystemData,
+  ConsumableItemSystemData,
+  EquipmentItemSystemData,
+  ToolItemSystemData,
+  WeaponItemSystemData,
+  LootItemSystemData,
+  ClassItemSystemData,
+  SubclassItemSystemData,
+  RaceItemSystemData,
+  FacilityItemSystemData,
+  ContainerItemSystemData,
+};
+
 export type ItemSystem5e = (
   | FeatItemSystemData
   | SpellItemSystemData
@@ -129,13 +147,13 @@ declare module "fvtt-types/configuration" {
   interface FlagConfig {
     Actor: {
       "thefehrs-learning-manager": {
-        projects: ProjectFlagData[];
-        bank: TimeBank;
+        projects?: ProjectFlagData[];
+        bank?: TimeBank;
       };
     };
     Item: {
       "thefehrs-learning-manager": {
-        projectData: ProjectFlagData;
+        projectData?: ProjectFlagData;
         isLearningProject?: boolean;
         isLearnedReward?: boolean;
         stashedType?: string;
@@ -188,15 +206,29 @@ declare global {
  * while providing our system and flag types.
  */
 export type Actor5e = Actor<any> & {
-  system: any;
+  system: ActorSystem5e;
   getRollData(): any;
 };
+
+/**
+ * Type guard to check if an actor is a valid dnd5e actor with required properties.
+ */
+export function isActor5e(actor: unknown): actor is Actor5e {
+  return (
+    !!actor &&
+    typeof actor === "object" &&
+    "system" in actor &&
+    typeof (actor as { getFlag?: unknown }).getFlag === "function" &&
+    typeof (actor as { setFlag?: unknown }).setFlag === "function" &&
+    typeof (actor as { getRollData?: unknown }).getRollData === "function"
+  );
+}
 
 /**
  * Augmented Item type.
  */
 export type Item5e = Item<any> & {
-  system: any;
+  system: ItemSystem5e;
   displayCard(options?: object): Promise<unknown>;
 };
 
@@ -305,7 +337,7 @@ export type ActivationData5e = ActivationData & { override?: boolean };
 export type DurationData5e = DurationData & { override?: boolean; concentration?: boolean };
 export type RangeData5e = RangeData & { override?: boolean };
 export type TargetData5e = TargetData & { override?: boolean; prompt?: boolean };
-export type ConsumptionData5e = {
+export type ConsumptionData5e = ActivityData["consumption"] & {
   value: string;
   scaling: { allowed: boolean; max: string };
   spellSlot: boolean;

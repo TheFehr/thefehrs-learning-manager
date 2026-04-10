@@ -43,7 +43,7 @@ describe("Migration v2 (Direct)", () => {
     expect(game.settings.set).toHaveBeenCalledWith(
       expect.any(String),
       "rules",
-      expect.objectContaining({ critThreshold: 10 }),
+      expect.objectContaining({ critThreshold: 20 }),
     );
     expect(game.settings.set).toHaveBeenCalledWith(
       expect.any(String),

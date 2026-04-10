@@ -115,12 +115,11 @@ describe("TabLogic", () => {
     let tu: any;
 
     beforeEach(() => {
-      actor = {
-        system: { abilities: { int: { mod: 0 } } },
-        getRollData: function () {
-          return this.system;
-        },
-      } as any;
+      actor = new Actor() as any;
+      actor.system = { abilities: { int: { mod: 0 } } };
+      actor.getRollData = function () {
+        return this.system;
+      };
       rules = { nonBulkMethod: "roll", bulkMethod: "direct", checkDC: 15, checkFormula: "1d20" };
       tier = { modifier: 2, progress: { bulk1: 5 } };
       tu = { id: "hour", isBulk: false };
@@ -197,9 +196,8 @@ describe("TabLogic", () => {
     let actor: any;
 
     beforeEach(() => {
-      actor = {
-        system: { abilities: { int: { value: 15 } } },
-      };
+      actor = new Actor() as any;
+      actor.system = { abilities: { int: { value: 15 } } };
     });
 
     it("should return eligible true if all requirements met", () => {
@@ -302,7 +300,7 @@ describe("TabLogic", () => {
 
     it("should deduct currency correctly", async () => {
       const { TabLogic } = await import("../src/logic/tab-logic");
-      const actor = {} as any;
+      const actor = new Actor() as any;
       const mockProxy = {
         currency: { gp: 1, sp: 0, cp: 0 },
         updateCurrency: vi.fn().mockResolvedValue(true),
@@ -317,7 +315,7 @@ describe("TabLogic", () => {
 
     it("should fail if insufficient funds", async () => {
       const { TabLogic } = await import("../src/logic/tab-logic");
-      const actor = {} as any;
+      const actor = new Actor() as any;
       const mockProxy = {
         currency: { gp: 0, sp: 0, cp: 10 },
         updateCurrency: vi.fn(),
@@ -333,7 +331,7 @@ describe("TabLogic", () => {
 
     it("should return false if cost is negative or NaN", async () => {
       const { TabLogic } = await import("../src/logic/tab-logic");
-      const actor = {} as any;
+      const actor = new Actor() as any;
 
       expect(await TabLogic.deductCurrency(actor, -10)).toBe(false);
       expect(await TabLogic.deductCurrency(actor, NaN)).toBe(false);

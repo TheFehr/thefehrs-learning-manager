@@ -10,8 +10,15 @@ export async function migrateData() {
   if (!game.user?.isGM) return;
 
   try {
-    let currentVersion =
-      (game.settings.get(MODULE_ID, "migrationVersion") as unknown as string) || "0";
+    const raw = game.settings.get(MODULE_ID, "migrationVersion");
+    let currentVersion: string;
+    if (typeof raw === "string") {
+      currentVersion = raw;
+    } else if (typeof raw === "number") {
+      currentVersion = String(raw);
+    } else {
+      currentVersion = "0";
+    }
 
     // Normalize legacy integer versions > 0 to 1.2.0 so only the v2 migration runs.
     if (/^\d+$/.test(currentVersion) && currentVersion !== "0") {

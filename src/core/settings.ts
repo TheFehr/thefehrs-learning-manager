@@ -1,4 +1,5 @@
 import type { GuidanceTier, ProjectRequirement, SystemRules, TimeUnit } from "../types.js";
+import { MODULE_ID } from "../global.js";
 
 export interface ProjectTemplate {
   id: string;
@@ -107,12 +108,12 @@ export interface SettingMenuConfig {
   label: string;
   hint?: string;
   icon?: string;
-  type: typeof foundry.applications.api.ApplicationV2 | unknown;
+  type: new (...args: any[]) => foundry.applications.api.ApplicationV2<any, any, any>;
   restricted: boolean;
 }
 
 export class SettingsManager {
-  static readonly ID = "thefehrs-learning-manager" as const;
+  static readonly ID = MODULE_ID;
 
   get ID() {
     return SettingsManager.ID;

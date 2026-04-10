@@ -67,8 +67,11 @@ export async function migrateToV2_1() {
     }
 
     // 2. Operator Migration: Project Templates in Settings
-    const templates =
+    let templates =
       (game.settings.get(MODULE_ID, "projectTemplates") as unknown as unknown[]) || [];
+    if (!Array.isArray(templates)) {
+      templates = [];
+    }
     let templatesUpdated = false;
 
     const newTemplates = templates.map((tpl: any) => {
@@ -85,8 +88,8 @@ export async function migrateToV2_1() {
     }
 
     // 3. Operator Migration: Actor Items
-    const actors = (game.actors as unknown as unknown[]) || [];
-    for (const actor of actors as any[]) {
+    const actors = Array.from(game.actors?.values() || []) as any[];
+    for (const actor of actors) {
       const projects = actor.items.filter(
         (i: any) =>
           i.getFlag(MODULE_ID, "isLearningProject") || i.getFlag(MODULE_ID, "isLearnedReward"),
@@ -94,10 +97,7 @@ export async function migrateToV2_1() {
 
       const updates: any[] = [];
       for (const item of projects) {
-        const projectData = (item as unknown as { getFlag: (s: string, k: string) => any }).getFlag(
-          MODULE_ID,
-          "projectData",
-        );
+        const projectData = (item as any).getFlag(MODULE_ID, "projectData");
         if (projectData?.requirements) {
           const { newRequirements, changed } = migrateRequirementOperators(
             projectData.requirements,
@@ -117,8 +117,11 @@ export async function migrateToV2_1() {
     }
 
     // 4. Operator Migration: Items in Allowed Compendiums
-    const allowedPacks =
+    let allowedPacks =
       (game.settings.get(MODULE_ID, "allowedCompendiums") as unknown as string[]) || [];
+    if (!Array.isArray(allowedPacks)) {
+      allowedPacks = [];
+    }
     let hasFailures = false;
 
     for (const packId of allowedPacks) {
@@ -132,9 +135,7 @@ export async function migrateToV2_1() {
         const documents = await pack.getDocuments();
         const updates: any[] = [];
         for (const item of documents) {
-          const projectData = (
-            item as unknown as { getFlag: (s: string, k: string) => any }
-          ).getFlag(MODULE_ID, "projectData");
+          const projectData = (item as any).getFlag(MODULE_ID, "projectData");
           if (projectData?.requirements) {
             const { newRequirements, changed } = migrateRequirementOperators(
               projectData.requirements,

@@ -27,7 +27,7 @@ describe("Migration v1.1 (GP to CP)", () => {
 
     await migrateV1_1GpToCp();
 
-    expect(game.settings.set).toHaveBeenCalledWith(Settings.ID, "guidanceTiers", [
+    expect(game.settings.set).toHaveBeenCalledWith(MODULE_ID, "guidanceTiers", [
       expect.objectContaining({ costs: { hour: 100, day: 1000 }, _migratedGpToCp: true }),
     ]);
   });
@@ -47,7 +47,7 @@ describe("Migration v1.1 (GP to CP)", () => {
     await migrateV1_1GpToCp();
     // It should still mark as migrated even if costs were empty to avoid re-processing
     expect(game.settings.set).toHaveBeenCalledWith(
-      Settings.ID,
+      MODULE_ID,
       "guidanceTiers",
       expect.arrayContaining([expect.objectContaining({ _migratedGpToCp: true })]),
     );
