@@ -221,7 +221,7 @@ export class ProjectEngine {
     }
 
     const projectDataFlags = item.getFlag("thefehrs-learning-manager", "projectData");
-    if (!projectDataFlags.target || projectDataFlags.target <= 0) {
+    if (!projectDataFlags || !projectDataFlags.target || projectDataFlags.target <= 0) {
       ui.notifications?.warn("This project is awaiting a GM-defined target progress.");
       return false;
     }
@@ -386,16 +386,18 @@ export class ProjectEngine {
                   "thefehrs-learning-manager",
                   "projectData",
                 );
-                newFlags.progress = Math.min(
-                  excessProgress,
-                  newFlags.target > 0 ? newFlags.target : excessProgress,
-                );
-                await this.updateItemWithProgress(newItem, newFlags);
-                ui.notifications?.info(
-                  `Started follow-up project: ${foundry.utils.escapeHTML(followUpItem.name)} with ${
-                    newFlags.progress
-                  } initial progress.`,
-                );
+                if (newFlags) {
+                  newFlags.progress = Math.min(
+                    excessProgress,
+                    newFlags.target > 0 ? newFlags.target : excessProgress,
+                  );
+                  await this.updateItemWithProgress(newItem, newFlags);
+                  ui.notifications?.info(
+                    `Started follow-up project: ${foundry.utils.escapeHTML(followUpItem.name)} with ${
+                      newFlags.progress
+                    } initial progress.`,
+                  );
+                }
               }
             }
           }

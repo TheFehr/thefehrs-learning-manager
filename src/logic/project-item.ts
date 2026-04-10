@@ -59,10 +59,10 @@ export type ProjectItem = Item5e & {
   system: LearningFeatItemData;
   actor: LearningActor | null;
 
-  getFlag(scope: "thefehrs-learning-manager", key: "projectData"): ProjectFlagData;
+  getFlag(scope: "thefehrs-learning-manager", key: "projectData"): ProjectFlagData | undefined;
   getFlag<T>(scope: string, key: string): T;
 };
 
-export function projectData(item: Item5e): ProjectFlagData {
+export function projectData(item: Item5e): ProjectFlagData | undefined {
   return item.getFlag("thefehrs-learning-manager", "projectData");
 }
