@@ -5,8 +5,10 @@ import type {
   OnRenderParams,
   Actor5e,
   Item5e,
+  FeatItemSystemData,
 } from "./types.js";
 import { ProjectEngine } from "./logic/project-engine.js";
+import { Logger } from "./core/notifications.js";
 import { Settings, SettingsManager } from "./core/settings.js";
 import { LearningConfigApp } from "./apps/settings-app.js";
 import { ProjectOverviewApp } from "./apps/overview-app.js";
@@ -114,7 +116,7 @@ export class LearningManager {
   private static registerHooks() {
     // @ts-expect-error - dnd5e system hook
     Hooks.on("dnd5e.preUseItem", (item: Item5e, config: { createMessage?: boolean }) => {
-      if (item.getFlag("thefehrs-learning-manager", "isLearningProject")) {
+      if (item.getFlag(LearningManager.ID, "isLearningProject")) {
         if (config) {
           config.createMessage = false;
         }
@@ -182,6 +184,12 @@ export class LearningManager {
 
             const item5e = item as Item5e;
             const projectFlagData = projectData(item5e);
+            if (!projectFlagData) {
+              Logger.warn(
+                `The compendium item ${item5e.name} lacks learning-project metadata. Skipping initiation.`,
+              );
+              return;
+            }
             const requirements = projectFlagData.requirements || [];
             const { eligible, reason } = TabLogic.meetsRequirements(targetActor, requirements);
 
@@ -250,14 +258,15 @@ export class LearningManager {
           const item = context?.item || context?.document;
           if (!item) return false;
 
+          const item5e = item as Item5e;
           const isLearningType =
-            (item.type as string) === "feat" &&
-            (item.system as any).type?.value === LearningFeatType;
-          const isProject = item.getFlag("thefehrs-learning-manager", "isLearningProject");
+            String(item5e.type) === "feat" &&
+            (item5e.system as FeatItemSystemData).type?.value === LearningFeatType;
+          const isProject = item5e.getFlag(LearningManager.ID, "isLearningProject");
 
           if (isLearningType || isProject) return true;
 
-          const uuid = (item as any).uuid || "";
+          const uuid = item5e.uuid || "";
           if (uuid.startsWith("Compendium.")) {
             const parts = uuid.split(".");
             const packId = `${parts[1]}.${parts[2]}`;
@@ -286,11 +295,11 @@ export class LearningManager {
         },
         enabled: (data: { document?: Actor; actor?: Actor }) => {
           const actor = data.document || data.actor;
-          return (actor?.type as string) === "character";
+          return String(actor?.type) === "character";
         },
         onRender: (params: OnRenderParams) => {
           this.renderSvelte(
-            params,
+            params as OnRenderTabParams,
             ".downtime-engine-time-bank-bar-root",
             TimeBankBar,
             (actor: Actor) => ({ actor }),

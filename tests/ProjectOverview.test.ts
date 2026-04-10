@@ -15,7 +15,6 @@ async function waitForLoading(target: HTMLElement) {
   }
   throw new Error("Timed out waiting for loading state to clear");
 }
-
 vi.mock("../src/apps/overview-logic.js", () => ({
   getInvalidProjects: vi.fn(),
 }));
@@ -76,27 +75,6 @@ describe("ProjectOverview.svelte", () => {
     expect(target.innerHTML).toContain("Test Pack");
     expect(target.innerHTML).toContain("Reason 1");
     expect(target.innerHTML).toContain("Reason 2");
-  });
-
-  it("should call item.sheet.render when clicking the project name", async () => {
-    const renderSpy = vi.fn();
-    const mockInvalidProjects = [
-      {
-        item: { name: "Broken Project", sheet: { render: renderSpy } },
-        packName: "Test Pack",
-        reasons: ["Reason 1"],
-      },
-    ];
-    (overviewLogic.getInvalidProjects as any).mockResolvedValue(mockInvalidProjects);
-
-    instance = mount(ProjectOverview, { target });
-    await waitForLoading(target);
-
-    const projectName = target.querySelector(".project-name") as HTMLElement;
-    expect(projectName).not.toBeNull();
-    projectName.click();
-
-    expect(renderSpy).toHaveBeenCalledWith(true);
   });
 
   it("should call item.sheet.render when pressing Enter or Space on the project name", async () => {

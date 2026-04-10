@@ -26,13 +26,28 @@ export async function migrateToV2Direct() {
   try {
     // 1. Rules Migration (v3 equivalent)
     const rules = game.settings.get(MODULE_ID, "rules") as any;
-    if (rules && !rules.critDoubleStrategy) {
+    if (rules) {
       const updatedRules = {
         ...rules,
-        critDoubleStrategy: "never" as const,
-        critThreshold: 20,
       };
-      await game.settings.set(MODULE_ID, "rules", updatedRules);
+      let rulesUpdated = false;
+
+      if (
+        typeof updatedRules.critThreshold !== "number" ||
+        !Number.isFinite(updatedRules.critThreshold)
+      ) {
+        updatedRules.critThreshold = 20;
+        rulesUpdated = true;
+      }
+
+      if (!updatedRules.critDoubleStrategy) {
+        updatedRules.critDoubleStrategy = "never";
+        rulesUpdated = true;
+      }
+
+      if (rulesUpdated) {
+        await game.settings.set(MODULE_ID, "rules", updatedRules);
+      }
     }
 
     // 2. Guidance Tiers Migration (v2 equivalent)
@@ -54,11 +69,17 @@ export async function migrateToV2Direct() {
     }
 
     // 3. Library and Item Migration (v1 + v4 + v5 equivalent)
-    const library =
-      (game.settings.get(MODULE_ID, "projectTemplates") as unknown as ProjectTemplateLegacy[]) ||
-      [];
+    let library = game.settings.get(
+      MODULE_ID,
+      "projectTemplates",
+    ) as unknown as ProjectTemplateLegacy[];
     let libraryUpdated = false;
-    const actors = (game.actors || []) as Actor[];
+    if (!Array.isArray(library)) {
+      library = [];
+      libraryUpdated = true;
+      await game.settings.set(MODULE_ID, "projectTemplates", library);
+    }
+    const actors = Array.from(game.actors?.values() || []) as Actor[];
 
     let allSuccessful = true;
     for (const actor of actors) {

@@ -3,6 +3,7 @@ import { ActorProxy } from "./actor-proxy.js";
 import { ActivityManager } from "../core/activity-manager.js";
 import { ProjectLifecycle } from "./project-lifecycle.js";
 import { LearningActivityData, ProjectFlagData, ProjectItem } from "./project-item.js";
+import { isActor5e } from "../types.js";
 import type { Item5e, Actor5e, LearningActor, TimeUnit, SystemRules } from "../types.js";
 import { Socket } from "../core/socket.js";
 
@@ -52,11 +53,7 @@ export class ProjectEngine {
     rewardDoc: Item,
     tutelageId: string = "",
   ): Promise<Item5e | null> {
-    return (await ProjectLifecycle.initiateProjectFromItem(
-      actor,
-      rewardDoc,
-      tutelageId,
-    )) as any as Item5e;
+    return await ProjectLifecycle.initiateProjectFromItem(actor, rewardDoc, tutelageId);
   }
 
   /**
@@ -86,7 +83,7 @@ export class ProjectEngine {
    */
   static async processSpendAll(item: Item5e, allowedUnitIds?: string[]) {
     const actor = item.actor;
-    if (!actor) return false;
+    if (!actor || !isActor5e(actor)) return false;
 
     const proxy = ActorProxy.forActor(actor);
     const bank = proxy.bank;
@@ -217,15 +214,15 @@ export class ProjectEngine {
     const item = learningActivity.item;
 
     const actor = item.actor;
-    if (!actor) return false;
+    if (!actor || !isActor5e(actor)) return false;
 
     // Handle "Spend all" activity
     if (learningActivity.flags?.[Settings.ID]?.isSpendAll) {
-      return await this.processSpendAll(item as any);
+      return await this.processSpendAll(item as Item5e);
     }
 
     const projectDataFlags = item.getFlag("thefehrs-learning-manager", "projectData");
-    if (!projectDataFlags.target || projectDataFlags.target <= 0) {
+    if (!projectDataFlags || !projectDataFlags.target || projectDataFlags.target <= 0) {
       ui.notifications?.warn("This project is awaiting a GM-defined target progress.");
       return false;
     }
@@ -354,12 +351,11 @@ export class ProjectEngine {
     await proxy.setBank({ total: bank.total - tu.ratio });
 
     if (completedNow) {
-      await this.completeProject(item as any);
+      await this.completeProject(item as Item5e);
 
       if (excessProgress > 0 && projectDataFlags.followUpProjectId) {
-        const followUpItem = (await fromUuid(
-          projectDataFlags.followUpProjectId as `Item.${string}`,
-        )) as unknown as Item | null;
+        const doc = await fromUuid(projectDataFlags.followUpProjectId as `Item.${string}`);
+        const followUpItem = doc instanceof Item ? doc : null;
         if (followUpItem) {
           const escapedItemName = foundry.utils.escapeHTML(item.name || "");
           const escapedFollowUpName = foundry.utils.escapeHTML(followUpItem.name || "");
@@ -391,28 +387,30 @@ export class ProjectEngine {
                   "thefehrs-learning-manager",
                   "projectData",
                 );
-                newFlags.progress = Math.min(
-                  excessProgress,
-                  newFlags.target > 0 ? newFlags.target : excessProgress,
-                );
-                await this.updateItemWithProgress(newItem, newFlags);
-                ui.notifications?.info(
-                  `Started follow-up project: ${foundry.utils.escapeHTML(followUpItem.name)} with ${
-                    newFlags.progress
-                  } initial progress.`,
-                );
+                if (newFlags) {
+                  newFlags.progress = Math.min(
+                    excessProgress,
+                    newFlags.target > 0 ? newFlags.target : excessProgress,
+                  );
+                  await this.updateItemWithProgress(newItem, newFlags);
+                  ui.notifications?.info(
+                    `Started follow-up project: ${foundry.utils.escapeHTML(followUpItem.name)} with ${
+                      newFlags.progress
+                    } initial progress.`,
+                  );
+                }
               }
             }
           }
         }
       }
     } else {
-      await this.updateItemWithProgress(item as any, projectDataFlags);
+      await this.updateItemWithProgress(item as Item5e, projectDataFlags);
 
       // Ensure we have the latest document instance before displaying the card
-      const freshItem = actor.items.get(item.id);
-      if (freshItem && typeof (freshItem as any).displayCard === "function") {
-        await (freshItem as any).displayCard({ rollMode: rules.rollMode });
+      const freshItem = actor.items.get(item.id) as Item5e | undefined;
+      if (freshItem && typeof freshItem.displayCard === "function") {
+        await freshItem.displayCard({ rollMode: rules.rollMode });
       }
     }
 
@@ -464,7 +462,7 @@ export class ProjectEngine {
 
     if (projects.length === 1) {
       const project = projects[0];
-      await this.processSpendAll(project as any, autoSpendUnits);
+      await this.processSpendAll(project as Item5e, autoSpendUnits);
     } else if (projects.length > 1) {
       ui.notifications?.warn(
         "Downtime Engine | You have auto-spending enabled, but more than one active project. Please open your character sheet and spend the time yourself.",

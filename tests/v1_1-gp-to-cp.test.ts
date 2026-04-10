@@ -1,6 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { migrateV1_1GpToCp } from "../src/migrations/v1_1-gp-to-cp";
+import { Settings } from "../src/core/settings";
 import { MODULE_ID } from "../src/global";
+
+vi.mock("../src/core/settings", () => ({
+  Settings: {
+    ID: "thefehrs-learning-manager",
+  },
+}));
 
 describe("Migration v1.1 (GP to CP)", () => {
   beforeEach(() => {

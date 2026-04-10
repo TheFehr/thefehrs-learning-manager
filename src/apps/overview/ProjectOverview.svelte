@@ -52,7 +52,6 @@
       {isRefreshing ? "Refreshing..." : "Refresh"}
     </button>
   </div>
-
   {#if isLoading}
     <div class="loading-state">
       <i class="fas fa-spinner fa-spin"></i> Loading invalid projects...
@@ -133,7 +132,6 @@
     font-size: 1.1rem;
     border: none;
   }
-
   .loading-state,
   .no-invalid-projects,
   .error-state {

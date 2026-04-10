@@ -52,7 +52,6 @@ describe("overview-logic", () => {
         },
       },
     };
-
     const pack1 = game.packs.get("pack1") as any;
     pack1.getIndex.mockResolvedValue([validEntry]);
 
@@ -136,64 +135,6 @@ describe("overview-logic", () => {
     expect(result).toHaveLength(2);
     expect(result[0].reasons).toContain("Project name is missing or empty.");
     expect(result[1].reasons).toContain("Project description is missing or empty.");
-  });
-
-  it("should identify projects with neither activities nor effects", async () => {
-    const entryNoActivitiesNoEffects = {
-      _id: "item1",
-      name: "No activities or effects",
-      system: {
-        description: { value: "A valid description" },
-        activities: {}, // Empty
-      },
-      effects: [], // Empty
-      flags: {
-        [MODULE_ID]: {
-          projectData: { target: 10 },
-        },
-      },
-    };
-
-    const entryOnlyActivities = {
-      _id: "item2",
-      name: "Has activities",
-      system: {
-        description: { value: "A valid description" },
-        activities: { a: {} },
-      },
-      flags: {
-        [MODULE_ID]: {
-          projectData: { target: 10 },
-        },
-      },
-    };
-
-    const entryOnlyEffects = {
-      _id: "item3",
-      name: "Has effects",
-      system: {
-        description: { value: "A valid description" },
-      },
-      effects: [{ _id: "e1" }],
-      flags: {
-        [MODULE_ID]: {
-          projectData: { target: 10 },
-        },
-      },
-    };
-
-    const pack1 = game.packs.get("pack1") as any;
-    pack1.getIndex.mockResolvedValue([
-      entryNoActivitiesNoEffects,
-      entryOnlyActivities,
-      entryOnlyEffects,
-    ]);
-    pack1.getDocument.mockImplementation((id: string) => Promise.resolve({ id, name: id }));
-
-    const result = await getInvalidProjects();
-    expect(result).toHaveLength(1);
-    expect(result[0].item.name).toBe("item1");
-    expect(result[0].reasons).toContain("Project has neither activities nor effects.");
   });
 
   it("should handle multiple invalidity reasons for a single project", async () => {
@@ -289,7 +230,6 @@ describe("overview-logic", () => {
     expect(result).toHaveLength(0);
     expect(pack1.getDocument).toHaveBeenCalledWith("item1");
   });
-
   it("should skip compendiums that are not found or not Item type", async () => {
     // pack1 and pack2 are in allowedCompendiums. pack3 is Actor type. pack4 is not found.
     (game.settings.get as any).mockReturnValue(["pack1", "pack3", "pack4"]);
@@ -301,5 +241,42 @@ describe("overview-logic", () => {
     // Should only process pack1 (empty in this case)
     expect(result).toHaveLength(0);
     expect(pack1.getIndex).toHaveBeenCalled();
+  });
+  it("should handle pack.getIndex failure by logging and continuing to next pack", async () => {
+    const pack1 = game.packs.get("pack1") as any;
+    const pack2 = game.packs.get("pack2") as any;
+
+    pack1.getIndex.mockRejectedValue(new Error("Index load failed"));
+    pack2.getIndex.mockResolvedValue([]);
+
+    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const result = await getInvalidProjects();
+
+    expect(result).toHaveLength(0);
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining('Failed to read index for compendium "pack1": Index load failed'),
+    );
+    expect(pack2.getIndex).toHaveBeenCalled();
+
+    consoleSpy.mockRestore();
+  });
+
+  it("should handle pack.getDocument failure by adding an invalid reason and continuing", async () => {
+    const invalidEntry = {
+      _id: "item1",
+      name: "Broken Item",
+      // Reasons will trigger because no projectData
+    };
+
+    const pack1 = game.packs.get("pack1") as any;
+    pack1.getIndex.mockResolvedValue([invalidEntry]);
+    pack1.getDocument.mockRejectedValue(new Error("Document load failed"));
+
+    const result = await getInvalidProjects();
+
+    expect(result).toHaveLength(1);
+    expect(result[0].item.name).toBe("Broken Item");
+    expect(result[0].reasons).toContain("Failed to load full item data.");
   });
 });

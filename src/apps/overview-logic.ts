@@ -91,15 +91,25 @@ export async function getInvalidProjects(): Promise<InvalidProjectReason[]> {
 
     // Foundry's getIndex typing doesn't support custom fields, but the API does.
     // We use double type assertions to bypass the strict compiler checks.
-    const index = (await pack.getIndex({
-      fields: [
-        `flags.${MODULE_ID}.projectData`,
-        "system.description.value",
-        "system.activities",
-        "effects",
-      ] as any,
-      force: true,
-    } as any)) as unknown as (ValidationData & { _id: string })[];
+    let index: (ValidationData & { _id: string })[] = [];
+    try {
+      index = (await pack.getIndex({
+        fields: [
+          `flags.${MODULE_ID}.projectData`,
+          "system.description.value",
+          "system.activities",
+          "effects",
+        ] as any,
+        force: true,
+      } as any)) as unknown as (ValidationData & { _id: string })[];
+    } catch (error) {
+      console.error(
+        `Downtime Engine | Failed to read index for compendium "${packId}": ${
+          error instanceof Error ? error.message : error
+        }`,
+      );
+      continue;
+    }
 
     for (const indexEntry of index) {
       const initialReasons = validateProjectData(indexEntry);
