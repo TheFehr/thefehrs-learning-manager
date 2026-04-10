@@ -44,11 +44,7 @@ export class TabLogic {
       }
 
       if (options.preview) {
-        const prob = await this.calculateSuccessProbability(actor, rules, tier);
-        // If bulk, show expected progress for the one roll.
-        // If separate rolls, it's handled differently by the dialog,
-        // but for bulk preview we assume one roll.
-        progressGained = Number(prob.toFixed(2));
+        progressGained = await this.calculateExpectedProgress(actor, rules, tier);
       } else {
         try {
           roll = await new Roll(
@@ -142,6 +138,91 @@ export class TabLogic {
   }
 
   /**
+   * Internal helper to brute-force all 20 outcomes of a d20-based check.
+   */
+  private static async _getOutcomes(
+    actor: LearningActor,
+    rules: SystemRules,
+    tier: GuidanceTier | undefined,
+  ): Promise<{ rolls: Roll[]; isDeterministic: boolean } | null> {
+    if (!rules.checkFormula) return null;
+
+    try {
+      const rollData = {
+        ...actor.getRollData(),
+        tutelage: tier?.modifier || 0,
+      };
+
+      const roll = new Roll(rules.checkFormula, rollData);
+      await roll.evaluate();
+      const dice = roll.dice;
+
+      if (dice.length === 0) {
+        return {
+          rolls: Array.from({ length: 20 }, () => roll),
+          isDeterministic: true,
+        };
+      }
+
+      const isSimpleD20 =
+        dice.length === 1 &&
+        dice[0].faces === 20 &&
+        dice[0].number === 1 &&
+        (dice[0].modifiers?.length || 0) === 0;
+
+      if (!isSimpleD20) return null;
+
+      const baseFormula = rules.checkFormula.replace(/\b1?d20\b/i, "Outcome");
+      const rolls = await Promise.all(
+        Array.from({ length: 20 }, (_, idx) => {
+          const i = idx + 1;
+          const formula = baseFormula.replace("Outcome", String(i));
+          const testRoll = new Roll(formula, rollData);
+          return testRoll.evaluate();
+        }),
+      );
+      return { rolls, isDeterministic: false };
+    } catch (err) {
+      console.error("Downtime Engine | Failed to calculate outcomes:", err);
+      return null;
+    }
+  }
+
+  /**
+   * Calculates the statistically expected progress for a single training roll,
+   * accounting for success DC and critDoubleStrategy.
+   */
+  static async calculateExpectedProgress(
+    actor: LearningActor,
+    rules: SystemRules,
+    tier: GuidanceTier | undefined,
+  ): Promise<number> {
+    const res = await this._getOutcomes(actor, rules, tier);
+    if (!res) return NaN;
+
+    const { rolls, isDeterministic } = res;
+    const strategy = rules.critDoubleStrategy ?? "never";
+    const threshold = Number(rules.critThreshold ?? 20);
+    const dc = Number(rules.checkDC ?? DEFAULT_DC);
+
+    let totalProgress = 0;
+    rolls.forEach((r, idx) => {
+      if (r.total >= dc) {
+        let multiplier = 1;
+        if (!isDeterministic && strategy !== "never") {
+          const rollValue = idx + 1;
+          if (rollValue >= threshold) {
+            multiplier = 2;
+          }
+        }
+        totalProgress += multiplier;
+      }
+    });
+
+    return totalProgress / 20;
+  }
+
+  /**
    * Calculates the success probability (0-1) for a training roll.
    * Supports any formula containing a single simple d20 term.
    */
@@ -150,60 +231,11 @@ export class TabLogic {
     rules: SystemRules,
     tier: GuidanceTier | undefined,
   ): Promise<number> {
-    if (!rules.checkFormula) return 0;
-
-    try {
-      const rollData = {
-        ...actor.getRollData(),
-        tutelage: tier?.modifier || 0,
-      };
-
-      // 1. Construct the roll and evaluate it once to resolve data references
-      const roll = new Roll(rules.checkFormula, rollData);
-      await roll.evaluate();
-      const dice = roll.dice;
-
-      // 2. Handle the deterministic case (no dice)
-      if (dice.length === 0) {
-        return roll.total >= (rules.checkDC ?? DEFAULT_DC) ? 1 : 0;
-      }
-
-      // 3. Brute force outcomes by forcing the d20 result (1-20).
-      // We only support formulas with exactly one d20 term and no other dice.
-      const isSimpleD20 =
-        dice.length === 1 &&
-        dice[0].faces === 20 &&
-        dice[0].number === 1 &&
-        (dice[0].modifiers?.length || 0) === 0;
-
-      if (!isSimpleD20) {
-        console.debug(
-          "Downtime Engine | Success probability estimation skipped: formula is complex or contains multiple dice.",
-          rules.checkFormula,
-        );
-        return 0;
-      }
-
-      // Use non-global, case-insensitive, word-boundary regex to replace the d20 token
-      const baseFormula = rules.checkFormula.replace(/\b1?d20\b/i, "Outcome");
-
-      const outcomes = await Promise.all(
-        Array.from({ length: 20 }, (_, idx) => {
-          const i = idx + 1;
-          const formula = baseFormula.replace("Outcome", String(i));
-          const testRoll = new Roll(formula, rollData);
-          return testRoll.evaluate();
-        }),
-      );
-
-      const totalSuccesses = outcomes.filter(
-        (r) => r.total >= Number(rules.checkDC ?? DEFAULT_DC),
-      ).length;
-      return totalSuccesses / 20;
-    } catch (err) {
-      console.error("Downtime Engine | Failed to calculate success probability:", err);
-      return 0;
-    }
+    const res = await this._getOutcomes(actor, rules, tier);
+    if (!res) return 0;
+    const dc = Number(rules.checkDC ?? DEFAULT_DC);
+    const successCount = res.rolls.filter((r) => r.total >= dc).length;
+    return successCount / 20;
   }
 
   /**

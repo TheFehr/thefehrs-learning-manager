@@ -11,6 +11,8 @@ import { Socket } from "../core/socket.js";
 import { ProjectUI } from "../core/project-ui.js";
 
 export class ProjectEngine {
+  static readonly BATCH_THRESHOLD = 12;
+
   /**
    * Forwards call to ProjectUI
    */
@@ -278,8 +280,11 @@ export class ProjectEngine {
         preview: true,
       });
       const prob = await TabLogic.calculateSuccessProbability(actor, rules, tier);
+      const expectedPerRoll = await TabLogic.calculateExpectedProgress(actor, rules, tier);
       const chancePercent = Math.round(prob * 100);
-      const expectedFromSeparate = (tu.ratio * prob).toFixed(1);
+      const expectedFromSeparate = isNaN(expectedPerRoll)
+        ? "unavailable"
+        : (tu.ratio * expectedPerRoll).toFixed(1);
 
       const choice = await foundry.applications.api.DialogV2.wait({
         window: { title: `Training Resolution: ${tu.name}` },
@@ -416,8 +421,7 @@ export class ProjectEngine {
       }
     }
 
-    const BATCH_THRESHOLD = 12;
-    if (isSeparate && tu.ratio > BATCH_THRESHOLD) {
+    if (isSeparate && tu.ratio > ProjectEngine.BATCH_THRESHOLD) {
       const successCount = rolls.filter(
         (r) => r.total >= Number(rules.checkDC ?? DEFAULT_DC),
       ).length;
@@ -441,7 +445,7 @@ export class ProjectEngine {
           ? `Training unsuccessful: ${reasons[0]}`
           : "Training unsuccessful - no progress gained.";
       ui.notifications?.info(msg);
-    } else if (isSeparate && tu.ratio <= BATCH_THRESHOLD) {
+    } else if (isSeparate && tu.ratio <= ProjectEngine.BATCH_THRESHOLD) {
       ui.notifications?.info(
         `Training complete: Gained ${totalProgressGained} progress from ${tu.ratio} separate rolls.`,
       );
@@ -501,7 +505,13 @@ export class ProjectEngine {
             <br><small style="opacity: 0.8;">Statistically expected progress: ${expectedFromSeparate} across ${tu.ratio} rolls.</small>
             ${
               tu.ratio > 5
-                ? `<br><small style="color: #8a6d3b;"><i class="fas fa-exclamation-triangle"></i> Note: This will trigger ${tu.ratio} separate roll messages.</small>`
+                ? `<br><small style="color: #8a6d3b;"><i class="fas fa-exclamation-triangle"></i> Note: This will trigger ${
+                    tu.ratio
+                  } separate ${
+                    tu.ratio > ProjectEngine.BATCH_THRESHOLD
+                      ? "rolls (summarized in one message)"
+                      : "roll messages"
+                  }.</small>`
                 : ""
             }
           </div>

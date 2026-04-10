@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { validateSettings, saveSettings } from "../src/logic/settings-logic";
 import { Settings } from "../src/core/settings";
 import { toggleUserGM } from "./setup";
+import { DEFAULT_DC } from "../src/global";
 
 describe("settings-logic", () => {
   describe("validateSettings", () => {
@@ -96,6 +97,76 @@ describe("settings-logic", () => {
       };
       const validatedInvalid = validateSettings(invalidData);
       expect(validatedInvalid.rules?.notificationLevel).toBe("info");
+    });
+
+    it("should handle null/empty/boolean checkDC and fallback to DEFAULT_DC", () => {
+      const data = {
+        rules: {
+          checkDC: null,
+        },
+      };
+      const result = validateSettings(data);
+      expect(result.rules?.checkDC).toBe(DEFAULT_DC);
+
+      const data2 = {
+        rules: {
+          checkDC: "",
+        },
+      };
+      const result2 = validateSettings(data2);
+      expect(result2.rules?.checkDC).toBe(DEFAULT_DC);
+
+      const data3 = {
+        rules: {
+          checkDC: true,
+        },
+      };
+      const result3 = validateSettings(data3);
+      expect(result3.rules?.checkDC).toBe(DEFAULT_DC);
+    });
+
+    it("should handle valid string and numeric checkDC", () => {
+      const data = {
+        rules: {
+          checkDC: "15",
+        },
+      };
+      const result = validateSettings(data);
+      expect(result.rules?.checkDC).toBe(15);
+
+      const data2 = {
+        rules: {
+          checkDC: 18,
+        },
+      };
+      const result2 = validateSettings(data2);
+      expect(result2.rules?.checkDC).toBe(18);
+    });
+
+    it("should handle null/empty/boolean critThreshold and fallback to 20", () => {
+      const data = {
+        rules: {
+          critThreshold: null,
+        },
+      };
+      const result = validateSettings(data);
+      expect(result.rules?.critThreshold).toBe(20);
+
+      const data2 = {
+        rules: {
+          critThreshold: "",
+        },
+      };
+      const result2 = validateSettings(data2);
+      expect(result2.rules?.critThreshold).toBe(20);
+
+      const data3 = {
+        rules: {
+          critThreshold: false,
+        },
+      };
+      const result3 = validateSettings(data3);
+      expect(result3.rules?.critThreshold).toBe(20);
     });
   });
 

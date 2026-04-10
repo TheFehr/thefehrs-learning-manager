@@ -25,10 +25,9 @@ describe("TabLogic", () => {
       constructor(formula: string, data: any = {}) {
         super(formula, data);
         if (!this.formula) return;
-        if (this.formula === "2d20kh1") {
+        if (this.formula.includes("2d20")) {
           this.dice = [
-            { faces: 20, number: 1, modifiers: ["kh1"], results: [{ result: 15, active: true }] },
-            { faces: 20, number: 1, modifiers: ["kh1"], results: [{ result: 15, active: true }] },
+            { faces: 20, number: 2, modifiers: ["kh1"], results: [{ result: 15, active: true }] },
           ];
         } else if (this.formula.includes("1d20") || this.formula.includes("d20")) {
           this.dice = [
@@ -290,6 +289,55 @@ describe("TabLogic", () => {
       const complexRules = { checkFormula: "2d20kh1", checkDC: 15 } as any;
       const prob = await TabLogic.calculateSuccessProbability(actor, complexRules, tier);
       expect(prob).toBe(0);
+    });
+  });
+
+  describe("calculateExpectedProgress", () => {
+    const actor = {
+      getRollData: () => ({ abilities: { int: { mod: 2 } } }),
+    } as any;
+    const tier = { modifier: 2 } as any;
+
+    it("should calculate expected progress accounting for crits (strategy: any)", async () => {
+      const rules = {
+        checkFormula: "1d20 + @abilities.int.mod + @tutelage",
+        checkDC: 12,
+        critDoubleStrategy: "any",
+        critThreshold: 18,
+      } as any;
+
+      // DC 12, modifiers +4. Need 8+ on d20.
+      // d20 outcomes:
+      // 1-7 (7 outcomes): fail (0)
+      // 8-17 (10 outcomes): success (1)
+      // 18-20 (3 outcomes): crit success (2)
+      // Total: (10 * 1) + (3 * 2) = 16
+      // Expected: 16 / 20 = 0.8
+      const exp = await TabLogic.calculateExpectedProgress(actor, rules, tier);
+      expect(exp).toBe(0.8);
+    });
+
+    it("should calculate expected progress with never strategy", async () => {
+      const rules = {
+        checkFormula: "1d20 + @abilities.int.mod + @tutelage",
+        checkDC: 12,
+        critDoubleStrategy: "never",
+        critThreshold: 18,
+      } as any;
+
+      // Total success outcomes: 13 (8-20)
+      // Expected: 13 / 20 = 0.65
+      const exp = await TabLogic.calculateExpectedProgress(actor, rules, tier);
+      expect(exp).toBe(0.65);
+    });
+
+    it("should return NaN for complex formulas", async () => {
+      const complexRules = {
+        checkFormula: "2d20kh1 + 5",
+        checkDC: 12,
+      } as any;
+      const exp = await TabLogic.calculateExpectedProgress(actor, complexRules, undefined);
+      expect(exp).toBeNaN();
     });
   });
 

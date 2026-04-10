@@ -143,16 +143,24 @@ export function validateSettings(data: unknown) {
         : "direct",
       rollMode: typeof rawRules.rollMode === "string" ? rawRules.rollMode : "gmroll",
       checkDC: (() => {
-        const val = Number(rawRules.checkDC);
-        return Number.isFinite(val) ? val : DEFAULT_DC;
+        const raw = rawRules.checkDC;
+        const num =
+          typeof raw === "number" || (typeof raw === "string" && raw.trim() !== "")
+            ? Number(raw)
+            : NaN;
+        return Number.isFinite(num) ? num : DEFAULT_DC;
       })(),
       checkFormula: typeof rawRules.checkFormula === "string" ? rawRules.checkFormula : "",
       critDoubleStrategy: ["any", "all", "never"].includes(String(rawRules.critDoubleStrategy))
         ? (rawRules.critDoubleStrategy as "any" | "all" | "never")
         : "never",
       critThreshold: (() => {
-        const val = Number(rawRules.critThreshold);
-        return Number.isFinite(val) ? val : 20;
+        const raw = rawRules.critThreshold;
+        const num =
+          typeof raw === "number" || (typeof raw === "string" && raw.trim() !== "")
+            ? Number(raw)
+            : NaN;
+        return Number.isFinite(num) ? num : 20;
       })(),
       bulkExpectedFormula:
         typeof rawRules.bulkExpectedFormula === "string"
