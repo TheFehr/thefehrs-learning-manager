@@ -84,7 +84,7 @@ export class ProjectEngine {
     const actor = item.actor;
     if (!actor) return false;
 
-    const proxy = ActorProxy.forActor(actor);
+    const proxy = ActorProxy.forActor(actor as Actor5e);
     const bank = proxy.bank;
     if (!bank.total || bank.total <= 0) {
       if (!allowedUnitIds) {
@@ -217,7 +217,7 @@ export class ProjectEngine {
 
     // Handle "Spend all" activity
     if (learningActivity.flags?.[Settings.ID]?.isSpendAll) {
-      return await this.processSpendAll(item as any);
+      return await this.processSpendAll(item as Item5e);
     }
 
     const projectDataFlags = item.getFlag("thefehrs-learning-manager", "projectData");
@@ -232,7 +232,7 @@ export class ProjectEngine {
     const tu = timeUnits.find((u) => u.id === timeUnitId);
     if (!tu) return false;
 
-    const proxy = ActorProxy.forActor(actor);
+    const proxy = ActorProxy.forActor(actor as Actor5e);
     const bank = proxy.bank;
     if (bank.total < tu.ratio) {
       ui.notifications?.warn(`Not enough time!`);
@@ -350,10 +350,10 @@ export class ProjectEngine {
     await proxy.setBank({ total: bank.total - tu.ratio });
 
     if (completedNow) {
-      await this.completeProject(item as any);
+      await this.completeProject(item as Item5e);
 
       if (excessProgress > 0 && projectDataFlags.followUpProjectId) {
-        const doc = await fromUuid(projectDataFlags.followUpProjectId as string);
+        const doc = await fromUuid(projectDataFlags.followUpProjectId as `Item.${string}`);
         const followUpItem = doc instanceof Item ? (doc as Item) : null;
         if (followUpItem) {
           const escapedItemName = foundry.utils.escapeHTML(item.name || "");
@@ -402,12 +402,12 @@ export class ProjectEngine {
         }
       }
     } else {
-      await this.updateItemWithProgress(item as any, projectDataFlags);
+      await this.updateItemWithProgress(item as Item5e, projectDataFlags);
 
       // Ensure we have the latest document instance before displaying the card
-      const freshItem = actor.items.get(item.id);
-      if (freshItem && typeof (freshItem as any).displayCard === "function") {
-        await (freshItem as any).displayCard({ rollMode: rules.rollMode });
+      const freshItem = actor.items.get(item.id) as Item5e | undefined;
+      if (freshItem && typeof freshItem.displayCard === "function") {
+        await freshItem.displayCard({ rollMode: rules.rollMode });
       }
     }
 
@@ -459,7 +459,7 @@ export class ProjectEngine {
 
     if (projects.length === 1) {
       const project = projects[0];
-      await this.processSpendAll(project as any, autoSpendUnits);
+      await this.processSpendAll(project as Item5e, autoSpendUnits);
     } else if (projects.length > 1) {
       ui.notifications?.warn(
         "Downtime Engine | You have auto-spending enabled, but more than one active project. Please open your character sheet and spend the time yourself.",

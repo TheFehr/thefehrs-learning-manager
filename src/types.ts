@@ -2,10 +2,10 @@ import type {} from "@league-of-foundry-developers/foundry-vtt-types";
 
 declare global {
   interface LenientGlobalVariableTypes {
-    game: never;
-    canvas: never;
-    ui: never;
-    socket: never;
+    game: any;
+    canvas: any;
+    ui: any;
+    socket: any;
   }
 }
 import type {
@@ -89,6 +89,21 @@ export type ActorSystem5e =
   | NPCActorSystemData
   | GroupActorSystemData
   | VehicleActorSystemData;
+
+export type {
+  FeatItemSystemData,
+  SpellItemSystemData,
+  ConsumableItemSystemData,
+  EquipmentItemSystemData,
+  ToolItemSystemData,
+  WeaponItemSystemData,
+  LootItemSystemData,
+  ClassItemSystemData,
+  SubclassItemSystemData,
+  RaceItemSystemData,
+  FacilityItemSystemData,
+  ContainerItemSystemData,
+};
 
 export type ItemSystem5e = (
   | FeatItemSystemData

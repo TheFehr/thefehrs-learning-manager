@@ -12,7 +12,7 @@ function resolveControlledActor(): Actor5e | undefined {
     actor = controlledTokens[0].actor ?? undefined;
   }
 
-  return actor;
+  return actor as Actor5e | undefined;
 }
 
 /**

@@ -55,14 +55,13 @@ export interface LearningFeatItemData extends Omit<FeatItemSystemData, "activiti
   activities: Record<string, LearningActivityData>;
 }
 
-export interface ProjectItem extends Omit<Item<any>, "system"> {
+export type ProjectItem = Item5e & {
   system: LearningFeatItemData;
   actor: LearningActor | null;
 
   getFlag(scope: "thefehrs-learning-manager", key: "projectData"): ProjectFlagData;
   getFlag<T>(scope: string, key: string): T;
-  displayCard(options?: object): Promise<unknown>;
-}
+};
 
 export function projectData(item: Item5e): ProjectFlagData {
   return item.getFlag("thefehrs-learning-manager", "projectData");

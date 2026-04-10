@@ -30,6 +30,7 @@ describe("Migration v2.1", () => {
   describe("Rules Migration (Method split)", () => {
     it("should migrate 'direct' method", async () => {
       vi.mocked(game.settings.get).mockImplementation((ns, key) => {
+        if (ns !== MODULE_ID) return null;
         if (key === "rules") return { method: "direct" };
         return [];
       });
@@ -46,6 +47,7 @@ describe("Migration v2.1", () => {
 
     it("should migrate 'roll' method", async () => {
       vi.mocked(game.settings.get).mockImplementation((ns, key) => {
+        if (ns !== MODULE_ID) return null;
         if (key === "rules") return { method: "roll" };
         return [];
       });
@@ -62,6 +64,7 @@ describe("Migration v2.1", () => {
 
     it("should migrate 'mathematical' method", async () => {
       vi.mocked(game.settings.get).mockImplementation((ns, key) => {
+        if (ns !== MODULE_ID) return null;
         if (key === "rules") return { method: "mathematical" };
         return [];
       });
@@ -86,6 +89,7 @@ describe("Migration v2.1", () => {
         },
       ];
       vi.mocked(game.settings.get).mockImplementation((ns, key) => {
+        if (ns !== MODULE_ID) return null;
         if (key === "projectTemplates") return templates;
         return [];
       });
@@ -163,6 +167,7 @@ describe("Migration v2.1", () => {
 
       vi.mocked(game.packs.get).mockReturnValue(mockPack as any);
       vi.mocked(game.settings.get).mockImplementation((ns, key) => {
+        if (ns !== MODULE_ID) return null;
         if (key === "allowedCompendiums") return ["pack1"];
         return [];
       });
@@ -189,6 +194,7 @@ describe("Migration v2.1", () => {
     it("should refresh bulk formula if it matches old buggy default", async () => {
       const oldBuggyDefault = "round(@hours * (22 - max(1, @dc - @abilities.int.mod)) / 20)";
       vi.mocked(game.settings.get).mockImplementation((ns, key) => {
+        if (ns !== MODULE_ID) return null;
         if (key === "rules") return { bulkExpectedFormula: oldBuggyDefault };
         return null;
       });

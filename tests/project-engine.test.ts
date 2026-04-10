@@ -32,12 +32,15 @@ describe("ProjectEngine", () => {
     },
   ];
 
-  const mockSettingsGet = () => (key: string) => {
-    if (key === "timeUnits") return timeUnits;
-    if (key === "rules") return { method: "direct" } as any;
-    if (key === "guidanceTiers") return guidanceTiers;
-    return null;
-  };
+  const mockSettingsGet =
+    (overrides: Record<string, any> = {}) =>
+    (key: string) => {
+      if (key in overrides) return overrides[key];
+      if (key === "timeUnits") return timeUnits;
+      if (key === "rules") return { method: "direct" } as any;
+      if (key === "guidanceTiers") return guidanceTiers;
+      return null;
+    };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -161,12 +164,7 @@ describe("ProjectEngine", () => {
         return null;
       });
 
-      vi.mocked(Settings.get).mockImplementation((key) => {
-        if (key === "timeUnits") return timeUnits;
-        if (key === "guidanceTiers") return guidanceTiers;
-        if (key === "rules") return { method: "direct" } as any;
-        return null;
-      });
+      vi.mocked(Settings.get).mockImplementation(mockSettingsGet());
 
       await ProjectEngine.injectActivities(item);
 
@@ -378,12 +376,7 @@ describe("ProjectEngine", () => {
         },
       };
 
-      vi.mocked(Settings.get).mockImplementation((key) => {
-        if (key === "timeUnits") return timeUnits;
-        if (key === "guidanceTiers") return guidanceTiers;
-        if (key === "rules") return { method: "direct" } as any;
-        return null;
-      });
+      vi.mocked(Settings.get).mockImplementation(mockSettingsGet());
 
       const result = await ProjectEngine.processTraining(activity as any);
 
@@ -487,17 +480,15 @@ describe("ProjectEngine", () => {
         roll: mockRoll as any,
       });
 
-      vi.mocked(Settings.get).mockImplementation((key) => {
-        if (key === "timeUnits") return timeUnits;
-        if (key === "guidanceTiers") return guidanceTiers;
-        if (key === "rules")
-          return {
+      vi.mocked(Settings.get).mockImplementation(
+        mockSettingsGet({
+          rules: {
             method: "roll",
             rollMode: "blindroll",
             checkDC: 10,
-          } as any;
-        return null;
-      });
+          },
+        }),
+      );
 
       await ProjectEngine.processTraining(activity as any);
 
@@ -603,12 +594,7 @@ describe("ProjectEngine", () => {
       };
 
       vi.mocked(TabLogic.computeProgress).mockResolvedValueOnce({ progressGained: 1 });
-      vi.mocked(Settings.get).mockImplementation((key) => {
-        if (key === "timeUnits") return timeUnits;
-        if (key === "guidanceTiers") return guidanceTiers;
-        if (key === "rules") return { method: "direct" } as any;
-        return null;
-      });
+      vi.mocked(Settings.get).mockImplementation(mockSettingsGet());
 
       await ProjectEngine.processTraining(activity as any);
 
@@ -655,12 +641,7 @@ describe("ProjectEngine", () => {
     });
 
     it("should return activities for positive target", () => {
-      vi.mocked(Settings.get).mockImplementation((key) => {
-        if (key === "timeUnits") return timeUnits;
-        if (key === "guidanceTiers") return guidanceTiers;
-        if (key === "rules") return { method: "direct" } as any;
-        return null;
-      });
+      vi.mocked(Settings.get).mockImplementation(mockSettingsGet());
       const data = ProjectEngine.getActivitiesData(10);
       expect(data).toHaveLength(3);
       const spendAllActivity = data.find((a) => a.flags[MODULE_ID]?.isSpendAll);
@@ -699,12 +680,9 @@ describe("ProjectEngine", () => {
 
       const mockProxy = { bank: { total: 10 } };
       vi.spyOn(ActorProxy, "forActor").mockReturnValue(mockProxy as any);
-      vi.mocked(Settings.get).mockImplementation((key) => {
-        if (key === "timeUnits") return [{ id: "hour", name: "Hour", ratio: 1 } as any];
-        if (key === "guidanceTiers") return guidanceTiers;
-        if (key === "rules") return { method: "direct" } as any;
-        return null;
-      });
+      vi.mocked(Settings.get).mockImplementation(
+        mockSettingsGet({ timeUnits: [{ id: "hour", name: "Hour", ratio: 1 } as any] }),
+      );
 
       const confirmSpy = vi
         .mocked(foundry.applications.api.DialogV2.confirm)

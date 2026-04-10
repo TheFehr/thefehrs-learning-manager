@@ -108,7 +108,7 @@ export interface SettingMenuConfig {
   label: string;
   hint?: string;
   icon?: string;
-  type: typeof foundry.applications.api.ApplicationV2;
+  type: new (...args: any[]) => foundry.applications.api.ApplicationV2<any, any, any>;
   restricted: boolean;
 }
 
