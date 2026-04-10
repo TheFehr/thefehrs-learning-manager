@@ -1,5 +1,5 @@
 import type { GuidanceTier, ProjectRequirement, SystemRules, TimeUnit } from "../types.js";
-import { MODULE_ID } from "../global.js";
+import { DEFAULT_DC, MODULE_ID } from "../global.js";
 
 export interface ProjectTemplate {
   id: string;
@@ -43,7 +43,7 @@ export const SETTINGS_DEFINITIONS: {
       bulkMethod: "mathematical",
       rollMode: "gmroll",
       notificationLevel: "info",
-      checkDC: 12,
+      checkDC: DEFAULT_DC,
       checkFormula: "1d20 + @abilities.int.mod + @tutelage",
       critDoubleStrategy: "any",
       critThreshold: 20,

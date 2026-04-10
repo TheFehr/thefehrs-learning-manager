@@ -1,3 +1,4 @@
+import { DEFAULT_DC } from "../global.js";
 import { Settings } from "../core/settings.js";
 import { ActorProxy } from "./actor-proxy.js";
 import { ActivityManager } from "../core/activity-manager.js";
@@ -272,13 +273,10 @@ export class ProjectEngine {
     const rules = Settings.get("rules");
     let isSeparate = false;
 
-    if (
-      !options.skipPrompt &&
-      tu.isBulk &&
-      rules.nonBulkMethod === "roll" &&
-      rules.bulkMethod !== "roll"
-    ) {
-      const bulkResult = await TabLogic.computeProgress(actor, rules, tier, tu);
+    if (!options.skipPrompt && tu.isBulk && rules.nonBulkMethod === "roll") {
+      const bulkResult = await TabLogic.computeProgress(actor, rules, tier, tu, {
+        preview: true,
+      });
       const prob = await TabLogic.calculateSuccessProbability(actor, rules, tier);
       const chancePercent = Math.round(prob * 100);
       const expectedFromSeparate = (tu.ratio * prob).toFixed(1);
@@ -414,9 +412,9 @@ export class ProjectEngine {
       }
     }
 
-    const BATCH_THRESHOLD = 5;
+    const BATCH_THRESHOLD = 12;
     if (isSeparate && tu.ratio > BATCH_THRESHOLD) {
-      const successCount = rolls.filter((r) => r.total >= (rules.checkDC ?? 12)).length;
+      const successCount = rolls.filter((r) => r.total >= (rules.checkDC ?? DEFAULT_DC)).length;
       ui.notifications?.info(
         `Training complete: Gained ${totalProgressGained} progress from ${tu.ratio} separate rolls (${successCount} successes).`,
       );
@@ -424,7 +422,7 @@ export class ProjectEngine {
       for (const r of rolls) {
         await r.toMessage(
           {
-            flavor: `${actor.name} tries to learn ${item.name} (DC ${rules.checkDC ?? 12})`,
+            flavor: `${actor.name} tries to learn ${item.name} (DC ${rules.checkDC ?? DEFAULT_DC})`,
           },
           { rollMode: (rules.rollMode || "gmroll") as foundry.dice.RollMode },
         );
@@ -493,7 +491,7 @@ export class ProjectEngine {
             <i class="fas fa-calculator"></i> <b>Bulk Method</b>: Gaining <strong>${bulkProgress}</strong> progress fixed.
           </div>
           <div style="padding: 0.5rem; border: 1px solid var(--t5e-faint-color); border-radius: 4px; background: rgba(0,0,0,0.05);">
-            <i class="fas fa-dice-d20"></i> <b>Separate Rolls</b>: Each hour has a <strong>${chancePercent}%</strong> chance of success (DC ${rules.checkDC ?? 12}).
+            <i class="fas fa-dice-d20"></i> <b>Separate Rolls</b>: Each hour has a <strong>${chancePercent}%</strong> chance of success (DC ${rules.checkDC ?? DEFAULT_DC}).
             <br><small style="opacity: 0.8;">Statistically expected progress: ${expectedFromSeparate} across ${tu.ratio} rolls.</small>
           </div>
         </div>

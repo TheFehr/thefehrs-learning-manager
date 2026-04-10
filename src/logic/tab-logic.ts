@@ -1,3 +1,4 @@
+import { DEFAULT_DC } from "../global.js";
 import { ActorProxy } from "./actor-proxy.js";
 import { isActor5e } from "../types.js";
 import type {
@@ -20,6 +21,7 @@ export class TabLogic {
     rules: SystemRules,
     tier: GuidanceTier | undefined,
     tu: TimeUnit,
+    options: { preview?: boolean } = {},
   ): Promise<{ progressGained: number; roll?: Roll<any>; reason?: string }> {
     let progressGained = 0;
     let roll: Roll<any> | undefined = undefined;
@@ -41,49 +43,57 @@ export class TabLogic {
         return { progressGained: 0, reason: "No check formula defined in rules." };
       }
 
-      try {
-        roll = await new Roll(
-          rules.checkFormula,
-          {
-            ...actor.getRollData(),
-            tutelage: tier?.modifier || 0,
-          },
-          // @ts-expect-error - Foundry Roll constructor accepts target in options
-          { target: rules.checkDC },
-        ).evaluate();
-      } catch (err) {
-        return {
-          progressGained: 0,
-          reason: `Invalid check formula: ${err instanceof Error ? err.message : String(err)}`,
-        };
-      }
+      if (options.preview) {
+        const prob = await this.calculateSuccessProbability(actor, rules, tier);
+        // If bulk, show expected progress for the one roll.
+        // If separate rolls, it's handled differently by the dialog,
+        // but for bulk preview we assume one roll.
+        progressGained = Number((1 * prob).toFixed(2));
+      } else {
+        try {
+          roll = await new Roll(
+            rules.checkFormula,
+            {
+              ...actor.getRollData(),
+              tutelage: tier?.modifier || 0,
+            },
+            // @ts-expect-error - Foundry Roll constructor accepts target in options
+            { target: rules.checkDC },
+          ).evaluate();
+        } catch (err) {
+          return {
+            progressGained: 0,
+            reason: `Invalid check formula: ${err instanceof Error ? err.message : String(err)}`,
+          };
+        }
 
-      let multiplier = 1;
-      const strategy = rules.critDoubleStrategy ?? "never";
-      const threshold = rules.critThreshold ?? 20;
+        let multiplier = 1;
+        const strategy = rules.critDoubleStrategy ?? "never";
+        const threshold = rules.critThreshold ?? 20;
 
-      if (strategy !== "never") {
-        const d20s = (roll.dice ?? []).filter((die) => die.faces === 20);
-        if (d20s.length > 0) {
-          if (strategy === "any") {
-            if (d20s.some((die) => die.results?.some((r) => r.active && r.result >= threshold)))
-              multiplier = 2;
-          } else if (strategy === "all") {
-            if (d20s.every((die) => die.results?.every((r) => r.active && r.result >= threshold)))
-              multiplier = 2;
+        if (strategy !== "never") {
+          const d20s = (roll.dice ?? []).filter((die) => die.faces === 20);
+          if (d20s.length > 0) {
+            if (strategy === "any") {
+              if (d20s.some((die) => die.results?.some((r) => r.active && r.result >= threshold)))
+                multiplier = 2;
+            } else if (strategy === "all") {
+              if (d20s.every((die) => die.results?.every((r) => r.active && r.result >= threshold)))
+                multiplier = 2;
+            }
           }
         }
-      }
 
-      if (roll.total >= (rules.checkDC || 0)) {
-        progressGained = 1 * multiplier;
-      } else {
-        reason = `Roll total ${roll.total} failed to meet DC ${rules.checkDC}.`;
+        if (roll.total >= (rules.checkDC ?? DEFAULT_DC)) {
+          progressGained = 1 * multiplier;
+        } else {
+          reason = `Roll total ${roll.total} failed to meet DC ${rules.checkDC ?? DEFAULT_DC}.`;
+        }
       }
     } else if (effectiveMethod === "mathematical") {
       const hours = tu.ratio;
       const tutelageMod = tier?.modifier || 0;
-      const dc = rules.checkDC ?? 12;
+      const dc = rules.checkDC ?? DEFAULT_DC;
       const bulkFormula =
         rules.bulkExpectedFormula ||
         "round(@hours * (22 - max(1, @dc - (@abilities.int.mod + @tutelage))) / 20)";
@@ -140,7 +150,7 @@ export class TabLogic {
     rules: SystemRules,
     tier: GuidanceTier | undefined,
   ): Promise<number> {
-    if (!rules.checkFormula || rules.checkDC == null) return 0;
+    if (!rules.checkFormula) return 0;
 
     try {
       const rollData = {
@@ -155,7 +165,7 @@ export class TabLogic {
 
       // 2. Handle the deterministic case (no dice)
       if (dice.length === 0) {
-        return roll.total >= (rules.checkDC || 0) ? 1 : 0;
+        return roll.total >= (rules.checkDC ?? DEFAULT_DC) ? 1 : 0;
       }
 
       // 3. Brute force outcomes by forcing the d20 result (1-20).
@@ -186,7 +196,9 @@ export class TabLogic {
         }),
       );
 
-      const totalSuccesses = outcomes.filter((r) => r.total >= (rules.checkDC || 0)).length;
+      const totalSuccesses = outcomes.filter(
+        (r) => r.total >= (rules.checkDC ?? DEFAULT_DC),
+      ).length;
       return totalSuccesses / 20;
     } catch (err) {
       console.error("Downtime Engine | Failed to calculate success probability:", err);

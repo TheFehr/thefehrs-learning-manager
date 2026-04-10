@@ -33,7 +33,7 @@ describe("settings-logic", () => {
         },
       };
       const validated = validateSettings(data);
-      expect(validated.rules?.checkDC).toBe(10); // default
+      expect(validated.rules?.checkDC).toBe(12); // default
       expect(validated.rules?.critThreshold).toBe(20); // default
     });
 
@@ -104,7 +104,7 @@ describe("settings-logic", () => {
       nonBulkMethod: "direct",
       bulkMethod: "direct",
       rollMode: "gmroll",
-      checkDC: 10,
+      checkDC: 12,
       checkFormula: "",
       critDoubleStrategy: "never",
       critThreshold: 20,

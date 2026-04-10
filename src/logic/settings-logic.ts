@@ -1,3 +1,4 @@
+import { DEFAULT_DC } from "../global.js";
 import { Settings, type SettingsSchema } from "../core/settings.js";
 import { Logger } from "../core/notifications.js";
 import type { SystemRules, TimeUnit, GuidanceTier, NotificationLevel } from "../types.js";
@@ -141,22 +142,22 @@ export function validateSettings(data: unknown) {
         ? (bulkMethod as "roll" | "direct" | "mathematical")
         : "direct",
       rollMode: typeof rawRules.rollMode === "string" ? rawRules.rollMode : "gmroll",
-      checkDC:
-        typeof rawRules.checkDC === "number" && Number.isFinite(rawRules.checkDC)
-          ? rawRules.checkDC
-          : 10,
+      checkDC: (() => {
+        const val = Number(rawRules.checkDC);
+        return Number.isFinite(val) ? val : DEFAULT_DC;
+      })(),
       checkFormula: typeof rawRules.checkFormula === "string" ? rawRules.checkFormula : "",
       critDoubleStrategy: ["any", "all", "never"].includes(String(rawRules.critDoubleStrategy))
         ? (rawRules.critDoubleStrategy as "any" | "all" | "never")
         : "never",
-      critThreshold:
-        typeof rawRules.critThreshold === "number" && Number.isFinite(rawRules.critThreshold)
-          ? rawRules.critThreshold
-          : 20,
+      critThreshold: (() => {
+        const val = Number(rawRules.critThreshold);
+        return Number.isFinite(val) ? val : 20;
+      })(),
       bulkExpectedFormula:
         typeof rawRules.bulkExpectedFormula === "string"
           ? rawRules.bulkExpectedFormula
-          : "round(@hours * (22 - max(1, @dc - @mod)) / 20)",
+          : "round(@hours * (22 - max(1, @dc - (@abilities.int.mod + @tutelage))) / 20)",
       notificationLevel: ["none", "error", "info", "debug"].includes(
         String(rawRules.notificationLevel),
       )
