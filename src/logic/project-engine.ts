@@ -283,16 +283,37 @@ export class ProjectEngine {
     let isSeparate = false;
 
     const isBulkRoll = rules.bulkMethod === "roll";
-    if (!options.skipPrompt && tu.isBulk && (rules.nonBulkMethod === "roll" || isBulkRoll)) {
+    const isSeparateRoll = rules.nonBulkMethod === "roll";
+
+    if (!options.skipPrompt && tu.isBulk && (isSeparateRoll || isBulkRoll)) {
       const bulkResult = await TabLogic.computeProgress(actor, rules, tier, tu, {
         preview: true,
       });
-      const prob = await TabLogic.calculateSuccessProbability(actor, rules, tier);
-      const expectedPerRoll = await TabLogic.calculateExpectedProgress(actor, rules, tier);
-      const chancePercent = prob === null ? "unavailable" : Math.round(prob * 100);
-      const expectedFromSeparate = isNaN(expectedPerRoll)
-        ? "unavailable"
-        : (tu.ratio * expectedPerRoll).toFixed(1);
+
+      let chancePercent: string | number = "unavailable";
+      let separateValue: string | number = "unavailable";
+      let expectedPerRoll: number = NaN;
+
+      if (isSeparateRoll || isBulkRoll) {
+        expectedPerRoll = await TabLogic.calculateExpectedProgress(actor, rules, tier);
+      }
+
+      if (isSeparateRoll) {
+        const prob = await TabLogic.calculateSuccessProbability(actor, rules, tier);
+        chancePercent = prob === null ? "unavailable" : Math.round(prob * 100);
+        separateValue = isNaN(expectedPerRoll)
+          ? "unavailable"
+          : (tu.ratio * expectedPerRoll).toFixed(1);
+      } else {
+        const sepResult = await TabLogic.computeProgress(
+          actor,
+          rules,
+          tier,
+          { ...tu, isBulk: false, ratio: 1 },
+          { preview: true },
+        );
+        separateValue = tu.ratio * (sepResult.progressGained || 0);
+      }
 
       const bulkValue = isBulkRoll
         ? isNaN(expectedPerRoll)
@@ -306,16 +327,21 @@ export class ProjectEngine {
           tu,
           bulkValue,
           chancePercent,
-          expectedFromSeparate,
+          separateValue,
           rules,
           isBulkRoll,
+          isSeparateRoll,
         ),
         buttons: [
           { action: "bulk", label: `Use Bulk`, icon: "fas fa-calculator" },
           {
             action: "separate",
-            label: tu.ratio > 5 ? `Roll separately (${tu.ratio} rolls!)` : `Roll separately`,
-            icon: "fas fa-dice-d20",
+            label: isSeparateRoll
+              ? tu.ratio > 5
+                ? `Roll separately (${tu.ratio} rolls!)`
+                : `Roll separately`
+              : `Process separately`,
+            icon: isSeparateRoll ? "fas fa-dice-d20" : "fas fa-list-ol",
           },
         ],
         rejectClose: false,
@@ -504,15 +530,21 @@ export class ProjectEngine {
     tu: TimeUnit,
     bulkValue: string | number,
     chancePercent: string | number,
-    expectedFromSeparate: string,
+    separateValue: string | number,
     rules: SystemRules,
     isBulkRoll: boolean = false,
+    isSeparateRoll: boolean = true,
   ): string {
     const safeTuName = foundry.utils.escapeHTML(tu.name);
     const bulkMethodLabel = isBulkRoll ? "Expected progress" : "Gaining";
     const bulkMethodValue = isBulkRoll
       ? `<strong>${bulkValue}</strong> (one roll)`
       : `<strong>${bulkValue}</strong> progress fixed`;
+
+    const sepMethodLabel = isSeparateRoll ? "Expected progress" : "Gaining";
+    const sepMethodValue = isSeparateRoll
+      ? `<strong>${separateValue}</strong> across ${tu.ratio} rolls`
+      : `<strong>${separateValue}</strong> progress fixed`;
 
     return `
       <div style="margin-bottom: 1rem;">
@@ -522,16 +554,20 @@ export class ProjectEngine {
             <i class="fas fa-calculator"></i> <b>Bulk Method</b>: ${bulkMethodLabel} ${bulkMethodValue}.
           </div>
           <div style="padding: 0.5rem; border: 1px solid var(--t5e-faint-color); border-radius: 4px; background: rgba(0,0,0,0.05);">
-            <i class="fas fa-dice-d20"></i> <b>Separate Rolls</b>: ${
-              chancePercent === "unavailable"
-                ? "Probability unavailable"
-                : `Each hour has a <strong>${chancePercent}%</strong> chance of success (DC ${Number(
-                    rules.checkDC ?? DEFAULT_DC,
-                  )}).`
-            }
-            <br><small style="opacity: 0.8;">Statistically expected progress: ${expectedFromSeparate} across ${tu.ratio} rolls.</small>
+            <i class="${isSeparateRoll ? "fas fa-dice-d20" : "fas fa-list-ol"}"></i> <b>Separate Method</b>: ${sepMethodLabel} ${sepMethodValue}.
             ${
-              tu.ratio > 5
+              isSeparateRoll
+                ? `<br><small style="opacity: 0.8;">${
+                    chancePercent === "unavailable"
+                      ? "Probability unavailable"
+                      : `Each hour has a <strong>${chancePercent}%</strong> chance of success (DC ${Number(
+                          rules.checkDC ?? DEFAULT_DC,
+                        )}).`
+                  }</small>`
+                : ""
+            }
+            ${
+              isSeparateRoll && tu.ratio > 5
                 ? `<br><small style="color: #8a6d3b;"><i class="fas fa-exclamation-triangle"></i> Note: This will trigger ${
                     tu.ratio
                   } separate ${
