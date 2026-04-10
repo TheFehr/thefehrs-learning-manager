@@ -231,9 +231,9 @@ export class TabLogic {
     actor: LearningActor,
     rules: SystemRules,
     tier: GuidanceTier | undefined,
-  ): Promise<number> {
+  ): Promise<number | null> {
     const res = await this._getOutcomes(actor, rules, tier);
-    if (!res) return 0;
+    if (!res) return null;
     const dc = Number(rules.checkDC ?? DEFAULT_DC);
     const successCount = res.rolls.filter((r) => r.total >= dc).length;
     return successCount / 20;

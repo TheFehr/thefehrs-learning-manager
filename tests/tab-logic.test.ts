@@ -285,10 +285,10 @@ describe("TabLogic", () => {
       expect(prob).toBe(1);
     });
 
-    it("should return 0 for complex formulas", async () => {
+    it("should return null for complex formulas", async () => {
       const complexRules = { checkFormula: "2d20kh1", checkDC: 15 } as any;
       const prob = await TabLogic.calculateSuccessProbability(actor, complexRules, tier);
-      expect(prob).toBe(0);
+      expect(prob).toBeNull();
     });
   });
 

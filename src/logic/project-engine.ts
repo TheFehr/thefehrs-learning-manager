@@ -282,25 +282,33 @@ export class ProjectEngine {
     const rules = Settings.get("rules");
     let isSeparate = false;
 
-    if (!options.skipPrompt && tu.isBulk && rules.nonBulkMethod === "roll") {
+    const isBulkRoll = rules.bulkMethod === "roll";
+    if (!options.skipPrompt && tu.isBulk && (rules.nonBulkMethod === "roll" || isBulkRoll)) {
       const bulkResult = await TabLogic.computeProgress(actor, rules, tier, tu, {
         preview: true,
       });
       const prob = await TabLogic.calculateSuccessProbability(actor, rules, tier);
       const expectedPerRoll = await TabLogic.calculateExpectedProgress(actor, rules, tier);
-      const chancePercent = Math.round(prob * 100);
+      const chancePercent = prob === null ? "unavailable" : Math.round(prob * 100);
       const expectedFromSeparate = isNaN(expectedPerRoll)
         ? "unavailable"
         : (tu.ratio * expectedPerRoll).toFixed(1);
+
+      const bulkValue = isBulkRoll
+        ? isNaN(expectedPerRoll)
+          ? "unavailable"
+          : expectedPerRoll.toFixed(2)
+        : bulkResult.progressGained;
 
       const choice = await foundry.applications.api.DialogV2.wait({
         window: { title: `Training Resolution: ${tu.name}` },
         content: this._renderTrainingResolutionDialog(
           tu,
-          bulkResult.progressGained,
+          bulkValue,
           chancePercent,
           expectedFromSeparate,
           rules,
+          isBulkRoll,
         ),
         buttons: [
           { action: "bulk", label: `Use Bulk`, icon: "fas fa-calculator" },
@@ -494,21 +502,33 @@ export class ProjectEngine {
 
   private static _renderTrainingResolutionDialog(
     tu: TimeUnit,
-    bulkProgress: number,
-    chancePercent: number,
+    bulkValue: string | number,
+    chancePercent: string | number,
     expectedFromSeparate: string,
     rules: SystemRules,
+    isBulkRoll: boolean = false,
   ): string {
     const safeTuName = foundry.utils.escapeHTML(tu.name);
+    const bulkMethodLabel = isBulkRoll ? "Expected progress" : "Gaining";
+    const bulkMethodValue = isBulkRoll
+      ? `<strong>${bulkValue}</strong> (one roll)`
+      : `<strong>${bulkValue}</strong> progress fixed`;
+
     return `
       <div style="margin-bottom: 1rem;">
         <p>How would you like to resolve this <b>${safeTuName}</b> session?</p>
         <div style="display: flex; gap: 1rem; flex-direction: column;">
           <div style="padding: 0.5rem; border: 1px solid var(--t5e-faint-color); border-radius: 4px; background: rgba(0,0,0,0.05);">
-            <i class="fas fa-calculator"></i> <b>Bulk Method</b>: Gaining <strong>${bulkProgress}</strong> progress fixed.
+            <i class="fas fa-calculator"></i> <b>Bulk Method</b>: ${bulkMethodLabel} ${bulkMethodValue}.
           </div>
           <div style="padding: 0.5rem; border: 1px solid var(--t5e-faint-color); border-radius: 4px; background: rgba(0,0,0,0.05);">
-            <i class="fas fa-dice-d20"></i> <b>Separate Rolls</b>: Each hour has a <strong>${chancePercent}%</strong> chance of success (DC ${Number(rules.checkDC ?? DEFAULT_DC)}).
+            <i class="fas fa-dice-d20"></i> <b>Separate Rolls</b>: ${
+              chancePercent === "unavailable"
+                ? "Probability unavailable"
+                : `Each hour has a <strong>${chancePercent}%</strong> chance of success (DC ${Number(
+                    rules.checkDC ?? DEFAULT_DC,
+                  )}).`
+            }
             <br><small style="opacity: 0.8;">Statistically expected progress: ${expectedFromSeparate} across ${tu.ratio} rolls.</small>
             ${
               tu.ratio > 5

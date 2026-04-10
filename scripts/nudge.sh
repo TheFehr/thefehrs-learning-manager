@@ -16,7 +16,7 @@ echo -e "\n${YELLOW}🔍 Running background health checks (Types & Tests)...${NC
 HAS_FAILURE=0
 
 # Run tsc
-if ! npx tsc > /dev/null 2>&1; then
+if ! npx tsc --noEmit > /dev/null 2>&1; then
   echo -e "⚠️  ${RED}[NUDGE] TypeScript check failed!${NC} You might have introduced type-breaking changes."
   HAS_FAILURE=1
 fi
