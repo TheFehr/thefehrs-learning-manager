@@ -14,7 +14,7 @@ export async function saveSettings(
   allowedCompendiums: string[],
   autoSpend?: boolean,
   autoSpendUnits?: string[],
-) {
+): Promise<boolean> {
   const isGM = game.user?.isGM;
 
   // Define what we're trying to change
@@ -31,7 +31,7 @@ export async function saveSettings(
 
   if (Object.keys(toSave).length === 0) {
     Logger.info("No settings to save.");
-    return;
+    return true;
   }
 
   // Snapshot current values for potential rollback
@@ -60,10 +60,11 @@ export async function saveSettings(
     }
 
     Logger.error("Failed to save settings: " + (err instanceof Error ? err.message : String(err)));
-    return;
+    return false;
   }
 
   Logger.info("Settings saved successfully.", true);
+  return true;
 }
 
 /**
@@ -74,9 +75,10 @@ export async function ensureCategoryExists(category: string): Promise<void> {
   const categories = Settings.get("categories") || [];
   if (categories.includes(category)) return;
 
+  const escapedCategory = (foundry.utils as any).encodeHTML(category);
   const confirm = await foundry.applications.api.DialogV2.confirm({
     window: { title: "Downtime Engine | New Category" },
-    content: `<p>The category "<strong>${category}</strong>" is not in the global list. Would you like to add it?</p>`,
+    content: `<p>The category "<strong>${escapedCategory}</strong>" is not in the global list. Would you like to add it?</p>`,
     rejectClose: false,
     modal: true,
   });

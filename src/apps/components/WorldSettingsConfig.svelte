@@ -5,6 +5,7 @@
   import TimeUnitsConfig from "./TimeUnitsConfig.svelte";
   import { validateSettings, type PackInfo } from "../../logic/settings-logic.js";
   import { TutelageResolverService } from "../../logic/tutelage-resolver.js";
+  import { Logger } from "../../core/logger.js";
 
   let {
     rules = $bindable(),
@@ -90,7 +91,7 @@
 
         reader.onerror = () => {
           ui.notifications?.error("Downtime Engine | Failed to read settings file.");
-          console.error("Downtime Engine | FileReader error:", reader.error);
+          Logger.error("FileReader error:", reader.error);
           readerCleanup();
         };
         reader.onabort = () => {
@@ -122,7 +123,7 @@
               const msg = err instanceof Error ? err.message : String(err);
               ui.notifications?.error(`Downtime Engine | Failed to import settings: ${msg}`);
             }
-            console.error("Downtime Engine | Import error:", err);
+            Logger.error("Import error:", err);
           } finally {
             readerCleanup();
           }
@@ -132,13 +133,13 @@
           reader.readAsText(file);
         } catch (err) {
           ui.notifications?.error("Downtime Engine | Failed to start reading settings file.");
-          console.error("Downtime Engine | FileReader sync error:", err);
+          Logger.error("FileReader sync error:", err);
           readerCleanup();
         }
       };
       input.click();
     } catch (err) {
-      console.error("Downtime Engine | Failed to initialize settings import:", err);
+      Logger.error("Failed to initialize settings import:", err);
       if (input.parentNode) input.remove();
     }
   }

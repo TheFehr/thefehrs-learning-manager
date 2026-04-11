@@ -1,3 +1,5 @@
+import { Logger } from "./logger.js";
+
 export class ProjectUI {
   static generateProgressHtml(progress: number, target: number, tutelageName: string): string {
     const p = Number.isFinite(progress) ? Math.max(0, progress) : 0;
@@ -36,7 +38,7 @@ export class ProjectUI {
 
       return clean.trim();
     } catch (err) {
-      console.error("learning-manager | Failed to parse HTML for stripping:", err);
+      Logger.error("Failed to parse HTML for stripping:", err);
       return html
         .replace(
           /<!-- learning-manager:progress-start -->[\s\S]*?<!-- learning-manager:progress-end -->/g,

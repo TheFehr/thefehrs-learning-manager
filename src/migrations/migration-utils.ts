@@ -1,4 +1,5 @@
 import { MODULE_ID } from "../global.js";
+import { Logger } from "../core/logger.js";
 
 interface Actor5e {
   name: string;
@@ -142,7 +143,7 @@ export async function createProjectItemFromTemplate(
   try {
     rewardDoc = await fromUuid(rewardUuid as any);
   } catch (e) {
-    console.warn(`Downtime Engine | fromUuid failed for ${rewardUuid}:`, e);
+    Logger.warn(`fromUuid failed for ${rewardUuid}:`, e);
   }
 
   let itemData: any;
@@ -171,8 +172,8 @@ export async function createProjectItemFromTemplate(
   // Fallback: Placeholder for missing/invalid link
   else {
     const missingName = projectData.name || "Unknown Project";
-    console.warn(
-      `Downtime Engine | Migration: Could not resolve reward Item or Effect for project ${missingName} (UUID: ${rewardUuid}). Creating placeholder to preserve progress.`,
+    Logger.warn(
+      `Migration: Could not resolve reward Item or Effect for project ${missingName} (UUID: ${rewardUuid}). Creating placeholder to preserve progress.`,
     );
     itemData = {
       name: "[MISSING REWARD] " + missingName,
@@ -249,9 +250,7 @@ export async function createProjectItemFromTemplate(
   };
 
   if (typeof (actor as any).createEmbeddedDocuments !== "function") {
-    console.error(
-      `Downtime Engine | Actor ${actor.name} is missing createEmbeddedDocuments method.`,
-    );
+    Logger.error(`Actor ${actor.name} is missing createEmbeddedDocuments method.`);
     return null;
   }
 
@@ -260,7 +259,7 @@ export async function createProjectItemFromTemplate(
 
   const createdItem = created as any;
   if (!projectData.isCompleted) {
-    console.debug(`Downtime Engine | Migration: Injecting activities for ${createdItem.name}`);
+    Logger.debug(`Migration: Injecting activities for ${createdItem.name}`);
     await injectActivities(createdItem as any, projectDataWithTarget.target);
   }
 

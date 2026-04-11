@@ -38,6 +38,7 @@ vi.mock("../src/logic/project-engine", () => ({
 
 vi.mock("../src/migrations/migration", () => ({
   migrateData: vi.fn().mockResolvedValue(undefined),
+  registerMigrationSettings: vi.fn(),
 }));
 
 describe("LearningManager", () => {

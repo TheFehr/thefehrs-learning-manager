@@ -36,6 +36,7 @@ import type {
 } from "@dnd5e/data/shared/_types.mjs";
 import type { ActivityData } from "@dnd5e/data/activity/_types.mjs";
 import type { Tidy5eSheetsApi } from "@tidy5e/api/Tidy5eSheetsApi.js";
+import { Logger } from "./core/logger.js";
 import type {
   ProjectFlagData,
   ProjectRequirement,
@@ -287,7 +288,7 @@ export function getModuleAPI<T extends string & keyof ModuleAPIs>(
 
   const validator = validators[id];
   if (validator && !validator(api)) {
-    console.warn(`Downtime Engine | Module API shape mismatch for ${id}. Disabling integration.`);
+    Logger.warn(`Module API shape mismatch for ${id}. Disabling integration.`);
     return undefined;
   }
 

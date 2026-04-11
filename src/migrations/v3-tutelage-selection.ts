@@ -1,4 +1,5 @@
 import { MODULE_ID } from "../global.js";
+import { Logger } from "../core/logger.js";
 
 interface GuidanceTier {
   id: string;
@@ -35,18 +36,19 @@ declare module "fvtt-types/configuration" {
 export async function migrateToV3() {
   const rawTiers = game.settings.get(MODULE_ID, "guidanceTiers") as unknown as GuidanceTier[];
   if (!rawTiers || rawTiers.length === 0) {
-    console.debug(`${MODULE_ID} | No legacy guidance tiers found, skipping migration.`);
+    Logger.debug("No legacy guidance tiers found, skipping migration.");
     await game.settings.set(MODULE_ID, "migrationVersion", "3.0.0");
     return;
   }
 
-  console.debug(`${MODULE_ID} | Starting migration v3 (Tutelage Selection System)...`);
+  Logger.debug("Starting migration v3 (Tutelage Selection System)...");
 
   // 1. Scan for used tutelageIds
   const usedTierIds = new Set<string>();
   const actorsWithProjects: any[] = [];
+  const actors = game.actors?.contents || [];
 
-  for (const actor of game.actors as any) {
+  for (const actor of actors as any[]) {
     const projects = (actor.items as any[]).filter((i) =>
       i.getFlag(MODULE_ID, "isLearningProject"),
     );
@@ -62,7 +64,7 @@ export async function migrateToV3() {
   }
 
   if (usedTierIds.size === 0) {
-    console.debug(`${MODULE_ID} | No projects using guidance tiers found. Just clearing settings.`);
+    Logger.debug("No projects using guidance tiers found. Just clearing settings.");
     await game.settings.set(MODULE_ID, "migrationVersion", "3.0.0");
     return;
   }
@@ -89,7 +91,9 @@ export async function migrateToV3() {
   });
 
   if (!confirmed) {
-    console.warn(`${MODULE_ID} | GM declined migration. Skipping for now.`);
+    // Leaving migrationVersion unchanged is intentional so the required migration
+    // will prompt again on next load.
+    Logger.warn("GM declined migration. Skipping for now.");
     return;
   }
 
@@ -98,7 +102,7 @@ export async function migrateToV3() {
   const bookPack = await getOrCreateCompendium("Item", "Legacy Tutelage: Books");
 
   if (!instructorPack || !bookPack) {
-    console.error(`${MODULE_ID} | Migration failed: Could not create/access recovery compendiums.`);
+    Logger.error("Migration failed: Could not create/access recovery compendiums.");
     return;
   }
 

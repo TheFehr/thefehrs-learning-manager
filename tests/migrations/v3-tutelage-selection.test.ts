@@ -19,7 +19,7 @@ describe("v3-tutelage-selection migration", () => {
         get: vi.fn(),
         set: vi.fn().mockResolvedValue(true),
       },
-      actors: [],
+      actors: { contents: [] },
       packs: packs,
       system: { id: "dnd5e" },
     };
@@ -86,7 +86,7 @@ describe("v3-tutelage-selection migration", () => {
 
     const actor = new Actor() as any;
     actor.items = [project];
-    (game.actors as any[]).push(actor);
+    (game.actors.contents as any[]).push(actor);
 
     const pack = {
       metadata: { id: "pack.id", collection: "pack" },
@@ -127,7 +127,7 @@ describe("v3-tutelage-selection migration", () => {
 
     const actor = new Actor() as any;
     actor.items = [project];
-    (game.actors as any[]).push(actor);
+    (game.actors.contents as any[]).push(actor);
 
     const pack = {
       metadata: { id: "pack.id", collection: "pack" },
@@ -165,7 +165,7 @@ describe("v3-tutelage-selection migration", () => {
 
     const actor = new Actor() as any;
     actor.items = [project];
-    (game.actors as any[]).push(actor);
+    (game.actors.contents as any[]).push(actor);
 
     const pack = {
       metadata: { id: "pack.id", collection: "pack" },
@@ -220,7 +220,7 @@ describe("v3-tutelage-selection migration", () => {
 
     const actor = new Actor() as any;
     actor.items = [project];
-    (game.actors as any[]).push(actor);
+    (game.actors.contents as any[]).push(actor);
 
     const pack = { metadata: { id: "pack.id" }, collection: "pack" };
     vi.mocked(game.packs.find).mockReturnValue(pack);

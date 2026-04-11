@@ -138,7 +138,7 @@ export class TutelageResolverService {
       // Filter by compendium if configured
       if (bookCompendiums.length > 0) {
         const sourceId = item.getFlag("core", "sourceId") as string | undefined;
-        if (!sourceId) continue;
+        if (!sourceId || !sourceId.startsWith("Compendium.")) continue;
         const parts = sourceId.split(".");
         if (parts.length < 3) continue;
         const packId = `${parts[1]}.${parts[2]}`;

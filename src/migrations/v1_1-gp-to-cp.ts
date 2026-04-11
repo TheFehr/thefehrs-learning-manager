@@ -1,4 +1,5 @@
 import { MODULE_ID } from "../global.js";
+import { Logger } from "../core/logger.js";
 
 interface GuidanceTier {
   id: string;
@@ -21,7 +22,7 @@ declare module "fvtt-types/configuration" {
  */
 export async function migrateV1_1GpToCp() {
   try {
-    const tiers = (game.settings.get(MODULE_ID, "guidanceTiers") as unknown as any[]) || [];
+    const tiers = (game.settings.get(MODULE_ID, "guidanceTiers") as unknown as any[]) ?? [];
     let tiersUpdated = false;
     for (const tier of tiers) {
       if (tier._migratedToV2 && !tier._migratedGpToCp) {
@@ -39,7 +40,7 @@ export async function migrateV1_1GpToCp() {
       await game.settings.set(MODULE_ID, "guidanceTiers", tiers);
     }
   } catch (error) {
-    console.error("Downtime Engine v1.1 migration failed:", error);
+    Logger.error("v1.1 migration failed:", error);
     throw error;
   }
 }

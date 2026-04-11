@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { SystemRules } from "../../types";
   import { onMount } from "svelte";
+  import { Logger } from "../../core/logger.js";
 
   let { rules = $bindable({
     nonBulkMethod: 'roll',
@@ -40,7 +41,7 @@
         if (typeof value === "string" || (typeof value === "object" && value !== null && "label" in value)) {
           updatedModes[key] = value;
         } else {
-          console.warn(`Downtime Engine | RulesConfig: Received invalid roll mode config for key "${key}":`, value);
+          Logger.warn(`RulesConfig: Received invalid roll mode config for key "${key}":`, value);
         }
       }
       rollModes = updatedModes;

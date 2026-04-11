@@ -1,4 +1,5 @@
 import { Settings } from "./settings.js";
+import { Logger } from "./logger.js";
 import { createBaseActivityTemplate } from "./constants.js";
 import type { Actor5e, Item5e, ActivityData5e } from "../types.js";
 import type { ProjectItem } from "../logic/project-item.js";
@@ -65,8 +66,8 @@ export class ActivityManager {
     const target = forceTarget ?? projectData?.target ?? 0;
 
     if (!projectData && forceTarget === undefined) {
-      console.warn(
-        `Downtime Engine | Cannot inject activities for "${(item as unknown as Item).name}" - missing projectData flag.`,
+      Logger.warn(
+        `Cannot inject activities for "${(item as unknown as Item).name}" - missing projectData flag.`,
       );
       return false;
     }
@@ -95,8 +96,8 @@ export class ActivityManager {
       }
 
       if (activitiesData.length === 0) {
-        console.debug(
-          `Downtime Engine | Clearing activities for "${(item as unknown as Item).name}" (target is ${target}).`,
+        Logger.debug(
+          `Clearing activities for "${(item as unknown as Item).name}" (target is ${target}).`,
         );
       } else {
         // 2. Add the new activities (IDs already generated in getActivitiesData)
@@ -107,17 +108,12 @@ export class ActivityManager {
 
       if (Object.keys(activityUpdates).length > 0) {
         await item.update({ "system.activities": activityUpdates } as any);
-        console.debug(
-          `Downtime Engine | Successfully synced activities for "${(item as unknown as Item).name}".`,
-        );
+        Logger.debug(`Successfully synced activities for "${(item as unknown as Item).name}".`);
         return true;
       }
       return false;
     } catch (err) {
-      console.error(
-        `Downtime Engine | Failed to create activities for "${(item as unknown as Item).name}":`,
-        err,
-      );
+      Logger.error(`Failed to create activities for "${(item as unknown as Item).name}":`, err);
       throw err;
     }
   }
@@ -147,8 +143,8 @@ export class ActivityManager {
             updatedCount++;
           }
         } catch (err) {
-          console.error(
-            `Downtime Engine | Failed to sync activities for item "${item.name}" on actor "${actor.name}":`,
+          Logger.error(
+            `Failed to sync activities for item "${item.name}" on actor "${actor.name}":`,
             err,
           );
           failedCount++;

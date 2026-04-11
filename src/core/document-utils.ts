@@ -11,7 +11,7 @@ export class DocumentUtils {
    *
    * @param doc The document to update (Actor, Item, etc.).
    * @param flags A record of flag keys and values to set.
-   * @returns A promise that resolves when the update is complete.
+   * @returns A promise that resolves to `true` if the update succeeded, otherwise `false`.
    */
   static async setFlagsSilently(doc: any, flags: Record<string, unknown>): Promise<boolean> {
     if (!doc || typeof doc.update !== "function") {
@@ -41,7 +41,7 @@ export class DocumentUtils {
    *
    * @param doc The document to update.
    * @param data The data to update.
-   * @returns A promise that resolves when the update is complete.
+   * @returns A promise that resolves to `true` if the update succeeded, otherwise `false`.
    */
   static async updateSilently(doc: any, data: Record<string, unknown>): Promise<boolean> {
     if (!doc || typeof doc.update !== "function") {

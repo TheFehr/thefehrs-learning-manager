@@ -138,7 +138,7 @@ export class ProjectLifecycle {
           stashedSourceUuid as `Item.${string}`,
         )) as unknown as Item | null;
       } catch (e) {
-        console.warn(`Downtime Engine | Could not find source item ${stashedSourceUuid}:`, e);
+        Logger.warn(`Could not find source item ${stashedSourceUuid}:`, e);
       }
     }
 
@@ -170,7 +170,7 @@ export class ProjectLifecycle {
     }
 
     // Fallback Restoration: Restore in-place (or recreate if type differs)
-    console.warn(`Downtime Engine | Falling back to in-place restoration for ${item.name}`);
+    Logger.warn(`Falling back to in-place restoration for ${item.name}`);
 
     const stashedType = projectDataFlags.stashedType || item.type;
     const needsTypeChange = stashedType !== item.type;
@@ -185,8 +185,8 @@ export class ProjectLifecycle {
       );
       // If type change failed, we should NOT fall back to updateInPlace as it would use the wrong type
       if (!success) {
-        console.error(
-          `Downtime Engine | Type change recreation failed for ${
+        Logger.error(
+          `Type change recreation failed for ${
             projectDataFlags.stashedName || item.name
           }. Completion aborted.`,
         );
@@ -222,18 +222,17 @@ export class ProjectLifecycle {
       const [created] = await actor.createEmbeddedDocuments("Item", [createData]);
 
       if (created) {
-        return this.handlePostCreationCleanup(
+        await this.handlePostCreationCleanup(
           actor,
           item,
           created as Item,
           Settings.get("rules").rollMode || "gmroll",
         );
+        return true;
       }
     } else {
-      console.warn(
-        `Downtime Engine | sourceItem is not a valid Item. documentName: ${
-          (sourceItem as any)?.documentName
-        }`,
+      Logger.warn(
+        `sourceItem is not a valid Item. documentName: ${(sourceItem as any)?.documentName}`,
       );
     }
     return false;
@@ -253,17 +252,14 @@ export class ProjectLifecycle {
     try {
       await oldItem.delete();
     } catch (err) {
-      console.error(
-        `Downtime Engine | Failed to delete original project item after restoration. New item created: ${createdItem.name} (${createdItem.id})`,
+      Logger.error(
+        `Failed to delete original project item after restoration. New item created: ${createdItem.name} (${createdItem.id})`,
         err,
       );
-      ui.notifications?.error(
-        `Downtime Engine | Failed to remove the in-progress project item. You may have a duplicate item: "${createdItem.name}" (ID: ${createdItem.id}). Please remove the old one manually.`,
+      ui.notifications?.warn(
+        `Restored item "${createdItem.name}" but could not delete the original project item. You may have a duplicate.`,
       );
-      // We return true here because the new item WAS successfully created.
-      // Returning false would trigger redundant fallback restoration paths in completeProject,
-      // potentially creating even more duplicate items.
-      return true;
+      return false;
     }
     ui.notifications?.info(`Learning Complete: ${createdItem.name} is now fully available!`);
     if (typeof (createdItem as any).displayCard === "function") {
@@ -309,12 +305,13 @@ export class ProjectLifecycle {
     const [created] = await actor.createEmbeddedDocuments("Item", [clonedData as any]);
 
     if (created) {
-      return this.handlePostCreationCleanup(
+      await this.handlePostCreationCleanup(
         actor,
         item,
         created as unknown as Item,
         Settings.get("rules").rollMode || "gmroll",
       );
+      return true;
     }
     return false;
   }
@@ -371,11 +368,9 @@ export class ProjectLifecycle {
       // 1. Update basic data, nested system, flags and activity removals atomically
       await item.update(primaryUpdate);
     } catch (err) {
-      console.error(`Downtime Engine | Failed to update item in-place:`, err);
+      Logger.error(`Failed to update item in-place:`, err);
       ui.notifications?.error(
-        `Downtime Engine | Failed to complete project in-place for ${
-          item.name
-        }. See console for details.`,
+        `Failed to complete project in-place for ${item.name}. See console for details.`,
       );
       return false;
     }

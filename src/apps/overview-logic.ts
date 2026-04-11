@@ -1,5 +1,6 @@
 import { MODULE_ID } from "../global.js";
 import { Settings } from "../core/settings.js";
+import { Logger } from "../core/logger.js";
 import type { Item5e } from "../types.js";
 import type { ProjectFlagData } from "../logic/project-item.js";
 
@@ -80,7 +81,7 @@ export async function getInvalidProjects(): Promise<InvalidProjectReason[]> {
   for (const packId of allowedCompendiums) {
     const pack = game.packs.get(packId);
     if (!pack) {
-      console.warn(`Downtime Engine | Configured compendium "${packId}" not found.`);
+      Logger.warn(`Configured compendium "${packId}" not found.`);
       continue;
     }
 
@@ -118,10 +119,7 @@ export async function getInvalidProjects(): Promise<InvalidProjectReason[]> {
             });
           }
         } catch (error) {
-          console.warn(
-            `Downtime Engine | Failed to load document "${indexEntry._id}" from "${packId}":`,
-            error,
-          );
+          Logger.warn(`Failed to load document "${indexEntry._id}" from "${packId}":`, error);
           // Use index data as fallback for display
           invalidProjects.push({
             item: { name: indexEntry.name || "Unknown Item" },

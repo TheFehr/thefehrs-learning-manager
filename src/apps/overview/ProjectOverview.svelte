@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { getInvalidProjects, type InvalidProjectReason } from "../overview-logic.js";
+  import { Logger } from "../../core/logger.js";
 
   let invalidProjects = $state<InvalidProjectReason[]>([]);
   let isLoading = $state(true);
@@ -12,7 +13,7 @@
       errorMessage = null;
       invalidProjects = await getInvalidProjects();
     } catch (error) {
-      console.error("Downtime Engine | Error fetching invalid projects:", error);
+      Logger.error("Error fetching invalid projects:", error);
       errorMessage = "Failed to load invalid projects. Check console for details.";
     }
   }
@@ -31,7 +32,7 @@
 
   function openItemSheet(item: any) {
     if (!item?.sheet) {
-      console.warn("Downtime Engine | Cannot open sheet: item or sheet is undefined");
+      Logger.warn("Cannot open sheet: item or sheet is undefined");
       return;
     }
     item.sheet.render(true);

@@ -1,4 +1,5 @@
 import { MODULE_ID } from "../global";
+import { Logger } from "../core/logger.js";
 
 interface LegacyRules {
   method?: string;
@@ -85,7 +86,7 @@ export async function migrateToV2_1() {
     }
 
     // 3. Operator Migration: Actor Items
-    const actors = (game.actors as unknown as any[]) || [];
+    const actors = game.actors?.contents || [];
     for (const actor of actors) {
       const projects = actor.items.filter(
         (i: any) =>
@@ -152,17 +153,14 @@ export async function migrateToV2_1() {
           }
         }
       } catch (err) {
-        console.error(`Downtime Engine | Failed to migrate compendium pack ${packId}:`, err);
+        Logger.error(`Failed to migrate compendium pack ${packId}:`, err);
         hasFailures = true;
       } finally {
         if (wasLocked) {
           try {
             await pack.configure({ locked: true });
           } catch (lockErr) {
-            console.error(
-              `Downtime Engine | Failed to re-lock compendium pack ${packId}:`,
-              lockErr,
-            );
+            Logger.error(`Failed to re-lock compendium pack ${packId}:`, lockErr);
             hasFailures = true;
           }
         }
@@ -176,7 +174,7 @@ export async function migrateToV2_1() {
     await game.settings.set(MODULE_ID, "migrationVersion", "2.1.0");
     ui.notifications?.info("Downtime Engine: Migration to v2.1.0 complete.");
   } catch (err) {
-    console.error("Downtime Engine | Migration to v2.1.0 failed:", err);
+    Logger.error("Migration to v2.1.0 failed:", err);
     ui.notifications?.error(
       "Downtime Engine: Migration to v2.1.0 failed. Check console for details.",
     );
@@ -203,7 +201,7 @@ export async function migrateToV2_1_1() {
 
     await game.settings.set(MODULE_ID, "migrationVersion", "2.1.1");
   } catch (err) {
-    console.error("Downtime Engine | Migration to v2.1.1 failed:", err);
+    Logger.error("Migration to v2.1.1 failed:", err);
     ui.notifications?.error(
       "Downtime Engine: Migration to v2.1.1 failed. Check console for details.",
     );

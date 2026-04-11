@@ -25,7 +25,7 @@ import ItemLearningConfig from "./apps/tabs/ItemLearningConfig.svelte";
 import ActorTutelageConfig from "./apps/tabs/ActorTutelageConfig.svelte";
 import TimeBankBar from "./apps/components/TimeBankBar.svelte";
 import { Socket } from "./core/socket";
-import { migrateData } from "./migrations/migration";
+import { migrateData, registerMigrationSettings } from "./migrations/migration";
 import { initDebugHelpers } from "./core/debug.js";
 import { Logger } from "./core/logger.js";
 
@@ -35,6 +35,7 @@ export class LearningManager {
   static socketHandler: ((...args: any[]) => void) | null = null;
 
   static init() {
+    registerMigrationSettings();
     this.registerSettings();
     this.registerConfigExpansions();
     this.registerHooks();
@@ -129,7 +130,7 @@ export class LearningManager {
       if (activity.flags?.[LearningManager.ID]?.isLearningActivity) {
         // We handle the training async but must return false synchronously to stop dnd5e's default use flow
         ProjectEngine.processTraining(activity).catch((err) => {
-          console.error("Downtime Engine | Training failed:", err);
+          Logger.error("Training failed:", err);
         });
         return false; // stop standard execution
       }
@@ -195,8 +196,8 @@ export class LearningManager {
             await ProjectEngine.initiateProjectFromItem(targetActor, item5e);
           })
           .catch((err) => {
-            console.error(
-              `Downtime Engine | Failed to initiate project for item ${data.uuid} on actor ${targetActor.name}:`,
+            Logger.error(
+              `Failed to initiate project for item ${data.uuid} on actor ${targetActor.name}:`,
               err,
             );
             ui.notifications?.error(

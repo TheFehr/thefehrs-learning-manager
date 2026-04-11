@@ -1,0 +1,13 @@
+{
+  "rules": {
+    "no-console": "deny"
+  },
+  "overrides": [
+    {
+      "files": ["src/core/logger.ts"],
+      "rules": {
+        "no-console": "off"
+      }
+    }
+  ]
+}

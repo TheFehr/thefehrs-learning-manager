@@ -1,4 +1,5 @@
 import { MODULE_ID } from "../global";
+import { Logger } from "../core/logger.js";
 
 type V1_2SystemRules = {
   method?: string;
@@ -26,11 +27,12 @@ export async function migrateToV1_2() {
     }
 
     if (changed) {
+      // Cast to any is necessary because the settings API expects the shape registered at runtime.
       await game.settings.set(MODULE_ID, "rules", updatedRules as any);
       ui.notifications?.info("Critical hit rules migrated successfully!");
     }
   } catch (error) {
-    console.error("Downtime Engine migration to v1.2.0 failed:", error);
+    Logger.error("migration to v1.2.0 failed:", error);
     ui?.notifications?.error("Migration to v1.2.0 failed. Please check the console for details.");
     throw error;
   }

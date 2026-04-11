@@ -1,5 +1,6 @@
 import { createProjectItemFromTemplate, type LegacyProject } from "./migration-utils.js";
 import { MODULE_ID } from "../global.js";
+import { Logger } from "../core/logger.js";
 
 interface GuidanceTier {
   id: string;
@@ -114,8 +115,8 @@ export async function migrateToV2Direct() {
           tpl.target,
         );
         if (!created) {
-          console.warn(
-            `Downtime Engine | Migration: Failed to migrate project ${p.name || p.id} for actor ${actor.name}. Project will be preserved in legacy flags.`,
+          Logger.warn(
+            `Migration: Failed to migrate project ${p.name || p.id} for actor ${actor.name}. Project will be preserved in legacy flags.`,
           );
           remainingProjects.push(p);
           allSuccessful = false;
@@ -139,7 +140,7 @@ export async function migrateToV2Direct() {
       );
     }
   } catch (error) {
-    console.error("Downtime Engine direct migration failed:", error);
+    Logger.error("direct migration failed:", error);
     ui?.notifications?.error(
       "Downtime Engine direct migration failed. Please check the console for details.",
     );

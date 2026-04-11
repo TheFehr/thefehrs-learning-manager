@@ -7,7 +7,7 @@ describe("Migration v1 (Relational)", () => {
     vi.clearAllMocks();
     (global as any).ui = { notifications: { info: vi.fn() } };
     (global as any).game = {
-      actors: [],
+      actors: { contents: [] },
       settings: { get: vi.fn().mockReturnValue([]), set: vi.fn().mockResolvedValue(true) },
     };
     (global as any).foundry = (global as any).foundry || {};
@@ -28,7 +28,7 @@ describe("Migration v1 (Relational)", () => {
       getFlag: vi.fn().mockReturnValue([mockProject]),
       setFlag: vi.fn().mockResolvedValue(true),
     };
-    (global as any).game.actors = [mockActor as any];
+    (global as any).game.actors.contents = [mockActor as any];
 
     await migrateToV1Relational();
 
@@ -62,7 +62,7 @@ describe("Migration v1 (Relational)", () => {
       getFlag: vi.fn().mockReturnValue([]),
       setFlag: vi.fn(),
     };
-    (global as any).game.actors = [mockActor as any];
+    (global as any).game.actors.contents = [mockActor as any];
 
     await migrateToV1Relational();
 
@@ -75,7 +75,7 @@ describe("Migration v1 (Relational)", () => {
       getFlag: vi.fn().mockReturnValue(flagValue),
       setFlag: vi.fn(),
     };
-    (global as any).game.actors = [mockActor as any];
+    (global as any).game.actors.contents = [mockActor as any];
 
     await migrateToV1Relational();
 

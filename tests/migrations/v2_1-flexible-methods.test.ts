@@ -16,7 +16,7 @@ describe("Migration v2.1", () => {
         }),
         set: vi.fn().mockResolvedValue(true),
       },
-      actors: [],
+      actors: { contents: [] },
       packs: {
         get: vi.fn(),
       },
@@ -117,7 +117,7 @@ describe("Migration v2.1", () => {
         items: [mockItem],
         updateEmbeddedDocuments: vi.fn().mockResolvedValue([]),
       };
-      (game.actors as any).push(mockActor);
+      (game.actors.contents as any).push(mockActor);
 
       await migrateToV2_1();
 

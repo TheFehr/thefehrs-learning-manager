@@ -1,4 +1,5 @@
 import { MODULE_ID } from "../global.js";
+import { Logger } from "../core/logger.js";
 import { createProjectItemFromTemplate, type LegacyProject } from "./migration-utils.js";
 
 export async function migrateToV2() {
@@ -47,7 +48,7 @@ export async function migrateToV2() {
             if (pack) {
               const existingInPack = p.name ? pack.index?.getName(p.name) : null;
               if (!existingInPack && p.name) {
-                console.debug(`Downtime Engine | Archiving project "${p.name}" to compendium.`);
+                Logger.debug(`Archiving project "${p.name}" to compendium.`);
               }
             }
 
@@ -72,8 +73,8 @@ export async function migrateToV2() {
               progress: (migratedCount / totalProjects) as unknown as boolean,
             });
           } else {
-            console.warn(
-              `Downtime Engine | Migration: Failed to migrate project ${p.name || p.id} for actor ${actor.name}. Template found: ${!!tpl}. Project preserved.`,
+            Logger.warn(
+              `Migration: Failed to migrate project ${p.name || p.id} for actor ${actor.name}. Template found: ${!!tpl}. Project preserved.`,
             );
             remainingProjects.push(p);
             allSuccessful = false;
@@ -122,7 +123,7 @@ export async function migrateToV2() {
       );
     }
   } catch (error) {
-    console.error("Downtime Engine migration to v2.0.0 failed:", error);
+    Logger.error("migration to v2.0.0 failed:", error);
     ui?.notifications?.error("Migration to v2.0.0 failed. Please check the console for details.");
     throw error;
   }

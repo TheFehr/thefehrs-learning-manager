@@ -6,26 +6,10 @@ import { migrateToV2Direct } from "./v2-direct.js";
 import { migrateToV2_1, migrateToV2_1_1 } from "./v2_1-flexible-methods.js";
 import { migrateToV3 } from "./v3-tutelage-selection.js";
 import { MODULE_ID } from "../global";
+import { Logger } from "../core/logger.js";
 
 export async function migrateData() {
   if (!game.user?.isGM) return;
-
-  if (!game.settings.settings.has(`${MODULE_ID}.guidanceTiers`)) {
-    game.settings.register(MODULE_ID, "guidanceTiers", {
-      scope: "world",
-      config: false,
-      type: Array,
-      default: [],
-    });
-  }
-  if (!game.settings.settings.has(`${MODULE_ID}.allowedCompendiums`)) {
-    game.settings.register(MODULE_ID, "allowedCompendiums", {
-      scope: "world",
-      config: false,
-      type: Array,
-      default: [],
-    });
-  }
 
   try {
     const raw = game.settings.get(MODULE_ID, "migrationVersion");
@@ -71,7 +55,7 @@ export async function migrateData() {
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error("Downtime Engine | Migration failed:", err);
+    Logger.error("Migration failed:", err);
     ui.notifications?.error(`Downtime Engine | Migration failed: ${msg}. See console for details.`);
     throw err;
   }
@@ -79,4 +63,23 @@ export async function migrateData() {
 
 function isNewerVersion(newer: string, current: string): boolean {
   return (foundry.utils as any).isNewerVersion(newer, current);
+}
+
+export function registerMigrationSettings() {
+  if (!game.settings.settings.has(`${MODULE_ID}.guidanceTiers`)) {
+    game.settings.register(MODULE_ID, "guidanceTiers", {
+      scope: "world",
+      config: false,
+      type: Array,
+      default: [],
+    });
+  }
+  if (!game.settings.settings.has(`${MODULE_ID}.allowedCompendiums`)) {
+    game.settings.register(MODULE_ID, "allowedCompendiums", {
+      scope: "world",
+      config: false,
+      type: Array,
+      default: [],
+    });
+  }
 }

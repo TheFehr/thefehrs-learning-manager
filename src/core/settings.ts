@@ -136,7 +136,10 @@ export interface SettingMenuConfig {
   label: string;
   hint?: string;
   icon?: string;
-  type: typeof foundry.applications.api.ApplicationV2 | unknown;
+  /**
+   * The application class constructor to use for this menu.
+   */
+  type: new (...args: any[]) => any;
   restricted: boolean;
 }
 

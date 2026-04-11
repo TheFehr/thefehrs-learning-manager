@@ -1,4 +1,5 @@
 import { Settings } from "../core/settings.js";
+import { Logger } from "../core/logger.js";
 import { ActorProxy } from "./actor-proxy.js";
 import { TabLogic } from "./tab-logic.js";
 import { ProjectEngine } from "./project-engine.js";
@@ -43,7 +44,7 @@ export class PartyTabLogic {
         await proxy.setBank({ total: (bank.total || 0) + totalBase });
         successCount++;
       } catch (err) {
-        console.error(`Failed to update bank for actor ${id}:`, err);
+        Logger.error(`Failed to update bank for actor ${id}:`, err);
       }
     }
 
@@ -171,9 +172,7 @@ export class PartyTabLogic {
       ) as ProjectFlagData) || { progress: 0, target: 0 };
       const oldTarget = projectData.target;
       projectData.target = Math.max(0, newTarget);
-      console.debug(
-        `Downtime Engine | updateTarget: Setting target to ${projectData.target} for ${item.name}`,
-      );
+      Logger.debug(`updateTarget: Setting target to ${projectData.target} for ${item.name}`);
 
       if (oldTarget !== projectData.target) {
         if (
@@ -187,8 +186,8 @@ export class PartyTabLogic {
           return;
         }
 
-        console.debug(
-          `Downtime Engine | target changed from ${oldTarget} to ${projectData.target}. Syncing activities...`,
+        Logger.debug(
+          `target changed from ${oldTarget} to ${projectData.target}. Syncing activities...`,
         );
         await ProjectEngine.injectActivities(item as unknown as Item5e, projectData.target);
       }

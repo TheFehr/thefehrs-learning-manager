@@ -1,4 +1,4 @@
-import type { TimeUnit } from "../types.js";
+import { Logger } from "../core/logger.js";
 
 /**
  * Logic for the Grant Time Dialog component.
@@ -29,7 +29,7 @@ export class GrantTimeLogic {
    */
   static toggleRecipient(id: string, selectedIds: string[]): string[] {
     if (typeof id !== "string" || !id) {
-      console.warn("Downtime Engine | Invalid recipient ID provided to toggleRecipient:", id);
+      Logger.warn("Invalid recipient ID provided to toggleRecipient:", id);
       return [...selectedIds];
     }
 

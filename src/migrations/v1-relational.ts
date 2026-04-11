@@ -1,4 +1,5 @@
 import { MODULE_ID } from "../global";
+import { Logger } from "../core/logger.js";
 
 interface LegacyProjectV1 {
   id?: string;
@@ -21,14 +22,17 @@ interface ProjectTemplateV1 {
 }
 
 export async function migrateToV1Relational() {
+  // NOTE: The use of `as any` casts here is intentional. TypeScript cannot statically know
+  // the types of dynamically-registered Foundry settings during migration phases.
+  // This pattern is limited to migration code and is acceptable for now.
   try {
     const library =
       (game.settings.get(MODULE_ID, "projectTemplates" as any) as unknown as ProjectTemplateV1[]) ||
       [];
     let libraryUpdated = false;
-    const actors = (game.actors || []) as Actor[];
+    const actors = game.actors?.contents || [];
 
-    for (const actor of actors) {
+    for (const actor of actors as any[]) {
       const projects = (actor.getFlag(MODULE_ID, "projects" as any) || []) as LegacyProjectV1[];
       if (projects.length === 0) continue;
 
@@ -66,7 +70,7 @@ export async function migrateToV1Relational() {
       await game.settings.set(MODULE_ID, "projectTemplates" as any, library);
     }
   } catch (error) {
-    console.error("Downtime Engine relational migration failed:", error);
+    Logger.error("relational migration failed:", error);
     throw error;
   }
 }

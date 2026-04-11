@@ -57,7 +57,7 @@ export class TabLogic {
 
       let multiplier = 1;
       const strategy = rules.critDoubleStrategy ?? "never";
-      const threshold = Number(rules.critThreshold) ?? 20;
+      const threshold = Number(rules.critThreshold) || 20;
 
       if (strategy !== "never") {
         const d20s = (roll.dice ?? []).filter((die) => die.faces === 20);
@@ -199,7 +199,7 @@ export class TabLogic {
       const totalSuccesses = outcomes.filter((r) => r.total >= (Number(rules.checkDC) || 0)).length;
       return totalSuccesses / 20;
     } catch (err) {
-      console.error("Downtime Engine | Failed to calculate success probability:", err);
+      Logger.error("Failed to calculate success probability:", err);
       return 0;
     }
   }
@@ -209,9 +209,7 @@ export class TabLogic {
    */
   static async deductCurrency(actor: Actor, costCp: number): Promise<boolean> {
     if (isNaN(costCp) || costCp < 0) {
-      console.warn(
-        `Downtime Engine | Invalid currency cost: ${costCp}. Must be a non-negative number.`,
-      );
+      Logger.warn(`Invalid currency cost: ${costCp}. Must be a non-negative number.`);
       return false;
     }
     const proxy = ActorProxy.forActor(actor as unknown as Actor5e);
@@ -345,14 +343,11 @@ export class TabLogic {
         else if (op === "<=")
           met = isNumeric ? aNum <= tNum : String(actorValue) <= String(targetValue);
         else {
-          console.warn(
-            `Downtime Engine | Unknown operator "${op}" in requirement for attribute "${req.attribute}".`,
-            {
-              req,
-              actorValue,
-              targetValue,
-            },
-          );
+          Logger.warn(`Unknown operator "${op}" in requirement for attribute "${req.attribute}".`, {
+            req,
+            actorValue,
+            targetValue,
+          });
           met = false;
         }
       }

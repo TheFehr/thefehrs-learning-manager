@@ -1,5 +1,4 @@
 import type { TimeBank, LearningActor, LearningProject, Actor5e } from "../types.js";
-import { Settings } from "../core/settings.js";
 import { DocumentUtils } from "../core/document-utils.js";
 
 export class ActorProxy {
