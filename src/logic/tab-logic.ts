@@ -29,12 +29,7 @@ export class TabLogic {
     const effectiveMethod = tu.isBulk ? rules.bulkMethod : rules.nonBulkMethod;
 
     if (effectiveMethod === "direct") {
-      if (tu.isBulk) {
-        progressGained = 0; // "Direct" progress was tier-based, now it's zero without a tier
-        reason = `Direct progress method is no longer supported without guidance tiers.`;
-      } else {
-        progressGained = 1;
-      }
+      progressGained = tu.ratio;
     } else if (effectiveMethod === "roll") {
       if (!rules.checkFormula) {
         return { progressGained: 0, reason: "No check formula defined in rules." };
@@ -48,7 +43,7 @@ export class TabLogic {
             tutelage: tutelageMod,
           },
           // @ts-expect-error - Foundry Roll constructor accepts target in options
-          { target: rules.checkDC },
+          { target: Number(rules.checkDC) },
         ).evaluate();
       } catch (err) {
         return {

@@ -121,7 +121,7 @@ describe("TabLogic", () => {
       };
       rules = { nonBulkMethod: "roll", bulkMethod: "direct", checkDC: 15, checkFormula: "1d20" };
       tutelageMod = 2;
-      tu = { id: "hour", isBulk: false };
+      tu = { id: "hour", isBulk: false, ratio: 1 };
     });
 
     it("should return progress for non-bulk using 'direct' method", async () => {
