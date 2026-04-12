@@ -1,16 +1,6 @@
 import { MODULE_ID } from "../global.js";
 import { Logger } from "../core/logger.js";
 
-interface GuidanceTier {
-  id: string;
-  name: string;
-  modifier: number;
-  costs: Record<string, number>;
-  progress: Record<string, number>;
-  _migratedGpToCp?: boolean;
-  _migratedToV2?: boolean;
-}
-
 declare module "fvtt-types/configuration" {
   interface SettingConfig {
     "thefehrs-learning-manager.guidanceTiers": any[];

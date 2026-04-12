@@ -1,7 +1,7 @@
 import { Settings } from "../core/settings.js";
 import { MODULE_ID } from "../global.js";
 import { Logger } from "../core/logger.js";
-import type { TeacherOffering, LearningBookBonus, Item5e, Actor5e, ProjectItem } from "../types.js";
+import type { TeacherOffering, LearningBookBonus, Actor5e, ProjectItem } from "../types.js";
 
 export interface InstructorInstance {
   actorUuid: string;

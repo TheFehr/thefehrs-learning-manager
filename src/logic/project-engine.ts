@@ -4,7 +4,7 @@ import { ActorProxy } from "./actor-proxy.js";
 import { ActivityManager } from "../core/activity-manager.js";
 import { ProjectLifecycle } from "./project-lifecycle.js";
 import { LearningActivityData, ProjectFlagData, ProjectItem } from "./project-item.js";
-import type { Item5e, Actor5e, LearningActor, TimeUnit, SystemRules } from "../types.js";
+import type { Item5e, TimeUnit, SystemRules } from "../types.js";
 import { Socket } from "../core/socket.js";
 import { mount, unmount } from "svelte";
 import { TutelageResolverService } from "./tutelage-resolver.js";

@@ -1,5 +1,5 @@
 import { Logger } from "./logger.js";
-import type { GuidanceTier, ProjectRequirement, SystemRules, TimeUnit } from "../types.js";
+import type { ProjectRequirement, SystemRules, TimeUnit } from "../types.js";
 import { MODULE_ID } from "../global.js";
 
 export interface ProjectTemplate {

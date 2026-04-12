@@ -1,7 +1,7 @@
 import { MODULE_ID } from "../global.js";
 import { Settings, type SettingsSchema } from "../core/settings.js";
 import { Logger } from "../core/logger.js";
-import type { SystemRules, TimeUnit, GuidanceTier, NotificationLevel } from "../types.js";
+import type { SystemRules, TimeUnit, NotificationLevel } from "../types.js";
 
 /**
  * Shared save logic for the Downtime Engine settings.
@@ -89,14 +89,6 @@ export async function ensureCategoryExists(category: string): Promise<void> {
   }
 }
 
-interface PackLike {
-  metadata: {
-    type: string;
-    id: string;
-    label: string;
-  };
-}
-
 export interface PackInfo {
   id: string;
   label: string;
@@ -151,16 +143,6 @@ export async function getAvailablePacks(
 
 const isPlainObject = (obj: unknown): obj is Record<string, unknown> =>
   obj !== null && typeof obj === "object" && !Array.isArray(obj);
-
-const sanitizeNumericRecord = (obj: unknown) => {
-  if (!isPlainObject(obj)) return null;
-  return Object.entries(obj).reduce((acc: Record<string, number>, [key, val]) => {
-    if (typeof val === "number" && Number.isFinite(val)) {
-      acc[key] = val;
-    }
-    return acc;
-  }, {});
-};
 
 /**
  * Validates and normalizes imported settings data.

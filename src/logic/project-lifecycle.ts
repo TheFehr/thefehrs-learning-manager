@@ -2,8 +2,8 @@ import { Settings } from "../core/settings.js";
 import { Logger } from "../core/logger.js";
 import { ProjectUI } from "../core/project-ui.js";
 import { ActivityManager } from "../core/activity-manager.js";
-import { LearningFeatType, ProjectFlagData, ProjectItem } from "./project-item.js";
-import type { Actor5e, Item5e } from "../types.js";
+import { LearningFeatType, ProjectFlagData } from "./project-item.js";
+import type { Item5e } from "../types.js";
 import { DocumentUtils } from "../core/document-utils.js";
 
 export class ProjectLifecycle {
@@ -214,7 +214,7 @@ export class ProjectLifecycle {
       const createData = {
         ...sourceData,
         flags: {
-          ...(sourceData.flags || {}),
+          ...sourceData.flags,
           ...completedFlags,
         },
       };
@@ -291,7 +291,7 @@ export class ProjectLifecycle {
     }
 
     clonedData.flags = {
-      ...((clonedData.flags as object) || {}),
+      ...(clonedData.flags as object),
       ...completedFlags,
     };
 
@@ -352,7 +352,7 @@ export class ProjectLifecycle {
     const systemToUpdate: Record<string, unknown> = { ...(sanitizedSystem as any) };
     if (projectDataFlags.stashedActivities) {
       systemToUpdate.activities = {
-        ...((systemToUpdate.activities as Record<string, unknown>) || {}),
+        ...(systemToUpdate.activities as Record<string, unknown>),
         ...projectDataFlags.stashedActivities,
       };
     }

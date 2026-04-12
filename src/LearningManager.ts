@@ -3,7 +3,6 @@ import type {
   DowntimeGroupActor,
   OnRenderTabParams,
   OnRenderParams,
-  Actor5e,
   Item5e,
 } from "./types.js";
 import { ProjectEngine } from "./logic/project-engine.js";
@@ -12,12 +11,7 @@ import { Settings, SettingsManager } from "./core/settings.js";
 import { LearningConfigApp } from "./apps/settings-app.js";
 import { ProjectOverviewApp } from "./apps/overview-app.js";
 import { TabLogic } from "./logic/tab-logic.js";
-import {
-  ProjectItem,
-  projectData,
-  LearningFeatType,
-  LearningActivityData,
-} from "./logic/project-item.js";
+import { projectData, LearningFeatType, LearningActivityData } from "./logic/project-item.js";
 import { mount, unmount } from "svelte";
 import PartyTab from "./apps/tabs/PartyTab.svelte";
 import { PartyTab as PartyTabLogic } from "./apps/party-tab.js";
