@@ -1,8 +1,7 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { migrateToV2 } from "../../src/migrations/v2-native-items";
 import { LearningManager } from "../../src/LearningManager";
 import { ActorsCollection } from "../setup";
-import { ProjectEngine } from "../../src/logic/project-engine";
 
 describe("v2-native-items migration", () => {
   beforeEach(() => {
@@ -14,6 +13,10 @@ describe("v2-native-items migration", () => {
       get: vi.fn().mockReturnValue({}),
       filter: vi.fn().mockReturnValue([]),
     };
+  });
+
+  afterEach(() => {
+    delete (global as any).fromUuid;
   });
 
   it("should migrate legacy projects to native items and inject targets", async () => {

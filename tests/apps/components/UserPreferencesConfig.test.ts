@@ -46,7 +46,7 @@ describe("UserPreferencesConfig.svelte", () => {
       target,
       props: {
         autoSpend: true,
-        autoSpendUnits: ["hour"],
+        autoSpendUnits: ["hour", "day"],
         timeUnits: mockTimeUnits as any,
       },
     });
@@ -57,6 +57,6 @@ describe("UserPreferencesConfig.svelte", () => {
 
     const dayCheckbox = target.querySelector("input[data-unit-id='day']") as HTMLInputElement;
     expect(dayCheckbox).not.toBeNull();
-    expect(dayCheckbox.checked).toBe(false);
+    expect(dayCheckbox.checked).toBe(true);
   });
 });

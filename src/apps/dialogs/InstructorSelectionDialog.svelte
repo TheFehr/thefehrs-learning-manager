@@ -23,16 +23,19 @@
   } = $props();
 
   let selectedKey = $state(lastInstructorUuid && lastInstructorName !== "Self-Study" 
-    ? `${lastInstructorUuid}|${lastInstructorName}` 
+    ? JSON.stringify({ uuid: lastInstructorUuid, name: lastInstructorName }) 
     : "");
   let remember = $state(false);
 
   let selectedInstructor = $derived.by(() => {
     if (!selectedKey) return null;
-    const parts = selectedKey.split("|");
-    const uuid = parts[0];
-    const name = parts.slice(1).join("|");
-    return instructors.find(i => i.actorUuid === uuid && i.offering.name === name) || null;
+    try {
+      const { uuid, name } = JSON.parse(selectedKey);
+      return instructors.find(i => i.actorUuid === uuid && i.offering.name === name) || null;
+    } catch (e) {
+      Logger.error("InstructorSelectionDialog | Failed to parse selectedKey:", e);
+      return null;
+    }
   });
 
   let effectiveMod = $derived(Math.max(bestBookMod, selectedInstructor?.offering.modifier || 0));
@@ -65,7 +68,7 @@
     </label>
 
     {#each instructors as instructor}
-      {@const key = `${instructor.actorUuid}|${instructor.offering.name}`}
+      {@const key = JSON.stringify({ uuid: instructor.actorUuid, name: instructor.offering.name })}
       <label class="option" class:selected={selectedKey === key}>
         <input 
             type="radio" 

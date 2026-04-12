@@ -196,6 +196,9 @@ globalThis.Roll = class {
 } as any;
 
 export class ActorsCollection extends Array<any> {
+  get contents() {
+    return this;
+  }
   get = vi.fn((id: string) => this.find((a) => a.id === id));
 }
 

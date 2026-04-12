@@ -44,12 +44,12 @@ describe("GrantTimeLogic", () => {
       );
     });
 
-    it("should handle duplicate ids by letting the last one win", () => {
+    it("should throw error for duplicate IDs", () => {
       const input = [
         { id: "hour", value: 5 },
         { id: "hour", value: 10 },
       ];
-      expect(GrantTimeLogic.prepareSubmitData(input)).toEqual({ hour: 10 });
+      expect(() => GrantTimeLogic.prepareSubmitData(input)).toThrow(/Duplicate time unit ID/);
     });
 
     it("should handle negative values", () => {

@@ -35,19 +35,21 @@ describe("DebugHelpers", () => {
   describe("addTime", () => {
     it("should add time to controlled character", async () => {
       const mockActor = { name: "Character" };
-      game.user.character = mockActor;
+      global.game.user.character = mockActor;
       const mockProxy = { bank: { total: 10 }, setBank: vi.fn() };
       vi.mocked(ActorProxy.forActor).mockReturnValue(mockProxy as any);
 
       await DebugHelpers.addTime(5);
 
       expect(mockProxy.setBank).toHaveBeenCalledWith({ total: 15 });
-      expect(ui.notifications.info).toHaveBeenCalledWith(expect.stringContaining("Added 5h"));
+      expect(global.ui.notifications.info).toHaveBeenCalledWith(
+        expect.stringContaining("Added 5h"),
+      );
     });
 
     it("should fall back to selected token", async () => {
       const mockActor = { name: "Token Actor" };
-      (canvas as any).tokens.controlled = [{ actor: mockActor }];
+      (global.canvas as any).tokens.controlled = [{ actor: mockActor }];
       const mockProxy = { bank: { total: 0 }, setBank: vi.fn() };
       vi.mocked(ActorProxy.forActor).mockReturnValue(mockProxy as any);
 
@@ -81,7 +83,7 @@ describe("DebugHelpers", () => {
   describe("addGP", () => {
     it("should add GP to character", async () => {
       const mockActor = { name: "Character" };
-      game.user.character = mockActor;
+      global.game.user.character = mockActor;
       const mockProxy = { currency: { gp: 10, sp: 0, cp: 0 }, updateCurrency: vi.fn() };
       vi.mocked(ActorProxy.forActor).mockReturnValue(mockProxy as any);
 
@@ -92,13 +94,27 @@ describe("DebugHelpers", () => {
 
     it("should validate input", async () => {
       await DebugHelpers.addGP(NaN);
-      expect(ui.notifications.warn).toHaveBeenCalledWith(expect.stringContaining("Invalid gp"));
+      expect(global.ui.notifications.warn).toHaveBeenCalledWith(
+        expect.stringContaining("Invalid gp"),
+      );
     });
 
     it("should warn if no actor found", async () => {
-      game.user.character = undefined;
+      global.game.user.character = undefined;
       await DebugHelpers.addGP(100);
       expect(console.warn).toHaveBeenCalledWith(expect.stringContaining("No character controlled"));
+    });
+
+    it("should fall back to selected token", async () => {
+      global.game.user.character = undefined;
+      const mockActor = { name: "Token Actor" };
+      (global.canvas as any).tokens.controlled = [{ actor: mockActor }];
+      const mockProxy = { currency: { gp: 50, sp: 0, cp: 0 }, updateCurrency: vi.fn() };
+      vi.mocked(ActorProxy.forActor).mockReturnValue(mockProxy as any);
+
+      await DebugHelpers.addGP(50);
+
+      expect(mockProxy.updateCurrency).toHaveBeenCalledWith({ gp: 100, sp: 0, cp: 0 });
     });
   });
 });

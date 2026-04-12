@@ -7,7 +7,7 @@ vi.unmock("svelte");
 describe("TimeUnitsConfig.svelte", () => {
   const mockTimeUnits = [{ id: "hour", name: "Hour", short: "h", isBulk: false, ratio: 1 }];
   let target: HTMLElement;
-  let instance: any;
+  let instance: ReturnType<typeof mount>;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -22,12 +22,13 @@ describe("TimeUnitsConfig.svelte", () => {
     if (instance) unmount(instance);
     instance = undefined;
     target.remove();
+    delete (global as any).foundry;
   });
 
   it("should mount and show units", async () => {
     instance = mount(TimeUnitsConfig, {
       target,
-      props: { timeUnits: [...mockTimeUnits] as any },
+      props: { timeUnits: [...mockTimeUnits] },
     });
     await tick();
 

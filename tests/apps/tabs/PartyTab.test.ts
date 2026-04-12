@@ -4,7 +4,7 @@ import { mount, unmount, tick } from "svelte";
 
 vi.unmock("svelte");
 
-vi.mock("../../../src/apps/party-tab-logic", () => ({
+vi.mock("../../../src/logic/party-tab-logic", () => ({
   PartyTabLogic: {
     openActorSheet: vi.fn(),
     grantTime: vi.fn(),

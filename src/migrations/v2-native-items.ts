@@ -19,7 +19,7 @@ export async function migrateToV2() {
     }
 
     const templates = (game.settings.get(MODULE_ID, "projectTemplates") as unknown as any[]) || [];
-    const actors = (game.actors || []) as Actor[];
+    const actors = (game.actors?.contents || []) as Actor[];
 
     let migratedCount = 0;
     let totalProjects = 0;

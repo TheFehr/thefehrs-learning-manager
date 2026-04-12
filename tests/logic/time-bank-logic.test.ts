@@ -68,7 +68,7 @@ describe("TimeBankLogic", () => {
       expect(global.ui.notifications.warn).toHaveBeenCalledWith(expect.stringContaining("Invalid"));
     });
 
-    it("should handle decimal input strings by floor behavior", async () => {
+    it("should floor decimal input and skip update when result equals current value", async () => {
       const mockProxy = { setBank: vi.fn().mockResolvedValue(true) };
       // 1.5d => 1d (due to Math.floor). Current 15h (1d 5h). New total 15 - 10 + 10 = 15. diff 0.
       await TimeBankLogic.updateTime(units[0] as any, "1.5", mockProxy as any, 15, units as any);

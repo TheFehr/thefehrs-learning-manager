@@ -13,7 +13,7 @@
   let initialized = $state(false);
   let initialSnapshot = $state<string>("");
 
-  const timeUnits = Settings.get("timeUnits");
+  const timeUnits = Settings.get("timeUnits") || [];
 
   // Initialize from actor flags once
   $effect(() => {

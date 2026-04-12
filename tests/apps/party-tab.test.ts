@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { PartyTab } from "../../src/apps/party-tab";
 import { Settings } from "../../src/core/settings";
 
@@ -25,6 +25,19 @@ describe("PartyTab", () => {
         get: vi.fn(),
       },
     } as any;
+
+    global.Actor = class Actor {
+      id = "";
+      name = "";
+      items = [];
+      getFlag = vi.fn();
+    } as any;
+  });
+
+  afterEach(() => {
+    delete (global as any).game;
+    delete (global as any).Actor;
+    vi.restoreAllMocks();
   });
 
   it("should return empty members if partyActor has no members", () => {

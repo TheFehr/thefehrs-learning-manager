@@ -32,7 +32,11 @@
   async function onValueChange(val: string) {
     Logger.debug(`CategorySelector | Value changed: "${val}"`);
     if (val) {
-      await ensureCategoryExists(val);
+      try {
+        await ensureCategoryExists(val);
+      } catch (err) {
+        Logger.error(`CategorySelector | Failed to ensure category "${val}" exists:`, err);
+      }
     }
   }
 </script>

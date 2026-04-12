@@ -5,7 +5,7 @@ import { migrateToV2 } from "./v2-native-items.js";
 import { migrateToV2Direct } from "./v2-direct.js";
 import { migrateToV2_1, migrateToV2_1_1 } from "./v2_1-flexible-methods.js";
 import { migrateToV3 } from "./v3-tutelage-selection.js";
-import { MODULE_ID } from "../global";
+import { MODULE_ID } from "../global.js";
 import { Logger } from "../core/logger.js";
 
 export async function migrateData() {

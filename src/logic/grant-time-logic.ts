@@ -9,10 +9,15 @@ export class GrantTimeLogic {
    */
   static prepareSubmitData(timeValuesArray: { id: string; value: number | string }[]) {
     const values: Record<string, number> = {};
+    const seenIds = new Set<string>();
     for (const timeEntry of timeValuesArray) {
       if (typeof timeEntry.id !== "string" || !timeEntry.id) {
         throw new Error(`Downtime Engine | Invalid or missing time unit ID: "${timeEntry.id}"`);
       }
+      if (seenIds.has(timeEntry.id)) {
+        throw new Error(`Downtime Engine | Duplicate time unit ID: "${timeEntry.id}"`);
+      }
+      seenIds.add(timeEntry.id);
       const val = Number(timeEntry.value);
       if (!Number.isFinite(val)) {
         throw new Error(

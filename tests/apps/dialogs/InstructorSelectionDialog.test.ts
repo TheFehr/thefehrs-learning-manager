@@ -69,7 +69,8 @@ describe("InstructorSelectionDialog.svelte", () => {
 
     await tick();
 
-    const radio = target.querySelector('input[value="actor-1|Math"]') as HTMLInputElement;
+    const key = JSON.stringify({ uuid: "actor-1", name: "Math" });
+    const radio = target.querySelector(`input[value='${key}']`) as HTMLInputElement;
     expect(radio).not.toBeNull();
 
     radio.checked = true;
@@ -101,7 +102,8 @@ describe("InstructorSelectionDialog.svelte", () => {
 
     await tick();
 
-    const radio = target.querySelector('input[value="actor-1|Math"]') as HTMLInputElement;
+    const key = JSON.stringify({ uuid: "actor-1", name: "Math" });
+    const radio = target.querySelector(`input[value='${key}']`) as HTMLInputElement;
     radio.checked = true;
     radio.dispatchEvent(new Event("change"));
 

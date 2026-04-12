@@ -32,7 +32,8 @@
     "vitest": "4.1.2"
   },
   "lint-staged": {
-    "**/*.{ts,json,js,scss,md,mjs,yml}": "npm run fmt"
+    "**/*.{ts,json,js,scss,md,mjs,yml}": "npm run fmt",
+    "src/**/*.{ts,js}": "oxlint"
   },
   "engines": {
     "node": ">=20.19.0"

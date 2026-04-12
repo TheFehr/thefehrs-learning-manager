@@ -89,6 +89,7 @@
     <select id="rule-notification-level" bind:value={rules.notificationLevel}>
       <option value="none">None</option>
       <option value="error">Error</option>
+      <option value="warn">Warn</option>
       <option value="info">Info</option>
       <option value="debug">Debug</option>
     </select>

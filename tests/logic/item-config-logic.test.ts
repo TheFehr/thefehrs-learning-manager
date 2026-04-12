@@ -64,11 +64,16 @@ describe("ItemConfigLogic", () => {
 
     it("should return false and log error on failure", async () => {
       const mockItem = {
+        id: "item123",
+        name: "Test Item",
         update: vi.fn().mockRejectedValue(new Error("Database error")),
       } as any;
 
       const result = await ItemConfigLogic.saveConfig(mockItem, 10, "", [], [], 0, []);
       expect(result).toBe(false);
+      expect(global.ui.notifications.error).toHaveBeenCalledWith(
+        expect.stringContaining("Failed to update document Test Item"),
+      );
     });
   });
 

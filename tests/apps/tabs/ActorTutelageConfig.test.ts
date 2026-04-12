@@ -73,6 +73,7 @@ describe("ActorTutelageConfig.svelte", () => {
       props: { actor: mockActor } as any,
     });
     await tick();
+    await tick();
 
     expect(target.innerHTML).not.toContain("Applicable Projects");
     expect(target.querySelector(".projects-list")).toBeNull();

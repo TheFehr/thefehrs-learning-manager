@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { ActivityManager } from "../../src/core/activity-manager";
 import { Settings } from "../../src/core/settings";
+import { Logger } from "../../src/core/logger";
 
 vi.mock("../../src/core/settings", () => ({
   Settings: {
@@ -20,8 +21,8 @@ describe("ActivityManager", () => {
     (global as any).ui = { notifications: { info: vi.fn(), warn: vi.fn() } };
     (global as any).game = { user: { isGM: true }, actors: [] };
     (global as any).foundry = { utils: { randomID: vi.fn().mockReturnValue("rand123") } };
-    vi.spyOn(console, "debug").mockImplementation(() => {});
-    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(Logger, "debug").mockImplementation(() => {});
+    vi.spyOn(Logger, "error").mockImplementation(() => {});
   });
 
   afterEach(() => {
@@ -64,10 +65,10 @@ describe("ActivityManager", () => {
 
     it("should warn and return if missing projectData", async () => {
       const mockItem = { name: "Item", getFlag: vi.fn().mockReturnValue(null) };
-      vi.spyOn(console, "warn").mockImplementation(() => {});
+      vi.spyOn(Logger, "warn").mockImplementation(() => {});
 
       await ActivityManager.injectActivities(mockItem as any);
-      expect(console.warn).toHaveBeenCalledWith(expect.stringContaining("missing projectData"));
+      expect(Logger.warn).toHaveBeenCalledWith(expect.stringContaining("missing projectData"));
     });
 
     it("should clear activities if target is 0", async () => {
