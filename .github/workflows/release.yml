@@ -123,7 +123,6 @@ jobs:
           allowUpdates: true
           name: ${{ steps.release-info.outputs.RELEASE_NAME }}
           tag: ${{ steps.release-info.outputs.RELEASE_TAG }}
-          bodyFile: "release_notes.md"
           commit: ${{ github.sha }}
           draft: false
           prerelease: ${{ steps.release-info.outputs.IS_BETA == 'true' }}

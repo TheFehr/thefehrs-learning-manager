@@ -16,7 +16,12 @@ describe("Migration v2.1", () => {
         }),
         set: vi.fn().mockResolvedValue(true),
       },
-      actors: { contents: [] },
+      actors: {
+        contents: [],
+        values: function () {
+          return this.contents;
+        },
+      },
       packs: {
         get: vi.fn(),
       },

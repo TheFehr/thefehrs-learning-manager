@@ -12,7 +12,10 @@ declare module "fvtt-types/configuration" {
  */
 export async function migrateV1_1GpToCp() {
   try {
-    const tiers = (game.settings.get(MODULE_ID, "guidanceTiers") as unknown as any[]) ?? [];
+    let tiers = (game.settings.get(MODULE_ID, "guidanceTiers") as unknown as any[]) || [];
+    if (!Array.isArray(tiers)) {
+      tiers = [];
+    }
     let tiersUpdated = false;
     for (const tier of tiers) {
       if (tier._migratedToV2 && !tier._migratedGpToCp) {

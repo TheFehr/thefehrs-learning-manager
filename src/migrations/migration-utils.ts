@@ -116,6 +116,12 @@ async function injectActivities(item: Item5e, target: number) {
   await item.update({ "system.activities": activityUpdates } as any);
 }
 
+/**
+ * NOTE: This file is allowed to call "production" code (like ProjectEngine).
+ * If the production code changes in a way that breaks these migration utils,
+ * consider implementing a migration-specific version here to keep migrations standalone.
+ */
+
 export interface LegacyProject {
   id?: string;
   name?: string;

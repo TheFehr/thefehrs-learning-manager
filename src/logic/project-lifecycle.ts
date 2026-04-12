@@ -11,7 +11,7 @@ export class ProjectLifecycle {
    * Stashes an item as a learning project.
    * Wipes Active Effects and Activities, then appends the isLearningProject flag.
    */
-  static async initiateProjectFromItem(actor: Actor, rewardDoc: Item): Promise<Item | null> {
+  static async initiateProjectFromItem(actor: Actor, rewardDoc: Item): Promise<Item5e | null> {
     const itemData = rewardDoc.toObject();
     const stashedEffects = itemData.effects || [];
     const stashedActivities = foundry.utils.deepClone(itemData.system.activities || {});
@@ -21,7 +21,7 @@ export class ProjectLifecycle {
     const stashedSystem = foundry.utils.deepClone(itemData.system || {});
     const stashedSourceUuid = rewardDoc.uuid || "";
 
-    const target = rewardDoc.getFlag("thefehrs-learning-manager", "projectData")?.target ?? 0;
+    const target = rewardDoc.getFlag(Settings.ID, "projectData")?.target ?? 0;
 
     if (target <= 0) {
       Logger.error(
@@ -30,8 +30,7 @@ export class ProjectLifecycle {
       return null;
     }
 
-    const stashedRequirements =
-      rewardDoc.getFlag("thefehrs-learning-manager", "projectData")?.requirements ?? [];
+    const stashedRequirements = rewardDoc.getFlag(Settings.ID, "projectData")?.requirements ?? [];
 
     const tutelageName = "Self-Study";
 
@@ -69,7 +68,7 @@ export class ProjectLifecycle {
         },
       }),
       flags: foundry.utils.mergeObject(itemData.flags || {}, {
-        "thefehrs-learning-manager": {
+        [Settings.ID]: {
           projectData: projectData,
           isLearningProject: true,
           isLearnedReward: false,
@@ -80,13 +79,13 @@ export class ProjectLifecycle {
       }),
     };
 
-    const [created] = await actor.createEmbeddedDocuments("Item", [updateData as any]);
+    const [created] = await actor.createEmbeddedDocuments("Item", [updateData] as any[]);
     if (!created) {
       Logger.error(`Failed to create embedded item "${rewardDoc.name}" on actor ${actor.name}`);
       return null;
     }
 
-    const createdItem = created as unknown as Item5e;
+    const createdItem = created as Item5e;
     Logger.debug(
       `Created embedded item "${(created as unknown as Item).name}" (ID: ${createdItem.id}). Injecting activities...`,
     );
@@ -117,7 +116,7 @@ export class ProjectLifecycle {
    * Restores a project item to its original state upon completion.
    */
   static async completeProject(item: Item) {
-    const isProject = item.getFlag("thefehrs-learning-manager", "isLearningProject");
+    const isProject = item.getFlag(Settings.ID, "isLearningProject");
     if (!isProject) return;
     const actor = item.actor;
     if (!actor) {
@@ -127,16 +126,15 @@ export class ProjectLifecycle {
       return;
     }
 
-    const projectDataFlags = item.getFlag("thefehrs-learning-manager", "projectData");
+    const projectDataFlags = item.getFlag(Settings.ID, "projectData");
     if (!projectDataFlags) return;
     const stashedSourceUuid = projectDataFlags.stashedSourceUuid;
 
     let sourceItem: Item | null = null;
     if (stashedSourceUuid) {
       try {
-        sourceItem = (await fromUuid(
-          stashedSourceUuid as `Item.${string}`,
-        )) as unknown as Item | null;
+        const doc = await fromUuid(stashedSourceUuid as `Item.${string}`);
+        sourceItem = doc instanceof Item ? (doc as Item) : null;
       } catch (e) {
         Logger.warn(`Could not find source item ${stashedSourceUuid}:`, e);
       }
@@ -205,8 +203,7 @@ export class ProjectLifecycle {
     sourceItem: Item,
     completedFlags: any,
   ): Promise<boolean> {
-    const isItem =
-      sourceItem && (sourceItem instanceof Item || (sourceItem as any).documentName === "Item");
+    const isItem = sourceItem instanceof Item;
 
     if (isItem) {
       // Primary Restoration: Create a new copy from the source item
@@ -262,8 +259,8 @@ export class ProjectLifecycle {
       return false;
     }
     ui.notifications?.info(`Learning Complete: ${createdItem.name} is now fully available!`);
-    if (typeof (createdItem as any).displayCard === "function") {
-      await (createdItem as any).displayCard({ rollMode });
+    if (typeof (createdItem as Item5e).displayCard === "function") {
+      await (createdItem as Item5e).displayCard({ rollMode });
     }
     return true;
   }
@@ -281,7 +278,7 @@ export class ProjectLifecycle {
 
     // Update flags and basic info in the clone
     clonedData.name = projectDataFlags.stashedName || item.name;
-    clonedData.effects = (projectDataFlags.stashedEffects || []) as unknown as any[];
+    clonedData.effects = (projectDataFlags.stashedEffects || []) as any[];
 
     // Replace system data with deep clone of stashed system to prevent artifact survival
     if (projectDataFlags.stashedSystem) {
@@ -295,14 +292,13 @@ export class ProjectLifecycle {
       ...completedFlags,
     };
 
-    // Restore stashed activities in the clone using deep clone
     if (projectDataFlags.stashedActivities) {
       (clonedData.system as any).activities = foundry.utils.deepClone(
-        projectDataFlags.stashedActivities as unknown as object,
+        projectDataFlags.stashedActivities as object,
       );
     }
 
-    const [created] = await actor.createEmbeddedDocuments("Item", [clonedData as any]);
+    const [created] = await actor.createEmbeddedDocuments("Item", [clonedData] as any[]);
 
     if (created) {
       await this.handlePostCreationCleanup(
@@ -328,17 +324,20 @@ export class ProjectLifecycle {
     }
 
     // Identify learning activities to explicitly remove via dot-path
-    const existingActivities = (item.system as any).activities as any;
+    const existingActivities = (item.system as any).activities;
     if (existingActivities) {
       const activityList =
-        typeof existingActivities.values === "function"
-          ? Array.from(existingActivities.values())
+        typeof (existingActivities as { values: () => unknown }).values === "function"
+          ? Array.from((existingActivities as { values: () => Iterable<unknown> }).values())
           : Array.isArray(existingActivities)
             ? existingActivities
             : Object.values(existingActivities);
 
-      for (const activity of activityList as any[]) {
-        if (activity?.id && activity.flags?.["thefehrs-learning-manager"]?.isLearningActivity) {
+      for (const activity of activityList as Array<{
+        id: string;
+        flags?: Record<string, any>;
+      }>) {
+        if (activity?.id && activity.flags?.[Settings.ID]?.isLearningActivity) {
           dotFlags[`system.activities.-=${activity.id}`] = null;
         }
       }
@@ -376,8 +375,8 @@ export class ProjectLifecycle {
     }
 
     ui.notifications?.info(`Learning Complete: ${item.name} is now fully available!`);
-    if (typeof (item as any).displayCard === "function") {
-      await (item as any).displayCard({ rollMode: Settings.get("rules").rollMode });
+    if (typeof (item as Item5e).displayCard === "function") {
+      await (item as Item5e).displayCard({ rollMode: Settings.get("rules").rollMode });
     }
     return true;
   }
@@ -404,6 +403,6 @@ export class ProjectLifecycle {
       name: `${stashedName} (${projectData.progress}/${projectData.target})`,
       ["system.description.value" as string]: progressHtml + stashedDescription,
       [`flags.${Settings.ID}.projectData`]: projectData,
-    });
+    } as Record<string, any>);
   }
 }

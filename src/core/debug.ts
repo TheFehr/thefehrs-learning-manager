@@ -1,5 +1,6 @@
 import { ActorProxy } from "../logic/actor-proxy.js";
-import { Actor5e } from "../types";
+import { isActor5e } from "../types.js";
+import type { Actor5e } from "../types.js";
 import { TutelageResolverService } from "../logic/tutelage-resolver.js";
 import { Settings } from "./settings.js";
 import { getAvailablePacks } from "../logic/settings-logic.js";
@@ -16,7 +17,7 @@ function resolveControlledActor(): Actor5e | undefined {
     actor = controlledTokens[0].actor ?? undefined;
   }
 
-  return actor;
+  return isActor5e(actor) ? actor : undefined;
 }
 
 /**

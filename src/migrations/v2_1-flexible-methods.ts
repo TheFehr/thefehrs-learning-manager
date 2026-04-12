@@ -68,8 +68,11 @@ export async function migrateToV2_1() {
     }
 
     // 2. Operator Migration: Project Templates in Settings
-    const templates =
+    let templates =
       (game.settings.get(MODULE_ID, "projectTemplates") as unknown as unknown[]) || [];
+    if (!Array.isArray(templates)) {
+      templates = [];
+    }
     let templatesUpdated = false;
 
     const newTemplates = templates.map((tpl: any) => {
@@ -86,7 +89,7 @@ export async function migrateToV2_1() {
     }
 
     // 3. Operator Migration: Actor Items
-    const actors = game.actors?.contents || [];
+    const actors = Array.from(game.actors?.values() || []) as any[];
     for (const actor of actors) {
       const projects = actor.items.filter(
         (i: any) =>
@@ -115,8 +118,11 @@ export async function migrateToV2_1() {
     }
 
     // 4. Operator Migration: Items in Allowed Compendiums
-    const allowedPacks =
+    let allowedPacks =
       (game.settings.get(MODULE_ID, "allowedCompendiums") as unknown as string[]) || [];
+    if (!Array.isArray(allowedPacks)) {
+      allowedPacks = [];
+    }
     let hasFailures = false;
 
     for (const packId of allowedPacks) {

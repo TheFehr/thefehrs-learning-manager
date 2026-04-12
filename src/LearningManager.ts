@@ -111,7 +111,7 @@ export class LearningManager {
   private static registerHooks() {
     // @ts-expect-error - dnd5e system hook
     Hooks.on("dnd5e.preUseItem", (item: Item5e, config: { createMessage?: boolean }) => {
-      if (item.getFlag("thefehrs-learning-manager", "isLearningProject")) {
+      if (item.getFlag(LearningManager.ID, "isLearningProject")) {
         if (config) {
           config.createMessage = false;
         }
@@ -327,7 +327,7 @@ export class LearningManager {
         },
         onRender: (params: OnRenderParams) => {
           this.renderSvelte(
-            params,
+            params as OnRenderTabParams,
             ".downtime-engine-time-bank-bar-root",
             TimeBankBar,
             (actor: Actor) => ({ actor }),

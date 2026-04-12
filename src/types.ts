@@ -104,6 +104,21 @@ export type ActorSystem5e =
   | GroupActorSystemData
   | VehicleActorSystemData;
 
+export type {
+  FeatItemSystemData,
+  SpellItemSystemData,
+  ConsumableItemSystemData,
+  EquipmentItemSystemData,
+  ToolItemSystemData,
+  WeaponItemSystemData,
+  LootItemSystemData,
+  ClassItemSystemData,
+  SubclassItemSystemData,
+  RaceItemSystemData,
+  FacilityItemSystemData,
+  ContainerItemSystemData,
+};
+
 export type ItemSystem5e = (
   | FeatItemSystemData
   | SpellItemSystemData
@@ -133,12 +148,12 @@ declare module "fvtt-types/configuration" {
     "thefehrs-learning-manager.rules": SystemRules;
     "thefehrs-learning-manager.timeUnits": TimeUnit[];
     "thefehrs-learning-manager.teacherCompendiums": string[];
+    "thefehrs-learning-manager.bookCompendiums": string[];
+    "thefehrs-learning-manager.allowedCompendiums": string[];
     "thefehrs-learning-manager.projectTemplates": unknown[];
     "thefehrs-learning-manager.migrationVersion": string;
     "thefehrs-learning-manager.autoSpend": boolean;
     "thefehrs-learning-manager.autoSpendUnits": string[];
-    "thefehrs-learning-manager.bookCompendiums": string[];
-    "thefehrs-learning-manager.allowedCompendiums": string[];
     "thefehrs-learning-manager.categories": string[];
   }
 
@@ -204,7 +219,6 @@ declare global {
 /**
  * Augmented Actor type that bypasses the library's strict SubType mapping
  * while providing our system and flag types.
- *
  * NOTE: The use of `any` for SubType and system is intentional to work around
  * strict mapping limitations of the external dnd5e library types. This is a
  * pragmatic compromise to ensure access to system-specific fields and methods
@@ -214,6 +228,13 @@ export type Actor5e = Actor<any> & {
   system: any;
   getRollData(): any;
 };
+
+/**
+ * Type guard for Actor5e.
+ */
+export function isActor5e(actor: any): actor is Actor5e {
+  return actor instanceof Actor;
+}
 
 /**
  * Augmented Item type.
@@ -238,6 +259,12 @@ export type DowntimeGroupActor = Actor5e & {
 
 export type LearningProject = ProjectFlagData;
 
+/**
+ * Specialized Roll type for training checks.
+ * We use a dedicated type here to avoid Roll<EmptyObject> defaults from the library
+ * when we inject custom 'tutelage' data into the roll, which causes assignment errors.
+ */
+export type TrainingRoll = Roll<{ tutelage: number } & Record<string, unknown>>;
 // --- Module Integration APIs ---
 
 export interface SearchItem {
@@ -298,7 +325,6 @@ export function getModuleAPI<T extends string & keyof ModuleAPIs>(
 // --- Shared Data Types ---
 
 export type { ProjectRequirement, ComparisonOperator, ProjectFlagData, ProjectItem };
-
 // --- Tidy 5e Sheets API Types ---
 
 export type { Tidy5eSheetsApi as Tidy5eApi };
@@ -331,7 +357,7 @@ export type ActivationData5e = ActivationData & { override?: boolean };
 export type DurationData5e = DurationData & { override?: boolean; concentration?: boolean };
 export type RangeData5e = RangeData & { override?: boolean };
 export type TargetData5e = TargetData & { override?: boolean; prompt?: boolean };
-export type ConsumptionData5e = {
+export type ConsumptionData5e = ActivityData["consumption"] & {
   value: string;
   scaling: { allowed: boolean; max: string };
   spellSlot: boolean;

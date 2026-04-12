@@ -21,7 +21,7 @@ interface ValidationData {
     description?: {
       value?: string;
     };
-    activities?: Record<string, any>;
+    activities?: any[] | Record<string, any> | { size: number };
   };
   effects?: any[] | { size: number };
 }
@@ -42,7 +42,14 @@ function validateProjectData(data: ValidationData): string[] {
   // Criteria 2: Missing activities or effects
   const activities = data.system?.activities || {};
   const effects = data.effects || [];
-  const hasActivities = Object.keys(activities).length > 0;
+  let hasActivities = false;
+  if (Array.isArray(activities)) {
+    hasActivities = activities.length > 0;
+  } else if (typeof activities === "object" && "size" in activities) {
+    hasActivities = (activities as any).size > 0;
+  } else {
+    hasActivities = Object.keys(activities).length > 0;
+  }
 
   let hasEffects = false;
   if (Array.isArray(effects)) {
@@ -92,15 +99,25 @@ export async function getInvalidProjects(): Promise<InvalidProjectReason[]> {
 
     // Foundry's getIndex typing doesn't support custom fields, but the API does.
     // We use double type assertions to bypass the strict compiler checks.
-    const index = (await pack.getIndex({
-      fields: [
-        `flags.${MODULE_ID}.projectData`,
-        "system.description.value",
-        "system.activities",
-        "effects",
-      ] as any,
-      force: true,
-    } as any)) as unknown as (ValidationData & { _id: string })[];
+    let index: (ValidationData & { _id: string })[] = [];
+    try {
+      index = (await pack.getIndex({
+        fields: [
+          `flags.${MODULE_ID}.projectData`,
+          "system.description.value",
+          "system.activities",
+          "effects",
+        ] as any,
+        force: true,
+      } as any)) as unknown as (ValidationData & { _id: string })[];
+    } catch (error) {
+      Logger.error(
+        `Failed to read index for compendium "${packId}": ${
+          error instanceof Error ? error.message : error
+        }`,
+      );
+      continue;
+    }
 
     for (const indexEntry of index) {
       const initialReasons = validateProjectData(indexEntry);

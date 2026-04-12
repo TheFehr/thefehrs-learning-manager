@@ -1,12 +1,14 @@
+import { DEFAULT_DC } from "../global.js";
 import { ActorProxy } from "./actor-proxy.js";
 import { Logger } from "../core/logger.js";
+import { isActor5e } from "../types.js";
 import type {
   LearningActor,
   TimeUnit,
   ProjectRequirement,
   ComparisonOperator,
   SystemRules,
-  Actor5e,
+  TrainingRoll,
 } from "../types.js";
 
 /**
@@ -19,9 +21,9 @@ export class TabLogic {
     rules: SystemRules,
     tutelageMod: number,
     tu: TimeUnit,
-  ): Promise<{ progressGained: number; roll?: Roll<any>; reason?: string }> {
+  ): Promise<{ progressGained: number; roll?: TrainingRoll; reason?: string }> {
     let progressGained = 0;
-    let roll: Roll<any> | undefined = undefined;
+    let roll: TrainingRoll | undefined = undefined;
     let reason: string | undefined = undefined;
 
     const effectiveMethod = tu.isBulk ? rules.bulkMethod : rules.nonBulkMethod;
@@ -97,7 +99,6 @@ export class TabLogic {
           Logger.error("Failed to calculate mod for mathematical progress:", err);
         }
       }
-
       const bulkFormula =
         rules.bulkExpectedFormula || "round(@hours * (22 - max(1, @dc - @mod)) / 20)";
 
@@ -146,15 +147,14 @@ export class TabLogic {
   }
 
   /**
-   * Calculates the success probability (0-1) for a training roll.
-   * Supports any formula containing a single simple d20 term.
+   * Internal helper to brute-force all 20 outcomes of a d20-based check.
    */
-  static async calculateSuccessProbability(
+  private static async _getOutcomes(
     actor: LearningActor,
     rules: SystemRules,
     tutelageMod: number,
-  ): Promise<number> {
-    if (!rules.checkFormula || rules.checkDC == null) return 0;
+  ): Promise<{ rolls: TrainingRoll[]; isDeterministic: boolean } | null> {
+    if (!rules.checkFormula || rules.checkDC == null) return null;
 
     try {
       const rollData = {
@@ -162,46 +162,89 @@ export class TabLogic {
         tutelage: tutelageMod,
       };
 
-      // 1. Construct the roll and evaluate it once to resolve data references
-      let roll = new Roll(rules.checkFormula, rollData);
-      roll = await roll.evaluate();
+      const roll = new Roll(rules.checkFormula, rollData) as TrainingRoll;
+      await roll.evaluate();
       const dice = roll.dice;
 
-      // 2. Handle the deterministic case (no dice)
       if (dice.length === 0) {
-        return roll.total >= (Number(rules.checkDC) || 0) ? 1 : 0;
+        return {
+          rolls: Array.from({ length: 20 }, () => roll),
+          isDeterministic: true,
+        };
       }
 
-      // 3. Brute force outcomes by forcing the d20 result (1-20).
-      // We only support formulas with exactly one d20 term and no other dice.
-      const isSimpleD20 = dice.length === 1 && dice[0].faces === 20 && dice[0].number === 1;
-
-      if (!isSimpleD20) {
-        Logger.warn(
-          "Success probability estimation skipped: formula is complex or contains multiple dice.",
-          rules.checkFormula,
-        );
-        return 0;
-      }
-
-      // Use non-global, case-insensitive, word-boundary regex to replace the d20 token
       const baseFormula = rules.checkFormula.replace(/\b1?d20\b/i, "Outcome");
+      const isSimpleD20 =
+        dice.length === 1 &&
+        dice[0].faces === 20 &&
+        dice[0].number === 1 &&
+        baseFormula !== rules.checkFormula;
 
-      const outcomes = await Promise.all(
+      if (!isSimpleD20) return null;
+
+      const rolls = await Promise.all(
         Array.from({ length: 20 }, (_, idx) => {
           const i = idx + 1;
           const formula = baseFormula.replace("Outcome", String(i));
-          const testRoll = new Roll(formula, rollData);
-          return testRoll.evaluate();
+          const testRoll = new Roll(formula, rollData) as TrainingRoll;
+          return testRoll.evaluate() as Promise<TrainingRoll>;
         }),
       );
-
-      const totalSuccesses = outcomes.filter((r) => r.total >= (Number(rules.checkDC) || 0)).length;
-      return totalSuccesses / 20;
+      return { rolls, isDeterministic: false };
     } catch (err) {
-      Logger.error("Failed to calculate success probability:", err);
-      return 0;
+      Logger.error("Failed to calculate outcomes:", err);
+      return null;
     }
+  }
+
+  /**
+   * Calculates the statistically expected progress for a single training roll,
+   * accounting for success DC and critDoubleStrategy.
+   */
+  static async calculateExpectedProgress(
+    actor: LearningActor,
+    rules: SystemRules,
+    tutelageMod: number,
+  ): Promise<number> {
+    const res = await this._getOutcomes(actor, rules, tutelageMod);
+    if (!res) return NaN;
+
+    const { rolls, isDeterministic } = res;
+    const strategy = rules.critDoubleStrategy ?? "never";
+    const threshold = Number(rules.critThreshold ?? 20);
+    const dc = Number(rules.checkDC ?? DEFAULT_DC);
+
+    let totalProgress = 0;
+    rolls.forEach((r, idx) => {
+      if (r.total >= dc) {
+        let multiplier = 1;
+        if (!isDeterministic && strategy !== "never") {
+          const rollValue = idx + 1;
+          if (rollValue >= threshold) {
+            multiplier = 2;
+          }
+        }
+        totalProgress += multiplier;
+      }
+    });
+
+    return totalProgress / 20;
+  }
+
+  /**
+   * Calculates the success probability (0-1) for a training roll.
+   * Supports any formula containing a single simple d20 term.
+   */
+  static async calculateSuccessProbability(
+    actor: LearningActor,
+    rules: SystemRules,
+    tutelageMod: number,
+  ): Promise<number | null> {
+    const res = await this._getOutcomes(actor, rules, tutelageMod);
+    if (!res) return null;
+    const dc = Number(rules.checkDC ?? DEFAULT_DC);
+    const successCount = res.rolls.filter((r) => r.total >= dc).length;
+    return successCount / 20;
   }
 
   /**
@@ -212,7 +255,11 @@ export class TabLogic {
       Logger.warn(`Invalid currency cost: ${costCp}. Must be a non-negative number.`);
       return false;
     }
-    const proxy = ActorProxy.forActor(actor as unknown as Actor5e);
+    if (!isActor5e(actor)) {
+      Logger.warn("Cannot deduct currency from non-dnd5e actor.");
+      return false;
+    }
+    const proxy = ActorProxy.forActor(actor);
     const cur = proxy.currency;
     const totalCp = cur.gp * 100 + cur.sp * 10 + cur.cp;
 

@@ -1,6 +1,6 @@
 import { Logger } from "./logger.js";
 import type { ProjectRequirement, SystemRules, TimeUnit } from "../types.js";
-import { MODULE_ID } from "../global.js";
+import { DEFAULT_DC, MODULE_ID } from "../global.js";
 
 export interface ProjectTemplate {
   id: string;
@@ -46,7 +46,7 @@ export const SETTINGS_DEFINITIONS: {
       bulkMethod: "mathematical",
       rollMode: "gmroll",
       notificationLevel: "info",
-      checkDC: 12,
+      checkDC: DEFAULT_DC,
       checkFormula: "1d20 + @abilities.int.mod + @tutelage",
       critDoubleStrategy: "any",
       critThreshold: 20,
@@ -136,9 +136,6 @@ export interface SettingMenuConfig {
   label: string;
   hint?: string;
   icon?: string;
-  /**
-   * The application class constructor to use for this menu.
-   */
   type: new (...args: any[]) => any;
   restricted: boolean;
 }

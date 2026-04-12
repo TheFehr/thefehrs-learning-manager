@@ -25,10 +25,9 @@ describe("TabLogic", () => {
       constructor(formula: string, data: any = {}) {
         super(formula, data);
         if (!this.formula) return;
-        if (this.formula === "2d20kh1") {
+        if (this.formula.includes("2d20")) {
           this.dice = [
-            { faces: 20, number: 1, modifiers: ["kh1"], results: [{ result: 15, active: true }] },
-            { faces: 20, number: 1, modifiers: ["kh1"], results: [{ result: 15, active: true }] },
+            { faces: 20, number: 2, modifiers: ["kh1"], results: [{ result: 15, active: true }] },
           ];
         } else if (this.formula.includes("1d20") || this.formula.includes("d20")) {
           this.dice = [
@@ -115,12 +114,11 @@ describe("TabLogic", () => {
     let tu: any;
 
     beforeEach(() => {
-      actor = {
-        system: { abilities: { int: { mod: 0 } } },
-        getRollData: function () {
-          return this.system;
-        },
-      } as any;
+      actor = new Actor() as any;
+      actor.system = { abilities: { int: { mod: 0 } } };
+      actor.getRollData = function () {
+        return this.system;
+      };
       rules = { nonBulkMethod: "roll", bulkMethod: "direct", checkDC: 15, checkFormula: "1d20" };
       tutelageMod = 2;
       tu = { id: "hour", isBulk: false };
@@ -197,9 +195,8 @@ describe("TabLogic", () => {
     let actor: any;
 
     beforeEach(() => {
-      actor = {
-        system: { abilities: { int: { value: 15 } } },
-      };
+      actor = new Actor() as any;
+      actor.system = { abilities: { int: { value: 15 } } };
     });
 
     it("should return eligible true if all requirements met", () => {
@@ -292,10 +289,59 @@ describe("TabLogic", () => {
       expect(prob).toBe(1);
     });
 
-    it("should return 0 for complex formulas", async () => {
+    it("should return null for complex formulas", async () => {
       const complexRules = { checkFormula: "2d20kh1", checkDC: 15 } as any;
       const prob = await TabLogic.calculateSuccessProbability(actor, complexRules, tutelageMod);
-      expect(prob).toBe(0);
+      expect(prob).toBeNull();
+    });
+  });
+
+  describe("calculateExpectedProgress", () => {
+    const actor = {
+      getRollData: () => ({ abilities: { int: { mod: 2 } } }),
+    } as any;
+    const tutelageMod = 2;
+
+    it("should calculate expected progress accounting for crits (strategy: any)", async () => {
+      const rules = {
+        checkFormula: "1d20 + @abilities.int.mod + @tutelage",
+        checkDC: 12,
+        critDoubleStrategy: "any",
+        critThreshold: 18,
+      } as any;
+
+      // DC 12, modifiers +4. Need 8+ on d20.
+      // d20 outcomes:
+      // 1-7 (7 outcomes): fail (0)
+      // 8-17 (10 outcomes): success (1)
+      // 18-20 (3 outcomes): crit success (2)
+      // Total: (10 * 1) + (3 * 2) = 16
+      // Expected: 16 / 20 = 0.8
+      const exp = await TabLogic.calculateExpectedProgress(actor, rules, tutelageMod);
+      expect(exp).toBe(0.8);
+    });
+
+    it("should calculate expected progress with never strategy", async () => {
+      const rules = {
+        checkFormula: "1d20 + @abilities.int.mod + @tutelage",
+        checkDC: 12,
+        critDoubleStrategy: "never",
+        critThreshold: 18,
+      } as any;
+
+      // Total success outcomes: 13 (8-20)
+      // Expected: 13 / 20 = 0.65
+      const exp = await TabLogic.calculateExpectedProgress(actor, rules, tutelageMod);
+      expect(exp).toBe(0.65);
+    });
+
+    it("should return NaN for complex formulas", async () => {
+      const complexRules = {
+        checkFormula: "2d20kh1 + 5",
+        checkDC: 12,
+      } as any;
+      const exp = await TabLogic.calculateExpectedProgress(actor, complexRules, 0);
+      expect(exp).toBeNaN();
     });
   });
 
@@ -306,7 +352,7 @@ describe("TabLogic", () => {
 
     it("should deduct currency correctly", async () => {
       const { TabLogic } = await import("../../src/logic/tab-logic");
-      const actor = {} as any;
+      const actor = new Actor() as any;
       const mockProxy = {
         currency: { gp: 1, sp: 0, cp: 0 },
         updateCurrency: vi.fn().mockResolvedValue(true),
@@ -321,7 +367,7 @@ describe("TabLogic", () => {
 
     it("should fail if insufficient funds", async () => {
       const { TabLogic } = await import("../../src/logic/tab-logic");
-      const actor = {} as any;
+      const actor = new Actor() as any;
       const mockProxy = {
         currency: { gp: 0, sp: 0, cp: 10 },
         updateCurrency: vi.fn(),
@@ -337,7 +383,7 @@ describe("TabLogic", () => {
 
     it("should return false if cost is negative or NaN", async () => {
       const { TabLogic } = await import("../../src/logic/tab-logic");
-      const actor = {} as any;
+      const actor = new Actor() as any;
 
       expect(await TabLogic.deductCurrency(actor, -10)).toBe(false);
       expect(await TabLogic.deductCurrency(actor, NaN)).toBe(false);

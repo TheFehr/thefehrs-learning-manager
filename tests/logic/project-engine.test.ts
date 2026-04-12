@@ -13,6 +13,8 @@ vi.mock("../../src/logic/tab-logic", () => ({
     formatCurrency: vi.fn().mockReturnValue("1gp"),
     formatTimeBank: vi.fn().mockReturnValue("1h"),
     meetsRequirements: vi.fn().mockReturnValue({ eligible: true, reason: "" }),
+    calculateExpectedProgress: vi.fn().mockResolvedValue(1),
+    calculateSuccessProbability: vi.fn().mockResolvedValue(0.5),
   },
 }));
 
@@ -31,6 +33,16 @@ describe("ProjectEngine", () => {
       progress: { hour: 1, day: 10 },
     },
   ];
+
+  const mockSettingsGet =
+    (overrides: Record<string, any> = {}) =>
+    (key: string) => {
+      if (key in overrides) return overrides[key];
+      if (key === "timeUnits") return timeUnits;
+      if (key === "rules") return { method: "direct" } as any;
+      if (key === "guidanceTiers") return guidanceTiers;
+      return null;
+    };
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -409,14 +421,14 @@ describe("ProjectEngine", () => {
     });
 
     it("should handle excess progress and initiate follow-up project", async () => {
-      const actor = {
-        system: { currency: { gp: 10, sp: 0, cp: 0 }, abilities: { int: { mod: 0 } } },
-        items: [],
-        getFlag: vi.fn().mockReturnValue({ total: 100 }), // bank
-        setFlag: vi.fn().mockResolvedValue(true),
-        getRollData: vi.fn().mockReturnValue({}),
-        name: "Actor",
-      } as any;
+      const actor = new Actor() as any;
+      actor.name = "Actor";
+      actor.system = {
+        currency: { gp: 10, sp: 0, cp: 0 },
+        abilities: { int: { mod: 0 } },
+      };
+      actor.getFlag.mockReturnValue({ total: 100 }); // bank
+      actor.getRollData = vi.fn().mockReturnValue({});
 
       const projectData = {
         progress: 9,
@@ -434,12 +446,12 @@ describe("ProjectEngine", () => {
         update: vi.fn().mockResolvedValue(true),
       } as any;
 
-      const followUpItem = {
-        name: "Second Project",
-        getFlag: vi.fn().mockReturnValue({ requirements: [] }),
-      } as any;
+      const followUpItem = new Item() as any;
+      followUpItem.name = "Second Project";
+      followUpItem.getFlag.mockReturnValue({ requirements: [] });
       global.fromUuid = vi.fn().mockResolvedValue(followUpItem);
 
+      vi.mocked(TabLogic.meetsRequirements).mockReturnValue({ eligible: true, reason: "" });
       vi.mocked(foundry.applications.api.DialogV2.confirm).mockResolvedValue(true);
       vi.spyOn(ProjectEngine, "completeProject").mockResolvedValue(undefined);
       const initiateSpy = vi.spyOn(ProjectEngine, "initiateProjectFromItem").mockResolvedValue({
@@ -604,6 +616,86 @@ describe("ProjectEngine", () => {
       const desc = lastUpdate["system.description.value"];
       expect(desc).not.toContain("Current Mangled Description");
       expect(desc).toContain("Real Content");
+    });
+
+    it("should abort if the chosen bulk method is unavailable", async () => {
+      const actor = new Actor() as any;
+      actor.flags = { [MODULE_ID]: { bank: { total: 100 } } };
+      actor.system = { currency: { gp: 10, sp: 0, cp: 0 } };
+      actor.getRollData = vi.fn().mockReturnValue({});
+
+      const item = new Item() as any;
+      item.actor = actor;
+      item.getFlag = vi.fn().mockReturnValue({ target: 10, progress: 0, tutelageId: "tier1" });
+
+      const activity = {
+        item,
+        flags: { [MODULE_ID]: { timeUnitId: "day" } }, // day is bulk
+      };
+
+      vi.mocked(Settings.get).mockImplementation(
+        mockSettingsGet({
+          rules: {
+            bulkMethod: "roll",
+            nonBulkMethod: "direct",
+            checkFormula: "1d20",
+            checkDC: 10,
+          },
+        }),
+      );
+
+      vi.mocked(TabLogic.calculateExpectedProgress).mockResolvedValue(NaN);
+
+      // Mock dialog to choose bulk
+      vi.mocked(foundry.applications.api.DialogV2.wait).mockResolvedValue("bulk");
+
+      const result = await ProjectEngine.processTraining(activity as any);
+
+      expect(result).toBe(false);
+      expect(ui.notifications.warn).toHaveBeenCalledWith(
+        expect.stringContaining("chosen bulk training path is unavailable"),
+      );
+      expect(TabLogic.deductCurrency).not.toHaveBeenCalled();
+    });
+
+    it("should abort if the chosen separate method is unavailable", async () => {
+      const actor = new Actor() as any;
+      actor.flags = { [MODULE_ID]: { bank: { total: 100 } } };
+      actor.system = { currency: { gp: 10, sp: 0, cp: 0 } };
+      actor.getRollData = vi.fn().mockReturnValue({});
+
+      const item = new Item() as any;
+      item.actor = actor;
+      item.getFlag = vi.fn().mockReturnValue({ target: 10, progress: 0, tutelageId: "tier1" });
+
+      const activity = {
+        item,
+        flags: { [MODULE_ID]: { timeUnitId: "day" } }, // day is bulk
+      };
+
+      vi.mocked(Settings.get).mockImplementation(
+        mockSettingsGet({
+          rules: {
+            bulkMethod: "direct",
+            nonBulkMethod: "roll",
+            checkFormula: "1d20",
+            checkDC: 10,
+          },
+        }),
+      );
+
+      vi.mocked(TabLogic.calculateExpectedProgress).mockResolvedValue(NaN);
+
+      // Mock dialog to choose separate
+      vi.mocked(foundry.applications.api.DialogV2.wait).mockResolvedValue("separate");
+
+      const result = await ProjectEngine.processTraining(activity as any);
+
+      expect(result).toBe(false);
+      expect(ui.notifications.warn).toHaveBeenCalledWith(
+        expect.stringContaining("chosen separate training path is unavailable"),
+      );
+      expect(TabLogic.deductCurrency).not.toHaveBeenCalled();
     });
   });
 

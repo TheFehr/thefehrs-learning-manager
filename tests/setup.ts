@@ -22,6 +22,7 @@ globalThis.foundry = {
       HandlebarsApplicationMixin: (Base: any) => class extends Base {},
       DialogV2: {
         confirm: vi.fn().mockResolvedValue(true),
+        wait: vi.fn(),
       },
     },
   },
@@ -256,6 +257,8 @@ class MockActor {
   getFlag = vi.fn((scope: string, key: string) => {
     return this.flags?.[scope]?.[key];
   });
+
+  getRollData = vi.fn(() => this.system);
 
   setFlag = vi.fn(async (scope: string, key: string, value: any) => {
     if (!this.flags[scope]) this.flags[scope] = {};

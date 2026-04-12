@@ -1,10 +1,12 @@
+import { DEFAULT_DC } from "../global.js";
 import { Settings } from "../core/settings.js";
 import { Logger } from "../core/logger.js";
 import { ActorProxy } from "./actor-proxy.js";
 import { ActivityManager } from "../core/activity-manager.js";
 import { ProjectLifecycle } from "./project-lifecycle.js";
 import { LearningActivityData, ProjectFlagData, ProjectItem } from "./project-item.js";
-import type { Item5e, TimeUnit, SystemRules } from "../types.js";
+import { isActor5e } from "../types.js";
+import type { Item5e, TimeUnit, SystemRules, TrainingRoll } from "../types.js";
 import { Socket } from "../core/socket.js";
 import { mount, unmount } from "svelte";
 import { TutelageResolverService } from "./tutelage-resolver.js";
@@ -13,6 +15,8 @@ import InstructorSelectionDialog from "../apps/dialogs/InstructorSelectionDialog
 import { ProjectUI } from "../core/project-ui.js";
 
 export class ProjectEngine {
+  static readonly BATCH_THRESHOLD = 12;
+
   /**
    * Forwards call to ProjectUI
    */
@@ -86,7 +90,7 @@ export class ProjectEngine {
    */
   static async processSpendAll(item: Item5e, allowedUnitIds?: string[]) {
     const actor = item.actor;
-    if (!actor) return false;
+    if (!actor || !isActor5e(actor)) return false;
 
     const proxy = ActorProxy.forActor(actor);
     const bank = proxy.bank;
@@ -214,15 +218,15 @@ export class ProjectEngine {
     const item = learningActivity.item;
 
     const actor = item.actor;
-    if (!actor) return false;
+    if (!actor || !isActor5e(actor)) return false;
 
     // Handle "Spend all" activity
     if (learningActivity.flags?.[Settings.ID]?.isSpendAll) {
-      return await this.processSpendAll(item as any);
+      return await this.processSpendAll(item as Item5e);
     }
 
     const projectDataFlags = item.getFlag("thefehrs-learning-manager", "projectData");
-    if (!projectDataFlags.target || projectDataFlags.target <= 0) {
+    if (!projectDataFlags || !projectDataFlags.target || projectDataFlags.target <= 0) {
       ui.notifications?.warn("This project is awaiting a GM-defined target progress.");
       return false;
     }
@@ -350,34 +354,80 @@ export class ProjectEngine {
     const rules = Settings.get("rules");
     let isSeparate = false;
 
+    const isBulkRoll = rules.bulkMethod === "roll";
+    const isSeparateRoll = rules.nonBulkMethod === "roll";
+
     if (
       !options.skipPrompt &&
       tu.isBulk &&
-      rules.nonBulkMethod === "roll" &&
-      rules.bulkMethod !== "roll"
+      (rules.nonBulkMethod === "roll" || rules.bulkMethod === "roll")
     ) {
-      const bulkResult = await TabLogic.computeProgress(actor, rules, tutelageMod, tu);
       const prob = await TabLogic.calculateSuccessProbability(actor, rules, tutelageMod);
-      const chancePercent = Math.round(prob * 100);
-      const expectedFromSeparate = (tu.ratio * prob).toFixed(1);
+      const chancePercent = prob === null ? "unavailable" : Math.round(prob * 100);
+
+      const expectedPerRoll = await TabLogic.calculateExpectedProgress(actor, rules, tutelageMod);
+
+      // Bulk Value
+      let bulkValue: string | number;
+      if (isBulkRoll) {
+        bulkValue = isNaN(expectedPerRoll) ? "unavailable" : expectedPerRoll.toFixed(1);
+      } else {
+        const bulkRes = await TabLogic.computeProgress(actor, rules, tutelageMod, tu);
+        bulkValue = bulkRes.progressGained;
+      }
+
+      // Separate Value
+      let separateValue: string | number;
+      if (isSeparateRoll) {
+        separateValue = isNaN(expectedPerRoll)
+          ? "unavailable"
+          : (expectedPerRoll * tu.ratio).toFixed(1);
+      } else {
+        const sepRes = await TabLogic.computeProgress(actor, rules, tutelageMod, {
+          ...tu,
+          isBulk: false,
+          ratio: 1,
+        });
+        separateValue = (sepRes.progressGained * tu.ratio).toFixed(1);
+      }
 
       const choice = await foundry.applications.api.DialogV2.wait({
         window: { title: `Training Resolution: ${tu.name}` },
         content: this._renderTrainingResolutionDialog(
           tu,
-          bulkResult.progressGained,
+          bulkValue,
           chancePercent,
-          expectedFromSeparate,
+          separateValue,
           rules,
+          isBulkRoll,
+          isSeparateRoll,
         ),
         buttons: [
           { action: "bulk", label: `Use Bulk`, icon: "fas fa-calculator" },
-          { action: "separate", label: `Roll separately`, icon: "fas fa-dice-d20" },
+          {
+            action: "separate",
+            label: isSeparateRoll
+              ? tu.ratio > 5
+                ? `Roll separately (${tu.ratio} rolls!)`
+                : `Roll separately`
+              : `Process separately`,
+            icon: isSeparateRoll ? "fas fa-dice-d20" : "fas fa-list-ol",
+          },
         ],
         rejectClose: false,
         modal: true,
       });
       if (!choice) return false;
+
+      if (choice === "bulk" && bulkValue === "unavailable") {
+        ui.notifications?.warn(`The chosen bulk training path is unavailable.`);
+        return false;
+      }
+      if (choice === "separate" && separateValue === "unavailable") {
+        ui.notifications?.warn(`The chosen separate training path is unavailable.`);
+        return false;
+      }
+
       isSeparate = choice === "separate";
     }
 
@@ -400,7 +450,7 @@ export class ProjectEngine {
     }
 
     let totalProgressGained = 0;
-    let rolls: Roll[] = [];
+    let rolls: TrainingRoll[] = [];
     let reasons: string[] = [];
 
     const iterations = isSeparate ? tu.ratio : 1;
@@ -429,7 +479,7 @@ export class ProjectEngine {
     await proxy.setBank({ total: bank.total - tu.ratio });
 
     if (completedNow) {
-      await this.completeProject(item as any);
+      await this.completeProject(item as Item5e);
 
       if (excessProgress > 0 && projectDataFlags.followUpProjectId) {
         const followUpItem = (await fromUuid(
@@ -464,34 +514,37 @@ export class ProjectEngine {
                     "projectData",
                   ),
                 );
-                newFlags.progress = Math.min(
-                  excessProgress,
-                  newFlags.target > 0 ? newFlags.target : excessProgress,
-                );
-                await this.updateItemWithProgress(newItem, newFlags);
-                ui.notifications?.info(
-                  `Started follow-up project: ${foundry.utils.escapeHTML(followUpItem.name)} with ${
-                    newFlags.progress
-                  } initial progress.`,
-                );
+                if (newFlags) {
+                  newFlags.progress = Math.min(
+                    excessProgress,
+                    newFlags.target > 0 ? newFlags.target : excessProgress,
+                  );
+                  await this.updateItemWithProgress(newItem, newFlags);
+                  ui.notifications?.info(
+                    `Started follow-up project: ${foundry.utils.escapeHTML(followUpItem.name)} with ${
+                      newFlags.progress
+                    } initial progress.`,
+                  );
+                }
               }
             }
           }
         }
       }
     } else {
-      await this.updateItemWithProgress(item as any, projectDataFlags, instructorName);
+      await this.updateItemWithProgress(item as Item5e, projectDataFlags, instructorName);
 
       // Ensure we have the latest document instance before displaying the card
-      const freshItem = actor.items.get(item.id);
+      const freshItem = actor.items.get(item.id) as Item5e | undefined;
       if (freshItem && typeof (freshItem as any).displayCard === "function") {
         await (freshItem as any).displayCard({ rollMode: rules.rollMode });
       }
     }
 
-    const BATCH_THRESHOLD = 5;
-    if (isSeparate && tu.ratio > BATCH_THRESHOLD) {
-      const successCount = rolls.filter((r) => r.total >= (rules.checkDC ?? 12)).length;
+    if (isSeparate && tu.ratio > ProjectEngine.BATCH_THRESHOLD) {
+      const successCount = rolls.filter(
+        (r) => r.total >= Number(rules.checkDC ?? DEFAULT_DC),
+      ).length;
       ui.notifications?.info(
         `Training complete: Gained ${totalProgressGained} progress from ${tu.ratio} separate rolls (${successCount} successes).`,
       );
@@ -499,7 +552,7 @@ export class ProjectEngine {
       for (const r of rolls) {
         await r.toMessage(
           {
-            flavor: `${actor.name} tries to learn ${item.name} (DC ${rules.checkDC ?? 12})`,
+            flavor: `${actor.name} tries to learn ${item.name} (DC ${Number(rules.checkDC ?? DEFAULT_DC)})`,
           },
           { rollMode: (rules.rollMode || "gmroll") as foundry.dice.RollMode },
         );
@@ -512,7 +565,7 @@ export class ProjectEngine {
           ? `Training unsuccessful: ${reasons[0]}`
           : "Training unsuccessful - no progress gained.";
       ui.notifications?.info(msg);
-    } else if (isSeparate && tu.ratio <= BATCH_THRESHOLD) {
+    } else if (isSeparate && tu.ratio <= ProjectEngine.BATCH_THRESHOLD) {
       ui.notifications?.info(
         `Training complete: Gained ${totalProgressGained} progress from ${tu.ratio} separate rolls.`,
       );
@@ -537,7 +590,7 @@ export class ProjectEngine {
 
     if (projects.length === 1) {
       const project = projects[0];
-      await this.processSpendAll(project as any, autoSpendUnits);
+      await this.processSpendAll(project as Item5e, autoSpendUnits);
     } else if (projects.length > 1) {
       ui.notifications?.warn(
         "Downtime Engine | You have auto-spending enabled, but more than one active project. Please open your character sheet and spend the time yourself.",
@@ -554,22 +607,59 @@ export class ProjectEngine {
 
   private static _renderTrainingResolutionDialog(
     tu: TimeUnit,
-    bulkProgress: number,
-    chancePercent: number,
-    expectedFromSeparate: string,
+    bulkValue: string | number,
+    chancePercent: string | number,
+    separateValue: string | number,
     rules: SystemRules,
+    isBulkRoll: boolean = false,
+    isSeparateRoll: boolean = true,
   ): string {
     const safeTuName = foundry.utils.escapeHTML(tu.name);
+    const safeBulkValue = foundry.utils.escapeHTML(String(bulkValue));
+    const safeChancePercent = foundry.utils.escapeHTML(String(chancePercent));
+    const safeSeparateValue = foundry.utils.escapeHTML(String(separateValue));
+
+    const bulkMethodLabel = isBulkRoll ? "Expected progress" : "Gaining";
+    const bulkMethodValue = isBulkRoll
+      ? `<strong>${safeBulkValue}</strong> (one roll)`
+      : `<strong>${safeBulkValue}</strong> progress fixed`;
+
+    const sepMethodLabel = isSeparateRoll ? "Expected progress" : "Gaining";
+    const sepMethodValue = isSeparateRoll
+      ? `<strong>${safeSeparateValue}</strong> across ${tu.ratio} rolls`
+      : `<strong>${safeSeparateValue}</strong> progress fixed`;
+
     return `
       <div style="margin-bottom: 1rem;">
         <p>How would you like to resolve this <b>${safeTuName}</b> session?</p>
         <div style="display: flex; gap: 1rem; flex-direction: column;">
           <div style="padding: 0.5rem; border: 1px solid var(--t5e-faint-color); border-radius: 4px; background: rgba(0,0,0,0.05);">
-            <i class="fas fa-calculator"></i> <b>Bulk Method</b>: Gaining <strong>${bulkProgress}</strong> progress fixed.
+            <i class="fas fa-calculator"></i> <b>Bulk Method</b>: ${bulkMethodLabel} ${bulkMethodValue}.
           </div>
           <div style="padding: 0.5rem; border: 1px solid var(--t5e-faint-color); border-radius: 4px; background: rgba(0,0,0,0.05);">
-            <i class="fas fa-dice-d20"></i> <b>Separate Rolls</b>: Each hour has a <strong>${chancePercent}%</strong> chance of success (DC ${rules.checkDC ?? 12}).
-            <br><small style="opacity: 0.8;">Statistically expected progress: ${expectedFromSeparate} across ${tu.ratio} rolls.</small>
+            <i class="${isSeparateRoll ? "fas fa-dice-d20" : "fas fa-list-ol"}"></i> <b>Separate Method</b>: ${sepMethodLabel} ${sepMethodValue}.
+            ${
+              isSeparateRoll
+                ? `<br><small style="opacity: 0.8;">${
+                    safeChancePercent === "unavailable"
+                      ? "Probability unavailable"
+                      : `Each hour has a <strong>${safeChancePercent}%</strong> chance of success (DC ${Number(
+                          rules.checkDC ?? DEFAULT_DC,
+                        )}).`
+                  }</small>`
+                : ""
+            }
+            ${
+              isSeparateRoll && tu.ratio > 5
+                ? `<br><small style="color: #8a6d3b;"><i class="fas fa-exclamation-triangle"></i> Note: This will trigger ${
+                    tu.ratio
+                  } separate ${
+                    tu.ratio > ProjectEngine.BATCH_THRESHOLD
+                      ? "rolls (summarized in one message)"
+                      : "roll messages"
+                  }.</small>`
+                : ""
+            }
           </div>
         </div>
       </div>
