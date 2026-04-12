@@ -222,7 +222,7 @@ export class ProjectEngine {
 
     // Handle "Spend all" activity
     if (learningActivity.flags?.[Settings.ID]?.isSpendAll) {
-      return await this.processSpendAll(item as Item5e);
+      return await this.processSpendAll(item as unknown as Item5e);
     }
 
     const projectDataFlags = item.getFlag("thefehrs-learning-manager", "projectData");
@@ -479,7 +479,7 @@ export class ProjectEngine {
     await proxy.setBank({ total: bank.total - tu.ratio });
 
     if (completedNow) {
-      await this.completeProject(item as Item5e);
+      await this.completeProject(item as unknown as Item5e);
 
       if (excessProgress > 0 && projectDataFlags.followUpProjectId) {
         const followUpItem = (await fromUuid(
@@ -532,7 +532,11 @@ export class ProjectEngine {
         }
       }
     } else {
-      await this.updateItemWithProgress(item as Item5e, projectDataFlags, instructorName);
+      await this.updateItemWithProgress(
+        item as unknown as Item5e,
+        projectDataFlags,
+        instructorName,
+      );
 
       // Ensure we have the latest document instance before displaying the card
       const freshItem = actor.items.get(item.id) as Item5e | undefined;
