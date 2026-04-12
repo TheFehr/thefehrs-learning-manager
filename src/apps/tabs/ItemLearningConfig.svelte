@@ -122,10 +122,12 @@
         bookModifier: bMod,
         bookCategories: bCats
       });
+      setTimeout(() => isSaving = false, 500);
     } catch (err) {
       saveError = err instanceof Error ? err.message : String(err);
+      isSaving = false;
     } finally {
-      setTimeout(() => isSaving = false, 500);
+      // isSaving handled in try/catch branches
     }
   }
 

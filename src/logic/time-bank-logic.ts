@@ -54,7 +54,7 @@ export class TimeBankLogic {
     } catch (err) {
       Logger.error("Failed to update time bank:", err);
       ui.notifications?.error(
-        "Downtime Engine | Failed to update time bank. See console for details.",
+        "Downtime Engine | Failed to update time bank. See application logs for details.",
       );
     }
   }

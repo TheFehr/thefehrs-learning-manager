@@ -8,22 +8,46 @@ export async function searchWithOmnisearchOrQuickInsert(
   query = "!item ",
   restrictTypes = ["Item"],
 ): Promise<string | null> {
-  const omnisearch = CONFIG.SpotlightOmnisearch;
-  if (omnisearch?.prompt) {
-    const result = await omnisearch.prompt({ query });
-    return result?.data?.uuid || null;
+  try {
+    const omnisearch = CONFIG.SpotlightOmnisearch;
+    if (omnisearch?.prompt) {
+      const result = await omnisearch.prompt({ query });
+      const uuid = result?.data?.uuid;
+      if (!uuid) return null;
+
+      const doc = await fromUuid(uuid as any);
+      if (!doc || (restrictTypes.length > 0 && !restrictTypes.includes(doc.documentName))) {
+        return null;
+      }
+      return uuid;
+    }
+  } catch (err) {
+    Logger.error("Spotlight Omnisearch prompt failed:", err);
+    return null;
   }
 
-  const quickInsert = getModuleAPI("quick-insert");
-  if (quickInsert?.open) {
-    return new Promise((resolve) => {
-      quickInsert.open({
-        mode: 1, // Insert mode
-        restrictTypes,
-        onSubmit: (item: { uuid: string }) => resolve(item.uuid),
-        onClose: () => resolve(null),
+  try {
+    const quickInsert = getModuleAPI("quick-insert");
+    if (quickInsert?.open) {
+      return new Promise((resolve) => {
+        quickInsert.open({
+          mode: 1, // Insert mode
+          restrictTypes,
+          onSubmit: async (item: { uuid: string }) => {
+            const doc = await fromUuid(item.uuid as any);
+            if (!doc || (restrictTypes.length > 0 && !restrictTypes.includes(doc.documentName))) {
+              resolve(null);
+            } else {
+              resolve(item.uuid);
+            }
+          },
+          onClose: () => resolve(null),
+        });
       });
-    });
+    }
+  } catch (err) {
+    Logger.error("Quick Insert failed:", err);
+    return null;
   }
 
   Logger.info(

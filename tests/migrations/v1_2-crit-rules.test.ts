@@ -54,11 +54,12 @@ describe("v1_2-crit-rules migration", () => {
   });
 
   it("should log error and rethrow if migration fails", async () => {
+    const { Logger } = await import("../../src/core/logger");
     const error = new Error("Migration failed");
     vi.mocked(game.settings.get).mockImplementation(() => {
       throw error;
     });
-    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const errorSpy = vi.spyOn(Logger, "error").mockImplementation(() => {});
 
     await expect(migrateToV1_2()).rejects.toThrow(error);
     expect(errorSpy).toHaveBeenCalledWith(

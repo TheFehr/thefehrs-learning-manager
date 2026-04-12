@@ -53,6 +53,7 @@ describe("CategorySelector.svelte", () => {
   });
 
   it("should call onValueChange when input changes", async () => {
+    const { ensureCategoryExists } = await import("../../../src/logic/settings-logic");
     const categories = [""];
     instance = mount(CategorySelector, {
       target,
@@ -63,9 +64,21 @@ describe("CategorySelector.svelte", () => {
 
     const input = target.querySelector("input") as HTMLInputElement;
     input.value = "new-cat";
-    input.dispatchEvent(new Event("change"));
+    input.dispatchEvent(new Event("change", { bubbles: true }));
 
     await tick();
+
+    // Use vi.waitFor to wait for the async mock call
+    await vi.waitFor(
+      () => {
+        if (vi.mocked(ensureCategoryExists).mock.calls.length === 0) {
+          throw new Error("Mock not called yet");
+        }
+      },
+      { timeout: 1000, interval: 50 },
+    );
+
+    expect(ensureCategoryExists).toHaveBeenCalledWith("new-cat");
   });
 
   it("should handle adding and removing categories using wrapper", async () => {

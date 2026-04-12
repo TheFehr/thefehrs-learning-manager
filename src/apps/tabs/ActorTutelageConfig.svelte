@@ -57,10 +57,15 @@
   }
 
   function addOffering() {
+    const costs: Record<string, number> = {};
+    for (const unit of timeUnits) {
+      costs[unit.id] = 0;
+    }
+    
     offerings = [...offerings, {
       name: "New Lesson",
       modifier: 0,
-      costs: {},
+      costs,
       categories: [],
     }];
   }
@@ -80,7 +85,7 @@
     {#each offerings as offering, i}
       <section class="offering-card">
         <div class="offering-header">
-          <input type="text" bind:value={offering.name} onchange={(e) => e.stopPropagation()} oninput={(e) => e.stopPropagation()} placeholder="Lesson Name (e.g. Masterclass)" />
+          <input type="text" bind:value={offering.name} onchange={(e) => e.stopPropagation()} placeholder="Lesson Name (e.g. Masterclass)" />
           <button type="button" class="tidy-button small danger" onclick={(e) => { e.stopPropagation(); removeOffering(i); }} title="Remove Offering">
             <i class="fas fa-trash"></i>
           </button>

@@ -5,6 +5,15 @@ import type { SystemRules, TimeUnit, NotificationLevel } from "../types.js";
 
 /**
  * Shared save logic for the Downtime Engine settings.
+ *
+ * @param rules - The global system rules.
+ * @param timeUnits - The available time units.
+ * @param teacherCompendiums - List of actor compendiums to scan for instructors.
+ * @param bookCompendiums - List of item compendiums to scan for books.
+ * @param allowedCompendiums - List of item compendiums that can contain learnable projects.
+ * @param autoSpend - Whether to automatically spend time from the bank.
+ * @param autoSpendUnits - Which time units to auto-spend.
+ * @returns {Promise<boolean>} True if settings were saved or nothing changed, false on error.
  */
 export async function saveSettings(
   rules: SystemRules,

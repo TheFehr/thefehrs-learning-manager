@@ -49,10 +49,9 @@ export async function migrateToV2Direct() {
       };
       let rulesUpdated = false;
 
-      if (
-        typeof updatedRules.critThreshold !== "number" ||
-        !Number.isFinite(updatedRules.critThreshold)
-      ) {
+      const rawThreshold = updatedRules.critThreshold;
+      updatedRules.critThreshold = Number(rawThreshold);
+      if (!Number.isFinite(updatedRules.critThreshold)) {
         updatedRules.critThreshold = 20;
         rulesUpdated = true;
       }
@@ -72,7 +71,7 @@ export async function migrateToV2Direct() {
     let tiersUpdated = false;
     if (tiers && Array.isArray(tiers)) {
       for (const tier of tiers) {
-        if (!tier._migratedToV2 && tier.costs) {
+        if (!tier._migratedToV2 && !tier._migratedGpToCp && tier.costs) {
           for (const key of Object.keys(tier.costs)) {
             tier.costs[key] = Math.round(tier.costs[key] * 100);
           }

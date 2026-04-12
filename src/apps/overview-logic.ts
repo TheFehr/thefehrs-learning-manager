@@ -119,31 +119,40 @@ export async function getInvalidProjects(): Promise<InvalidProjectReason[]> {
       continue;
     }
 
-    for (const indexEntry of index) {
-      const initialReasons = validateProjectData(indexEntry);
+    const tasks = index
+      .map((indexEntry) => ({ indexEntry, initialReasons: validateProjectData(indexEntry) }))
+      .filter((task) => task.initialReasons.length > 0);
 
-      if (initialReasons.length > 0) {
-        try {
-          const item = (await pack.getDocument(indexEntry._id)) as Item5e;
-          // Re-validate against the full item data to ensure the index wasn't stale
-          const finalReasons = validateProjectData(item as unknown as ValidationData);
+    const results = await Promise.allSettled(
+      tasks.map((task) => pack.getDocument(task.indexEntry._id)),
+    );
 
-          if (finalReasons.length > 0) {
-            invalidProjects.push({
-              item,
-              packName: pack.metadata.label,
-              reasons: finalReasons,
-            });
-          }
-        } catch (error) {
-          Logger.warn(`Failed to load document "${indexEntry._id}" from "${packId}":`, error);
-          // Use index data as fallback for display
+    for (let i = 0; i < tasks.length; i++) {
+      const task = tasks[i];
+      const result = results[i];
+      if (result.status === "fulfilled") {
+        const item = result.value as Item5e;
+        // Re-validate against the full item data to ensure the index wasn't stale
+        const finalReasons = validateProjectData(item as unknown as ValidationData);
+
+        if (finalReasons.length > 0) {
           invalidProjects.push({
-            item: { name: indexEntry.name || "Unknown Item" },
+            item,
             packName: pack.metadata.label,
-            reasons: [...initialReasons, "Failed to load full item data."],
+            reasons: finalReasons,
           });
         }
+      } else {
+        Logger.warn(
+          `Failed to load document "${task.indexEntry._id}" from "${packId}":`,
+          result.reason,
+        );
+        // Use index data as fallback for display
+        invalidProjects.push({
+          item: { name: task.indexEntry.name || "Unknown Item" },
+          packName: pack.metadata.label,
+          reasons: [...task.initialReasons, "Failed to load full item data."],
+        });
       }
     }
   }

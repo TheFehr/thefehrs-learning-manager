@@ -161,7 +161,7 @@ export class PartyTabLogic {
     isGM: boolean,
   ) {
     if (!isGM) return;
-    const targetActor = game.actors.get(actorId) as Actor5e;
+    const targetActor = game.actors?.get(actorId) as Actor5e | undefined;
     if (!targetActor) return;
 
     const item = targetActor.items.get(project.id);
@@ -200,7 +200,7 @@ export class PartyTabLogic {
    * Orchestrates project deletion/abortion.
    */
   static async deleteProject(actorId: string, project: ProjectMappedData, isGM: boolean) {
-    const targetActor = game.actors.get(actorId) as Actor5e;
+    const targetActor = game.actors?.get(actorId) as Actor5e | undefined;
     if (!targetActor || !targetActor.isOwner) {
       ui.notifications?.warn("You do not have permission to modify this actor's projects.");
       return;

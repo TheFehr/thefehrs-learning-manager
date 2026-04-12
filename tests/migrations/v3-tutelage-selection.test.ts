@@ -239,7 +239,7 @@ describe("v3-tutelage-selection migration", () => {
       return [];
     });
 
-    (game.actors as any[]) = [];
+    game.actors = { contents: [] };
 
     await migrateToV3();
 

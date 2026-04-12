@@ -2,6 +2,7 @@ import { ActorProxy } from "../logic/actor-proxy.js";
 import { isActor5e } from "../types.js";
 import type { Actor5e } from "../types.js";
 import { TutelageResolverService } from "../logic/tutelage-resolver.js";
+import { ProjectItem } from "../logic/project-item.js";
 import { Settings } from "./settings.js";
 import { getAvailablePacks } from "../logic/settings-logic.js";
 import { Logger } from "./logger.js";
@@ -172,13 +173,12 @@ export const DebugHelpers = {
    */
   async testInstructorsByUuid(itemUuid: string) {
     const item = await fromUuid(itemUuid as any);
-    if (!item) {
-      Logger.warn(`Item not found: ${itemUuid}`);
+    if (!item || !(item instanceof Item)) {
+      Logger.warn(`Item not found or invalid: ${itemUuid}`);
       return [];
     }
 
-    // @ts-ignore
-    return await TutelageResolverService.getAvailableInstructors(item);
+    return await TutelageResolverService.getAvailableInstructors(item as any as ProjectItem);
   },
 
   /**

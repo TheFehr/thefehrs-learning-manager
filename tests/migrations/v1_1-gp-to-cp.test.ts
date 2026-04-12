@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { migrateV1_1GpToCp } from "../../src/migrations/v1_1-gp-to-cp";
 import { MODULE_ID } from "../../src/global";
 
@@ -12,6 +12,10 @@ describe("Migration v1.1 (GP to CP)", () => {
         set: vi.fn().mockResolvedValue(true),
       },
     };
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
   });
 
   it("should migrate tier costs from gp to cp", async () => {

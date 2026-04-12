@@ -17,24 +17,25 @@ export class ActivityManager {
   static getActivitiesData(target: number): ActivityData5e[] {
     if (target <= 0) return [];
 
-    const timeUnits = Settings.get("timeUnits") || [];
-    if (!Array.isArray(timeUnits)) return [];
-    const activities: ActivityData5e[] = timeUnits.map((tu) => ({
-      ...createBaseActivityTemplate(),
-      _id: (foundry.utils as any).randomID(),
-      img: "icons/svg/book.svg",
-      sort: 0,
-      description: {
-        chatFlavor: `Training for ${tu.name}`,
-      },
-      flags: {
-        "thefehrs-learning-manager": {
-          isLearningActivity: true,
-          timeUnitId: tu.id,
-        },
-      },
-      name: `Train ${tu.name}`,
-    }));
+    const timeUnits = Settings.get("timeUnits");
+    const activities: ActivityData5e[] = Array.isArray(timeUnits)
+      ? timeUnits.map((tu) => ({
+          ...createBaseActivityTemplate(),
+          _id: (foundry.utils as any).randomID(),
+          img: "icons/svg/book.svg",
+          sort: 0,
+          description: {
+            chatFlavor: `Training for ${tu.name}`,
+          },
+          flags: {
+            "thefehrs-learning-manager": {
+              isLearningActivity: true,
+              timeUnitId: tu.id,
+            },
+          },
+          name: `Train ${tu.name}`,
+        }))
+      : [];
 
     // Add "Spend all" activity
     activities.push({

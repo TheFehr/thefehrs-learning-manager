@@ -54,7 +54,7 @@ export interface TimeUnit {
   ratio: number;
 }
 
-export type NotificationLevel = "none" | "error" | "info" | "debug";
+export type NotificationLevel = "none" | "error" | "warn" | "info" | "debug";
 
 export interface SystemRules {
   nonBulkMethod: "direct" | "roll";
@@ -219,14 +219,10 @@ declare global {
 /**
  * Augmented Actor type that bypasses the library's strict SubType mapping
  * while providing our system and flag types.
- * NOTE: The use of `any` for SubType and system is intentional to work around
- * strict mapping limitations of the external dnd5e library types. This is a
- * pragmatic compromise to ensure access to system-specific fields and methods
- * like getRollData.
  */
-export type Actor5e = Actor<any> & {
-  system: any;
-  getRollData(): any;
+export type Actor5e<TSystem = ActorSystem5e> = Actor<any> & {
+  system: Partial<TSystem>;
+  getRollData(): Record<string, unknown>;
 };
 
 /**
@@ -238,18 +234,15 @@ export function isActor5e(actor: any): actor is Actor5e {
 
 /**
  * Augmented Item type.
- *
- * NOTE: Like Actor5e, we use `any` to allow flexible access to system data
- * and custom methods like displayCard without triggering narrowing errors.
  */
-export type Item5e = Item<any> & {
-  system: any;
-  displayCard(options?: object): Promise<unknown>;
+export type Item5e<TSystem = ItemSystem5e> = Item<any> & {
+  system: Partial<TSystem>;
+  displayCard(options?: Record<string, unknown>): Promise<unknown>;
 };
 
 export type LearningActor = Actor5e & {
   system: CharacterActorSystemData & {
-    currency: { gp: number; sp: number; cp: number };
+    currency: { cp: number; sp: number; ep: number; gp: number; pp: number };
   };
 };
 

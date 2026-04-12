@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { ProjectOverviewApp } from "../../src/apps/overview-app.js";
 import { mount, unmount } from "svelte";
 
@@ -18,6 +18,16 @@ describe("ProjectOverviewApp", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     app = new ProjectOverviewApp();
+  });
+
+  afterEach(async () => {
+    if (app) {
+      try {
+        await app.close();
+      } catch (e) {
+        // ignore already closed
+      }
+    }
   });
 
   it("should have correct default options", () => {

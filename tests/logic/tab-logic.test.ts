@@ -362,7 +362,7 @@ describe("TabLogic", () => {
 
       const success = await TabLogic.deductCurrency(actor, 50); // deduct 50cp from 100cp
       expect(success).toBe(true);
-      expect(mockProxy.updateCurrency).toHaveBeenCalledWith({ gp: 0, sp: 5, cp: 0 });
+      expect(mockProxy.updateCurrency).toHaveBeenCalledWith({ gp: 0, sp: 5, cp: 0, ep: 0, pp: 0 });
     });
 
     it("should fail if insufficient funds", async () => {

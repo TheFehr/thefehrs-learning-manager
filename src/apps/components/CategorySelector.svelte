@@ -18,7 +18,7 @@
     }
   });
 
-  const globalCategories = $derived(Settings.get("categories") || []);
+  let globalCategories = $state(Settings.get("categories") || []);
   const listId = `global-categories-list-${Math.random().toString(36).substring(2, 9)}`;
 
   function addCategory() {
@@ -34,6 +34,8 @@
     if (val) {
       try {
         await ensureCategoryExists(val);
+        // Refresh suggestions from settings after potentially adding a new one
+        globalCategories = Settings.get("categories") || [];
       } catch (err) {
         Logger.error(`CategorySelector | Failed to ensure category "${val}" exists:`, err);
       }

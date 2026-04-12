@@ -58,7 +58,7 @@ export interface LearningFeatItemData extends Omit<FeatItemSystemData, "activiti
   activities: Record<string, LearningActivityData>;
 }
 
-export interface ProjectItem extends Omit<Item<any>, "system"> {
+export interface ProjectItem extends Omit<Item5e, "system"> {
   system: LearningFeatItemData;
   actor: LearningActor | null;
 

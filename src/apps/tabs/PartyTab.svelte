@@ -20,9 +20,6 @@
     PartyTabLogic.grantTime(members, actor);
   }
 
-  function updateGuidance(actorId: string, project: ProjectMappedData, tierId: string) {
-    PartyTabLogic.updateGuidance(actorId, project, tierId, isGM);
-  }
 
   function updateProgress(actorId: string, project: ProjectMappedData, newProgress: number) {
     PartyTabLogic.updateProgress(actorId, project, newProgress, isGM);

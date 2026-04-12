@@ -51,6 +51,9 @@ export class ActorProxy {
       });
   }
 
+  // When options.render === false, we use DocumentUtils.setFlagsSilently to bypass
+  // Foundry's normal document rendering cycle. This is useful for batch updates
+  // or to avoid unnecessary UI flicker. The method still returns the actor.
   async setProjects(
     projects: LearningProject[],
     options: { render?: boolean } = {},
@@ -66,6 +69,9 @@ export class ActorProxy {
     return this.actor.getFlag("thefehrs-learning-manager", "bank") || { total: 0 };
   }
 
+  // When options.render === false, we use DocumentUtils.setFlagsSilently to bypass
+  // Foundry's normal document rendering cycle. This is useful for batch updates
+  // or to avoid unnecessary UI flicker. The method still returns the actor.
   async setBank(bank: TimeBank, options: { render?: boolean } = {}): Promise<Actor> {
     if (options.render === false) {
       await DocumentUtils.setFlagsSilently(this.actor, { bank });
@@ -86,17 +92,19 @@ export class ActorProxy {
     return await this.actor.deleteEmbeddedDocuments(type, ids);
   }
 
-  get currency(): { gp: number; sp: number; cp: number } {
+  get currency(): { cp: number; sp: number; ep: number; gp: number; pp: number } {
     const currency = (this.actor as LearningActor).system?.currency;
     return {
-      gp: currency?.gp ?? 0,
-      sp: currency?.sp ?? 0,
       cp: currency?.cp ?? 0,
+      sp: currency?.sp ?? 0,
+      ep: currency?.ep ?? 0,
+      gp: currency?.gp ?? 0,
+      pp: currency?.pp ?? 0,
     };
   }
 
   async updateCurrency(
-    currency: { gp: number; sp: number; cp: number },
+    currency: { cp: number; sp: number; ep: number; gp: number; pp: number },
     options: { render?: boolean } = {},
   ): Promise<Actor> {
     return await this.actor.update(

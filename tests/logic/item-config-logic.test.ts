@@ -16,6 +16,7 @@ describe("ItemConfigLogic", () => {
       },
     };
     (global as any).CONFIG = {};
+    (global as any).fromUuid = vi.fn().mockResolvedValue({ documentName: "Item" });
   });
 
   afterEach(() => {

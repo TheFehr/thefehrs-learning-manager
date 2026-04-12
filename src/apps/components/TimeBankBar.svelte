@@ -10,7 +10,7 @@
   let bank = $derived(proxy.bank);
   let sortedUnits = $derived(
     (() => {
-      const units = Settings.get("timeUnits");
+      const units = Settings.get("timeUnits") || [];
       return Array.isArray(units) ? [...units].sort((a, b) => b.ratio - a.ratio) : [];
     })(),
   );

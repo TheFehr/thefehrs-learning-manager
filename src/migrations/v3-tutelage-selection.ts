@@ -38,6 +38,7 @@ export async function migrateToV3() {
   if (!rawTiers || rawTiers.length === 0) {
     Logger.debug("No legacy guidance tiers found, skipping migration.");
     await game.settings.set(MODULE_ID, "migrationVersion", "3.0.0");
+    Logger.info("Migration to 3.0.0 applied (no legacy tiers found).");
     return;
   }
 
@@ -45,13 +46,11 @@ export async function migrateToV3() {
 
   // 1. Scan for used tutelageIds
   const usedTierIds = new Set<string>();
-  const actorsWithProjects: any[] = [];
+  const actorsWithProjects: Actor[] = [];
   const actors = game.actors?.contents || [];
 
-  for (const actor of actors as any[]) {
-    const projects = (actor.items as any[]).filter((i) =>
-      i.getFlag(MODULE_ID, "isLearningProject"),
-    );
+  for (const actor of actors) {
+    const projects = actor.items.filter((i: Item) => i.getFlag(MODULE_ID, "isLearningProject"));
     if (projects.length > 0) {
       actorsWithProjects.push(actor);
       for (const project of projects) {
@@ -66,6 +65,7 @@ export async function migrateToV3() {
   if (usedTierIds.size === 0) {
     Logger.debug("No projects using guidance tiers found. Just clearing settings.");
     await game.settings.set(MODULE_ID, "migrationVersion", "3.0.0");
+    Logger.info("Migration to 3.0.0 applied (no active guidance tiers found).");
     return;
   }
 
@@ -151,7 +151,7 @@ export async function migrateToV3() {
         },
       };
       const [created] = await (Actor as any).createDocuments([actorData], {
-        pack: (instructorPack as any).collection,
+        pack: (instructorPack as any).metadata.id,
       });
       tierToDocMap.set(tier.id, {
         type: "instructor",
@@ -175,7 +175,7 @@ export async function migrateToV3() {
         },
       };
       const [created] = await (Item as any).createDocuments([itemData], {
-        pack: (bookPack as any).collection,
+        pack: (bookPack as any).metadata.id,
       });
       tierToDocMap.set(tier.id, { type: "book", uuid: created.uuid, offeringName: "" });
     }
@@ -183,9 +183,7 @@ export async function migrateToV3() {
 
   // 5. Update world items and distribute books
   for (const actor of actorsWithProjects) {
-    const projects = (actor.items as any[]).filter((i) =>
-      i.getFlag(MODULE_ID, "isLearningProject"),
-    );
+    const projects = actor.items.filter((i: Item) => i.getFlag(MODULE_ID, "isLearningProject"));
     for (const project of projects) {
       const projectData = project.getFlag(MODULE_ID, "projectData") as ProjectFlagData;
       if (!projectData || !projectData.tutelageId) continue;
@@ -215,12 +213,13 @@ export async function migrateToV3() {
         // Distribute book to actor if they don't have it
         const bookDoc = await fromUuid(mapping.uuid as `Item.${string}`);
         if (bookDoc && bookDoc instanceof Item) {
-          const existingBook = actor.items.find((i) => {
+          const bookBonus = bookDoc.getFlag(MODULE_ID, "learningBookBonus") as LearningBookBonus;
+          const existingBook = actor.items.find((i: Item) => {
             const b = i.getFlag(MODULE_ID, "learningBookBonus") as LearningBookBonus;
             return (
               b &&
-              b.modifier ===
-                (bookDoc.getFlag(MODULE_ID, "learningBookBonus") as LearningBookBonus).modifier
+              b.modifier === bookBonus.modifier &&
+              JSON.stringify(b.categories) === JSON.stringify(bookBonus.categories)
             );
           });
 

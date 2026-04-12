@@ -4,8 +4,9 @@ import type { NotificationLevel } from "../types.js";
 const LEVELS: Record<NotificationLevel, number> = {
   none: 0,
   error: 1,
-  info: 2,
-  debug: 3,
+  warn: 2,
+  info: 3,
+  debug: 4,
 };
 
 const LOG_PREFIX = "Downtime Engine | ";
@@ -74,7 +75,7 @@ export class LoggerSingleton {
    * @param data - Optional related data.
    */
   warn(message: string, ...data: any[]) {
-    if (this.currentLevel >= LEVELS.info) {
+    if (this.currentLevel >= LEVELS.warn) {
       try {
         ui.notifications?.warn(message);
       } catch (err) {

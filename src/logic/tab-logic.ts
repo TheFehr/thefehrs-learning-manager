@@ -274,7 +274,7 @@ export class TabLogic {
     const newSp = Math.floor(remaining / 10);
     const newCp = remaining % 10;
 
-    await proxy.updateCurrency({ gp: newGp, sp: newSp, cp: newCp });
+    await proxy.updateCurrency({ gp: newGp, sp: newSp, cp: newCp, ep: 0, pp: 0 });
     return true;
   }
 

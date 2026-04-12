@@ -8,7 +8,7 @@ export class GrantTimeLogic {
    * Transforms the array of time values into a record for submission.
    */
   static prepareSubmitData(timeValuesArray: { id: string; value: number | string }[]) {
-    const values: Record<string, number> = {};
+    const values = new Map<string, number>();
     const seenIds = new Set<string>();
     for (const timeEntry of timeValuesArray) {
       if (typeof timeEntry.id !== "string" || !timeEntry.id) {
@@ -24,9 +24,9 @@ export class GrantTimeLogic {
           `Downtime Engine | Invalid time value for "${timeEntry.id}": ${timeEntry.value}`,
         );
       }
-      values[timeEntry.id] = val;
+      values.set(timeEntry.id, val);
     }
-    return values;
+    return Object.fromEntries(values);
   }
 
   /**

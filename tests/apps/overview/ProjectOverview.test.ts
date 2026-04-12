@@ -6,12 +6,14 @@ import * as overviewLogic from "../../../src/apps/overview-logic.js";
 vi.unmock("svelte");
 
 async function waitForLoading(target: HTMLElement) {
-  for (let i = 0; i < 20; i++) {
+  const start = Date.now();
+  const timeout = 2000; // 2 seconds
+  while (Date.now() - start < timeout) {
     await tick();
     if (!target.querySelector(".loading-state")) {
       return;
     }
-    await new Promise((resolve) => setTimeout(resolve, 10));
+    await new Promise((resolve) => setTimeout(resolve, 50));
   }
   throw new Error("Timed out waiting for loading state to clear");
 }

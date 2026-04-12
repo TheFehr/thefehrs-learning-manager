@@ -97,6 +97,12 @@ globalThis.foundry = {
   },
 } as any;
 
+globalThis.fromUuid = vi.fn().mockResolvedValue({
+  documentName: "Item",
+  uuid: "mock-uuid",
+  name: "Mock Document",
+});
+
 globalThis.Roll = class {
   constructor(
     public formula: string,

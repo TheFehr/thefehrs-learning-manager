@@ -5,6 +5,8 @@ describe("ActorConfigLogic", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     (global as any).ui = { notifications: { error: vi.fn() } };
+    (global as any).CONFIG = (global as any).CONFIG || {};
+    (global as any).fromUuid = vi.fn().mockResolvedValue({ documentName: "Item" });
   });
 
   it("should save teacher configuration to flags", async () => {

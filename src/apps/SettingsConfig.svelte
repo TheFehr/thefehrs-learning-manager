@@ -27,12 +27,32 @@
 
   onMount(async () => {
     if (isGM) {
-      // General item packs for templates
-      availableItemPacks = await getAvailablePacks("Item");
-      // Specific instructor packs (all actor packs with isFitting based on flag)
-      instructorPacks = await getAvailablePacks("Actor", "teacherOfferings");
-      // Specific book packs (all item packs with isFitting based on flag)
-      bookPacks = await getAvailablePacks("Item", "learningBookBonus");
+      const results = await Promise.allSettled([
+        getAvailablePacks("Item"),
+        getAvailablePacks("Actor", "teacherOfferings"),
+        getAvailablePacks("Item", "learningBookBonus"),
+      ]);
+
+      if (results[0].status === "fulfilled") {
+        availableItemPacks = results[0].value;
+      } else {
+        Logger.error("Failed to load item packs:", results[0].reason);
+        availableItemPacks = [];
+      }
+
+      if (results[1].status === "fulfilled") {
+        instructorPacks = results[1].value;
+      } else {
+        Logger.error("Failed to load instructor packs:", results[1].reason);
+        instructorPacks = [];
+      }
+
+      if (results[2].status === "fulfilled") {
+        bookPacks = results[2].value;
+      } else {
+        Logger.error("Failed to load book packs:", results[2].reason);
+        bookPacks = [];
+      }
     }
   });
 

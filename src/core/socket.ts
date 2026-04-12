@@ -32,13 +32,20 @@ export class Socket {
     Logger.debug(`Socket: Listening on "${id}"`);
 
     const wrapper = (...args: any[]) => {
-      Logger.debug(`Socket: Received data on "${id}":`, args);
-
       const message = args[0];
-      if (!this.isLearningModuleMessage(message)) {
-        Logger.warn("Socket: Received invalid message payload:", args);
+      const isValid = this.isLearningModuleMessage(message);
+      const summary = {
+        type: isValid ? message.type : (message as any)?.type || "unknown",
+        valid: isValid,
+        argsCount: args.length,
+      };
+
+      if (!isValid) {
+        Logger.warn("Socket: Received invalid message payload.", summary);
         return;
       }
+
+      Logger.debug(`Socket: Received message on "${id}":`, summary);
 
       handler(message).catch((err) => {
         Logger.error("Socket: Error in handler:", err);
