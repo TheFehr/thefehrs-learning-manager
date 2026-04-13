@@ -89,16 +89,29 @@ export class TabLogic {
       let mod = 0;
       if (rules.checkFormula) {
         try {
-          // Replace all d20-based dice expressions with 0 to extract the constant modifier
+          // Replace all d20-based dice expressions with (E - 10.5) to extract the constant modifier relative to a single d20.
           // This handles d20, 1d20, 2d20kh1, etc.
-          // We also replace other dice with their average value to make it deterministic.
+          // We also replace other dice with their average/expected value to make it deterministic.
           const modFormula = rules.checkFormula
-            .replace(/\b\d*d20(?:k[hl]\d+)?\b/gi, "0")
-            .replace(/\b(\d*)d(\d+)(?:[khdl][hl]?\d+)?\b/gi, (match, count, faces) => {
-              const n = count ? parseInt(count) : 1;
-              const f = parseInt(faces);
-              return ((n * (f + 1)) / 2).toString();
-            });
+            .replace(
+              /\b(\d*)d20(?:([khdl][hl]?)(\d+)?)?\b/gi,
+              (match, countStr, modType, modValueStr) => {
+                const count = countStr ? parseInt(countStr) : 1;
+                const modValue = modValueStr ? parseInt(modValueStr) : undefined;
+                const expectation = this._getDieExpectation(count, 20, modType, modValue);
+                return (expectation - 10.5).toString();
+              },
+            )
+            .replace(
+              /\b(\d*)d(\d+)(?:([khdl][hl]?)(\d+)?)?\b/gi,
+              (match, countStr, facesStr, modType, modValueStr) => {
+                const count = countStr ? parseInt(countStr) : 1;
+                const faces = parseInt(facesStr);
+                const modValue = modValueStr ? parseInt(modValueStr) : undefined;
+                const expectation = this._getDieExpectation(count, faces, modType, modValue);
+                return expectation.toString();
+              },
+            );
           const modRoll = new Roll(modFormula, {
             ...actor.getRollData(),
             tutelage: tutelageMod,
@@ -157,6 +170,85 @@ export class TabLogic {
   }
 
   /**
+   * Calculates the mathematical expectation for a dice expression with keep/drop modifiers.
+   * Supports kh, kl, dh, dl.
+   */
+  private static _getDieExpectation(
+    count: number,
+    faces: number,
+    modifier?: string,
+    modValue?: number,
+  ): number {
+    if (!modifier) return (count * (faces + 1)) / 2;
+
+    let k = modValue ?? 1;
+    let highest = true;
+
+    const m = modifier.toLowerCase();
+    if (m === "kh") {
+      highest = true;
+      k = modValue ?? 1;
+    } else if (m === "kl") {
+      highest = false;
+      k = modValue ?? 1;
+    } else if (m === "dh") {
+      highest = false;
+      k = count - (modValue ?? 1);
+    } else if (m === "dl") {
+      highest = true;
+      k = count - (modValue ?? 1);
+    } else {
+      // Unsupported modifier, fallback to simple average
+      return (count * (faces + 1)) / 2;
+    }
+
+    // Clamp k to [0, count]
+    k = Math.max(0, Math.min(k, count));
+
+    if (k === 0) return 0;
+    if (k === count) return (count * (faces + 1)) / 2;
+
+    const combinations = (n: number, k: number): number => {
+      if (k < 0 || k > n) return 0;
+      if (k === 0 || k === n) return 1;
+      if (k > n / 2) k = n - k;
+      let res = 1;
+      for (let i = 1; i <= k; i++) {
+        res = (res * (n - i + 1)) / i;
+      }
+      return res;
+    };
+
+    const getBinomialP = (n: number, k: number, p: number): number => {
+      if (p <= 0) return 0;
+      if (p >= 1) return 1;
+      let total = 0;
+      for (let j = k; j <= n; j++) {
+        total += combinations(n, j) * Math.pow(p, j) * Math.pow(1 - p, n - j);
+      }
+      return total;
+    };
+
+    let totalE = 0;
+    if (highest) {
+      // Sum of expectations of k highest order statistics
+      for (let r = count - k + 1; r <= count; r++) {
+        for (let i = 0; i < faces; i++) {
+          totalE += 1 - getBinomialP(count, r, i / faces);
+        }
+      }
+    } else {
+      // Sum of expectations of k lowest order statistics
+      for (let r = 1; r <= k; r++) {
+        for (let i = 0; i < faces; i++) {
+          totalE += 1 - getBinomialP(count, r, i / faces);
+        }
+      }
+    }
+    return totalE;
+  }
+
+  /**
    * Internal helper to brute-force all 20 outcomes of a d20-based check.
    */
   private static async _getOutcomes(
@@ -167,7 +259,7 @@ export class TabLogic {
     if (!rules.checkFormula) return null;
 
     try {
-      const dc = rules.checkDC ?? DEFAULT_DC;
+      const dc = Number(rules.checkDC) || DEFAULT_DC;
       const rollData = {
         ...actor.getRollData(),
         tutelage: tutelageMod,
