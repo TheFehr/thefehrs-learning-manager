@@ -39,5 +39,5 @@ export function getUI(): { notifications?: Notifications } & Record<string, any>
  * Returns null if no socket is available (e.g. in some specialized environments).
  */
 export function getSocket(): any {
-  return (globalThis as any).socket || null;
+  return (globalThis as any).game?.socket || null;
 }

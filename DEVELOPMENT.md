@@ -59,3 +59,11 @@ When a migration needs to access a setting that has been removed from the curren
 ### Code Quality & Reviews
 
 - **Address Findings Safely**: When addressing CodeRabbit or other AI review findings, ensure that suggested improvements (like adding type safety or using managers) do not violate the isolation rules for migrations.
+
+### Verification before Submission
+
+To ensure project stability and type safety, **always** run the following commands before claiming a task is complete:
+
+1.  **Type Checking**: Run `npx tsc` to ensure there are no TypeScript errors.
+2.  **Tests**: Run `npm run test` to ensure all Vitest tests pass.
+3.  **Linting**: Run `npm run lint` and `npm run fmt:check` to ensure code style compliance.

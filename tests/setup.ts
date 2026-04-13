@@ -358,6 +358,7 @@ globalThis.Dialog = class {
 } as any;
 globalThis.ChatMessage = {
   create: vi.fn(),
+  getSpeaker: vi.fn().mockReturnValue({ actor: "mock-actor-id" }),
 } as any;
 globalThis.CompendiumCollection = {
   createCompendium: vi.fn(),
