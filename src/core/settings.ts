@@ -2,6 +2,7 @@ import { Logger } from "./logger.js";
 import { FoundryUtils } from "./foundry-utils.js";
 import type { ProjectRequirement, SystemRules, TimeUnit } from "@/types.js";
 import { DEFAULT_DC, DEFAULT_CATEGORIES, MODULE_ID } from "@/global.js";
+import { getGame } from "./foundry.js";
 
 export interface ProjectTemplate {
   id: string;
@@ -134,7 +135,7 @@ export class SettingsManager {
    * Generic setter for a setting.
    */
   async set<K extends keyof SettingsSchema>(key: K, value: SettingsSchema[K]): Promise<void> {
-    await game.settings.set(SettingsManager.ID, key as any, value);
+    await getGame().settings.set(SettingsManager.ID, key as any, value);
   }
 
   /**
@@ -180,7 +181,7 @@ export class SettingsManager {
         ...safeOverrides,
       };
 
-      game.settings.register(SettingsManager.ID, key as any, config as any);
+      getGame().settings.register(SettingsManager.ID, key as any, config as any);
     }
   }
 
@@ -193,7 +194,10 @@ export class SettingsManager {
     key: K,
     fallback: SettingsSchema[K],
   ): SettingsSchema[K] {
-    const val = game.settings.get(SettingsManager.ID, key as any) as unknown as SettingsSchema[K];
+    const val = getGame().settings.get(
+      SettingsManager.ID,
+      key as any,
+    ) as unknown as SettingsSchema[K];
     if (val === undefined || val === null) {
       const keyStr = key as string;
       if (!this.seenMissing.has(keyStr)) {
@@ -221,7 +225,7 @@ export class SettingsManager {
   }
 
   registerMenu(key: string, data: SettingMenuConfig): void {
-    game.settings.registerMenu(SettingsManager.ID, key as any, data as any);
+    getGame().settings.registerMenu(SettingsManager.ID, key as any, data as any);
   }
 }
 

@@ -1,15 +1,17 @@
 import { MODULE_ID } from "@/global.js";
 import { Logger } from "@/core/logger.js";
 import { createProjectItemFromTemplate, type LegacyProject } from "./migration-utils.js";
+import { getGame, getUI } from "@/core/foundry.js";
 
 export async function migrateToV2() {
-  ui.notifications?.info("Migrating Downtime Engine projects to native Items (v2.0.0)...");
+  getUI().notifications?.info("Migrating Downtime Engine projects to native Items (v2.0.0)...");
   try {
+    const game = getGame();
     const compendiumLabel = "UDE Migration";
     const compendiumName = "ude-migration";
     const compendiumKey = `world.${compendiumName}`;
 
-    let pack = game.packs.get(compendiumKey);
+    let pack = getGame().packs?.get(compendiumKey);
     if (!pack) {
       pack = await (CompendiumCollection as any).createCompendium({
         type: "Item",
@@ -69,7 +71,7 @@ export async function migrateToV2() {
 
           if (success) {
             migratedCount++;
-            ui.notifications?.info(`Migrating projects: ${migratedCount}/${totalProjects}`, {
+            getUI().notifications?.info(`Migrating projects: ${migratedCount}/${totalProjects}`, {
               progress: (migratedCount / totalProjects) as unknown as boolean,
             });
           } else {
@@ -85,7 +87,8 @@ export async function migrateToV2() {
 
       // Step 2: Ensure all existing Item-projects have targets
       const learningItems = actor.items.filter(
-        (i) => i.getFlag(MODULE_ID, "isLearningProject") || i.getFlag(MODULE_ID, "isLearnedReward"),
+        (i: any) =>
+          i.getFlag(MODULE_ID, "isLearningProject") || i.getFlag(MODULE_ID, "isLearnedReward"),
       );
 
       for (const item of learningItems) {
@@ -116,15 +119,17 @@ export async function migrateToV2() {
 
     if (allSuccessful) {
       await game.settings.set(MODULE_ID, "migrationVersion", "2.0.0");
-      ui?.notifications?.info(`Successfully migrated to v2.0.0!`);
+      getUI()?.notifications?.info(`Successfully migrated to v2.0.0!`);
     } else {
-      ui?.notifications?.warn(
+      getUI()?.notifications?.warn(
         "Downtime Engine | Migration to native Items partially failed. Some projects were preserved in legacy flags and will be retried later.",
       );
     }
   } catch (error) {
     Logger.error("migration to v2.0.0 failed:", error);
-    ui?.notifications?.error("Migration to v2.0.0 failed. Please check the console for details.");
+    getUI()?.notifications?.error(
+      "Migration to v2.0.0 failed. Please check the console for details.",
+    );
     throw error;
   }
 }

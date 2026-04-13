@@ -3,6 +3,7 @@ import { MODULE_ID } from "@/global.js";
 import { Logger } from "@/core/logger.js";
 import { FoundryUtils } from "@/core/foundry-utils.js";
 import type { TeacherOffering, LearningBookBonus, Actor5e, ProjectItem } from "@/types.js";
+import { getGame } from "@/core/foundry.js";
 
 export interface InstructorInstance {
   actorUuid: string;
@@ -80,7 +81,7 @@ export class TutelageResolverService {
 
     try {
       for (const id of compendiumIds) {
-        const pack = game.packs.get(id);
+        const pack = getGame().packs?.get(id);
         if (!pack) {
           Logger.warn(`Compendium ${id} not found.`);
           continue;

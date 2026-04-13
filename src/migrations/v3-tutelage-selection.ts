@@ -1,5 +1,6 @@
 import { MODULE_ID } from "@/global.js";
 import { Logger } from "@/core/logger.js";
+import { getGame, getUI } from "@/core/foundry.js";
 
 interface GuidanceTier {
   id: string;
@@ -34,6 +35,7 @@ declare module "fvtt-types/configuration" {
 }
 
 export async function migrateToV3() {
+  const game = getGame();
   let rawTiers: GuidanceTier[];
   try {
     rawTiers = game.settings.get(MODULE_ID, "guidanceTiers") as unknown as GuidanceTier[];
@@ -58,7 +60,9 @@ export async function migrateToV3() {
   const actors = game.actors?.contents || [];
 
   for (const actor of actors) {
-    const projects = actor.items.filter((i: Item) => i.getFlag(MODULE_ID, "isLearningProject"));
+    const projects = (actor.items as any).filter((i: any) =>
+      i.getFlag(MODULE_ID, "isLearningProject"),
+    );
     if (projects.length > 0) {
       actorsWithProjects.push(actor);
       for (const project of projects) {
@@ -210,7 +214,9 @@ export async function migrateToV3() {
   // 5. Update world items and distribute books
   let projectFailures = 0;
   for (const actor of actorsWithProjects) {
-    const projects = actor.items.filter((i: Item) => i.getFlag(MODULE_ID, "isLearningProject"));
+    const projects = (actor.items as any).filter((i: any) =>
+      i.getFlag(MODULE_ID, "isLearningProject"),
+    );
     for (const project of projects) {
       try {
         const projectData = project.getFlag(MODULE_ID, "projectData") as ProjectFlagData;
@@ -242,7 +248,7 @@ export async function migrateToV3() {
           const bookDoc = await fromUuid(mapping.uuid as `Item.${string}`);
           if (bookDoc && bookDoc instanceof Item) {
             const bookBonus = bookDoc.getFlag(MODULE_ID, "learningBookBonus") as LearningBookBonus;
-            const existingBook = actor.items.find((i: Item) => {
+            const existingBook = (actor.items as any).find((i: any) => {
               const b = i.getFlag(MODULE_ID, "learningBookBonus") as LearningBookBonus;
               if (!b || b.modifier !== bookBonus.modifier) return false;
               const aCats = b.categories || [];
@@ -291,11 +297,11 @@ export async function migrateToV3() {
 
   if (projectFailures === 0) {
     await game.settings.set(MODULE_ID, "migrationVersion", "3.0.0");
-    ui.notifications?.info(
+    getUI().notifications?.info(
       `Migration to v3 (Tutelage Selection System) complete! Converted ${tiersToMigrate.length} tiers.`,
     );
   } else {
-    ui.notifications?.warn(
+    getUI().notifications?.warn(
       `Migration to v3 partially completed with ${projectFailures} project failures. See console for details.`,
     );
   }
@@ -349,19 +355,20 @@ function detectCategories(item: any): string[] {
 }
 
 async function getOrCreateCompendium(type: "Actor" | "Item", label: string) {
+  const game = getGame();
   const rawPackName = label.toLowerCase().replace(/[^a-z0-9]/g, "-");
   const packName = rawPackName.replace(/-+/g, "-");
 
   // Try multiple ways to find it to be as robust as possible
   let pack =
-    game.packs.get(`world.${packName}`) ||
-    game.packs.get(`world.${rawPackName}`) ||
-    game.packs.get(`${MODULE_ID}.${packName}`) ||
-    game.packs.get(`${MODULE_ID}.${rawPackName}`);
+    game.packs!.get(`world.${packName}`) ||
+    game.packs!.get(`world.${rawPackName}`) ||
+    game.packs!.get(`${MODULE_ID}.${packName}`) ||
+    game.packs!.get(`${MODULE_ID}.${rawPackName}`);
 
   if (!pack) {
-    pack = game.packs.find(
-      (p) =>
+    pack = game.packs!.find(
+      (p: any) =>
         (p.metadata.name === packName ||
           p.metadata.name === rawPackName ||
           p.metadata.label === label) &&
@@ -383,8 +390,8 @@ async function getOrCreateCompendium(type: "Actor" | "Item", label: string) {
       const isExistsError =
         e.message?.toLowerCase().includes("already exists") || e.code === "EEXIST";
       if (isExistsError) {
-        pack = game.packs.find(
-          (p) => p.metadata.name === packName || p.metadata.name === rawPackName,
+        pack = game.packs!.find(
+          (p: any) => p.metadata.name === packName || p.metadata.name === rawPackName,
         );
         if (!pack) throw e; // If we STILL can't find it, something is very wrong
       } else {

@@ -8,8 +8,10 @@ import { migrateToV3 } from "./v3-tutelage-selection.js";
 import { MODULE_ID } from "@/global.js";
 import { Logger } from "@/core/logger.js";
 import { FoundryUtils } from "@/core/foundry-utils.js";
+import { getGame, getUI } from "@/core/foundry.js";
 
 export async function migrateData() {
+  const game = getGame();
   if (!game.user?.isGM) return;
 
   try {
@@ -64,7 +66,9 @@ export async function migrateData() {
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
     Logger.error("Migration failed:", err);
-    ui.notifications?.error(`Downtime Engine | Migration failed: ${msg}. See console for details.`);
+    getUI().notifications?.error(
+      `Downtime Engine | Migration failed: ${msg}. See console for details.`,
+    );
     throw err;
   }
 }
@@ -74,6 +78,7 @@ function isNewerVersion(newer: string, current: string): boolean {
 }
 
 export function registerMigrationSettings() {
+  const game = getGame();
   if (!game.settings.settings.has(`${MODULE_ID}.guidanceTiers`)) {
     game.settings.register(MODULE_ID, "guidanceTiers", {
       scope: "world",

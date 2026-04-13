@@ -2,6 +2,7 @@ import { createProjectItemFromTemplate, type LegacyProject } from "./migration-u
 import { MODULE_ID } from "@/global.js";
 import { Logger } from "@/core/logger.js";
 import { FoundryUtils } from "@/core/foundry-utils.js";
+import { getGame, getUI } from "@/core/foundry.js";
 
 interface GuidanceTier {
   id: string;
@@ -29,9 +30,10 @@ interface ProjectTemplateLegacy {
 }
 
 export async function migrateToV2Direct() {
-  ui.notifications?.info("Downtime Engine: Performing direct migration to v2.0.0...");
+  getUI().notifications?.info("Downtime Engine: Performing direct migration to v2.0.0...");
 
   try {
+    const game = getGame();
     // 1. Rules Migration (v3 equivalent)
     const rules = game.settings.get(MODULE_ID, "rules") as any;
     if (rules) {
@@ -156,15 +158,15 @@ export async function migrateToV2Direct() {
 
     if (allSuccessful) {
       await game.settings.set(MODULE_ID, "migrationVersion", "2.0.0");
-      ui?.notifications?.info("Downtime Engine direct migration to v2.0.0 successful!");
+      getUI()?.notifications?.info("Downtime Engine direct migration to v2.0.0 successful!");
     } else {
-      ui?.notifications?.warn(
+      getUI()?.notifications?.warn(
         "Downtime Engine | Direct migration partially failed. Some projects were preserved in legacy flags and will be retried later.",
       );
     }
   } catch (error) {
     Logger.error("direct migration failed:", error);
-    ui?.notifications?.error(
+    getUI()?.notifications?.error(
       "Downtime Engine direct migration failed. Please check the console for details.",
     );
     throw error;

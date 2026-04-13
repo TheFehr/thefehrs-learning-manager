@@ -1,4 +1,5 @@
-import type { TimeBank, LearningActor, Actor5e } from "@/types.js";
+import type { TimeBank, Actor5e, Item5e, LearningActor } from "@/types.js";
+import type { ProjectFlagData } from "./project-item.js";
 import { DocumentUtils } from "@/core/document-utils.js";
 
 export class ActorProxy {
@@ -17,11 +18,11 @@ export class ActorProxy {
   }
 
   get img(): string | null {
-    return this.actor.img;
+    return (this.actor as any).img ?? null;
   }
 
   get tokenImg(): string | null {
-    return this.actor.prototypeToken?.texture?.src ?? this.actor.img;
+    return (this.actor as any).prototypeToken?.texture?.src ?? (this.actor as any).img ?? null;
   }
 
   get uuid(): string {
@@ -29,17 +30,19 @@ export class ActorProxy {
   }
 
   get projects() {
-    return this.getMappedProjects().map((p) => ({
+    return this.getMappedProjects().map((p: any) => ({
       ...p,
       guidanceType: p.tutelageName,
     }));
   }
 
   getMappedProjects() {
-    return this.actor.items
-      .filter((i) => i.getFlag("thefehrs-learning-manager", "isLearningProject"))
-      .map((i) => {
-        const projectData = i.getFlag("thefehrs-learning-manager", "projectData");
+    return (this.actor.items as unknown as Item5e[])
+      .filter((i: Item5e) => i.getFlag("thefehrs-learning-manager", "isLearningProject"))
+      .map((i: Item5e) => {
+        const projectData = i.getFlag("thefehrs-learning-manager", "projectData") as
+          | ProjectFlagData
+          | undefined;
         return {
           id: i.id,
           name: i.name,
@@ -61,23 +64,27 @@ export class ActorProxy {
   // When options.render === false, we use DocumentUtils.setFlagsSilently to bypass
   // Foundry's normal document rendering cycle. This is useful for batch updates
   // or to avoid unnecessary UI flicker. The method still returns the actor.
-  async setBank(bank: TimeBank, options: { render?: boolean } = {}): Promise<Actor> {
+  async setBank(bank: TimeBank, options: { render?: boolean } = {}): Promise<Actor5e> {
     if (options.render === false) {
       const success = await DocumentUtils.setFlagsSilently(this.actor, { bank });
       if (!success) {
         throw new Error("Downtime Engine | Failed to set bank silently");
       }
-      return this.actor as any;
+      return this.actor;
     }
-    return await this.actor.setFlag("thefehrs-learning-manager", "bank", bank);
+    return (await (this.actor as any).setFlag(
+      "thefehrs-learning-manager",
+      "bank",
+      bank,
+    )) as Actor5e;
   }
 
-  async update(data: object, options: { render?: boolean } = {}): Promise<Actor> {
-    return await this.actor.update(data, options);
+  async update(data: object, options: { render?: boolean } = {}): Promise<Actor5e> {
+    return (await (this.actor as any).update(data, options)) as Actor5e;
   }
 
   async createEmbeddedDocuments(type: "Item" | "ActiveEffect", data: object[]): Promise<any[]> {
-    return await this.actor.createEmbeddedDocuments(type, data as any[]);
+    return (await (this.actor as any).createEmbeddedDocuments(type, data as any[])) || [];
   }
 
   async deleteEmbeddedDocuments(type: "Item" | "ActiveEffect", ids: string[]): Promise<any[]> {
@@ -98,15 +105,15 @@ export class ActorProxy {
   async updateCurrency(
     currency: { cp: number; sp: number; ep: number; gp: number; pp: number },
     options: { render?: boolean } = {},
-  ): Promise<Actor> {
-    return await this.actor.update(
+  ): Promise<Actor5e> {
+    return (await (this.actor as any).update(
       {
         system: {
           currency,
         },
       },
       options,
-    );
+    )) as Actor5e;
   }
 
   static forActor(actor: Actor5e): ActorProxy {

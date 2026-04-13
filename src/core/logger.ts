@@ -1,5 +1,6 @@
 import { MODULE_ID } from "@/global.js";
 import type { NotificationLevel } from "@/types.js";
+import { getGame, getUI } from "./foundry.js";
 
 const LEVELS: Record<NotificationLevel, number> = {
   none: 0,
@@ -17,7 +18,8 @@ const LOG_PREFIX = "Downtime Engine | ";
 export class LoggerSingleton {
   private get currentLevel(): number {
     try {
-      if (typeof game === "undefined" || !game.settings) return LEVELS.info;
+      const game = getGame();
+      if (!game.settings) return LEVELS.info;
       const rules = game.settings.get(MODULE_ID, "rules") as any;
       const level = rules?.notificationLevel || "info";
       return LEVELS[level as NotificationLevel] ?? LEVELS.info;
@@ -36,7 +38,7 @@ export class LoggerSingleton {
     if (this.currentLevel >= LEVELS.info) {
       if (uiNotify) {
         try {
-          ui.notifications?.info(message);
+          getUI().notifications?.info(message);
         } catch (err) {
           console.error(`${LOG_PREFIX}Logger | UI notification failed:`, err);
         }
@@ -59,7 +61,7 @@ export class LoggerSingleton {
     if (this.currentLevel >= LEVELS.error) {
       if (uiNotify) {
         try {
-          ui.notifications?.error(message);
+          getUI().notifications?.error(message);
         } catch (uiErr) {
           console.error(`${LOG_PREFIX}Logger | UI notification failed:`, uiErr);
         }
@@ -82,7 +84,7 @@ export class LoggerSingleton {
     if (this.currentLevel >= LEVELS.warn) {
       if (uiNotify) {
         try {
-          ui.notifications?.warn(message);
+          getUI().notifications?.warn(message);
         } catch (err) {
           console.error(`${LOG_PREFIX}Logger | UI notification failed:`, err);
         }

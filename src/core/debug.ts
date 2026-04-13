@@ -6,11 +6,13 @@ import { ProjectItem } from "@/logic/project-item.js";
 import { Settings } from "./settings.js";
 import { getAvailablePacks } from "@/logic/settings-logic.js";
 import { Logger } from "./logger.js";
+import { getCanvas, getGame } from "./foundry.js";
 
 function resolveControlledActor(): Actor5e | undefined {
+  const canvas = getCanvas();
   if (typeof canvas === "undefined" || !canvas?.ready) return undefined;
 
-  let actor = game.user?.character;
+  let actor = getGame().user?.character;
 
   // Fallback to selected token
   const controlledTokens = (canvas as any).tokens?.controlled;
@@ -212,6 +214,7 @@ export const DebugHelpers = {
  */
 export function initDebugHelpers() {
   Hooks.once("ready", () => {
+    const game = getGame();
     if (import.meta.env.DEV || game?.user?.isGM) {
       // ude = User Downtime Engine - short and easy to type in console
       // We use ude to avoid naming collisions with common global variables

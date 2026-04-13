@@ -4,6 +4,7 @@ import { FoundryUtils } from "./foundry-utils.js";
 import { createBaseActivityTemplate } from "./constants.js";
 import type { Actor5e, Item5e, ActivityData5e } from "@/types.js";
 import type { ProjectItem } from "@/logic/project-item.js";
+import { getGame, getUI } from "./foundry.js";
 
 export class ActivityManager {
   /**
@@ -127,16 +128,16 @@ export class ActivityManager {
    * Useful when time units change in settings.
    */
   static async syncAllProjectActivities() {
-    if (!game.user?.isGM) return;
+    if (!getGame().user?.isGM) return;
 
-    ui.notifications?.info("Downtime Engine | Syncing project activities...");
+    getUI().notifications?.info("Downtime Engine | Syncing project activities...");
 
-    const actors = (game.actors || []) as unknown as Actor5e[];
+    const actors = (getGame().actors || []) as unknown as Actor5e[];
     let updatedCount = 0;
     let failedCount = 0;
 
     for (const actor of actors) {
-      const learningItems = (actor as unknown as Actor).items.filter((i) =>
+      const learningItems = (actor as unknown as Actor).items.filter((i: any) =>
         i.getFlag("thefehrs-learning-manager", "isLearningProject"),
       ) as unknown as Item5e[];
 
@@ -164,11 +165,11 @@ export class ActivityManager {
     }
 
     if (failedCount > 0) {
-      ui.notifications?.warn(
+      getUI().notifications?.warn(
         `Downtime Engine | Synced activities for ${updatedCount} items. ${failedCount} items failed (check application logs).`,
       );
     } else {
-      ui.notifications?.info(`Downtime Engine | Synced activities for ${updatedCount} items.`);
+      getUI().notifications?.info(`Downtime Engine | Synced activities for ${updatedCount} items.`);
     }
   }
 }

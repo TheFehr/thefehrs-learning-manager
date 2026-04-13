@@ -3,6 +3,7 @@ import { Settings, type SettingsSchema } from "@/core/settings.js";
 import { Logger } from "@/core/logger.js";
 import { FoundryUtils } from "@/core/foundry-utils.js";
 import type { SystemRules, TimeUnit, NotificationLevel } from "@/types.js";
+import { getGame } from "@/core/foundry.js";
 
 /**
  * Shared save logic for the Downtime Engine settings.
@@ -25,7 +26,7 @@ export async function saveSettings(
   autoSpend?: boolean,
   autoSpendUnits?: string[],
 ): Promise<boolean> {
-  const isGM = game.user?.isGM;
+  const isGM = !!getGame().user?.isGM;
 
   // Define what we're trying to change
   const toSave: Partial<Record<keyof SettingsSchema, any>> = {};
@@ -112,7 +113,7 @@ export async function getAvailablePacks(
   type: "Item" | "Actor" = "Item",
   flagToMatch?: string,
 ): Promise<PackInfo[]> {
-  const packs = (game.packs as any).contents || [];
+  const packs = (getGame().packs as any).contents || [];
   const results: PackInfo[] = [];
 
   for (const pack of packs) {

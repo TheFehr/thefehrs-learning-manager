@@ -1,5 +1,6 @@
-import { MODULE_ID } from "@/global";
+import { MODULE_ID } from "@/global.js";
 import { Logger } from "@/core/logger.js";
+import { getGame, getUI } from "@/core/foundry.js";
 
 interface LegacyRules {
   method?: string;
@@ -38,9 +39,10 @@ function migrateRequirementOperators(requirements: any[]): {
  * 2. Migrates strict comparison operators (===, !==) to loose ones (==, !=) in requirements.
  */
 export async function migrateToV2_1() {
-  ui.notifications?.info("Downtime Engine: Performing v2.1.0 migration...");
+  getUI().notifications?.info("Downtime Engine: Performing v2.1.0 migration...");
 
   try {
+    const game = getGame();
     // 1. Rules Migration (Method split)
     const rules = game.settings.get(MODULE_ID, "rules") as unknown as LegacyRules;
 
@@ -126,7 +128,7 @@ export async function migrateToV2_1() {
     let hasFailures = false;
 
     for (const packId of allowedPacks) {
-      const pack = game.packs.get(packId);
+      const pack = getGame().packs?.get(packId);
       if (!pack || pack.metadata.type !== "Item") continue;
 
       const wasLocked = pack.locked;
@@ -178,10 +180,10 @@ export async function migrateToV2_1() {
     }
 
     await game.settings.set(MODULE_ID, "migrationVersion", "2.1.0");
-    ui.notifications?.info("Downtime Engine: Migration to v2.1.0 complete.");
+    getUI().notifications?.info("Downtime Engine: Migration to v2.1.0 complete.");
   } catch (err) {
     Logger.error("Migration to v2.1.0 failed:", err);
-    ui.notifications?.error(
+    getUI().notifications?.error(
       "Downtime Engine: Migration to v2.1.0 failed. Check console for details.",
     );
     throw err;
@@ -192,9 +194,10 @@ export async function migrateToV2_1() {
  * Migration v2.1.1: Refreshes the bulk mathematical formula if it matches the old buggy default.
  */
 export async function migrateToV2_1_1() {
-  ui.notifications?.info("Downtime Engine: Migration v2.1.1 (Formula refresh)...");
+  getUI().notifications?.info("Downtime Engine: Migration v2.1.1 (Formula refresh)...");
 
   try {
+    const game = getGame();
     const rules = (game.settings.get(MODULE_ID, "rules") as any) || {};
     const oldBuggyDefault = "round(@hours * (22 - max(1, @dc - @abilities.int.mod)) / 20)";
     const newDefault = "round(@hours * (22 - max(1, @dc - (@abilities.int.mod + @tutelage))) / 20)";
@@ -202,13 +205,15 @@ export async function migrateToV2_1_1() {
     if (rules && rules.bulkExpectedFormula === oldBuggyDefault) {
       const updatedRules = { ...rules, bulkExpectedFormula: newDefault };
       await game.settings.set(MODULE_ID, "rules", updatedRules);
-      ui.notifications?.info("Downtime Engine: Bulk mathematical formula updated to new default.");
+      getUI().notifications?.info(
+        "Downtime Engine: Bulk mathematical formula updated to new default.",
+      );
     }
 
     await game.settings.set(MODULE_ID, "migrationVersion", "2.1.1");
   } catch (err) {
     Logger.error("Migration to v2.1.1 failed:", err);
-    ui.notifications?.error(
+    getUI().notifications?.error(
       "Downtime Engine: Migration to v2.1.1 failed. Check console for details.",
     );
     throw err;

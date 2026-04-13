@@ -12,6 +12,8 @@ import type {
   TrainingRoll,
 } from "@/types.js";
 
+import { getUI } from "@/core/foundry.js";
+
 /**
  * Utility class for downtime resolution logic.
  * Tested against Foundry VTT v12.
@@ -76,7 +78,7 @@ export class TabLogic {
         }
       }
 
-      if (roll.total >= dc) {
+      if ((roll.total || 0) >= dc) {
         progressGained = 1 * multiplier;
       } else {
         reason = `Roll total ${roll.total} failed to meet DC ${dc}.`;
@@ -224,7 +226,7 @@ export class TabLogic {
 
     let totalProgress = 0;
     rolls.forEach((r, idx) => {
-      if (r.total >= dc) {
+      if ((r.total || 0) >= dc) {
         let multiplier = 1;
         if (!isDeterministic && strategy !== "never") {
           const rollValue = idx + 1;
@@ -251,7 +253,7 @@ export class TabLogic {
     const res = await this._getOutcomes(actor, rules, tutelageMod);
     if (!res) return null;
     const dc = Number(rules.checkDC) || DEFAULT_DC;
-    const successCount = res.rolls.filter((r) => r.total >= dc).length;
+    const successCount = res.rolls.filter((r) => (r.total || 0) >= dc).length;
     return successCount / 20;
   }
 
@@ -272,7 +274,7 @@ export class TabLogic {
     const totalCp = cur.pp * 1000 + cur.gp * 100 + cur.ep * 50 + cur.sp * 10 + cur.cp;
 
     if (totalCp < costCp) {
-      ui.notifications?.warn("Downtime Engine | Insufficient currency!");
+      getUI().notifications?.warn("Downtime Engine | Insufficient currency!");
       return false;
     }
 

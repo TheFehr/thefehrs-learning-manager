@@ -1,5 +1,6 @@
 import { MODULE_ID } from "@/global.js";
 import { Logger } from "@/core/logger.js";
+import { getGame } from "@/core/foundry.js";
 
 declare module "fvtt-types/configuration" {
   interface SettingConfig {
@@ -12,6 +13,7 @@ declare module "fvtt-types/configuration" {
  */
 export async function migrateV1_1GpToCp() {
   try {
+    const game = getGame();
     let tiers = (game.settings.get(MODULE_ID, "guidanceTiers") as unknown as any[]) || [];
     if (!Array.isArray(tiers)) {
       tiers = [];

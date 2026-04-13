@@ -9,6 +9,7 @@ import { isActor5e, type Item5e, type Actor5e } from "@/types.js";
 import AbortProjectDialog from "@/apps/dialogs/AbortProjectDialog.svelte";
 import GrantTimeDialog from "@/apps/dialogs/GrantTimeDialog.svelte";
 import { mount, unmount } from "svelte";
+import { getGame, getUI } from "@/core/foundry.js";
 
 /**
  * Logic for the Party Tab component.
@@ -31,12 +32,12 @@ export class PartyTabLogic {
     const timeUnits = Settings.get("timeUnits");
     const totalBase = TabLogic.calculateTotalBaseTime(timeValues, timeUnits);
 
-    if (totalBase === 0) return ui.notifications?.warn("No time entered.");
-    if (selectedIds.length === 0) return ui.notifications?.warn("No recipients selected.");
+    if (totalBase === 0) return getUI().notifications?.warn("No time entered.");
+    if (selectedIds.length === 0) return getUI().notifications?.warn("No recipients selected.");
 
     let successCount = 0;
     for (const id of selectedIds) {
-      const actor = game.actors.get(id);
+      const actor = getGame().actors?.get(id);
       if (!actor || !isActor5e(actor)) continue;
       try {
         const proxy = ActorProxy.forActor(actor);
@@ -109,12 +110,12 @@ export class PartyTabLogic {
           timeUnits,
           isParty,
           members,
-          onsubmit: (timeValues, selectedIds) => {
+          onsubmit: (timeValues: Record<string, number>, selectedIds: string[]) => {
             this.processGrantTime(timeValues, selectedIds);
             dialog.close();
           },
-        },
-      });
+        } as any,
+      }) as unknown as GrantTimeInstance;
     }
   }
 
@@ -128,7 +129,7 @@ export class PartyTabLogic {
     isGM: boolean,
   ) {
     if (!isGM) return;
-    const targetActor = game.actors.get(actorId) as Actor5e;
+    const targetActor = getGame().actors?.get(actorId) as Actor5e | undefined;
     if (!targetActor) return;
 
     const item = targetActor.items.get(project.id);
@@ -161,7 +162,7 @@ export class PartyTabLogic {
     isGM: boolean,
   ) {
     if (!isGM) return;
-    const targetActor = game.actors?.get(actorId) as Actor5e | undefined;
+    const targetActor = getGame().actors?.get(actorId) as Actor5e | undefined;
     if (!targetActor) return;
 
     const item = targetActor.items.get(project.id);
@@ -205,14 +206,14 @@ export class PartyTabLogic {
     isGM: boolean,
     confirmFn?: () => Promise<boolean>,
   ) {
-    const targetActor = game.actors?.get(actorId) as Actor5e | undefined;
+    const targetActor = getGame().actors?.get(actorId) as Actor5e | undefined;
     if (!targetActor || !targetActor.isOwner) {
-      ui.notifications?.warn("You do not have permission to modify this actor's projects.");
+      getUI().notifications?.warn("You do not have permission to modify this actor's projects.");
       return;
     }
 
-    if (project.progress > 0 && !isGM) {
-      ui.notifications?.warn("You cannot abort an in-progress project.");
+    if ((project.progress || 0) > 0 && !isGM) {
+      getUI().notifications?.warn("You cannot abort an in-progress project.");
       return;
     }
 

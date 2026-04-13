@@ -1,6 +1,7 @@
 import { Settings } from "./settings.js";
 import { Logger } from "./logger.js";
 import type { LearningModuleMessage } from "./socket-types.js";
+import { getSocket } from "./foundry.js";
 
 export class Socket {
   static get identifier() {
@@ -23,7 +24,8 @@ export class Socket {
   static listen(
     handler: (msg: LearningModuleMessage) => Promise<void>,
   ): ((...args: any[]) => void) | undefined {
-    if (!game.socket) {
+    const socket = getSocket();
+    if (!socket) {
       Logger.warn("Socket: game.socket is not available.");
       return undefined;
     }
@@ -52,7 +54,7 @@ export class Socket {
       });
     };
 
-    game.socket.on(id, wrapper);
+    socket.on(id, wrapper);
     return wrapper;
   }
 
@@ -60,8 +62,9 @@ export class Socket {
    * Unregisters a previously registered listener.
    */
   static off(handler: (...args: any[]) => void) {
-    if (!game.socket) return;
-    game.socket.off(this.identifier, handler);
+    const socket = getSocket();
+    if (!socket) return;
+    socket.off(this.identifier, handler);
   }
 
   /**
@@ -69,7 +72,8 @@ export class Socket {
    * Note: This will not trigger the local listener.
    */
   static emitSignal(type: LearningModuleMessage["type"]) {
-    if (!game.socket) {
+    const socket = getSocket();
+    if (!socket) {
       Logger.warn("Socket: game.socket is not available.");
       return;
     }
@@ -79,6 +83,6 @@ export class Socket {
 
     Logger.debug(`Socket: Emitting signal "${type}" to "${id}"`, message);
 
-    game.socket.emit(id, message);
+    socket.emit(id, message);
   }
 }

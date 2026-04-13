@@ -14,6 +14,7 @@ import { TutelageResolverService } from "./tutelage-resolver.js";
 import InstructorSelectionDialog from "@/apps/dialogs/InstructorSelectionDialog.svelte";
 
 import { ProjectUI } from "@/core/project-ui.js";
+import { getGame, getUI } from "@/core/foundry.js";
 
 export class ProjectEngine {
   static readonly BATCH_THRESHOLD = 12;
@@ -131,16 +132,16 @@ export class ProjectEngine {
 
     if (activities.length === 0) {
       if (!allowedUnitIds)
-        ui.notifications?.warn("No valid training activities found for this project.");
+        getUI().notifications?.warn("No valid training activities found for this project.");
       return false;
     }
 
     // If manual (no allowedUnitIds), ask for confirmation
     if (!allowedUnitIds) {
       const { TabLogic } = await this.importTabLogic();
-      const formattedTime = TabLogic.formatTimeBank(bank.total, Settings.get("timeUnits"));
+      const formattedTime = TabLogic.formatTimeBank(bank.total || 0, Settings.get("timeUnits"));
       const safeFormattedTime = FoundryUtils.escapeHTML(formattedTime);
-      const safeItemName = FoundryUtils.escapeHTML(item.name);
+      const safeItemName = FoundryUtils.escapeHTML(item.name || "Unknown");
 
       const confirmed = await foundry.applications.api.DialogV2.confirm({
         window: { title: "Confirm Spend All Time" },
@@ -189,7 +190,7 @@ export class ProjectEngine {
       anySuccess = true;
       consecutiveFailures = 0;
 
-      const updatedProject = actor.items.get(item.id) as unknown as ProjectItem | undefined;
+      const updatedProject = actor.items.get(item.id!) as unknown as ProjectItem | undefined;
       if (!updatedProject || !updatedProject.system?.activities) break;
 
       const isCompleted = updatedProject.getFlag(Settings.ID, "projectData")?.isCompleted;
@@ -199,7 +200,7 @@ export class ProjectEngine {
     }
 
     if (iterations >= maxIterations) {
-      const msg = `processSpendAll reached maximum iterations (${maxIterations}) for project "${item.name}". Possible infinite loop logic or extremely large bank.`;
+      const msg = `processSpendAll reached maximum iterations (${maxIterations}) for project "${item.name || "Unknown"}". Possible infinite loop logic or extremely large bank.`;
       Logger.warn(msg);
     }
 
@@ -227,12 +228,14 @@ export class ProjectEngine {
     }
 
     const projectDataFlags = FoundryUtils.deepClone(
-      item.getFlag("thefehrs-learning-manager", "projectData") || {},
+      (item.getFlag("thefehrs-learning-manager", "projectData") as ProjectFlagData) || {},
     );
     if (!projectDataFlags || !projectDataFlags.target || projectDataFlags.target <= 0) {
-      ui.notifications?.warn("This project is awaiting a GM-defined target progress.");
+      getUI().notifications?.warn("This project is awaiting a GM-defined target progress.");
       return false;
     }
+
+    const progress = projectDataFlags.progress || 0;
 
     const flags = learningActivity.flags["thefehrs-learning-manager"];
     const timeUnitId = flags?.timeUnitId;
@@ -242,8 +245,8 @@ export class ProjectEngine {
 
     const proxy = ActorProxy.forActor(actor);
     const bank = proxy.bank;
-    if (bank.total < tu.ratio) {
-      ui.notifications?.warn(`Not enough time!`);
+    if ((bank.total || 0) < tu.ratio) {
+      getUI().notifications?.warn(`Not enough time!`);
       return false;
     }
 
@@ -356,7 +359,7 @@ export class ProjectEngine {
     const totalCp = cur.pp * 1000 + cur.gp * 100 + cur.ep * 50 + cur.sp * 10 + cur.cp;
 
     if (totalCp < costCp) {
-      ui.notifications?.warn(`Need ${costCp}cp!`);
+      getUI().notifications?.warn(`Need ${costCp}cp!`);
       return false;
     }
 
@@ -431,11 +434,11 @@ export class ProjectEngine {
       if (!choice) return false;
 
       if (choice === "bulk" && bulkValue === "unavailable") {
-        ui.notifications?.warn(`The chosen bulk training path is unavailable.`);
+        getUI().notifications?.warn(`The chosen bulk training path is unavailable.`);
         return false;
       }
       if (choice === "separate" && separateValue === "unavailable") {
-        ui.notifications?.warn(`The chosen separate training path is unavailable.`);
+        getUI().notifications?.warn(`The chosen separate training path is unavailable.`);
         return false;
       }
 
@@ -475,11 +478,11 @@ export class ProjectEngine {
     }
 
     // Calculate raw progress and excess
-    const rawProgress = projectDataFlags.progress + totalProgressGained;
-    const excessProgress = Math.max(0, rawProgress - projectDataFlags.target);
+    const rawProgress = (projectDataFlags.progress || 0) + totalProgressGained;
+    const excessProgress = Math.max(0, rawProgress - (projectDataFlags.target || 0));
 
     // Update state
-    projectDataFlags.progress = Math.min(rawProgress, projectDataFlags.target);
+    projectDataFlags.progress = Math.min(rawProgress, projectDataFlags.target || 0);
     let completedNow = false;
     if (projectDataFlags.progress >= projectDataFlags.target && !projectDataFlags.isCompleted) {
       projectDataFlags.isCompleted = true;
@@ -513,7 +516,7 @@ export class ProjectEngine {
             const { eligible, reason: reqReason } = TabLogic.meetsRequirements(actor, reqs);
 
             if (!eligible) {
-              ui.notifications?.warn(
+              getUI().notifications?.warn(
                 `Could not start follow-up project: Requirements not met for ${escapedFollowUpName}: ${reqReason}`,
               );
             } else {
@@ -528,11 +531,11 @@ export class ProjectEngine {
                 if (newFlags) {
                   newFlags.progress = Math.min(
                     excessProgress,
-                    newFlags.target > 0 ? newFlags.target : excessProgress,
+                    (newFlags.target || 0) > 0 ? newFlags.target! : excessProgress,
                   );
                   await this.updateItemWithProgress(newItem, newFlags);
-                  ui.notifications?.info(
-                    `Started follow-up project: ${FoundryUtils.escapeHTML(followUpItem.name)} with ${
+                  getUI().notifications?.info(
+                    `Started follow-up project: ${FoundryUtils.escapeHTML(followUpItem.name || "")} with ${
                       newFlags.progress
                     } initial progress.`,
                   );
@@ -550,7 +553,7 @@ export class ProjectEngine {
       );
 
       // Ensure we have the latest document instance before displaying the card
-      const freshItem = actor.items.get(item.id) as Item5e | undefined;
+      const freshItem = actor.items.get(item.id!) as Item5e | undefined;
       if (freshItem && typeof (freshItem as any).displayCard === "function") {
         await (freshItem as any).displayCard({ rollMode: rules.rollMode });
       }
@@ -558,16 +561,17 @@ export class ProjectEngine {
 
     if (isSeparate && tu.ratio > ProjectEngine.BATCH_THRESHOLD) {
       const successCount = rolls.filter(
-        (r) => r.total >= Number(rules.checkDC ?? DEFAULT_DC),
+        (r) => (r.total || 0) >= Number(rules.checkDC ?? DEFAULT_DC),
       ).length;
-      ui.notifications?.info(
+      getUI().notifications?.info(
         `Training complete: Gained ${totalProgressGained} progress from ${tu.ratio} separate rolls (${successCount} successes).`,
       );
     } else {
       for (const r of rolls) {
         await r.toMessage(
           {
-            flavor: `${actor.name} tries to learn ${item.name} (DC ${Number(rules.checkDC ?? DEFAULT_DC)})`,
+            speaker: ChatMessage.getSpeaker({ actor: actor as any }),
+            flavor: `${actor.name} tries to learn ${item.name || "Unknown Item"} (DC ${Number(rules.checkDC ?? DEFAULT_DC)})`,
           },
           { rollMode: (rules.rollMode || "gmroll") as foundry.dice.RollMode },
         );
@@ -579,9 +583,9 @@ export class ProjectEngine {
         reasons.length > 0
           ? `Training unsuccessful: ${reasons[0]}`
           : "Training unsuccessful - no progress gained.";
-      ui.notifications?.info(msg);
+      getUI().notifications?.info(msg);
     } else if (isSeparate && tu.ratio <= ProjectEngine.BATCH_THRESHOLD) {
-      ui.notifications?.info(
+      getUI().notifications?.info(
         `Training complete: Gained ${totalProgressGained} progress from ${tu.ratio} separate rolls.`,
       );
     }
@@ -596,18 +600,20 @@ export class ProjectEngine {
     const autoSpendEnabled = Settings.get("autoSpend");
     const autoSpendUnits = Settings.get("autoSpendUnits");
 
-    if (!autoSpendEnabled || game.user?.isGM) return;
+    if (!autoSpendEnabled || getGame().user?.isGM) return;
 
-    const actor = game.user.character;
+    const actor = (getGame().user as any).character;
     if (!actor) return;
 
-    const projects = actor.items.filter((i) => i.getFlag(Settings.ID, "isLearningProject"));
+    const projects = (actor.items as unknown as Item5e[]).filter((i: Item5e) =>
+      i.getFlag(Settings.ID, "isLearningProject"),
+    );
 
     if (projects.length === 1) {
       const project = projects[0];
       await this.processSpendAll(project as Item5e, autoSpendUnits);
     } else if (projects.length > 1) {
-      ui.notifications?.warn(
+      getUI().notifications?.warn(
         "Downtime Engine | You have auto-spending enabled, but more than one active project. Please open your character sheet and spend the time yourself.",
       );
     }

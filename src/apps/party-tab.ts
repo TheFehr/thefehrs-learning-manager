@@ -9,7 +9,8 @@ import {
   type ProjectFlagData,
 } from "@/types.js";
 import type { PartyMemberData } from "@dnd5e/data/actor/_types.mjs";
-import { MODULE_ID } from "@/global";
+import { MODULE_ID } from "@/global.js";
+import { getGame } from "@/core/foundry.js";
 
 export type ProjectMappedData = ProjectFlagData & {
   id: string;
@@ -36,7 +37,7 @@ export class PartyTab {
     if (!partyActor?.system) {
       return {
         members: [],
-        isGM: game.user?.isGM,
+        isGM: !!getGame().user?.isGM,
       };
     }
     const rawMembers = (partyActor.system.members || []) as PartyMemberData[];
@@ -46,7 +47,7 @@ export class PartyTab {
       members: rawMembers
         .map((m) => this.mapMemberData(m, timeUnits))
         .filter((m): m is MemberMappedData => !!m),
-      isGM: game.user?.isGM,
+      isGM: !!getGame().user?.isGM,
     };
   }
 
@@ -56,7 +57,7 @@ export class PartyTab {
   ): MemberMappedData | null {
     const actualActor =
       member.actor ||
-      (this.getMemberId(member) ? (game.actors as any)?.get(this.getMemberId(member)!) : null);
+      (this.getMemberId(member) ? (getGame().actors as any)?.get(this.getMemberId(member)!) : null);
 
     if (!isActor5e(actualActor)) return null;
     const proxy = ActorProxy.forActor(actualActor);
@@ -84,7 +85,9 @@ export class PartyTab {
               ? Math.min(100, Math.round(((projectData.progress || 0) / projectData.target) * 100))
               : 0,
           canAbort:
-            ((projectData.progress || 0) === 0 && !isLearnedReward) || game.user?.isGM || false,
+            ((projectData.progress || 0) === 0 && !isLearnedReward) ||
+            !!getGame().user?.isGM ||
+            false,
           isItemBased: true,
         };
       })

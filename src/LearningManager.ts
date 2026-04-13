@@ -18,10 +18,11 @@ import { PartyTab as PartyTabLogic } from "./apps/party-tab.js";
 import ItemLearningConfig from "./apps/tabs/ItemLearningConfig.svelte";
 import ActorTutelageConfig from "./apps/tabs/ActorTutelageConfig.svelte";
 import TimeBankBar from "./apps/components/TimeBankBar.svelte";
-import { Socket } from "./core/socket";
-import { migrateData, registerMigrationSettings } from "./migrations/migration";
+import { Socket } from "./core/socket.js";
+import { migrateData, registerMigrationSettings } from "./migrations/migration.js";
 import { initDebugHelpers } from "./core/debug.js";
 import { Logger } from "./core/logger.js";
+import { getGame, getUI } from "./core/foundry.js";
 
 export class LearningManager {
   static ID = "thefehrs-learning-manager" as const;
@@ -130,77 +131,74 @@ export class LearningManager {
       }
     });
 
-    Hooks.on(
-      "dropActorSheetData",
-      (actor: Actor, _sheet: unknown, data: { type: string; uuid: string }) => {
-        if (data.type !== "Item" || !data.uuid) return true;
+    Hooks.on("dropActorSheetData", (actor: Actor, _sheet: unknown, data: any) => {
+      if (!data || data.type !== "Item" || !data.uuid) return true;
 
-        const isCompendium = data.uuid.startsWith("Compendium.");
-        if (!isCompendium) return true;
+      const uuid = data.uuid as string;
+      const isCompendium = uuid.startsWith("Compendium.");
+      if (!isCompendium) return true;
 
-        const parts = data.uuid.split(".");
-        const packId = `${parts[1]}.${parts[2]}`;
-        const allowed = Settings.get("allowedCompendiums");
+      const parts = uuid.split(".");
+      const packId = `${parts[1]}.${parts[2]}`;
+      const allowed = Settings.get("allowedCompendiums");
 
-        if (!allowed.includes(packId)) return true;
+      if (!allowed.includes(packId)) return true;
 
-        let targetActor = actor;
+      let targetActor = actor;
 
-        if ((targetActor.type as string) === "group") {
-          // Find the actual drag event from the global window object (legacy but often necessary in Foundry hooks)
-          const event = (window as unknown as { event: DragEvent }).event;
-          const target = event?.target as HTMLElement | undefined;
+      if ((targetActor.type as string) === "group") {
+        // Find the actual drag event from the global window object (legacy but often necessary in Foundry hooks)
+        const event = (window as unknown as { event: DragEvent }).event;
+        const target = event?.target as HTMLElement | undefined;
 
-          const actorRow = target?.closest('[data-tidy-section-key^="actor-"]') as
-            | HTMLElement
-            | undefined;
-          const sidebarEntry = target?.closest("[data-actor-id]") as HTMLElement | undefined;
+        const actorRow = target?.closest('[data-tidy-section-key^="actor-"]') as
+          | HTMLElement
+          | undefined;
+        const sidebarEntry = target?.closest("[data-actor-id]") as HTMLElement | undefined;
 
-          const actorId =
-            actorRow?.dataset.tidySectionKey?.replace("actor-", "") ||
-            sidebarEntry?.dataset.actorId;
+        const actorId =
+          actorRow?.dataset.tidySectionKey?.replace("actor-", "") || sidebarEntry?.dataset.actorId;
 
-          if (actorId) {
-            const member = game.actors.get(actorId);
-            if (member) targetActor = member;
-          } else {
-            // If we can't find a specific member via the event target,
-            // we might be dropping on the general sheet or we can't resolve the target.
-            // For a group sheet, we require a specific target member.
-            return false;
-          }
+        if (actorId) {
+          const member = getGame().actors?.get(actorId);
+          if (member) targetActor = member;
+        } else {
+          // If we can't find a specific member via the event target,
+          // we might be dropping on the general sheet or we can't resolve the target.
+          // For a group sheet, we require a specific target member.
+          return false;
         }
+      }
 
-        fromUuid(data.uuid as `Item.${string}`)
-          .then(async (item) => {
-            if (!item || !("system" in item)) {
-              return;
-            }
+      fromUuid(data.uuid as `Item.${string}`)
+        .then(async (item) => {
+          if (!item || !("system" in item)) {
+            return;
+          }
 
-            const item5e = item as Item5e;
-            const projectFlagData = projectData(item5e);
-            const requirements = projectFlagData?.requirements || [];
-            const { eligible, reason } = TabLogic.meetsRequirements(targetActor, requirements);
+          const item5e = item as Item5e;
+          const projectFlagData = projectData(item5e);
+          const requirements = projectFlagData?.requirements || [];
+          const { eligible, reason } = TabLogic.meetsRequirements(targetActor, requirements);
 
-            if (!eligible) {
-              ui.notifications?.warn(`Requirements not met for ${item5e.name}: ${reason}`);
-              return;
-            }
+          if (!eligible) {
+            getUI().notifications?.warn(`Requirements not met for ${item5e.name}: ${reason}`);
+            return;
+          }
 
-            await ProjectEngine.initiateProjectFromItem(targetActor, item5e);
-          })
-          .catch((err) => {
-            Logger.error(
-              `Failed to initiate project for item ${data.uuid} on actor ${targetActor.name}:`,
-              err,
-            );
-            ui.notifications?.error(
-              `Downtime Engine | Failed to initiate project: ${err instanceof Error ? err.message : String(err)}`,
-            );
-          });
-        return false;
-      },
-    );
+          await ProjectEngine.initiateProjectFromItem(targetActor, item5e);
+        })
+        .catch((err) => {
+          Logger.error(
+            `Failed to initiate project for item ${data.uuid} on actor ${targetActor.name}:`,
+            err,
+          );
+          getUI().notifications?.error(
+            `Downtime Engine | Failed to initiate project: ${err instanceof Error ? err.message : String(err)}`,
+          );
+        });
+      return false;
+    });
     // @ts-expect-error - tidy5e system hook
     Hooks.once("tidy5e-sheet.ready", (api: Tidy5eApi) => {
       this.registerTidyTabs(api);
@@ -244,7 +242,7 @@ export class LearningManager {
         tabId: `${this.ID}-item-target-config`,
         html: '<div class="downtime-engine-svelte-root" style="height: 100%;"></div>',
         enabled: (context: { item?: Item; document?: Item }) => {
-          if (!game.user?.isGM) return false;
+          if (!getGame().user?.isGM) return false;
           const item = context?.item || context?.document;
           if (!item) return false;
 
@@ -284,7 +282,7 @@ export class LearningManager {
       tabId: `${this.ID}-actor-tutelage-config`,
       html: '<div class="downtime-engine-svelte-root" style="height: 100%;"></div>',
       enabled: (context: { actor?: Actor; document?: Actor }) => {
-        if (!game.user?.isGM) return false;
+        if (!getGame().user?.isGM) return false;
         const actor = context?.actor || context?.document;
         if (!actor) return false;
 

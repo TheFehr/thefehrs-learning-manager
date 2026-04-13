@@ -3,9 +3,10 @@ import { Settings } from "@/core/settings.js";
 import { Logger } from "@/core/logger.js";
 import type { Item5e } from "@/types.js";
 import type { ProjectFlagData } from "@/logic/project-item.js";
+import { getGame } from "@/core/foundry.js";
 
 export interface InvalidProjectReason {
-  item: { name: string; sheet?: { render: (force: boolean) => void } };
+  item: { name: string; sheet?: { render: (force: boolean) => void } | null };
   packName: string;
   reasons: string[];
 }
@@ -86,7 +87,7 @@ export async function getInvalidProjects(): Promise<InvalidProjectReason[]> {
   const invalidProjects: InvalidProjectReason[] = [];
 
   for (const packId of allowedCompendiums) {
-    const pack = game.packs.get(packId);
+    const pack = getGame().packs?.get(packId);
     if (!pack) {
       Logger.warn(`Configured compendium "${packId}" not found.`);
       continue;

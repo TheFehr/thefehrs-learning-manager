@@ -1,6 +1,7 @@
 import { MODULE_ID } from "@/global.js";
 import { Logger } from "@/core/logger.js";
 import { FoundryUtils } from "@/core/foundry-utils.js";
+import { getGame } from "@/core/foundry.js";
 
 interface Actor5e {
   name: string;
@@ -88,7 +89,7 @@ function createBaseActivityTemplate(): any {
 async function injectActivities(item: Item5e, target: number) {
   if (target <= 0) return;
 
-  const timeUnits = (game.settings.get(MODULE_ID, "timeUnits") as unknown as any[]) || [];
+  const timeUnits = (getGame().settings.get(MODULE_ID, "timeUnits") as unknown as any[]) || [];
   const activities: any[] = timeUnits.map((tu) => ({
     ...createBaseActivityTemplate(),
     _id: FoundryUtils.randomID(),

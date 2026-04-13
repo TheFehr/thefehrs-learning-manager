@@ -1,6 +1,7 @@
-import { MODULE_ID } from "@/global";
+import { MODULE_ID } from "@/global.js";
 import { Logger } from "@/core/logger.js";
 import { FoundryUtils } from "@/core/foundry-utils.js";
+import { getGame } from "@/core/foundry.js";
 
 interface LegacyProjectV1 {
   id?: string;
@@ -27,6 +28,7 @@ export async function migrateToV1Relational() {
   // the types of dynamically-registered Foundry settings during migration phases.
   // This pattern is limited to migration code and is acceptable for now.
   try {
+    const game = getGame();
     const library =
       (game.settings.get(MODULE_ID, "projectTemplates" as any) as unknown as ProjectTemplateV1[]) ||
       [];

@@ -2,10 +2,12 @@ import type {} from "@league-of-foundry-developers/foundry-vtt-types";
 
 declare global {
   interface LenientGlobalVariableTypes {
-    game: never;
-    canvas: never;
-    ui: never;
-    socket: never;
+    game: Game;
+    canvas: Canvas;
+    ui: {
+      notifications?: Notifications;
+    } & Record<string, any>;
+    socket: any;
   }
 }
 import type {
@@ -301,6 +303,7 @@ export interface ModuleAPIs {
 export function getModuleAPI<T extends string & keyof ModuleAPIs>(
   id: T,
 ): ModuleAPIs[T] | undefined {
+  const game = (globalThis as any).game;
   if (typeof game === "undefined" || !game.modules) return undefined;
   const module = game.modules.get(id);
   if (!module) return undefined;

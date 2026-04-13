@@ -6,6 +6,7 @@ import { ActivityManager } from "@/core/activity-manager.js";
 import { LearningFeatType, ProjectFlagData } from "./project-item.js";
 import type { Item5e } from "@/types.js";
 import { DocumentUtils } from "@/core/document-utils.js";
+import { getUI } from "@/core/foundry.js";
 
 export class ProjectLifecycle {
   /**
@@ -80,11 +81,13 @@ export class ProjectLifecycle {
       }),
     };
 
-    const [created] = await actor.createEmbeddedDocuments("Item", [updateData] as any[]);
-    if (!created) {
+    const items = await actor.createEmbeddedDocuments("Item", [updateData] as any[]);
+    if (!items || items.length === 0) {
       Logger.error(`Failed to create embedded item "${rewardDoc.name}" on actor ${actor.name}`);
       return null;
     }
+
+    const created = items[0];
 
     const createdItem = created as Item5e;
     Logger.debug(
@@ -220,7 +223,8 @@ export class ProjectLifecycle {
         },
       };
 
-      const [created] = await actor.createEmbeddedDocuments("Item", [createData]);
+      const createdDocs = await actor.createEmbeddedDocuments("Item", [createData]);
+      const created = createdDocs?.[0];
 
       if (created) {
         return await this.handlePostCreationCleanup(
@@ -256,12 +260,12 @@ export class ProjectLifecycle {
         `Failed to delete original project item after restoration. New item created: ${createdItem.name} (${createdItem.id})`,
         err,
       );
-      ui.notifications?.warn(
+      getUI().notifications?.warn(
         `Restored item "${createdItem.name}" but could not delete the original project item. You may have a duplicate.`,
       );
       return false;
     }
-    ui.notifications?.info(`Learning Complete: ${createdItem.name} is now fully available!`);
+    getUI().notifications?.info(`Learning Complete: ${createdItem.name} is now fully available!`);
     if (typeof (createdItem as Item5e).displayCard === "function") {
       await (createdItem as Item5e).displayCard({ rollMode });
     }
@@ -301,7 +305,8 @@ export class ProjectLifecycle {
       );
     }
 
-    const [created] = await actor.createEmbeddedDocuments("Item", [clonedData] as any[]);
+    const createdDocs = await actor.createEmbeddedDocuments("Item", [clonedData] as any[]);
+    const created = createdDocs?.[0];
 
     if (created) {
       return await this.handlePostCreationCleanup(
@@ -329,16 +334,13 @@ export class ProjectLifecycle {
     const existingActivities = (item.system as any).activities;
     if (existingActivities) {
       const activityList =
-        typeof (existingActivities as { values: () => unknown }).values === "function"
-          ? Array.from((existingActivities as { values: () => Iterable<unknown> }).values())
+        typeof (existingActivities as any).values === "function"
+          ? Array.from((existingActivities as any).values())
           : Array.isArray(existingActivities)
             ? existingActivities
             : Object.values(existingActivities);
 
-      for (const activity of activityList as Array<{
-        id: string;
-        flags?: Record<string, any>;
-      }>) {
+      for (const activity of activityList as Array<any>) {
         if (activity?.id && activity.flags?.[Settings.ID]?.isLearningActivity) {
           dotFlags[`system.activities.-=${activity.id}`] = null;
         }
@@ -358,7 +360,7 @@ export class ProjectLifecycle {
       };
     }
 
-    const primaryUpdate = {
+    const primaryUpdate: any = {
       name: projectDataFlags.stashedName || item.name,
       effects: projectDataFlags.stashedEffects || [],
       system: systemToUpdate,
@@ -370,13 +372,13 @@ export class ProjectLifecycle {
       await item.update(primaryUpdate);
     } catch (err) {
       Logger.error(`Failed to update item in-place:`, err);
-      ui.notifications?.error(
+      getUI().notifications?.error(
         `Failed to complete project in-place for ${item.name}. See console for details.`,
       );
       return false;
     }
 
-    ui.notifications?.info(`Learning Complete: ${item.name} is now fully available!`);
+    getUI().notifications?.info(`Learning Complete: ${item.name} is now fully available!`);
     if (typeof (item as Item5e).displayCard === "function") {
       await (item as Item5e).displayCard({ rollMode: Settings.get("rules").rollMode });
     }
