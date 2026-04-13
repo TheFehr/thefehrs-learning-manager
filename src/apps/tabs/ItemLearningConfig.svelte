@@ -3,7 +3,6 @@
   import type { ProjectRequirement, ComparisonOperator, Item5e } from "@/types.js";
   import { untrack } from "svelte";
   import { ItemConfigLogic } from "@/logic/item-config-logic.js";
-  import { ensureCategoryExists } from "@/logic/settings-logic.js";
   import { LearningFeatType } from "@/logic/project-item.js";
   import CategorySelector from "@/apps/components/CategorySelector.svelte";
 

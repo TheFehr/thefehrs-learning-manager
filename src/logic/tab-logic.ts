@@ -92,8 +92,8 @@ export class TabLogic {
           // We also replace other dice with their average value to make it deterministic.
           const modFormula = rules.checkFormula
             .replace(/\b\d*d20(?:k[hl]\d+)?\b/gi, "0")
-            .replace(/\b(\d+)d(\d+)(?:[khdl][hl]?\d+)?\b/gi, (match, count, faces) => {
-              const n = parseInt(count);
+            .replace(/\b(\d*)d(\d+)(?:[khdl][hl]?\d+)?\b/gi, (match, count, faces) => {
+              const n = count ? parseInt(count) : 1;
               const f = parseInt(faces);
               return ((n * (f + 1)) / 2).toString();
             });

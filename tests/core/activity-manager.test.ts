@@ -43,6 +43,14 @@ describe("ActivityManager", () => {
       expect(data[0].name).toBe("Train Hour");
       expect(data[1].name).toBe("Spend all time");
     });
+
+    it("should return empty array if timeUnits is not an array or is empty", () => {
+      vi.mocked(Settings.get).mockReturnValueOnce(null);
+      expect(ActivityManager.getActivitiesData(10)).toEqual([]);
+
+      vi.mocked(Settings.get).mockReturnValueOnce([]);
+      expect(ActivityManager.getActivitiesData(10)).toEqual([]);
+    });
   });
 
   describe("injectActivities", () => {

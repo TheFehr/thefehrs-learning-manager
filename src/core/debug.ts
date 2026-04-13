@@ -211,14 +211,13 @@ export const DebugHelpers = {
  * Initialize debug helpers on the window object.
  */
 export function initDebugHelpers() {
-  if (import.meta.env.DEV || game?.user?.isGM) {
-    // ude = User Downtime Engine - short and easy to type in console
-    // We use ude to avoid naming collisions with common global variables
-    // and to make it discoverable
-    (window as unknown as { ude: typeof DebugHelpers }).ude = DebugHelpers;
-
-    Hooks.once("ready", () => {
+  Hooks.once("ready", () => {
+    if (import.meta.env.DEV || game?.user?.isGM) {
+      // ude = User Downtime Engine - short and easy to type in console
+      // We use ude to avoid naming collisions with common global variables
+      // and to make it discoverable
+      (window as unknown as { ude: typeof DebugHelpers }).ude = DebugHelpers;
       Logger.debug("Debug helpers initialized. Use `ude.addTime(hours)` in the console.");
-    });
-  }
+    }
+  });
 }

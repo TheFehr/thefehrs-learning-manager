@@ -257,12 +257,15 @@ export class ProjectEngine {
     let rememberChoice = false;
 
     if (instructors.length > 0 || bestBookMod > 0) {
-      const lastId = projectDataFlags.lastInstructorUuid;
-      const lastName = projectDataFlags.lastInstructorName;
+      const rememberedId = projectDataFlags.rememberedInstructorUuid;
+      const rememberedName = projectDataFlags.rememberedInstructorName;
 
       const remembered = instructors.find(
-        (i) => i.actorUuid === lastId && i.offering.name === lastName,
+        (i) => i.actorUuid === rememberedId && i.offering.name === rememberedName,
       );
+
+      const lastId = projectDataFlags.lastInstructorUuid;
+      const lastName = projectDataFlags.lastInstructorName;
 
       if (options.skipPrompt && remembered) {
         selectedInstructor = remembered;

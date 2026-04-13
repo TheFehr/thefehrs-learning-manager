@@ -19,24 +19,26 @@ export class ActivityManager {
     if (target <= 0) return [];
 
     const timeUnits = Settings.get("timeUnits");
-    const activities: ActivityData5e[] = Array.isArray(timeUnits)
-      ? timeUnits.map((tu) => ({
-          ...createBaseActivityTemplate(),
-          _id: FoundryUtils.randomID(),
-          img: "icons/svg/book.svg",
-          sort: 0,
-          description: {
-            chatFlavor: `Training for ${tu.name}`,
-          },
-          flags: {
-            "thefehrs-learning-manager": {
-              isLearningActivity: true,
-              timeUnitId: tu.id,
-            },
-          },
-          name: `Train ${tu.name}`,
-        }))
-      : [];
+    if (!Array.isArray(timeUnits) || timeUnits.length === 0) {
+      return [];
+    }
+
+    const activities: ActivityData5e[] = timeUnits.map((tu) => ({
+      ...createBaseActivityTemplate(),
+      _id: FoundryUtils.randomID(),
+      img: "icons/svg/book.svg",
+      sort: 0,
+      description: {
+        chatFlavor: `Training for ${tu.name}`,
+      },
+      flags: {
+        "thefehrs-learning-manager": {
+          isLearningActivity: true,
+          timeUnitId: tu.id,
+        },
+      },
+      name: `Train ${tu.name}`,
+    }));
 
     // Add "Spend all" activity
     activities.push({
@@ -116,7 +118,6 @@ export class ActivityManager {
       }
       return false;
     } catch (err) {
-      Logger.error(`Failed to create activities for "${(item as unknown as Item).name}":`, err);
       throw err;
     }
   }

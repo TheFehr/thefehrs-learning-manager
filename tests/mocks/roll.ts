@@ -92,77 +92,34 @@ function evaluateFormula(formula: string, data: any) {
   return { total: t, dice };
 }
 
-export function createMockRoll(formula: string, config: MockRollConfig = {}) {
-  return new (class {
-    formula = formula;
-    data = config.data || {};
-    dice = config.dice || [];
-    terms = config.terms || [];
-    total = config.total || 0;
-    _evaluated = false;
-
-    async evaluate() {
-      if (this._evaluated) return this;
-
-      if (!this.total || !this.dice?.length) {
-        const res = evaluateFormula(this.formula, this.data);
-        if (!this.total) this.total = res.total;
-        if (!this.dice?.length) this.dice = res.dice;
-      }
-      this._evaluated = true;
-      return this;
-    }
-
-    static fromTerms(terms: any[]) {
-      const formula = terms.map((t) => t.formula || String(t.total || t.result || "")).join(" ");
-      const r = createMockRoll(formula, { terms });
-      r.dice = terms.filter((t) => t.faces);
-      return r;
-    }
-
-    clone() {
-      return createMockRoll(this.formula, {
-        total: this.total,
-        dice: [...this.dice],
-        terms: [...this.terms],
-        data: JSON.parse(JSON.stringify(this.data)),
-      });
-    }
-
-    toMessage = vi.fn().mockResolvedValue({});
-  })();
-}
-
-/**
- * A class-based version of the Roll mock for use where 'new Roll()' is required.
- */
 export class MockRoll {
   formula: string;
   data: any;
-  dice: any[] = [];
-  terms: any[] = [];
-  total = 0;
+  dice: any[] | undefined;
+  terms: any[];
+  total: number | undefined;
   _evaluated = false;
 
   constructor(formula: string, data: any = {}) {
     this.formula = formula;
     this.data = data;
+    this.terms = [];
   }
 
   async evaluate() {
     if (this._evaluated) return this;
 
-    if (!this.total || !this.dice?.length) {
+    if (this.total === undefined || this.dice === undefined) {
       const res = evaluateFormula(this.formula, this.data);
-      if (!this.total) this.total = res.total;
-      if (!this.dice?.length) this.dice = res.dice;
+      if (this.total === undefined) this.total = res.total;
+      if (this.dice === undefined) this.dice = res.dice;
     }
     this._evaluated = true;
     return this;
   }
 
   static fromTerms(terms: any[]) {
-    const formula = terms.map((t) => t.formula || String(t.total || t.result || "")).join(" ");
+    const formula = terms.map((t) => t.formula ?? String(t.total ?? t.result ?? "")).join(" ");
     const r = new MockRoll(formula);
     r.terms = [...terms];
     r.dice = terms.filter((t) => t.faces);
@@ -172,11 +129,19 @@ export class MockRoll {
   clone() {
     const r = new MockRoll(this.formula, JSON.parse(JSON.stringify(this.data)));
     r.total = this.total;
-    r._evaluated = this._evaluated;
-    r.dice = [...this.dice];
+    r.dice = this.dice ? [...this.dice] : undefined;
     r.terms = [...this.terms];
+    r._evaluated = this._evaluated;
     return r;
   }
 
   toMessage = vi.fn().mockResolvedValue({});
+}
+
+export function createMockRoll(formula: string, config: MockRollConfig = {}) {
+  const r = new MockRoll(formula, config.data);
+  r.total = config.total;
+  r.dice = config.dice;
+  r.terms = config.terms ?? [];
+  return r;
 }
