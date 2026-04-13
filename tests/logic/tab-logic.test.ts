@@ -62,7 +62,12 @@ describe("TabLogic", () => {
     });
 
     it("should use mathematical method for bulk units", async () => {
-      const bulkRules = { ...rules, bulkMethod: "mathematical", checkDC: 12 };
+      const bulkRules = {
+        ...rules,
+        bulkMethod: "mathematical",
+        checkDC: 12,
+        checkFormula: "1d20 + @abilities.int.mod + @tutelage",
+      };
       const bulkTu = { id: "day", isBulk: true, ratio: 10 };
       actor.system.abilities = { int: { mod: 5 } };
 
@@ -268,7 +273,7 @@ describe("TabLogic", () => {
 
       const success = await TabLogic.deductCurrency(actor, 50); // deduct 50cp from 100cp
       expect(success).toBe(true);
-      expect(mockProxy.updateCurrency).toHaveBeenCalledWith({ gp: 0, sp: 5, cp: 0, ep: 0, pp: 0 });
+      expect(mockProxy.updateCurrency).toHaveBeenCalledWith({ pp: 0, gp: 0, ep: 1, sp: 0, cp: 0 });
       spy.mockRestore();
     });
 

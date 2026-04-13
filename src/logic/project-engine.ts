@@ -341,13 +341,16 @@ export class ProjectEngine {
     const costCp = resolution.costs[tu.id] || 0;
     const instructorName = resolution.instructorName;
 
+    projectDataFlags.lastInstructorUuid = selectedInstructor?.actorUuid ?? "";
+    projectDataFlags.lastInstructorName = resolution.instructorName ?? "Self-Study";
+
     if (rememberChoice) {
-      projectDataFlags.lastInstructorUuid = selectedInstructor?.actorUuid || "";
-      projectDataFlags.lastInstructorName = selectedInstructor?.offering.name || "Self-Study";
+      projectDataFlags.rememberedInstructorUuid = selectedInstructor?.actorUuid;
+      projectDataFlags.rememberedInstructorName = selectedInstructor?.offering.name;
     }
 
     const cur = proxy.currency;
-    const totalCp = cur.gp * 100 + cur.sp * 10 + cur.cp;
+    const totalCp = cur.pp * 1000 + cur.gp * 100 + cur.ep * 50 + cur.sp * 10 + cur.cp;
 
     if (totalCp < costCp) {
       ui.notifications?.warn(`Need ${costCp}cp!`);

@@ -49,9 +49,13 @@
     isSaving = true;
     saveError = null;
     try {
-      await ActorConfigLogic.saveConfig(actor, data);
+      const ok = await ActorConfigLogic.saveConfig(actor, data);
       if (token === saveCounter) {
-        initialSnapshot = JSON.stringify(data);
+        if (ok === false) {
+          saveError = "Failed to save configuration. Please try again.";
+        } else {
+          initialSnapshot = JSON.stringify(data);
+        }
       }
     } catch (err) {
       if (token === saveCounter) {

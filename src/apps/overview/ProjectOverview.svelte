@@ -71,12 +71,13 @@
         <div class="invalid-project-card">
           <div class="project-info">
             <div
-              class="project-name"
-              onclick={() => openItemSheet(item)}
+              class="project-name {item.sheet ? 'clickable' : 'disabled'}"
+              onclick={() => item.sheet && openItemSheet(item)}
               role="button"
-              tabindex="0"
+              tabindex={item.sheet ? 0 : -1}
+              aria-disabled={!item.sheet}
               onkeydown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
+                if (item.sheet && (e.key === "Enter" || e.key === " ")) {
                   e.preventDefault();
                   openItemSheet(item);
                 }
@@ -98,7 +99,8 @@
               type="button"
               class="fix-button tidy-button"
               onclick={() => openItemSheet(item)}
-              title="Open Item Sheet"
+              title={item.sheet ? "Open Item Sheet" : "Sheet not available"}
+              disabled={!item.sheet}
             >
               <i class="fas fa-edit"></i> Fix Project
             </button>
@@ -177,17 +179,24 @@
 
   .project-name {
     margin: 0;
-    cursor: pointer;
     color: var(--t5e-primary-accent-color, #ff6400);
     font-size: 1rem;
     font-weight: bold;
+
+    &.clickable {
+      cursor: pointer;
+      &:hover {
+        text-decoration: underline;
+      }
+    }
+
+    &.disabled {
+      cursor: default;
+      opacity: 0.6;
+    }
   }
 
-  .project-name:hover {
-    text-decoration: underline;
-  }
-
-  .project-name:focus-visible {
+  .project-name:focus-visible:not(.disabled) {
     outline: 2px solid var(--t5e-primary-accent-color, #ff6400);
     outline-offset: 2px;
     border-radius: 2px;

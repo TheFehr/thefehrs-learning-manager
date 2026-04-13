@@ -166,7 +166,7 @@ declare module "fvtt-types/configuration" {
     };
     Item: {
       "thefehrs-learning-manager": {
-        projectData: ProjectFlagData;
+        projectData?: ProjectFlagData;
         isLearningProject?: boolean;
         isLearnedReward?: boolean;
         stashedType?: string;

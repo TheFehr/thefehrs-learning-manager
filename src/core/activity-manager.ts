@@ -164,7 +164,7 @@ export class ActivityManager {
 
     if (failedCount > 0) {
       ui.notifications?.warn(
-        `Downtime Engine | Synced activities for ${updatedCount} items. ${failedCount} items failed (see console).`,
+        `Downtime Engine | Synced activities for ${updatedCount} items. ${failedCount} items failed (check application logs).`,
       );
     } else {
       ui.notifications?.info(`Downtime Engine | Synced activities for ${updatedCount} items.`);

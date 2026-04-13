@@ -65,7 +65,12 @@ export class TabLogic {
             if (d20s.some((die) => die.results?.some((r) => r.active && r.result >= threshold)))
               multiplier = 2;
           } else if (strategy === "all") {
-            if (d20s.every((die) => die.results?.every((r) => r.active && r.result >= threshold)))
+            if (
+              d20s.every((die) => {
+                const active = die.results?.filter((r) => r.active) ?? [];
+                return active.length > 0 && active.every((r) => r.result >= threshold);
+              })
+            )
               multiplier = 2;
           }
         }
@@ -84,13 +89,18 @@ export class TabLogic {
         try {
           // Replace all d20-based dice expressions with 0 to extract the constant modifier
           // This handles d20, 1d20, 2d20kh1, etc.
-          const modFormula = rules.checkFormula.replace(/\b\d*d20(?:k[hl]\d+)?\b/gi, "0");
+          // We also replace other dice with their average value to make it deterministic.
+          const modFormula = rules.checkFormula
+            .replace(/\b\d*d20(?:k[hl]\d+)?\b/gi, "0")
+            .replace(/\b(\d+)d(\d+)(?:[khdl][hl]?\d+)?\b/gi, (match, count, faces) => {
+              const n = parseInt(count);
+              const f = parseInt(faces);
+              return ((n * (f + 1)) / 2).toString();
+            });
           const modRoll = new Roll(modFormula, {
             ...actor.getRollData(),
             tutelage: tutelageMod,
           });
-          // Use synchronous evaluation if possible or just parse terms if we want to be safe,
-          // but Roll.evaluate() is async. We are in an async function though.
           const evaluatedMod = await modRoll.evaluate();
           mod = evaluatedMod.total;
         } catch (err) {
@@ -152,9 +162,10 @@ export class TabLogic {
     rules: SystemRules,
     tutelageMod: number,
   ): Promise<{ rolls: TrainingRoll[]; isDeterministic: boolean } | null> {
-    if (!rules.checkFormula || rules.checkDC == null) return null;
+    if (!rules.checkFormula) return null;
 
     try {
+      const dc = rules.checkDC ?? DEFAULT_DC;
       const rollData = {
         ...actor.getRollData(),
         tutelage: tutelageMod,
@@ -258,7 +269,7 @@ export class TabLogic {
     }
     const proxy = ActorProxy.forActor(actor);
     const cur = proxy.currency;
-    const totalCp = cur.gp * 100 + cur.sp * 10 + cur.cp;
+    const totalCp = cur.pp * 1000 + cur.gp * 100 + cur.ep * 50 + cur.sp * 10 + cur.cp;
 
     if (totalCp < costCp) {
       ui.notifications?.warn("Downtime Engine | Insufficient currency!");
@@ -266,12 +277,16 @@ export class TabLogic {
     }
 
     let remaining = totalCp - costCp;
+    const newPp = Math.floor(remaining / 1000);
+    remaining %= 1000;
     const newGp = Math.floor(remaining / 100);
     remaining %= 100;
+    const newEp = Math.floor(remaining / 50);
+    remaining %= 50;
     const newSp = Math.floor(remaining / 10);
     const newCp = remaining % 10;
 
-    await proxy.updateCurrency({ gp: newGp, sp: newSp, cp: newCp, ep: cur.ep, pp: cur.pp });
+    await proxy.updateCurrency({ pp: newPp, gp: newGp, ep: newEp, sp: newSp, cp: newCp });
     return true;
   }
 

@@ -11,25 +11,32 @@ export class ItemConfigLogic {
    */
   static async saveConfig(
     item: Item5e,
-    target: number,
-    followUpProjectId: string,
-    requirements: ProjectRequirement[],
-    categories: string[],
-    bookModifier: number,
-    bookCategories: string[],
+    project?: {
+      target: number;
+      followUpProjectId: string;
+      requirements: ProjectRequirement[];
+      categories: string[];
+    },
+    book?: {
+      modifier: number;
+      categories: string[];
+    },
   ) {
-    return await DocumentUtils.setFlagsSilently(item, {
-      projectData: {
-        target,
-        followUpProjectId,
-        requirements,
-        categories,
-      },
-      learningBookBonus: {
-        modifier: bookModifier,
-        categories: bookCategories,
-      },
-    });
+    const flags: Record<string, unknown> = {};
+
+    if (project) {
+      flags.projectData = project;
+    } else {
+      flags["-=projectData"] = null;
+    }
+
+    if (book) {
+      flags.learningBookBonus = book;
+    } else {
+      flags["-=learningBookBonus"] = null;
+    }
+
+    return await DocumentUtils.setFlagsSilently(item, flags);
   }
 
   /**

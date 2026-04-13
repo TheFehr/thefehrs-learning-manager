@@ -267,7 +267,7 @@ export function validateSettings(data: unknown) {
     );
   }
 
-  // 4. Validate Allowed Compendiums
+  // 5. Validate Allowed Compendiums
   if (Array.isArray(data.allowedCompendiums)) {
     result.allowedCompendiums = data.allowedCompendiums.filter(
       (compendium: unknown): compendium is string => typeof compendium === "string",

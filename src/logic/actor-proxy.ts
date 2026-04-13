@@ -28,6 +28,13 @@ export class ActorProxy {
     return this.actor.uuid;
   }
 
+  get projects() {
+    return this.getMappedProjects().map((p) => ({
+      ...p,
+      guidanceType: p.tutelageName,
+    }));
+  }
+
   getMappedProjects() {
     return this.actor.items
       .filter((i) => i.getFlag("thefehrs-learning-manager", "isLearningProject"))

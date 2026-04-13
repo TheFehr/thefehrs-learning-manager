@@ -401,10 +401,14 @@ export class ProjectLifecycle {
     const stashedName = projectData.stashedName || item.name;
     const stashedDescription = projectData.stashedDescription || "";
 
-    await DocumentUtils.updateSilently(item, {
+    const success = await DocumentUtils.updateSilently(item, {
       name: `${stashedName} (${projectData.progress}/${projectData.target})`,
       ["system.description.value"]: progressHtml + stashedDescription,
       [`flags.${Settings.ID}.projectData`]: projectData,
     } as Record<string, any>);
+
+    if (!success) {
+      throw new Error(`Failed to update item "${item.name}" with new progress.`);
+    }
   }
 }

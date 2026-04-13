@@ -82,9 +82,9 @@ function evaluateFormula(formula: string, data: any) {
     const hours = data?.hours || 0;
     const dc = data?.dc || 0;
     const tutelage = data?.tutelage || 0;
-    const mod = data?.mod ?? 0;
-    const intMod = data?.abilities?.int?.mod ?? 0;
-    const effectiveMod = mod || intMod + tutelage;
+    const mod = data?.mod;
+    const intMod = data?.abilities?.int?.mod || 0;
+    const effectiveMod = mod ?? intMod + tutelage;
     const minRoll = Math.max(1, dc - effectiveMod);
     t = Math.round((hours * (22 - minRoll)) / 20);
   }
@@ -104,9 +104,11 @@ export function createMockRoll(formula: string, config: MockRollConfig = {}) {
     async evaluate() {
       if (this._evaluated) return this;
 
-      const { total, dice } = evaluateFormula(this.formula, this.data);
-      this.total = total;
-      this.dice = dice;
+      if (!this.total || !this.dice?.length) {
+        const res = evaluateFormula(this.formula, this.data);
+        if (!this.total) this.total = res.total;
+        if (!this.dice?.length) this.dice = res.dice;
+      }
       this._evaluated = true;
       return this;
     }
@@ -123,7 +125,7 @@ export function createMockRoll(formula: string, config: MockRollConfig = {}) {
         total: this.total,
         dice: [...this.dice],
         terms: [...this.terms],
-        data: { ...this.data },
+        data: JSON.parse(JSON.stringify(this.data)),
       });
     }
 
@@ -150,9 +152,11 @@ export class MockRoll {
   async evaluate() {
     if (this._evaluated) return this;
 
-    const { total, dice } = evaluateFormula(this.formula, this.data);
-    this.total = total;
-    this.dice = dice;
+    if (!this.total || !this.dice?.length) {
+      const res = evaluateFormula(this.formula, this.data);
+      if (!this.total) this.total = res.total;
+      if (!this.dice?.length) this.dice = res.dice;
+    }
     this._evaluated = true;
     return this;
   }
@@ -161,11 +165,12 @@ export class MockRoll {
     const formula = terms.map((t) => t.formula || String(t.total || t.result || "")).join(" ");
     const r = new MockRoll(formula);
     r.terms = [...terms];
+    r.dice = terms.filter((t) => t.faces);
     return r;
   }
 
   clone() {
-    const r = new MockRoll(this.formula, this.data);
+    const r = new MockRoll(this.formula, JSON.parse(JSON.stringify(this.data)));
     r.total = this.total;
     r._evaluated = this._evaluated;
     r.dice = [...this.dice];

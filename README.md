@@ -39,14 +39,14 @@ While players manage their own projects, the Game Master can oversee the entire 
 - **Party-Wide Overview:** See every character's active projects, current progress, and time bank status in a single unified view.
 - **Manual Overrides:** GMs can manually adjust progress or targets for any character's project directly from this tab.
 
- <div align="center">
-   <p>📸 <b>[Screenshot: Group Learning Tab]</b><br>
-   <i>The unified party overview on the Group actor sheet with the "Distribute Time" button.</i></p>
- </div>
- 
- ---
- 
- ## 🎲 Training Mechanics
+<div align="center">
+  <p>📸 <b>[Screenshot: Group Learning Tab]</b><br>
+  <i>The unified party overview on the Group actor sheet with the "Distribute Time" button.</i></p>
+</div>
+
+---
+
+## 🎲 Training Mechanics
 
 The Downtime Engine supports three primary ways to resolve training:
 

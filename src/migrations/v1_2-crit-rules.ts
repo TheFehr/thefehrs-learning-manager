@@ -33,7 +33,6 @@ export async function migrateToV1_2() {
     }
   } catch (error) {
     Logger.error("migration to v1.2.0 failed:", error);
-    ui?.notifications?.error("Migration to v1.2.0 failed. See application logs for details.");
     throw error;
   }
 }

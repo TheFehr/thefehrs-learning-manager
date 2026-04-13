@@ -24,6 +24,8 @@ export type ProjectFlagData = {
   tutelageId?: string;
   lastInstructorUuid?: string;
   lastInstructorName?: string;
+  rememberedInstructorUuid?: string;
+  rememberedInstructorName?: string;
   progress?: number;
   target?: number;
   categories?: string[];

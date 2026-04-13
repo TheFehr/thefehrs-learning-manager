@@ -40,12 +40,16 @@ describe("ItemConfigLogic", () => {
 
       const result = await ItemConfigLogic.saveConfig(
         mockItem,
-        10,
-        "uuid123",
-        requirements as any,
-        categories,
-        bookModifier,
-        bookCategories,
+        {
+          target: 10,
+          followUpProjectId: "uuid123",
+          requirements: requirements as any,
+          categories,
+        },
+        {
+          modifier: bookModifier,
+          categories: bookCategories,
+        },
       );
 
       expect(result).toBe(true);
@@ -73,7 +77,11 @@ describe("ItemConfigLogic", () => {
         update: vi.fn().mockRejectedValue(new Error("Database error")),
       } as any;
 
-      const result = await ItemConfigLogic.saveConfig(mockItem, 10, "", [], [], 0, []);
+      const result = await ItemConfigLogic.saveConfig(
+        mockItem,
+        { target: 10, followUpProjectId: "", requirements: [], categories: [] },
+        { modifier: 0, categories: [] },
+      );
       expect(result).toBe(false);
       expect(global.ui.notifications.error).toHaveBeenCalledWith(
         expect.stringContaining("Failed to update document Test Item"),

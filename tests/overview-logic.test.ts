@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { getInvalidProjects } from "@/apps/overview-logic.js";
 import { MODULE_ID } from "@/global.js";
+import { Logger } from "@/core/logger.js";
 
 describe("overview-logic", () => {
   beforeEach(() => {
@@ -249,17 +250,17 @@ describe("overview-logic", () => {
     pack1.getIndex.mockRejectedValue(new Error("Index load failed"));
     pack2.getIndex.mockResolvedValue([]);
 
-    const consoleSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const loggerSpy = vi.spyOn(Logger, "error").mockImplementation(() => {});
 
     const result = await getInvalidProjects();
 
     expect(result).toHaveLength(0);
-    expect(consoleSpy).toHaveBeenCalledWith(
+    expect(loggerSpy).toHaveBeenCalledWith(
       expect.stringContaining('Failed to read index for compendium "pack1": Index load failed'),
     );
     expect(pack2.getIndex).toHaveBeenCalled();
 
-    consoleSpy.mockRestore();
+    loggerSpy.mockRestore();
   });
 
   it("should handle pack.getDocument failure by adding an invalid reason and continuing", async () => {

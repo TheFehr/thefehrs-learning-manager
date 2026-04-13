@@ -104,10 +104,6 @@
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
-
-    &.disabled {
-      opacity: 0.5;
-    }
   }
 
   .checkbox-label {
@@ -121,11 +117,7 @@
     border-radius: 4px;
     border: 1px solid transparent;
 
-    &.disabled {
-      cursor: not-allowed;
-    }
-
-    &:hover:not(.disabled) {
+    &:hover {
       background: var(--t5e-tertiary-color);
     }
 

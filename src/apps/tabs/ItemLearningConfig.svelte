@@ -98,12 +98,16 @@
 
     const timeout = setTimeout(() => {
       saveConfig(
-        target, 
-        followUpId, 
-        JSON.parse(JSON.stringify(reqs)),
-        [...cats],
-        bMod,
-        [...bCats]
+        showProjectConfig ? {
+          target,
+          followUpProjectId: followUpId,
+          requirements: JSON.parse(JSON.stringify(reqs)),
+          categories: [...cats]
+        } : undefined,
+        showBookConfig ? {
+          modifier: bMod,
+          categories: [...bCats]
+        } : undefined
       );
     }, 500);
 
@@ -111,27 +115,27 @@
   });
 
   async function saveConfig(
-    target: number, 
-    followUpId: string, 
-    reqs: ProjectRequirement[],
-    cats: string[],
-    bMod: number,
-    bCats: string[]
+    project?: { target: number; followUpProjectId: string; requirements: ProjectRequirement[]; categories: string[] },
+    book?: { modifier: number; categories: string[] }
   ) {
     const token = ++saveCounter;
     isSaving = true;
     saveError = null;
     try {
-      await ItemConfigLogic.saveConfig(item, target, followUpId, reqs, cats, bMod, bCats);
+      const ok = await ItemConfigLogic.saveConfig(item, project, book);
       if (token === saveCounter) {
-        initialSnapshot = JSON.stringify({ 
-          target, 
-          followUpProjectId: followUpId, 
-          requirements: reqs,
-          categories: cats,
-          bookModifier: bMod,
-          bookCategories: bCats
-        });
+        if (ok === false) {
+          saveError = "Failed to save configuration. Please try again.";
+        } else {
+          initialSnapshot = JSON.stringify({ 
+            target: project?.target ?? 0, 
+            followUpProjectId: project?.followUpProjectId ?? "", 
+            requirements: project?.requirements ?? [], 
+            categories: project?.categories ?? [],
+            bookModifier: book?.modifier ?? 0, 
+            bookCategories: book?.categories ?? []
+          });
+        }
       }
     } catch (err) {
       if (token === saveCounter) {

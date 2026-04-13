@@ -45,17 +45,27 @@
 
 <div class="category-selector-list">
   {#each categories as category, index}
+    {@const inputId = `category-input-${index}-${Math.random().toString(36).substring(2, 9)}`}
     <div class="category-row">
+      <label for={inputId} class="visually-hidden">Category {index + 1}</label>
       <input
+        id={inputId}
         type="text"
         bind:value={categories[index]}
         onchange={(e) => { e.stopPropagation(); onValueChange(e.currentTarget.value); }}
         oninput={(e) => e.stopPropagation()}
         list={listId}
         {placeholder}
+        aria-label="Category name"
         style="flex: 1;"
       />
-      <button type="button" class="tidy-button small danger" onclick={(e) => { e.stopPropagation(); removeCategory(index); }} title="Remove Category">
+      <button 
+        type="button" 
+        class="tidy-button small danger" 
+        onclick={(e) => { e.stopPropagation(); removeCategory(index); }} 
+        title="Remove Category"
+        aria-label={`Remove category ${category || index + 1}`}
+      >
         <i class="fas fa-trash"></i>
       </button>
     </div>
@@ -77,6 +87,18 @@
     flex-direction: column;
     gap: 0.5rem;
     margin-bottom: 0.5rem;
+
+    .visually-hidden {
+      position: absolute;
+      width: 1px;
+      height: 1px;
+      padding: 0;
+      margin: -1px;
+      overflow: hidden;
+      clip: rect(0, 0, 0, 0);
+      white-space: nowrap;
+      border: 0;
+    }
 
     .category-row {
       display: flex;

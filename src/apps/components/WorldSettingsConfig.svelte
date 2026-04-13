@@ -91,7 +91,7 @@
 
         reader.onerror = () => {
           ui.notifications?.error("Downtime Engine | Failed to read settings file.");
-          Logger.error("FileReader error:", reader.error);
+          Logger.error("FileReader error:", reader.error, false);
           readerCleanup();
         };
         reader.onabort = () => {
@@ -123,7 +123,7 @@
               const msg = err instanceof Error ? err.message : String(err);
               ui.notifications?.error(`Downtime Engine | Failed to import settings: ${msg}`);
             }
-            Logger.error("Import error:", err);
+            Logger.error("Import error:", err, false);
           } finally {
             readerCleanup();
           }
@@ -133,7 +133,7 @@
           reader.readAsText(file);
         } catch (err) {
           ui.notifications?.error("Downtime Engine | Failed to start reading settings file.");
-          Logger.error("FileReader sync error:", err);
+          Logger.error("FileReader sync error:", err, false);
           readerCleanup();
         }
       };
