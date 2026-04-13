@@ -224,7 +224,7 @@
           placeholder="Item UUID (e.g. Compendium.module.pack.Item.id)"
           style="flex: 1;"
         />
-        <button type="button" class="tidy-button small" onclick={(e) => { e.stopPropagation(); handleSearchFollowUp(); }} title="Search for Follow-up Project">
+        <button type="button" class="tidy-button small" onclick={(e) => { e.stopPropagation(); handleSearchFollowUp(); }} title="Search for Follow-up Project" aria-label="Search for follow-up project">
           <i class="fas fa-search"></i>
         </button>
       </div>
@@ -246,7 +246,7 @@
               {/each}
             </select>
             <input type="text" bind:value={req.value} onchange={(e) => e.stopPropagation()} oninput={(e) => e.stopPropagation()} placeholder="Value" />
-            <button type="button" class="tidy-button small danger" onclick={(e) => { e.stopPropagation(); removeRequirement(req.id); }} title="Remove Requirement">
+            <button type="button" class="tidy-button small danger" onclick={(e) => { e.stopPropagation(); removeRequirement(req.id); }} title="Remove Requirement" aria-label="Remove requirement">
               <i class="fas fa-trash"></i>
             </button>
           </div>

@@ -135,11 +135,21 @@ export async function getAvailablePacks(
         const index = await pack.getIndex({ fields: [flagPath] });
         isFitting = index.some((entry: any) => {
           const flagData = FoundryUtils.getProperty(entry, flagPath) || entry[flagPath];
-          const hasFlag = flagData !== undefined && flagData !== null;
-          if (hasFlag) {
+
+          let hasFittingData = flagData !== undefined && flagData !== null;
+          if (hasFittingData) {
+            if (flagToMatch === "teacherOfferings") {
+              hasFittingData = Array.isArray(flagData) && flagData.length > 0;
+            } else if (flagToMatch === "learningBookBonus") {
+              hasFittingData =
+                typeof flagData === "object" && flagData !== null && "modifier" in flagData;
+            }
+          }
+
+          if (hasFittingData) {
             Logger.debug(`Found fitting entry ${entry.name} in pack ${id}`);
           }
-          return hasFlag;
+          return hasFittingData;
         });
       } catch (err) {
         Logger.warn(`Failed to check index for pack ${id}:`, true, err);

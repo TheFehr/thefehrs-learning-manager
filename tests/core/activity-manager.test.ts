@@ -76,7 +76,8 @@ describe("ActivityManager", () => {
       vi.spyOn(Logger, "warn").mockImplementation(() => {});
 
       await ActivityManager.injectActivities(mockItem as any);
-      expect(Logger.warn).toHaveBeenCalledWith(expect.stringContaining("missing projectData"));
+      const warnMock = vi.mocked(Logger.warn);
+      expect(warnMock.mock.calls[0][0]).toContain("missing projectData");
     });
 
     it("should clear activities if target is 0", async () => {

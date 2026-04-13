@@ -32,6 +32,7 @@ export class ActorProxy {
   get projects() {
     return this.getMappedProjects().map((p: any) => ({
       ...p,
+      progressPercentage: p.progressPercentage ?? p.percentage,
       guidanceType: p.tutelageName,
     }));
   }

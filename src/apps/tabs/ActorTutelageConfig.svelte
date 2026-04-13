@@ -20,10 +20,17 @@
   $effect(() => {
     if (untrack(() => initialized)) return;
     const data = (actor.getFlag("thefehrs-learning-manager", "teacherOfferings") as TeacherOffering[]) || [];
-    offerings = data.map(o => ({
-      ...o,
-      categories: o.categories || []
-    }));
+    offerings = data.map(o => {
+      const costs = o.costs || {};
+      for (const unit of timeUnits) {
+        costs[unit.id] = costs[unit.id] || 0;
+      }
+      return {
+        ...o,
+        categories: Array.isArray(o.categories) ? o.categories : [],
+        costs
+      };
+    });
     
     initialSnapshot = JSON.stringify(offerings);
     initialized = true;
@@ -98,7 +105,7 @@
       <section class="offering-card">
         <div class="offering-header">
           <input type="text" data-testid="lesson-name-input" bind:value={offering.name} placeholder="Lesson Name (e.g. Masterclass)" />
-          <button type="button" class="tidy-button small danger" onclick={(e) => { e.stopPropagation(); removeOffering(i); }} title="Remove Offering">
+          <button type="button" class="tidy-button small danger" onclick={(e) => { e.stopPropagation(); removeOffering(i); }} title="Remove Offering" aria-label="Remove offering">
             <i class="fas fa-trash"></i>
           </button>
         </div>

@@ -256,6 +256,7 @@ export class LearningManager {
 
           const uuid = (item as any).uuid || "";
           if (uuid.startsWith("Compendium.")) {
+            if (getGame().user?.isGM) return true;
             const parts = uuid.split(".");
             const packId = `${parts[1]}.${parts[2]}`;
             const isAllowed = Settings.get("allowedCompendiums").includes(packId);
@@ -291,6 +292,7 @@ export class LearningManager {
 
         const uuid = (actor as any).uuid || "";
         if (uuid.startsWith("Compendium.")) {
+          if (getGame().user?.isGM) return true;
           const parts = uuid.split(".");
           const packId = `${parts[1]}.${parts[2]}`;
           const isTeacherPack = Settings.get("teacherCompendiums").includes(packId);

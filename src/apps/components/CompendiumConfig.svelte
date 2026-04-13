@@ -11,20 +11,23 @@ import type { PackInfo } from "@/logic/settings-logic.js";
     notes?: string;
   }>();
 
-  let showAll = $state(false);
-
-  // If showAll is false, we filter availablePacks to only include:
-  // 1. Fitting packs (have flags)
-  // 2. Already selected packs
+  // Sort packs so that:
+  // 1. Fitting packs first (contains relevant items)
+  // 2. Selected packs next
+  // 3. Alphabetical
   let displayedPacks = $derived(
-    showAll 
-      ? availablePacks 
-      : availablePacks.filter(p => p.isFitting || allowedCompendiums.includes(p.id))
-  );
-  
-  // We have filtering if there are ANY non-fitting packs that are not selected
-  let hasFiltering = $derived(
-    availablePacks.some(p => !p.isFitting && !allowedCompendiums.includes(p.id))
+    [...availablePacks].sort((a, b) => {
+      // Fitting first
+      if (a.isFitting !== b.isFitting) return a.isFitting ? -1 : 1;
+      
+      // Selected next
+      const aSelected = allowedCompendiums.includes(a.id);
+      const bSelected = allowedCompendiums.includes(b.id);
+      if (aSelected !== bSelected) return aSelected ? -1 : 1;
+      
+      // Alphabetical
+      return a.label.localeCompare(b.label);
+    })
   );
 
   function toggleCompendium(id: string) {
@@ -39,12 +42,6 @@ import type { PackInfo } from "@/logic/settings-logic.js";
 <section>
   <div class="compendium-header">
     <p class="notes">{notes}</p>
-    {#if hasFiltering}
-      <label class="toggle-show-all">
-        <input type="checkbox" bind:checked={showAll} />
-        <span>Show all compendiums</span>
-      </label>
-    {/if}
   </div>
   <div class="compendium-list">
     {#each displayedPacks as pack (pack.id)}
@@ -65,14 +62,7 @@ import type { PackInfo } from "@/logic/settings-logic.js";
       </label>
     {:else}
       <div class="empty-state">
-        {#if showAll}
-          No compendiums available.
-        {:else}
-          No "fitting" compendiums found. 
-          {#if hasFiltering}
-            Try <button type="button" class="inline-link" onclick={() => { showAll = true; }}>showing all</button>.
-          {/if}
-        {/if}
+        No compendiums available.
       </div>
     {/each}
   </div>
@@ -85,23 +75,6 @@ import type { PackInfo } from "@/logic/settings-logic.js";
     padding: 1rem;
     opacity: 0.6;
     font-style: italic;
-
-    .inline-link {
-      background: none;
-      border: none;
-      padding: 0;
-      margin: 0;
-      color: var(--t5e-primary-color);
-      text-decoration: underline;
-      cursor: pointer;
-      font-size: inherit;
-      font-family: inherit;
-      font-style: italic;
-
-      &:hover {
-        color: var(--t5e-secondary-color);
-      }
-    }
   }
 
   .compendium-header {
@@ -112,19 +85,6 @@ import type { PackInfo } from "@/logic/settings-logic.js";
 
     .notes {
       margin-bottom: 0;
-    }
-
-    .toggle-show-all {
-      display: flex;
-      align-items: center;
-      gap: 0.3rem;
-      font-size: 0.75rem;
-      cursor: pointer;
-      opacity: 0.8;
-
-      &:hover {
-        opacity: 1;
-      }
     }
   }
 

@@ -43,6 +43,38 @@ describe("ActorProxy", () => {
     });
   });
 
+  it("projects getter should map correctly and include progressPercentage", () => {
+    const mockActor = {
+      items: [
+        {
+          id: "item1",
+          name: "Project 1",
+          getFlag: vi.fn().mockImplementation((scope, key) => {
+            if (key === "isLearningProject") return true;
+            if (key === "projectData")
+              return { progress: 10, target: 100, lastInstructorName: "Tier 1" };
+            return null;
+          }),
+        },
+      ],
+    } as any;
+
+    const proxy = new ActorProxy(mockActor);
+    const projects = proxy.projects;
+
+    expect(projects).toHaveLength(1);
+    expect(projects[0]).toEqual({
+      id: "item1",
+      name: "Project 1",
+      progress: 10,
+      target: 100,
+      percentage: 10,
+      tutelageName: "Tier 1",
+      guidanceType: "Tier 1",
+      progressPercentage: 10,
+    });
+  });
+
   it("getMappedProjects should handle zero target to avoid division by zero", () => {
     const mockActor = {
       items: [
