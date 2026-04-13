@@ -160,8 +160,7 @@ declare module "fvtt-types/configuration" {
   interface FlagConfig {
     Actor: {
       "thefehrs-learning-manager": {
-        projects: ProjectFlagData[];
-        bank: TimeBank;
+        bank?: TimeBank;
         teacherOfferings?: TeacherOffering[];
       };
     };
@@ -227,9 +226,18 @@ export type Actor5e<TSystem = ActorSystem5e> = Actor<any> & {
 
 /**
  * Type guard for Actor5e.
+ * NOTE: This only verifies the value is an Actor instance. It does not
+ * confirm dnd5e-specific system properties exist at runtime.
+ * But as this module depends on the dnd5e system, it should be good enough.
  */
 export function isActor5e(actor: any): actor is Actor5e {
   return actor instanceof Actor;
+}
+
+export interface DisplayCardOptions {
+  rollMode?: string | null;
+  createMessage?: boolean;
+  [key: string]: unknown;
 }
 
 /**
@@ -237,7 +245,7 @@ export function isActor5e(actor: any): actor is Actor5e {
  */
 export type Item5e<TSystem = ItemSystem5e> = Item<any> & {
   system: Partial<TSystem>;
-  displayCard(options?: Record<string, unknown>): Promise<unknown>;
+  displayCard(options?: DisplayCardOptions): Promise<unknown>;
 };
 
 export type LearningActor = Actor5e & {
@@ -249,8 +257,6 @@ export type LearningActor = Actor5e & {
 export type DowntimeGroupActor = Actor5e & {
   system: GroupActorSystemData;
 };
-
-export type LearningProject = ProjectFlagData;
 
 /**
  * Specialized Roll type for training checks.

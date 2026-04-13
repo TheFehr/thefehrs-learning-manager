@@ -1,7 +1,8 @@
-import { DEFAULT_DC, MODULE_ID } from "../global.js";
-import { Settings, type SettingsSchema } from "../core/settings.js";
-import { Logger } from "../core/logger.js";
-import type { SystemRules, TimeUnit, NotificationLevel } from "../types.js";
+import { DEFAULT_DC, MODULE_ID } from "@/global.js";
+import { Settings, type SettingsSchema } from "@/core/settings.js";
+import { Logger } from "@/core/logger.js";
+import { FoundryUtils } from "@/core/foundry-utils.js";
+import type { SystemRules, TimeUnit, NotificationLevel } from "@/types.js";
 
 /**
  * Shared save logic for the Downtime Engine settings.
@@ -84,7 +85,7 @@ export async function ensureCategoryExists(category: string): Promise<void> {
   const categories = Settings.get("categories") || [];
   if (categories.includes(category)) return;
 
-  const escapedCategory = (foundry.utils as any).encodeHTML(category);
+  const escapedCategory = FoundryUtils.escapeHTML(category);
   const confirm = await foundry.applications.api.DialogV2.confirm({
     window: { title: "Downtime Engine | New Category" },
     content: `<p>The category "<strong>${escapedCategory}</strong>" is not in the global list. Would you like to add it?</p>`,
@@ -132,7 +133,7 @@ export async function getAvailablePacks(
         const flagPath = `flags.${MODULE_ID}.${flagToMatch}`;
         const index = await pack.getIndex({ fields: [flagPath] });
         isFitting = index.some((entry: any) => {
-          const flagData = foundry.utils.getProperty(entry, flagPath) || entry[flagPath];
+          const flagData = FoundryUtils.getProperty(entry, flagPath) || entry[flagPath];
           const hasFlag = flagData !== undefined && flagData !== null;
           if (hasFlag) {
             Logger.debug(`Found fitting entry ${entry.name} in pack ${id}`);
@@ -140,7 +141,7 @@ export async function getAvailablePacks(
           return hasFlag;
         });
       } catch (err) {
-        Logger.warn(`Failed to check index for pack ${id}:`, err);
+        Logger.warn(`Failed to check index for pack ${id}:`, true, err);
       }
     }
 
@@ -259,7 +260,7 @@ export function validateSettings(data: unknown) {
     );
   }
 
-  // 3b. Validate Book Compendiums
+  // 4. Validate Book Compendiums
   if (Array.isArray(data.bookCompendiums)) {
     result.bookCompendiums = data.bookCompendiums.filter(
       (compendium: unknown): compendium is string => typeof compendium === "string",

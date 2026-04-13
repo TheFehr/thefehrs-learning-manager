@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { Settings } from "../../core/settings.js";
-  import { ActorProxy } from "../../logic/actor-proxy.js";
-  import type { Actor5e, TimeUnit } from "../../types.js";
-  import { TimeBankLogic } from "../../logic/time-bank-logic.js";
+  import { Settings } from "@/core/settings.js";
+  import { ActorProxy } from "@/logic/actor-proxy.js";
+  import type { Actor5e, TimeUnit } from "@/types.js";
+  import { TimeBankLogic } from "@/logic/time-bank-logic.js";
 
   let { actor }: { actor: Actor5e } = $props();
 

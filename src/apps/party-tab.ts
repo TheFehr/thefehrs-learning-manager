@@ -1,15 +1,15 @@
-import { Settings } from "../core/settings.js";
-import { ActorProxy } from "../logic/actor-proxy.js";
-import { TabLogic } from "../logic/tab-logic.js";
+import { Settings } from "@/core/settings.js";
+import { ActorProxy } from "@/logic/actor-proxy.js";
+import { TabLogic } from "@/logic/tab-logic.js";
 import {
   isActor5e,
   type DowntimeGroupActor,
   type TimeUnit,
   type Item5e,
   type ProjectFlagData,
-} from "../types.js";
+} from "@/types.js";
 import type { PartyMemberData } from "@dnd5e/data/actor/_types.mjs";
-import { MODULE_ID } from "../global";
+import { MODULE_ID } from "@/global";
 
 export type ProjectMappedData = ProjectFlagData & {
   id: string;

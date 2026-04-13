@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import TimeUnitsConfig from "../../../src/apps/components/TimeUnitsConfig.svelte";
+import TimeUnitsConfig from "@/apps/components/TimeUnitsConfig.svelte";
 import { mount, unmount, tick } from "svelte";
 
 vi.unmock("svelte");
@@ -7,7 +7,7 @@ vi.unmock("svelte");
 describe("TimeUnitsConfig.svelte", () => {
   const mockTimeUnits = [{ id: "hour", name: "Hour", short: "h", isBulk: false, ratio: 1 }];
   let target: HTMLElement;
-  let instance: ReturnType<typeof mount>;
+  let instance: ReturnType<typeof mount> | undefined;
 
   beforeEach(() => {
     vi.clearAllMocks();

@@ -22,8 +22,13 @@ describe("ProjectUI", () => {
     });
 
     it("should handle non-finite progress values gracefully", () => {
-      expect(ProjectUI.generateProgressHtml(NaN, 10, "NaN")).toContain("width: 0%");
-      expect(ProjectUI.generateProgressHtml(Infinity, 10, "Inf")).toContain("width: 0%");
+      const nanHtml = ProjectUI.generateProgressHtml(NaN, 10, "NaN");
+      expect(nanHtml).toContain("width: 0%");
+      expect(nanHtml).toContain("NaN / 10");
+
+      const infHtml = ProjectUI.generateProgressHtml(Infinity, 10, "Inf");
+      expect(infHtml).toContain("width: 0%");
+      expect(infHtml).toContain("Infinity / 10");
     });
 
     it("should clamp overflow progress to 100% width but show actual numbers", () => {

@@ -1,11 +1,11 @@
 <script lang="ts">
-  import { Settings } from "../../core/settings.js";
-  import type { ProjectRequirement, ComparisonOperator, Item5e } from "../../types.js";
+  import { Settings } from "@/core/settings.js";
+  import type { ProjectRequirement, ComparisonOperator, Item5e } from "@/types.js";
   import { untrack } from "svelte";
-  import { ItemConfigLogic } from "../../logic/item-config-logic.js";
-  import { ensureCategoryExists } from "../../logic/settings-logic.js";
-  import { LearningFeatType } from "../../logic/project-item.js";
-  import CategorySelector from "../components/CategorySelector.svelte";
+  import { ItemConfigLogic } from "@/logic/item-config-logic.js";
+  import { ensureCategoryExists } from "@/logic/settings-logic.js";
+  import { LearningFeatType } from "@/logic/project-item.js";
+  import CategorySelector from "@/apps/components/CategorySelector.svelte";
 
   let { item } = $props<{ item: Item5e }>();
 
@@ -19,11 +19,19 @@
   let saveError = $state<string | null>(null);
   let initialized = $state(false);
   let initialSnapshot = $state<string>("");
+  let saveCounter = 0;
 
   const uuid = $derived(item.uuid || "");
-  const packId = $derived(uuid.split(".").length >= 3 ? `${uuid.split(".")[1]}.${uuid.split(".")[2]}` : "");
-  const isProjectCompendium = $derived(Settings.get("allowedCompendiums").includes(packId));
-  const isBookCompendium = $derived(Settings.get("bookCompendiums").includes(packId));
+  const packId = $derived.by(() => {
+    if (typeof uuid !== "string" || !uuid) return "";
+    const segments = uuid.split(".");
+    if (segments.length < 3) return "";
+    // Standard compendium UUID: Compendium.module.pack.Item.id
+    if (segments[0] === "Compendium") return `${segments[1]}.${segments[2]}`;
+    return "";
+  });
+  const isProjectCompendium = $derived(packId ? Settings.get("allowedCompendiums").includes(packId) : false);
+  const isBookCompendium = $derived(packId ? Settings.get("bookCompendiums").includes(packId) : false);
 
   const isAlreadyProject = $derived(!!item.getFlag("thefehrs-learning-manager", "isLearningProject"));
   const isLearnedReward = $derived(!!item.getFlag("thefehrs-learning-manager", "isLearnedReward"));
@@ -110,34 +118,46 @@
     bMod: number,
     bCats: string[]
   ) {
+    const token = ++saveCounter;
     isSaving = true;
     saveError = null;
     try {
       await ItemConfigLogic.saveConfig(item, target, followUpId, reqs, cats, bMod, bCats);
-      initialSnapshot = JSON.stringify({ 
-        target, 
-        followUpProjectId: followUpId, 
-        requirements: reqs,
-        categories: cats,
-        bookModifier: bMod,
-        bookCategories: bCats
-      });
-      setTimeout(() => isSaving = false, 500);
+      if (token === saveCounter) {
+        initialSnapshot = JSON.stringify({ 
+          target, 
+          followUpProjectId: followUpId, 
+          requirements: reqs,
+          categories: cats,
+          bookModifier: bMod,
+          bookCategories: bCats
+        });
+      }
     } catch (err) {
-      saveError = err instanceof Error ? err.message : String(err);
-      isSaving = false;
+      if (token === saveCounter) {
+        saveError = err instanceof Error ? err.message : String(err);
+      }
     } finally {
-      // isSaving handled in try/catch branches
+      if (token === saveCounter) {
+        setTimeout(() => {
+          if (token === saveCounter) {
+            isSaving = false;
+          }
+        }, 500);
+      }
     }
   }
 
   function addRequirement() {
-    requirements.push({
-      id: (foundry.utils as unknown as { randomID: () => string }).randomID(),
-      attribute: "system.abilities.int.value",
-      operator: ">=",
-      value: "10"
-    });
+    requirements = [
+      ...requirements,
+      {
+        id: foundry.utils.randomID(),
+        attribute: "system.abilities.int.value",
+        operator: ">=",
+        value: "10",
+      },
+    ];
   }
 
   function removeRequirement(id: string) {
@@ -150,6 +170,7 @@
   }
 
   function handleDrop(e: DragEvent) {
+    e.preventDefault();
     const uuid = ItemConfigLogic.handleDrop(e);
     if (uuid) followUpProjectId = uuid;
   }

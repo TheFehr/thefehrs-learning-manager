@@ -149,19 +149,13 @@ describe("PartyTabLogic", () => {
       };
       (game.actors as any).set("actor1", mockActor);
 
-      // Mock DialogV2 to auto-confirm by calling callback synchronously from render
-      (global as any).foundry = (global as any).foundry || { applications: { api: {} } };
-      (global as any).foundry.applications = (global as any).foundry.applications || { api: {} };
-      (global as any).foundry.applications.api.DialogV2 = class {
-        constructor(public data: any) {}
-        render() {
-          const yesButton = this.data.buttons.find((b: any) => b.action === "yes");
-          if (yesButton.callback) yesButton.callback();
-          return this;
-        }
-      };
-
-      await PartyTabLogic.deleteProject("actor1", { id: "item1", progress: 0 } as any, false);
+      const confirmFn = vi.fn().mockResolvedValue(true);
+      await PartyTabLogic.deleteProject(
+        "actor1",
+        { id: "item1", progress: 0 } as any,
+        false,
+        confirmFn,
+      );
 
       expect(mockItem.delete).toHaveBeenCalled();
     });
@@ -175,17 +169,13 @@ describe("PartyTabLogic", () => {
       };
       (game.actors as any).set("actor1", mockActor);
 
-      // Mock DialogV2 to auto-cancel by calling 'no' callback synchronously from render
-      (global as any).foundry.applications.api.DialogV2 = class {
-        constructor(public data: any) {}
-        render() {
-          const noButton = this.data.buttons.find((b: any) => b.action === "no");
-          if (noButton.callback) noButton.callback();
-          return this;
-        }
-      };
-
-      await PartyTabLogic.deleteProject("actor1", { id: "item1", progress: 0 } as any, false);
+      const confirmFn = vi.fn().mockResolvedValue(false);
+      await PartyTabLogic.deleteProject(
+        "actor1",
+        { id: "item1", progress: 0 } as any,
+        false,
+        confirmFn,
+      );
 
       expect(mockItem.delete).not.toHaveBeenCalled();
     });

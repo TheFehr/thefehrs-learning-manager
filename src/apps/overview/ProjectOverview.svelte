@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { getInvalidProjects, type InvalidProjectReason } from "../overview-logic.js";
-  import { Logger } from "../../core/logger.js";
+  import { getInvalidProjects, type InvalidProjectReason } from "@/apps/overview-logic.js";
+  import { Logger } from "@/core/logger.js";
 
   let invalidProjects = $state<InvalidProjectReason[]>([]);
   let isLoading = $state(true);

@@ -1,18 +1,19 @@
-import { DEFAULT_DC } from "../global.js";
-import { Settings } from "../core/settings.js";
-import { Logger } from "../core/logger.js";
+import { DEFAULT_DC } from "@/global.js";
+import { Settings } from "@/core/settings.js";
+import { Logger } from "@/core/logger.js";
+import { FoundryUtils } from "@/core/foundry-utils.js";
 import { ActorProxy } from "./actor-proxy.js";
-import { ActivityManager } from "../core/activity-manager.js";
+import { ActivityManager } from "@/core/activity-manager.js";
 import { ProjectLifecycle } from "./project-lifecycle.js";
 import { LearningActivityData, ProjectFlagData, ProjectItem } from "./project-item.js";
-import { isActor5e } from "../types.js";
-import type { Item5e, TimeUnit, SystemRules, TrainingRoll } from "../types.js";
-import { Socket } from "../core/socket.js";
+import { isActor5e } from "@/types.js";
+import type { Item5e, TimeUnit, SystemRules, TrainingRoll } from "@/types.js";
+import { Socket } from "@/core/socket.js";
 import { mount, unmount } from "svelte";
 import { TutelageResolverService } from "./tutelage-resolver.js";
-import InstructorSelectionDialog from "../apps/dialogs/InstructorSelectionDialog.svelte";
+import InstructorSelectionDialog from "@/apps/dialogs/InstructorSelectionDialog.svelte";
 
-import { ProjectUI } from "../core/project-ui.js";
+import { ProjectUI } from "@/core/project-ui.js";
 
 export class ProjectEngine {
   static readonly BATCH_THRESHOLD = 12;
@@ -56,7 +57,7 @@ export class ProjectEngine {
    * Forwards call to ProjectLifecycle
    */
   static async initiateProjectFromItem(actor: Actor, rewardDoc: Item): Promise<Item5e | null> {
-    return (await ProjectLifecycle.initiateProjectFromItem(actor, rewardDoc)) as any as Item5e;
+    return await ProjectLifecycle.initiateProjectFromItem(actor, rewardDoc);
   }
 
   /**
@@ -138,8 +139,8 @@ export class ProjectEngine {
     if (!allowedUnitIds) {
       const { TabLogic } = await this.importTabLogic();
       const formattedTime = TabLogic.formatTimeBank(bank.total, Settings.get("timeUnits"));
-      const safeFormattedTime = foundry.utils.escapeHTML(formattedTime);
-      const safeItemName = foundry.utils.escapeHTML(item.name);
+      const safeFormattedTime = FoundryUtils.escapeHTML(formattedTime);
+      const safeItemName = FoundryUtils.escapeHTML(item.name);
 
       const confirmed = await foundry.applications.api.DialogV2.confirm({
         window: { title: "Confirm Spend All Time" },
@@ -225,7 +226,9 @@ export class ProjectEngine {
       return await this.processSpendAll(item as unknown as Item5e);
     }
 
-    const projectDataFlags = item.getFlag("thefehrs-learning-manager", "projectData");
+    const projectDataFlags = FoundryUtils.deepClone(
+      item.getFlag("thefehrs-learning-manager", "projectData") || {},
+    );
     if (!projectDataFlags || !projectDataFlags.target || projectDataFlags.target <= 0) {
       ui.notifications?.warn("This project is awaiting a GM-defined target progress.");
       return false;
@@ -288,7 +291,10 @@ export class ProjectEngine {
               },
             ],
             close: () => {
-              if (dialogInstance) unmount(dialogInstance);
+              if (dialogInstance) {
+                unmount(dialogInstance);
+                dialogInstance = null;
+              }
               resolve(null);
             },
             modal: true,
@@ -308,7 +314,6 @@ export class ProjectEngine {
                   timeUnit: tu,
                   lastInstructorUuid: lastId,
                   lastInstructorName: lastName,
-                  resolve: () => {},
                 },
               });
             } else {
@@ -486,8 +491,8 @@ export class ProjectEngine {
           projectDataFlags.followUpProjectId as `Item.${string}`,
         )) as unknown as Item | null;
         if (followUpItem) {
-          const escapedItemName = foundry.utils.escapeHTML(item.name || "");
-          const escapedFollowUpName = foundry.utils.escapeHTML(followUpItem.name || "");
+          const escapedItemName = FoundryUtils.escapeHTML(item.name || "");
+          const escapedFollowUpName = FoundryUtils.escapeHTML(followUpItem.name || "");
 
           const proceed = await foundry.applications.api.DialogV2.confirm({
             window: { title: "Learning Progress Exceeded" },
@@ -508,7 +513,7 @@ export class ProjectEngine {
             } else {
               const newItem = await this.initiateProjectFromItem(actor, followUpItem);
               if (newItem) {
-                const newFlags = foundry.utils.deepClone(
+                const newFlags = FoundryUtils.deepClone(
                   (newItem as unknown as ProjectItem).getFlag(
                     "thefehrs-learning-manager",
                     "projectData",
@@ -521,7 +526,7 @@ export class ProjectEngine {
                   );
                   await this.updateItemWithProgress(newItem, newFlags);
                   ui.notifications?.info(
-                    `Started follow-up project: ${foundry.utils.escapeHTML(followUpItem.name)} with ${
+                    `Started follow-up project: ${FoundryUtils.escapeHTML(followUpItem.name)} with ${
                       newFlags.progress
                     } initial progress.`,
                   );
@@ -618,10 +623,10 @@ export class ProjectEngine {
     isBulkRoll: boolean = false,
     isSeparateRoll: boolean = true,
   ): string {
-    const safeTuName = foundry.utils.escapeHTML(tu.name);
-    const safeBulkValue = foundry.utils.escapeHTML(String(bulkValue));
-    const safeChancePercent = foundry.utils.escapeHTML(String(chancePercent));
-    const safeSeparateValue = foundry.utils.escapeHTML(String(separateValue));
+    const safeTuName = FoundryUtils.escapeHTML(tu.name);
+    const safeBulkValue = FoundryUtils.escapeHTML(String(bulkValue));
+    const safeChancePercent = FoundryUtils.escapeHTML(String(chancePercent));
+    const safeSeparateValue = FoundryUtils.escapeHTML(String(separateValue));
 
     const bulkMethodLabel = isBulkRoll ? "Expected progress" : "Gaining";
     const bulkMethodValue = isBulkRoll

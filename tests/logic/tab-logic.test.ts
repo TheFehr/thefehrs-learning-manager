@@ -1,5 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { TabLogic } from "../../src/logic/tab-logic";
+import { MockRoll } from "../mocks/roll";
+import { Logger } from "../../src/core/logger";
 
 describe("TabLogic", () => {
   let originalRoll: any;
@@ -7,99 +9,7 @@ describe("TabLogic", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     originalRoll = global.Roll;
-    /**
-     * Stub for Foundry's Roll class.
-     * Simulates basic evaluation, cloning, and d20 outcome overrides
-     * used in success probability brute-forcing.
-     */
-    const BaseRoll =
-      originalRoll ||
-      class {
-        constructor(
-          public formula: string,
-          public data: any = {},
-        ) {}
-      };
-    global.Roll = class extends (BaseRoll as any) {
-      dice: any[] = [];
-      constructor(formula: string, data: any = {}) {
-        super(formula, data);
-        if (!this.formula) return;
-        if (this.formula.includes("2d20")) {
-          this.dice = [
-            { faces: 20, number: 2, modifiers: ["kh1"], results: [{ result: 15, active: true }] },
-          ];
-        } else if (this.formula.includes("1d20") || this.formula.includes("d20")) {
-          this.dice = [
-            {
-              faces: 20,
-              number: 1,
-              modifiers: [],
-              results: [{ result: 15, active: true }],
-              _evaluated: true,
-            },
-          ];
-        }
-      }
-      async evaluate() {
-        if (this._evaluated && this.total !== undefined) return this;
-
-        let val = 0;
-        if (this.dice.length > 0) {
-          val = this.dice.reduce((acc: number, d: any) => acc + (d.results?.[0]?.result || 0), 0);
-        } else if (!isNaN(Number(this.formula))) {
-          val = Number(this.formula);
-        }
-
-        if (!this.formula) {
-          this.total = val;
-          this._evaluated = true;
-          return this;
-        }
-
-        // Simple math parser for mock
-        if (this.formula.includes("+")) {
-          const parts = this.formula.split("+");
-          val = 0;
-          for (const part of parts) {
-            const trimmed = part.trim();
-            if (trimmed === "Outcome") {
-              // Handled by replacement in code usually
-            } else if (!isNaN(Number(trimmed))) {
-              val += Number(trimmed);
-            } else if (trimmed === "@tutelage") {
-              val += this.data?.tutelage || 0;
-            } else if (trimmed.includes("2 * @abilities.int.mod")) {
-              val += 2 * (this.data?.abilities?.int?.mod || 0);
-            } else if (trimmed.includes("@abilities.int.mod")) {
-              val += this.data?.abilities?.int?.mod || 0;
-            }
-          }
-        } else {
-          // Handle standalone modifiers or simple d20
-          if (this.formula.includes("int.mod")) {
-            val += this.data?.abilities?.int?.mod || 0;
-          }
-          if (this.formula.includes("@tutelage")) {
-            val += this.data?.tutelage || 0;
-          }
-        }
-
-        // Handle bulk formula logic
-        if (this.formula.includes("@hours")) {
-          const hours = this.data?.hours || 0;
-          const dc = this.data?.dc || 0;
-          const tutelage = this.data?.tutelage || 0;
-          const intMod = this.data?.abilities?.int?.mod ?? 0;
-          const minRoll = Math.max(1, dc - (intMod + tutelage));
-          val = Math.round((hours * (22 - minRoll)) / 20);
-        }
-
-        this.total = val;
-        this._evaluated = true;
-        return this;
-      }
-    } as any;
+    global.Roll = MockRoll as any;
   });
 
   afterEach(() => {
@@ -222,10 +132,11 @@ describe("TabLogic", () => {
 
     it("should handle unknown operators gracefully", () => {
       const reqs = [{ attribute: "system.abilities.int.value", operator: "??", value: 10 }];
-      const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const warnSpy = vi.spyOn(Logger, "warn").mockImplementation(() => {});
       const result = TabLogic.meetsRequirements(actor, reqs as any);
       expect(result.eligible).toBe(false);
       expect(warnSpy).toHaveBeenCalled();
+      warnSpy.mockRestore();
     });
   });
 
@@ -346,43 +257,38 @@ describe("TabLogic", () => {
   });
 
   describe("deductCurrency", () => {
-    beforeEach(() => {
-      vi.resetModules();
-    });
-
     it("should deduct currency correctly", async () => {
-      const { TabLogic } = await import("../../src/logic/tab-logic");
       const actor = new Actor() as any;
       const mockProxy = {
-        currency: { gp: 1, sp: 0, cp: 0 },
+        currency: { gp: 1, sp: 0, cp: 0, ep: 0, pp: 0 },
         updateCurrency: vi.fn().mockResolvedValue(true),
       };
       const { ActorProxy } = await import("../../src/logic/actor-proxy");
-      vi.spyOn(ActorProxy, "forActor").mockReturnValue(mockProxy as any);
+      const spy = vi.spyOn(ActorProxy, "forActor").mockReturnValue(mockProxy as any);
 
       const success = await TabLogic.deductCurrency(actor, 50); // deduct 50cp from 100cp
       expect(success).toBe(true);
       expect(mockProxy.updateCurrency).toHaveBeenCalledWith({ gp: 0, sp: 5, cp: 0, ep: 0, pp: 0 });
+      spy.mockRestore();
     });
 
     it("should fail if insufficient funds", async () => {
-      const { TabLogic } = await import("../../src/logic/tab-logic");
       const actor = new Actor() as any;
       const mockProxy = {
-        currency: { gp: 0, sp: 0, cp: 10 },
+        currency: { gp: 0, sp: 0, cp: 10, ep: 0, pp: 0 },
         updateCurrency: vi.fn(),
       };
       const { ActorProxy } = await import("../../src/logic/actor-proxy");
-      vi.spyOn(ActorProxy, "forActor").mockReturnValue(mockProxy as any);
+      const spy = vi.spyOn(ActorProxy, "forActor").mockReturnValue(mockProxy as any);
       vi.spyOn(ui.notifications, "warn").mockImplementation(() => {});
 
       const success = await TabLogic.deductCurrency(actor, 50);
       expect(success).toBe(false);
       expect(ui.notifications.warn).toHaveBeenCalledWith(expect.stringContaining("Insufficient"));
+      spy.mockRestore();
     });
 
     it("should return false if cost is negative or NaN", async () => {
-      const { TabLogic } = await import("../../src/logic/tab-logic");
       const actor = new Actor() as any;
 
       expect(await TabLogic.deductCurrency(actor, -10)).toBe(false);

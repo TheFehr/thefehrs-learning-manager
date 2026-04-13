@@ -1,10 +1,11 @@
-import { Settings } from "../core/settings.js";
-import { Logger } from "../core/logger.js";
-import { ProjectUI } from "../core/project-ui.js";
-import { ActivityManager } from "../core/activity-manager.js";
+import { Settings } from "@/core/settings.js";
+import { Logger } from "@/core/logger.js";
+import { FoundryUtils } from "@/core/foundry-utils.js";
+import { ProjectUI } from "@/core/project-ui.js";
+import { ActivityManager } from "@/core/activity-manager.js";
 import { LearningFeatType, ProjectFlagData } from "./project-item.js";
-import type { Item5e } from "../types.js";
-import { DocumentUtils } from "../core/document-utils.js";
+import type { Item5e } from "@/types.js";
+import { DocumentUtils } from "@/core/document-utils.js";
 
 export class ProjectLifecycle {
   /**
@@ -14,11 +15,11 @@ export class ProjectLifecycle {
   static async initiateProjectFromItem(actor: Actor, rewardDoc: Item): Promise<Item5e | null> {
     const itemData = rewardDoc.toObject();
     const stashedEffects = itemData.effects || [];
-    const stashedActivities = foundry.utils.deepClone(itemData.system.activities || {});
+    const stashedActivities = FoundryUtils.deepClone(itemData.system.activities || {});
     const stashedType = itemData.type || "";
     const stashedName = itemData.name || "";
     const stashedDescription = itemData.system.description?.value || "";
-    const stashedSystem = foundry.utils.deepClone(itemData.system || {});
+    const stashedSystem = FoundryUtils.deepClone(itemData.system || {});
     const stashedSourceUuid = rewardDoc.uuid || "";
 
     const target = rewardDoc.getFlag(Settings.ID, "projectData")?.target ?? 0;
@@ -58,7 +59,7 @@ export class ProjectLifecycle {
       name: `${stashedName} (0/${target})`,
       type: "feat",
       effects: [],
-      system: foundry.utils.mergeObject(itemData.system || {}, {
+      system: FoundryUtils.mergeObject(itemData.system || {}, {
         activities: {},
         type: {
           value: LearningFeatType,
@@ -67,7 +68,7 @@ export class ProjectLifecycle {
           value: progressHtml + stashedDescription,
         },
       }),
-      flags: foundry.utils.mergeObject(itemData.flags || {}, {
+      flags: FoundryUtils.mergeObject(itemData.flags || {}, {
         [Settings.ID]: {
           projectData: projectData,
           isLearningProject: true,
@@ -136,7 +137,7 @@ export class ProjectLifecycle {
         const doc = await fromUuid(stashedSourceUuid as `Item.${string}`);
         sourceItem = doc instanceof Item ? (doc as Item) : null;
       } catch (e) {
-        Logger.warn(`Could not find source item ${stashedSourceUuid}:`, e);
+        Logger.warn(`Could not find source item ${stashedSourceUuid}:`, true, e);
       }
     }
 
@@ -194,7 +195,10 @@ export class ProjectLifecycle {
     }
 
     // Standard in-place update if no type change needed
-    await this.updateInPlace(item, stashedType, projectDataFlags, completedFlags);
+    const success = await this.updateInPlace(item, stashedType, projectDataFlags, completedFlags);
+    if (!success) {
+      Logger.error(`In-place update failed for project "${item.name}".`);
+    }
   }
 
   private static async restoreFromSource(
@@ -219,13 +223,12 @@ export class ProjectLifecycle {
       const [created] = await actor.createEmbeddedDocuments("Item", [createData]);
 
       if (created) {
-        await this.handlePostCreationCleanup(
+        return await this.handlePostCreationCleanup(
           actor,
           item,
           created as Item,
           Settings.get("rules").rollMode || "gmroll",
         );
-        return true;
       }
     } else {
       Logger.warn(
@@ -282,7 +285,7 @@ export class ProjectLifecycle {
 
     // Replace system data with deep clone of stashed system to prevent artifact survival
     if (projectDataFlags.stashedSystem) {
-      clonedData.system = foundry.utils.deepClone(
+      clonedData.system = FoundryUtils.deepClone(
         projectDataFlags.stashedSystem as unknown as object,
       );
     }
@@ -293,7 +296,7 @@ export class ProjectLifecycle {
     };
 
     if (projectDataFlags.stashedActivities) {
-      (clonedData.system as any).activities = foundry.utils.deepClone(
+      (clonedData.system as any).activities = FoundryUtils.deepClone(
         projectDataFlags.stashedActivities as object,
       );
     }
@@ -301,13 +304,12 @@ export class ProjectLifecycle {
     const [created] = await actor.createEmbeddedDocuments("Item", [clonedData] as any[]);
 
     if (created) {
-      await this.handlePostCreationCleanup(
+      return await this.handlePostCreationCleanup(
         actor,
         item,
         created as unknown as Item,
         Settings.get("rules").rollMode || "gmroll",
       );
-      return true;
     }
     return false;
   }
@@ -401,7 +403,7 @@ export class ProjectLifecycle {
 
     await DocumentUtils.updateSilently(item, {
       name: `${stashedName} (${projectData.progress}/${projectData.target})`,
-      ["system.description.value" as string]: progressHtml + stashedDescription,
+      ["system.description.value"]: progressHtml + stashedDescription,
       [`flags.${Settings.ID}.projectData`]: projectData,
     } as Record<string, any>);
   }

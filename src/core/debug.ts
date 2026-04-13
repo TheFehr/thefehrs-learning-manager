@@ -1,10 +1,10 @@
-import { ActorProxy } from "../logic/actor-proxy.js";
-import { isActor5e } from "../types.js";
-import type { Actor5e } from "../types.js";
-import { TutelageResolverService } from "../logic/tutelage-resolver.js";
-import { ProjectItem } from "../logic/project-item.js";
+import { ActorProxy } from "@/logic/actor-proxy.js";
+import { isActor5e } from "@/types.js";
+import type { Actor5e } from "@/types.js";
+import { TutelageResolverService } from "@/logic/tutelage-resolver.js";
+import { ProjectItem } from "@/logic/project-item.js";
 import { Settings } from "./settings.js";
-import { getAvailablePacks } from "../logic/settings-logic.js";
+import { getAvailablePacks } from "@/logic/settings-logic.js";
 import { Logger } from "./logger.js";
 
 function resolveControlledActor(): Actor5e | undefined {
@@ -178,6 +178,13 @@ export const DebugHelpers = {
       return [];
     }
 
+    // Verify item has project data before treating as ProjectItem
+    const hasProjectData = (item as any).getFlag?.("thefehrs-learning-manager", "projectData");
+    if (!hasProjectData) {
+      Logger.warn(`Item "${item.name}" is not a learning project.`);
+      return [];
+    }
+
     return await TutelageResolverService.getAvailableInstructors(item as any as ProjectItem);
   },
 
@@ -185,7 +192,7 @@ export const DebugHelpers = {
    * Run the migration logic.
    */
   async runMigration() {
-    const { migrateData } = await import("../migrations/migration.js");
+    const { migrateData } = await import("@/migrations/migration.js");
     await migrateData();
   },
 

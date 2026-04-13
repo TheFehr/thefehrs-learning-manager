@@ -23,6 +23,7 @@ describe("ItemConfigLogic", () => {
     vi.restoreAllMocks();
     delete (global as any).ui;
     delete (global as any).CONFIG;
+    delete (global as any).fromUuid;
   });
 
   describe("saveConfig", () => {
@@ -30,7 +31,9 @@ describe("ItemConfigLogic", () => {
       const mockItem = {
         update: vi.fn().mockResolvedValue(true),
       } as any;
-      const requirements = [{ attribute: "system.abilities.int.value", operator: ">=", value: 13 }];
+      const requirements = [
+        { id: "req1", attribute: "system.abilities.int.value", operator: ">=", value: "13" },
+      ];
       const categories = ["magic"];
       const bookModifier = 2;
       const bookCategories = ["arcana"];

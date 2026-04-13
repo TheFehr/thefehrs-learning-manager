@@ -104,19 +104,6 @@ describe("ActorProxy", () => {
       expect(proxy.tokenImg).toBe("actor.png");
     });
 
-    it("should return projects from flags and verify arguments", () => {
-      mockActor.getFlag.mockReturnValue([{ id: "proj1" }]);
-      expect(proxy.projects).toEqual([{ id: "proj1" }]);
-      expect(mockActor.getFlag).toHaveBeenCalledWith("thefehrs-learning-manager", "projects");
-    });
-
-    it("should set projects on flags", async () => {
-      await proxy.setProjects([{ id: "proj2" } as any]);
-      expect(mockActor.setFlag).toHaveBeenCalledWith("thefehrs-learning-manager", "projects", [
-        { id: "proj2" },
-      ]);
-    });
-
     it("should return currency correctly", () => {
       mockActor.system = { currency: { cp: 2, sp: 5, ep: 0, gp: 10, pp: 0 } };
       expect(proxy.currency).toEqual({ cp: 2, sp: 5, ep: 0, gp: 10, pp: 0 });

@@ -41,7 +41,7 @@ export class Socket {
       };
 
       if (!isValid) {
-        Logger.warn("Socket: Received invalid message payload.", summary);
+        Logger.warn("Socket: Received invalid message payload.", true, summary);
         return;
       }
 

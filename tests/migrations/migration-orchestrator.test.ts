@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { migrateData } from "../../src/migrations/migration";
-import { Settings } from "../../src/core/settings";
+import { Logger } from "../../src/core/logger";
 
 import * as v1Relational from "../../src/migrations/v1-relational";
 import * as v1_1gpToCp from "../../src/migrations/v1_1-gp-to-cp";
@@ -12,8 +12,11 @@ import * as v2_1flexibleMethods from "../../src/migrations/v2_1-flexible-methods
 describe("Data Migration Orchestrator", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    (global as any).game = (global as any).game || {};
+    (global as any).game.user = (global as any).game.user || { isGM: true };
+    (global as any).game.settings = (global as any).game.settings || {};
     game.user.isGM = true;
-    (game.settings.get as any) = vi.fn().mockImplementation((scope, key) => {
+    (game.settings.get as any) = vi.fn().mockImplementation((_scope, key) => {
       if (key === "migrationVersion") return "0";
       return null;
     });
@@ -80,10 +83,10 @@ describe("Data Migration Orchestrator", () => {
   it("should handle migration errors gracefully", async () => {
     vi.mocked(game.settings.get).mockReturnValue("0.0.0");
     vi.mocked(v1Relational.migrateToV1Relational).mockRejectedValue(new Error("Fail"));
-    vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.spyOn(Logger, "error").mockImplementation(() => {});
 
     await expect(migrateData()).rejects.toThrow("Fail");
-    expect(console.error).toHaveBeenCalledWith(
+    expect(Logger.error).toHaveBeenCalledWith(
       expect.stringContaining("Migration failed"),
       expect.any(Error),
     );

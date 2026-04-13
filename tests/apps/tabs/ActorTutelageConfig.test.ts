@@ -53,10 +53,10 @@ describe("ActorTutelageConfig.svelte", () => {
     await tick();
     await tick();
 
-    const nameInput = target.querySelector('input[placeholder*="Lesson Name"]') as HTMLInputElement;
+    const nameInput = target.querySelector('[data-testid="lesson-name-input"]') as HTMLInputElement;
     expect(nameInput).not.toBeNull();
     expect(nameInput.value).toBe("Masterclass");
-    expect(target.innerHTML).toContain("Costs per Session");
+    expect(target.querySelector('[data-testid="costs-per-session"]')).not.toBeNull();
   });
 
   it("should not contain the removed project UUID section", async () => {

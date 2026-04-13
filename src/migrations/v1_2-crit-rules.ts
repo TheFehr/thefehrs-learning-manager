@@ -1,5 +1,5 @@
-import { MODULE_ID } from "../global";
-import { Logger } from "../core/logger.js";
+import { MODULE_ID } from "@/global";
+import { Logger } from "@/core/logger.js";
 
 type V1_2SystemRules = {
   method?: string;
@@ -33,7 +33,7 @@ export async function migrateToV1_2() {
     }
   } catch (error) {
     Logger.error("migration to v1.2.0 failed:", error);
-    ui?.notifications?.error("Migration to v1.2.0 failed. Please check the console for details.");
+    ui?.notifications?.error("Migration to v1.2.0 failed. See application logs for details.");
     throw error;
   }
 }

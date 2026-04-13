@@ -1,11 +1,11 @@
 <script lang="ts">
-  import type { SystemRules, TimeUnit, GuidanceTier } from "../../types.js";
+  import type { SystemRules, TimeUnit, GuidanceTier } from "@/types.js";
   import RulesConfig from "./RulesConfig.svelte";
   import CompendiumConfig from "./CompendiumConfig.svelte";
   import TimeUnitsConfig from "./TimeUnitsConfig.svelte";
-  import { validateSettings, type PackInfo } from "../../logic/settings-logic.js";
-  import { TutelageResolverService } from "../../logic/tutelage-resolver.js";
-  import { Logger } from "../../core/logger.js";
+  import { validateSettings, type PackInfo } from "@/logic/settings-logic.js";
+  import { TutelageResolverService } from "@/logic/tutelage-resolver.js";
+  import { Logger } from "@/core/logger.js";
 
   let {
     rules = $bindable(),

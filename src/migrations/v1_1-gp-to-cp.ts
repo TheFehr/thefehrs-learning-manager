@@ -1,5 +1,5 @@
-import { MODULE_ID } from "../global.js";
-import { Logger } from "../core/logger.js";
+import { MODULE_ID } from "@/global.js";
+import { Logger } from "@/core/logger.js";
 
 declare module "fvtt-types/configuration" {
   interface SettingConfig {

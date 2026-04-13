@@ -1,4 +1,4 @@
-import { MODULE_ID } from "../global.js";
+import { MODULE_ID } from "@/global.js";
 import { Logger } from "./logger.js";
 
 /**

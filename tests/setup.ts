@@ -1,5 +1,5 @@
 import { vi } from "vitest";
-import { MODULE_ID } from "../src/global";
+import { MODULE_ID } from "@/global";
 
 globalThis.foundry = {
   appv1: {
@@ -359,7 +359,6 @@ globalThis.Dialog = class {
 globalThis.ChatMessage = {
   create: vi.fn(),
 } as any;
-globalThis.fromUuid = vi.fn();
 globalThis.CompendiumCollection = {
   createCompendium: vi.fn(),
 } as any;

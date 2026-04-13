@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import InstructorSelectionDialog from "../../../src/apps/dialogs/InstructorSelectionDialog.svelte";
+import InstructorSelectionDialog from "@/apps/dialogs/InstructorSelectionDialog.svelte";
 import { mount, unmount, tick } from "svelte";
 
 vi.unmock("svelte");
@@ -41,11 +41,9 @@ describe("InstructorSelectionDialog.svelte", () => {
         bestBookMod: 2,
         bestBookNames: "Old Book",
         timeUnit: mockTimeUnits,
-        resolve: vi.fn(),
       } as any,
     });
 
-    await tick();
     await tick();
 
     expect(target.innerHTML).toContain("Teacher 1");
@@ -63,20 +61,17 @@ describe("InstructorSelectionDialog.svelte", () => {
         instructors: mockInstructors,
         bestBookMod: 0,
         timeUnit: mockTimeUnits,
-        resolve: vi.fn(),
       } as any,
     });
 
     await tick();
 
-    const key = JSON.stringify({ uuid: "actor-1", name: "Math" });
-    const radio = target.querySelector(`input[value='${key}']`) as HTMLInputElement;
+    const radio = target.querySelector('input[data-actor-uuid="actor-1"]') as HTMLInputElement;
     expect(radio).not.toBeNull();
 
     radio.checked = true;
     radio.dispatchEvent(new Event("change"));
 
-    await tick();
     await tick();
 
     expect(target.querySelector(".summary .value")?.textContent).toContain("+5");
@@ -85,25 +80,18 @@ describe("InstructorSelectionDialog.svelte", () => {
   });
 
   it("should return the selected instructor via getResult", async () => {
-    let resolveValue: any;
-    const resolveFn = (val: any) => {
-      resolveValue = val;
-    };
-
     instance = mount(InstructorSelectionDialog, {
       target,
       props: {
         instructors: mockInstructors,
         bestBookMod: 0,
         timeUnit: mockTimeUnits,
-        resolve: resolveFn,
       } as any,
     });
 
     await tick();
 
-    const key = JSON.stringify({ uuid: "actor-1", name: "Math" });
-    const radio = target.querySelector(`input[value='${key}']`) as HTMLInputElement;
+    const radio = target.querySelector('input[data-actor-uuid="actor-1"]') as HTMLInputElement;
     radio.checked = true;
     radio.dispatchEvent(new Event("change"));
 

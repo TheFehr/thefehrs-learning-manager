@@ -1,4 +1,4 @@
-import { Logger } from "../core/logger.js";
+import { Logger } from "@/core/logger.js";
 
 /**
  * Logic for the Grant Time Dialog component.
@@ -9,15 +9,13 @@ export class GrantTimeLogic {
    */
   static prepareSubmitData(timeValuesArray: { id: string; value: number | string }[]) {
     const values = new Map<string, number>();
-    const seenIds = new Set<string>();
     for (const timeEntry of timeValuesArray) {
       if (typeof timeEntry.id !== "string" || !timeEntry.id) {
         throw new Error(`Downtime Engine | Invalid or missing time unit ID: "${timeEntry.id}"`);
       }
-      if (seenIds.has(timeEntry.id)) {
+      if (values.has(timeEntry.id)) {
         throw new Error(`Downtime Engine | Duplicate time unit ID: "${timeEntry.id}"`);
       }
-      seenIds.add(timeEntry.id);
       const val = Number(timeEntry.value);
       if (!Number.isFinite(val)) {
         throw new Error(
@@ -34,7 +32,7 @@ export class GrantTimeLogic {
    */
   static toggleRecipient(id: string, selectedIds: string[]): string[] {
     if (typeof id !== "string" || !id) {
-      Logger.warn("Invalid recipient ID provided to toggleRecipient:", id);
+      Logger.warn("Invalid recipient ID provided to toggleRecipient:", true, id);
       return [...selectedIds];
     }
 

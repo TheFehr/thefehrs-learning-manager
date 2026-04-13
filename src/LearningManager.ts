@@ -179,7 +179,7 @@ export class LearningManager {
 
             const item5e = item as Item5e;
             const projectFlagData = projectData(item5e);
-            const requirements = projectFlagData.requirements || [];
+            const requirements = projectFlagData?.requirements || [];
             const { eligible, reason } = TabLogic.meetsRequirements(targetActor, requirements);
 
             if (!eligible) {

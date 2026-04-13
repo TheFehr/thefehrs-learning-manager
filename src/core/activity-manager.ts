@@ -1,8 +1,9 @@
 import { Settings } from "./settings.js";
 import { Logger } from "./logger.js";
+import { FoundryUtils } from "./foundry-utils.js";
 import { createBaseActivityTemplate } from "./constants.js";
-import type { Actor5e, Item5e, ActivityData5e } from "../types.js";
-import type { ProjectItem } from "../logic/project-item.js";
+import type { Actor5e, Item5e, ActivityData5e } from "@/types.js";
+import type { ProjectItem } from "@/logic/project-item.js";
 
 export class ActivityManager {
   /**
@@ -21,7 +22,7 @@ export class ActivityManager {
     const activities: ActivityData5e[] = Array.isArray(timeUnits)
       ? timeUnits.map((tu) => ({
           ...createBaseActivityTemplate(),
-          _id: (foundry.utils as any).randomID(),
+          _id: FoundryUtils.randomID(),
           img: "icons/svg/book.svg",
           sort: 0,
           description: {
@@ -40,7 +41,7 @@ export class ActivityManager {
     // Add "Spend all" activity
     activities.push({
       ...createBaseActivityTemplate(),
-      _id: (foundry.utils as any).randomID(),
+      _id: FoundryUtils.randomID(),
       img: "icons/svg/coins.svg",
       sort: 100,
       description: {

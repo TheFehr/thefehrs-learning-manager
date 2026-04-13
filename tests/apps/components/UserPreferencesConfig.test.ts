@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import UserPreferencesConfig from "../../../src/apps/components/UserPreferencesConfig.svelte";
+import UserPreferencesConfig from "@/apps/components/UserPreferencesConfig.svelte";
 import { mount, unmount, tick } from "svelte";
 
 vi.unmock("svelte");
@@ -10,7 +10,7 @@ describe("UserPreferencesConfig.svelte", () => {
     { id: "day", name: "Day", short: "d", isBulk: true, ratio: 10 },
   ];
   let target: HTMLElement;
-  let instance: any;
+  let instance: ReturnType<typeof mount<typeof UserPreferencesConfig>> | undefined;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -58,5 +58,21 @@ describe("UserPreferencesConfig.svelte", () => {
     const dayCheckbox = target.querySelector("input[data-unit-id='day']") as HTMLInputElement;
     expect(dayCheckbox).not.toBeNull();
     expect(dayCheckbox.checked).toBe(true);
+  });
+
+  it("should not show unit checkboxes when autoSpend is false", async () => {
+    instance = mount(UserPreferencesConfig, {
+      target,
+      props: {
+        autoSpend: false,
+        autoSpendUnits: ["hour"],
+        timeUnits: mockTimeUnits as any,
+      },
+    });
+    await tick();
+
+    expect(target.innerHTML).not.toContain("Allowed Units");
+    const hourCheckbox = target.querySelector("input[data-unit-id='hour']");
+    expect(hourCheckbox).toBeNull();
   });
 });

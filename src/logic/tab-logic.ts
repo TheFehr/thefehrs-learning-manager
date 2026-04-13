@@ -1,7 +1,8 @@
-import { DEFAULT_DC } from "../global.js";
+import { DEFAULT_DC } from "@/global.js";
 import { ActorProxy } from "./actor-proxy.js";
-import { Logger } from "../core/logger.js";
-import { isActor5e } from "../types.js";
+import { Logger } from "@/core/logger.js";
+import { FoundryUtils } from "@/core/foundry-utils.js";
+import { isActor5e } from "@/types.js";
 import type {
   LearningActor,
   TimeUnit,
@@ -9,7 +10,7 @@ import type {
   ComparisonOperator,
   SystemRules,
   TrainingRoll,
-} from "../types.js";
+} from "@/types.js";
 
 /**
  * Utility class for downtime resolution logic.
@@ -27,6 +28,7 @@ export class TabLogic {
     let reason: string | undefined = undefined;
 
     const effectiveMethod = tu.isBulk ? rules.bulkMethod : rules.nonBulkMethod;
+    const dc = Number(rules.checkDC) || DEFAULT_DC;
 
     if (effectiveMethod === "direct") {
       progressGained = tu.ratio;
@@ -43,7 +45,7 @@ export class TabLogic {
             tutelage: tutelageMod,
           },
           // @ts-expect-error - Foundry Roll constructor accepts target in options
-          { target: Number(rules.checkDC) },
+          { target: dc },
         ).evaluate();
       } catch (err) {
         return {
@@ -69,19 +71,20 @@ export class TabLogic {
         }
       }
 
-      if (roll.total >= (Number(rules.checkDC) || 0)) {
+      if (roll.total >= dc) {
         progressGained = 1 * multiplier;
       } else {
-        reason = `Roll total ${roll.total} failed to meet DC ${rules.checkDC}.`;
+        reason = `Roll total ${roll.total} failed to meet DC ${dc}.`;
       }
     } else if (effectiveMethod === "mathematical") {
       const hours = tu.ratio;
-      const dc = Number(rules.checkDC) || 12;
 
       let mod = 0;
       if (rules.checkFormula) {
         try {
-          const modFormula = rules.checkFormula.replace(/\b1?d20\b/i, "0");
+          // Replace all d20-based dice expressions with 0 to extract the constant modifier
+          // This handles d20, 1d20, 2d20kh1, etc.
+          const modFormula = rules.checkFormula.replace(/\b\d*d20(?:k[hl]\d+)?\b/gi, "0");
           const modRoll = new Roll(modFormula, {
             ...actor.getRollData(),
             tutelage: tutelageMod,
@@ -110,7 +113,7 @@ export class TabLogic {
         const total = expectedRoll.total;
 
         if (!Number.isFinite(total)) {
-          Logger.warn("Bulk mathematical formula produced non-finite result:", {
+          Logger.warn("Bulk mathematical formula produced non-finite result:", true, {
             bulkFormula,
             formulaData,
             total,
@@ -168,12 +171,11 @@ export class TabLogic {
         };
       }
 
-      const baseFormula = rules.checkFormula.replace(/\b1?d20\b/i, "Outcome");
+      const d20Regex = /\b1?d20\b/gi;
+      const baseFormula = rules.checkFormula.replace(d20Regex, "Outcome");
+      const matchCount = (rules.checkFormula.match(d20Regex) || []).length;
       const isSimpleD20 =
-        dice.length === 1 &&
-        dice[0].faces === 20 &&
-        dice[0].number === 1 &&
-        baseFormula !== rules.checkFormula;
+        dice.length === 1 && dice[0].faces === 20 && dice[0].number === 1 && matchCount === 1;
 
       if (!isSimpleD20) return null;
 
@@ -206,8 +208,8 @@ export class TabLogic {
 
     const { rolls, isDeterministic } = res;
     const strategy = rules.critDoubleStrategy ?? "never";
-    const threshold = Number(rules.critThreshold ?? 20);
-    const dc = Number(rules.checkDC ?? DEFAULT_DC);
+    const threshold = Number(rules.critThreshold) || 20;
+    const dc = Number(rules.checkDC) || DEFAULT_DC;
 
     let totalProgress = 0;
     rolls.forEach((r, idx) => {
@@ -237,7 +239,7 @@ export class TabLogic {
   ): Promise<number | null> {
     const res = await this._getOutcomes(actor, rules, tutelageMod);
     if (!res) return null;
-    const dc = Number(rules.checkDC ?? DEFAULT_DC);
+    const dc = Number(rules.checkDC) || DEFAULT_DC;
     const successCount = res.rolls.filter((r) => r.total >= dc).length;
     return successCount / 20;
   }
@@ -269,7 +271,7 @@ export class TabLogic {
     const newSp = Math.floor(remaining / 10);
     const newCp = remaining % 10;
 
-    await proxy.updateCurrency({ gp: newGp, sp: newSp, cp: newCp, ep: 0, pp: 0 });
+    await proxy.updateCurrency({ gp: newGp, sp: newSp, cp: newCp, ep: cur.ep, pp: cur.pp });
     return true;
   }
 
@@ -341,7 +343,7 @@ export class TabLogic {
     requirements: ProjectRequirement[],
   ): { eligible: boolean; reason: string } {
     for (const req of requirements) {
-      const actorValue = foundry.utils.getProperty(actor, req.attribute);
+      const actorValue = FoundryUtils.getProperty(actor, req.attribute);
       const targetValue = req.value;
       const op: ComparisonOperator = req.operator;
 
@@ -385,11 +387,15 @@ export class TabLogic {
         else if (op === "<=")
           met = isNumeric ? aNum <= tNum : String(actorValue) <= String(targetValue);
         else {
-          Logger.warn(`Unknown operator "${op}" in requirement for attribute "${req.attribute}".`, {
-            req,
-            actorValue,
-            targetValue,
-          });
+          Logger.warn(
+            `Unknown operator "${op}" in requirement for attribute "${req.attribute}".`,
+            true,
+            {
+              req,
+              actorValue,
+              targetValue,
+            },
+          );
           met = false;
         }
       }

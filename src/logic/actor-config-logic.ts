@@ -1,5 +1,5 @@
-import { DocumentUtils } from "../core/document-utils.js";
-import type { Actor5e, TeacherOffering } from "../types.js";
+import { DocumentUtils } from "@/core/document-utils.js";
+import type { Actor5e, TeacherOffering } from "@/types.js";
 import { extractItemUuidFromDrop, searchWithOmnisearchOrQuickInsert } from "./config-utils.js";
 
 /**

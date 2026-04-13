@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import AbortProjectDialog from "../../../src/apps/dialogs/AbortProjectDialog.svelte";
+import AbortProjectDialog from "@/apps/dialogs/AbortProjectDialog.svelte";
 import { mount, unmount, tick } from "svelte";
 
 vi.unmock("svelte");

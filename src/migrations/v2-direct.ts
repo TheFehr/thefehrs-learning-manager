@@ -1,6 +1,7 @@
 import { createProjectItemFromTemplate, type LegacyProject } from "./migration-utils.js";
-import { MODULE_ID } from "../global.js";
-import { Logger } from "../core/logger.js";
+import { MODULE_ID } from "@/global.js";
+import { Logger } from "@/core/logger.js";
+import { FoundryUtils } from "@/core/foundry-utils.js";
 
 interface GuidanceTier {
   id: string;
@@ -27,16 +28,6 @@ interface ProjectTemplateLegacy {
   requirements: unknown[];
 }
 
-interface GuidanceTier {
-  id: string;
-  name: string;
-  modifier: number;
-  costs: Record<string, number>;
-  progress: Record<string, number>;
-  _migratedGpToCp?: boolean;
-  _migratedToV2?: boolean;
-}
-
 export async function migrateToV2Direct() {
   ui.notifications?.info("Downtime Engine: Performing direct migration to v2.0.0...");
 
@@ -50,8 +41,11 @@ export async function migrateToV2Direct() {
       let rulesUpdated = false;
 
       const rawThreshold = updatedRules.critThreshold;
-      updatedRules.critThreshold = Number(rawThreshold);
-      if (!Number.isFinite(updatedRules.critThreshold)) {
+      const parsedThreshold = Number(rawThreshold);
+      if (typeof rawThreshold !== "number") {
+        updatedRules.critThreshold = Number.isFinite(parsedThreshold) ? parsedThreshold : 20;
+        rulesUpdated = true;
+      } else if (!Number.isFinite(rawThreshold)) {
         updatedRules.critThreshold = 20;
         rulesUpdated = true;
       }
@@ -98,7 +92,7 @@ export async function migrateToV2Direct() {
 
     let allSuccessful = true;
     for (const actor of actors) {
-      const projects = (actor.getFlag(MODULE_ID, "projects") || []) as LegacyProject[];
+      const projects = (actor.getFlag(MODULE_ID, "projects" as any) || []) as LegacyProject[];
       if (projects.length === 0) continue;
 
       const remainingProjects: LegacyProject[] = [];
@@ -115,7 +109,7 @@ export async function migrateToV2Direct() {
 
         if (!tpl) {
           tpl = {
-            id: (foundry.utils as unknown as { randomID: () => string }).randomID(),
+            id: FoundryUtils.randomID(),
             name: p.name || "Unknown Project",
             target: p.maxProgress ?? 100,
             rewardUuid: p.rewardUuid || "",
@@ -153,7 +147,7 @@ export async function migrateToV2Direct() {
       }
 
       // Update legacy projects flag with only those that failed to migrate
-      await actor.setFlag(MODULE_ID, "projects", remainingProjects);
+      await actor.setFlag(MODULE_ID, "projects" as any, remainingProjects);
     }
 
     if (libraryUpdated) {

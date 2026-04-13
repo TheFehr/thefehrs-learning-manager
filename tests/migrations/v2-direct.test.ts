@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { migrateToV2Direct } from "../../src/migrations/v2-direct";
 import * as migrationUtils from "../../src/migrations/migration-utils";
+import { MODULE_ID } from "../../src/global";
 
 vi.mock("../../src/migrations/migration-utils", () => ({
   createProjectItemFromTemplate: vi.fn().mockResolvedValue({}),
@@ -41,17 +42,17 @@ describe("Migration v2 (Direct)", () => {
     await migrateToV2Direct();
 
     expect(game.settings.set).toHaveBeenCalledWith(
-      expect.any(String),
+      MODULE_ID,
       "rules",
       expect.objectContaining({ critThreshold: 20 }),
     );
     expect(game.settings.set).toHaveBeenCalledWith(
-      expect.any(String),
+      MODULE_ID,
       "guidanceTiers",
       expect.arrayContaining([expect.objectContaining({ costs: { h: 100 }, _migratedToV2: true })]),
     );
     expect(migrationUtils.createProjectItemFromTemplate).toHaveBeenCalled();
-    expect(mockActor.setFlag).toHaveBeenCalledWith(expect.any(String), "projects", []);
+    expect(mockActor.setFlag).toHaveBeenCalledWith(MODULE_ID, "projects", []);
   });
 
   it("should handle migration failures for individual projects", async () => {
@@ -72,7 +73,7 @@ describe("Migration v2 (Direct)", () => {
     await migrateToV2Direct();
 
     expect(ui.notifications.warn).toHaveBeenCalledWith(expect.stringContaining("partially failed"));
-    expect(mockActor.setFlag).toHaveBeenCalledWith(expect.any(String), "projects", [
+    expect(mockActor.setFlag).toHaveBeenCalledWith(MODULE_ID, "projects", [
       expect.objectContaining({ id: "p1" }),
     ]);
   });

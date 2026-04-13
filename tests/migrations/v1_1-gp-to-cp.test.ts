@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { migrateV1_1GpToCp } from "../../src/migrations/v1_1-gp-to-cp";
 import { MODULE_ID } from "../../src/global";
+import { Logger } from "../../src/core/logger";
 
 describe("Migration v1.1 (GP to CP)", () => {
   beforeEach(() => {
@@ -54,7 +55,7 @@ describe("Migration v1.1 (GP to CP)", () => {
     vi.mocked(game.settings.get).mockReturnValue([{ id: "tier1", costs: { hour: 1 } }]);
     const error = new Error("Save failed");
     vi.mocked(game.settings.set).mockRejectedValue(error);
-    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    const errorSpy = vi.spyOn(Logger, "error").mockImplementation(() => {});
 
     await expect(migrateV1_1GpToCp()).rejects.toThrow(error);
     expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining("v1.1 migration failed"), error);

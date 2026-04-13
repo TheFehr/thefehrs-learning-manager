@@ -1,5 +1,5 @@
-import { MODULE_ID } from "../global.js";
-import { Logger } from "../core/logger.js";
+import { MODULE_ID } from "@/global.js";
+import { Logger } from "@/core/logger.js";
 
 interface GuidanceTier {
   id: string;
@@ -34,7 +34,15 @@ declare module "fvtt-types/configuration" {
 }
 
 export async function migrateToV3() {
-  const rawTiers = game.settings.get(MODULE_ID, "guidanceTiers") as unknown as GuidanceTier[];
+  let rawTiers: GuidanceTier[];
+  try {
+    rawTiers = game.settings.get(MODULE_ID, "guidanceTiers") as unknown as GuidanceTier[];
+  } catch (err) {
+    Logger.debug("Legacy guidanceTiers setting not found, skipping migration.");
+    await game.settings.set(MODULE_ID, "migrationVersion", "3.0.0");
+    return;
+  }
+
   if (!rawTiers || rawTiers.length === 0) {
     Logger.debug("No legacy guidance tiers found, skipping migration.");
     await game.settings.set(MODULE_ID, "migrationVersion", "3.0.0");
@@ -109,19 +117,15 @@ export async function migrateToV3() {
   const currentPacks =
     (game.settings.get(MODULE_ID, "teacherCompendiums") as unknown as string[]) || [];
   if (!currentPacks.includes(instructorPack.metadata.id)) {
-    await game.settings.set(MODULE_ID, "teacherCompendiums", [
-      ...currentPacks,
-      instructorPack.metadata.id,
-    ]);
+    const updatedPacks = [...new Set([...currentPacks, instructorPack.metadata.id])];
+    await game.settings.set(MODULE_ID, "teacherCompendiums", updatedPacks);
   }
 
   const currentBookPacks =
     (game.settings.get(MODULE_ID, "bookCompendiums") as unknown as string[]) || [];
   if (!currentBookPacks.includes(bookPack.metadata.id)) {
-    await game.settings.set(MODULE_ID, "bookCompendiums", [
-      ...currentBookPacks,
-      bookPack.metadata.id,
-    ]);
+    const updatedBookPacks = [...new Set([...currentBookPacks, bookPack.metadata.id])];
+    await game.settings.set(MODULE_ID, "bookCompendiums", updatedBookPacks);
   }
 
   const tierToDocMap = new Map<
@@ -150,14 +154,25 @@ export async function migrateToV3() {
           },
         },
       };
-      const [created] = await (Actor as any).createDocuments([actorData], {
-        pack: (instructorPack as any).metadata.id,
-      });
-      tierToDocMap.set(tier.id, {
-        type: "instructor",
-        uuid: created.uuid,
-        offeringName: offering.name,
-      });
+      let created;
+      try {
+        const result = await (Actor as any).createDocuments([actorData], {
+          pack: (instructorPack as any).metadata.id,
+        });
+        if (Array.isArray(result) && result.length > 0) {
+          created = result[0];
+        }
+      } catch (err) {
+        Logger.error(`Migration v3 | Failed to create legacy instructor for tier ${tier.id}:`, err);
+      }
+
+      if (created) {
+        tierToDocMap.set(tier.id, {
+          type: "instructor",
+          uuid: created.uuid,
+          offeringName: offering.name,
+        });
+      }
     } else if (tier.modifier > 0) {
       // Create Learning Book Item
       const bonus: LearningBookBonus = {
@@ -174,88 +189,147 @@ export async function migrateToV3() {
           },
         },
       };
-      const [created] = await (Item as any).createDocuments([itemData], {
-        pack: (bookPack as any).metadata.id,
-      });
-      tierToDocMap.set(tier.id, { type: "book", uuid: created.uuid, offeringName: "" });
+      let created;
+      try {
+        const result = await (Item as any).createDocuments([itemData], {
+          pack: (bookPack as any).metadata.id,
+        });
+        if (Array.isArray(result) && result.length > 0) {
+          created = result[0];
+        }
+      } catch (err) {
+        Logger.error(`Migration v3 | Failed to create legacy book for tier ${tier.id}:`, err);
+      }
+
+      if (created) {
+        tierToDocMap.set(tier.id, { type: "book", uuid: created.uuid, offeringName: "" });
+      }
     }
   }
 
   // 5. Update world items and distribute books
+  let projectFailures = 0;
   for (const actor of actorsWithProjects) {
     const projects = actor.items.filter((i: Item) => i.getFlag(MODULE_ID, "isLearningProject"));
     for (const project of projects) {
-      const projectData = project.getFlag(MODULE_ID, "projectData") as ProjectFlagData;
-      if (!projectData || !projectData.tutelageId) continue;
+      try {
+        const projectData = project.getFlag(MODULE_ID, "projectData") as ProjectFlagData;
+        if (!projectData || !projectData.tutelageId) continue;
 
-      const mapping = tierToDocMap.get(projectData.tutelageId);
-      if (!mapping) {
-        // Orphaned or +0, reset
-        projectData.tutelageId = "";
-        await project.setFlag(MODULE_ID, "projectData", projectData);
-        continue;
-      }
-
-      if (mapping.type === "instructor") {
-        projectData.lastInstructorUuid = mapping.uuid;
-        projectData.lastInstructorName = mapping.offeringName;
-        projectData.tutelageId = "";
-
-        // Detect categories from effects
-        const detectedCats = detectCategories(project);
-        if (detectedCats.length > 0) {
-          projectData.categories = [...(projectData.categories || []), ...detectedCats];
-          projectData.categories = [...new Set(projectData.categories)];
+        const mapping = tierToDocMap.get(projectData.tutelageId);
+        if (!mapping) {
+          // Orphaned or +0, reset
+          projectData.tutelageId = "";
+          await project.setFlag(MODULE_ID, "projectData", projectData);
+          continue;
         }
 
-        await project.setFlag(MODULE_ID, "projectData", projectData);
-      } else if (mapping.type === "book") {
-        // Distribute book to actor if they don't have it
-        const bookDoc = await fromUuid(mapping.uuid as `Item.${string}`);
-        if (bookDoc && bookDoc instanceof Item) {
-          const bookBonus = bookDoc.getFlag(MODULE_ID, "learningBookBonus") as LearningBookBonus;
-          const existingBook = actor.items.find((i: Item) => {
-            const b = i.getFlag(MODULE_ID, "learningBookBonus") as LearningBookBonus;
-            return (
-              b &&
-              b.modifier === bookBonus.modifier &&
-              JSON.stringify(b.categories) === JSON.stringify(bookBonus.categories)
-            );
-          });
+        if (mapping.type === "instructor") {
+          projectData.lastInstructorUuid = mapping.uuid;
+          projectData.lastInstructorName = mapping.offeringName;
+          projectData.tutelageId = "";
 
-          if (!existingBook) {
-            const bookData = bookDoc.toObject();
-            // Update the book to only work for this project's categories to match legacy behavior
-            const bonus = bookData.flags[MODULE_ID].learningBookBonus as LearningBookBonus;
-            const detectedCats = detectCategories(project);
-            bonus.categories = detectedCats;
-
-            // Set sourceId so the resolver recognizes it if compendium filtering is on
-            bookData.flags.core = bookData.flags.core || {};
-            (bookData.flags.core as any).sourceId = bookDoc.uuid;
-
-            await actor.createEmbeddedDocuments("Item", [bookData]);
+          // Detect categories from effects
+          const detectedCats = detectCategories(project);
+          if (detectedCats.length > 0) {
+            projectData.categories = [...(projectData.categories || []), ...detectedCats];
+            projectData.categories = [...new Set(projectData.categories)];
           }
-        }
-        projectData.tutelageId = "";
 
-        // Detect categories from effects
-        const detectedCats = detectCategories(project);
-        if (detectedCats.length > 0) {
-          projectData.categories = [...(projectData.categories || []), ...detectedCats];
-          projectData.categories = [...new Set(projectData.categories)];
-        }
+          await project.setFlag(MODULE_ID, "projectData", projectData);
+        } else if (mapping.type === "book") {
+          // Distribute book to actor if they don't have it
+          const bookDoc = await fromUuid(mapping.uuid as `Item.${string}`);
+          if (bookDoc && bookDoc instanceof Item) {
+            const bookBonus = bookDoc.getFlag(MODULE_ID, "learningBookBonus") as LearningBookBonus;
+            const existingBook = actor.items.find((i: Item) => {
+              const b = i.getFlag(MODULE_ID, "learningBookBonus") as LearningBookBonus;
+              if (!b || b.modifier !== bookBonus.modifier) return false;
+              const aCats = b.categories || [];
+              const bCats = bookBonus.categories || [];
+              if (aCats.length !== bCats.length) return false;
+              const sortedA = [...aCats].sort();
+              const sortedB = [...bCats].sort();
+              return sortedA.every((v, idx) => v === sortedB[idx]);
+            });
 
-        await project.setFlag(MODULE_ID, "projectData", projectData);
+            if (!existingBook) {
+              const bookData = bookDoc.toObject();
+              // Update the book to only work for this project's categories to match legacy behavior
+              const bonus = (bookData.flags[MODULE_ID] as any)
+                .learningBookBonus as LearningBookBonus;
+              const detectedCats = detectCategories(project);
+              bonus.categories = detectedCats;
+
+              // Set sourceId so the resolver recognizes it if compendium filtering is on
+              bookData.flags.core = bookData.flags.core || {};
+              (bookData.flags.core as any).sourceId = bookDoc.uuid;
+
+              await actor.createEmbeddedDocuments("Item", [bookData]);
+            }
+          }
+          projectData.tutelageId = "";
+
+          // Detect categories from effects
+          const detectedCats = detectCategories(project);
+          if (detectedCats.length > 0) {
+            projectData.categories = [...(projectData.categories || []), ...detectedCats];
+            projectData.categories = [...new Set(projectData.categories)];
+          }
+
+          await project.setFlag(MODULE_ID, "projectData", projectData);
+        }
+      } catch (err) {
+        Logger.error(
+          `Migration v3 | Failed to update project ${project.name} on actor ${actor.name}:`,
+          err,
+        );
+        projectFailures++;
       }
     }
   }
 
-  await game.settings.set(MODULE_ID, "migrationVersion", "3.0.0");
-  ui.notifications?.info(
-    `Migration to v3 (Tutelage Selection System) complete! Converted ${tiersToMigrate.length} tiers.`,
-  );
+  if (projectFailures === 0) {
+    await game.settings.set(MODULE_ID, "migrationVersion", "3.0.0");
+    ui.notifications?.info(
+      `Migration to v3 (Tutelage Selection System) complete! Converted ${tiersToMigrate.length} tiers.`,
+    );
+  } else {
+    ui.notifications?.warn(
+      `Migration to v3 partially completed with ${projectFailures} project failures. See console for details.`,
+    );
+  }
 }
+
+const ABILITY_MAP: Record<string, string> = {
+  "abilities.str": "strength",
+  "abilities.dex": "dexterity",
+  "abilities.con": "constitution",
+  "abilities.int": "intelligence",
+  "abilities.wis": "wisdom",
+  "abilities.cha": "charisma",
+};
+
+const SKILL_MAP: Record<string, string> = {
+  "skills.acr": "acrobatics",
+  "skills.ani": "animal handling",
+  "skills.arc": "arcana",
+  "skills.ath": "athletics",
+  "skills.dec": "deception",
+  "skills.his": "history",
+  "skills.ins": "insight",
+  "skills.itm": "intimidation",
+  "skills.inv": "investigation",
+  "skills.med": "medicine",
+  "skills.nat": "nature",
+  "skills.prc": "perception",
+  "skills.prf": "performance",
+  "skills.per": "persuasion",
+  "skills.rel": "religion",
+  "skills.slt": "sleight of hand",
+  "skills.ste": "stealth",
+  "skills.sur": "survival",
+};
 
 function detectCategories(item: any): string[] {
   const categories: string[] = [];
@@ -263,31 +337,12 @@ function detectCategories(item: any): string[] {
   for (const effect of effects) {
     for (const change of effect.changes || []) {
       const key = change.key || "";
-      if (key.includes("abilities.str")) categories.push("strength");
-      if (key.includes("abilities.dex")) categories.push("dexterity");
-      if (key.includes("abilities.con")) categories.push("constitution");
-      if (key.includes("abilities.int")) categories.push("intelligence");
-      if (key.includes("abilities.wis")) categories.push("wisdom");
-      if (key.includes("abilities.cha")) categories.push("charisma");
-
-      if (key.includes("skills.acr")) categories.push("acrobatics");
-      if (key.includes("skills.ani")) categories.push("animal handling");
-      if (key.includes("skills.arc")) categories.push("arcana");
-      if (key.includes("skills.ath")) categories.push("athletics");
-      if (key.includes("skills.dec")) categories.push("deception");
-      if (key.includes("skills.his")) categories.push("history");
-      if (key.includes("skills.ins")) categories.push("insight");
-      if (key.includes("skills.itm")) categories.push("intimidation");
-      if (key.includes("skills.inv")) categories.push("investigation");
-      if (key.includes("skills.med")) categories.push("medicine");
-      if (key.includes("skills.nat")) categories.push("nature");
-      if (key.includes("skills.prc")) categories.push("perception");
-      if (key.includes("skills.prf")) categories.push("performance");
-      if (key.includes("skills.per")) categories.push("persuasion");
-      if (key.includes("skills.rel")) categories.push("religion");
-      if (key.includes("skills.slt")) categories.push("sleight of hand");
-      if (key.includes("skills.ste")) categories.push("stealth");
-      if (key.includes("skills.sur")) categories.push("survival");
+      for (const [prefix, cat] of Object.entries(ABILITY_MAP)) {
+        if (key.includes(prefix)) categories.push(cat);
+      }
+      for (const [prefix, cat] of Object.entries(SKILL_MAP)) {
+        if (key.includes(prefix)) categories.push(cat);
+      }
     }
   }
   return [...new Set(categories)];
@@ -325,7 +380,9 @@ async function getOrCreateCompendium(type: "Actor" | "Item", label: string) {
       });
     } catch (e: any) {
       // Final fallback: if creation fails because it already exists, try one last find by name only
-      if (e.message?.includes("already exists")) {
+      const isExistsError =
+        e.message?.toLowerCase().includes("already exists") || e.code === "EEXIST";
+      if (isExistsError) {
         pack = game.packs.find(
           (p) => p.metadata.name === packName || p.metadata.name === rawPackName,
         );

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { TimeUnit } from "../../types";
+  import type { TimeUnit } from "@/types";
 
   let { timeUnits = $bindable([]) }: { timeUnits: TimeUnit[] } = $props();
 

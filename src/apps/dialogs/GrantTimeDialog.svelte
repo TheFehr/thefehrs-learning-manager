@@ -1,7 +1,7 @@
 <script lang="ts">
-  import type { TimeUnit } from "../../types.js";
-  import type { MemberMappedData } from "../party-tab.js";
-  import { GrantTimeLogic } from "../../logic/grant-time-logic.js";
+  import type { TimeUnit } from "@/types.js";
+  import type { MemberMappedData } from "@/apps/party-tab.js";
+  import { GrantTimeLogic } from "@/logic/grant-time-logic.js";
 
   let { timeUnits, isParty, members, onsubmit }: { 
     timeUnits: TimeUnit[], 

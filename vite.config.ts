@@ -1,6 +1,9 @@
 import { defineConfig } from "vite";
 import { svelte, vitePreprocess } from "@sveltejs/vite-plugin-svelte";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const MODULE_ID = "thefehrs-learning-manager";
 const BASE_PATH = `/modules/${MODULE_ID}/`;
@@ -8,6 +11,11 @@ const FOUNDRY_URL = "http://localhost:30000";
 
 export default defineConfig({
   base: BASE_PATH,
+  resolve: {
+    alias: {
+      "@": path.resolve(__dirname, "./src"),
+    },
+  },
 
   // 1. Define the global variable the plugin used to provide
   define: {

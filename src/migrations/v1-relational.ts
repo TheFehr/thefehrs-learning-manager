@@ -1,5 +1,6 @@
-import { MODULE_ID } from "../global";
-import { Logger } from "../core/logger.js";
+import { MODULE_ID } from "@/global";
+import { Logger } from "@/core/logger.js";
+import { FoundryUtils } from "@/core/foundry-utils.js";
 
 interface LegacyProjectV1 {
   id?: string;
@@ -50,7 +51,7 @@ export async function migrateToV1Relational() {
 
         if (!tpl) {
           tpl = {
-            id: (foundry.utils as unknown as { randomID: () => string }).randomID(),
+            id: FoundryUtils.randomID(),
             name: p.name || "Unknown Project",
             target: p.maxProgress ?? 100,
             rewardUuid: p.rewardUuid || "",

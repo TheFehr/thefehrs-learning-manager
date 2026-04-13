@@ -1,10 +1,11 @@
 <script lang="ts">
-  import { Settings } from "../core/settings.js";
-  import type { SystemRules, TimeUnit } from "../types.js";
-  import { saveSettings, getAvailablePacks, type PackInfo } from "../logic/settings-logic.js";
+  import { onMount } from "svelte";
+  import {Logger} from "@/core/logger";
+  import { Settings } from "@/core/settings.js";
+  import type { SystemRules, TimeUnit } from "@/types.js";
+  import { saveSettings, getAvailablePacks, type PackInfo } from "@/logic/settings-logic.js";
   import WorldSettingsConfig from "./components/WorldSettingsConfig.svelte";
   import UserPreferencesConfig from "./components/UserPreferencesConfig.svelte";
-  import { onMount } from "svelte";
 
   // Auth
   const isGM = !!game.user?.isGM;
@@ -37,21 +38,18 @@
         availableItemPacks = results[0].value;
       } else {
         Logger.error("Failed to load item packs:", results[0].reason);
-        availableItemPacks = [];
       }
 
       if (results[1].status === "fulfilled") {
         instructorPacks = results[1].value;
       } else {
         Logger.error("Failed to load instructor packs:", results[1].reason);
-        instructorPacks = [];
       }
 
       if (results[2].status === "fulfilled") {
         bookPacks = results[2].value;
       } else {
         Logger.error("Failed to load book packs:", results[2].reason);
-        bookPacks = [];
       }
     }
   });

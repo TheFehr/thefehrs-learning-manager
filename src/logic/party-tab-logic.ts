@@ -1,13 +1,13 @@
-import { Settings } from "../core/settings.js";
-import { Logger } from "../core/logger.js";
+import { Settings } from "@/core/settings.js";
+import { Logger } from "@/core/logger.js";
 import { ActorProxy } from "./actor-proxy.js";
 import { TabLogic } from "./tab-logic.js";
 import { ProjectEngine } from "./project-engine.js";
 import type { ProjectItem, ProjectFlagData } from "./project-item.js";
-import type { MemberMappedData, ProjectMappedData } from "../apps/party-tab.js";
-import { isActor5e, type Item5e, type Actor5e } from "../types.js";
-import AbortProjectDialog from "../apps/dialogs/AbortProjectDialog.svelte";
-import GrantTimeDialog from "../apps/dialogs/GrantTimeDialog.svelte";
+import type { MemberMappedData, ProjectMappedData } from "@/apps/party-tab.js";
+import { isActor5e, type Item5e, type Actor5e } from "@/types.js";
+import AbortProjectDialog from "@/apps/dialogs/AbortProjectDialog.svelte";
+import GrantTimeDialog from "@/apps/dialogs/GrantTimeDialog.svelte";
 import { mount, unmount } from "svelte";
 
 /**
@@ -199,7 +199,12 @@ export class PartyTabLogic {
   /**
    * Orchestrates project deletion/abortion.
    */
-  static async deleteProject(actorId: string, project: ProjectMappedData, isGM: boolean) {
+  static async deleteProject(
+    actorId: string,
+    project: ProjectMappedData,
+    isGM: boolean,
+    confirmFn?: () => Promise<boolean>,
+  ) {
     const targetActor = game.actors?.get(actorId) as Actor5e | undefined;
     if (!targetActor || !targetActor.isOwner) {
       ui.notifications?.warn("You do not have permission to modify this actor's projects.");
@@ -213,44 +218,59 @@ export class PartyTabLogic {
 
     const projectName = project.name || "Unknown Project";
 
-    const container = document.createElement("div");
-    const svelteInstance = mount(AbortProjectDialog, {
-      target: container,
-      props: {
-        projectName,
-        actorName: targetActor.name || "Unknown Actor",
-      },
-    });
+    const confirmed = confirmFn
+      ? await confirmFn()
+      : await this.showDeleteConfirm(projectName, targetActor.name || "Unknown Actor");
 
-    new foundry.applications.api.DialogV2({
-      window: {
-        title: "Abort Project",
-        contentClasses: ["thefehrs-learning-manager-dialog"],
-      },
-      content: container,
-      buttons: [
-        {
-          action: "yes",
-          icon: "fas fa-check",
-          label: "Yes",
-          default: true,
-          callback: async () => {
-            const item = targetActor.items.get(project.id);
-            if (item) await item.delete();
+    if (confirmed) {
+      const item = targetActor.items.get(project.id);
+      if (item) await item.delete();
+    }
+  }
+
+  /**
+   * Internal helper to show deletion confirmation dialog.
+   */
+  private static async showDeleteConfirm(projectName: string, actorName: string): Promise<boolean> {
+    return new Promise((resolve) => {
+      const container = document.createElement("div");
+      const svelteInstance = mount(AbortProjectDialog, {
+        target: container,
+        props: {
+          projectName,
+          actorName,
+        },
+      });
+
+      new foundry.applications.api.DialogV2({
+        window: {
+          title: "Abort Project",
+          contentClasses: ["thefehrs-learning-manager-dialog"],
+        },
+        content: container,
+        buttons: [
+          {
+            action: "yes",
+            icon: "fas fa-check",
+            label: "Yes",
+            default: true,
+            callback: () => resolve(true),
           },
+          {
+            action: "no",
+            icon: "fas fa-times",
+            label: "No",
+            callback: () => resolve(false),
+          },
+        ],
+        position: {
+          width: 400,
         },
-        {
-          action: "no",
-          icon: "fas fa-times",
-          label: "No",
+        close: () => {
+          unmount(svelteInstance);
+          resolve(false);
         },
-      ],
-      position: {
-        width: 400,
-      },
-      close: () => {
-        unmount(svelteInstance);
-      },
-    }).render({ force: true });
+      }).render({ force: true });
+    });
   }
 }

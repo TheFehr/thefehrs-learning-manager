@@ -1,6 +1,7 @@
 import { Logger } from "./logger.js";
-import type { ProjectRequirement, SystemRules, TimeUnit } from "../types.js";
-import { DEFAULT_DC, MODULE_ID } from "../global.js";
+import { FoundryUtils } from "./foundry-utils.js";
+import type { ProjectRequirement, SystemRules, TimeUnit } from "@/types.js";
+import { DEFAULT_DC, DEFAULT_CATEGORIES, MODULE_ID } from "@/global.js";
 
 export interface ProjectTemplate {
   id: string;
@@ -92,32 +93,7 @@ export const SETTINGS_DEFINITIONS: {
   },
   categories: {
     scope: WORLD_SCOPE,
-    default: [
-      "strength",
-      "dexterity",
-      "constitution",
-      "intelligence",
-      "wisdom",
-      "charisma",
-      "acrobatics",
-      "animal handling",
-      "arcana",
-      "athletics",
-      "deception",
-      "history",
-      "insight",
-      "intimidation",
-      "investigation",
-      "medicine",
-      "nature",
-      "perception",
-      "performance",
-      "persuasion",
-      "religion",
-      "sleight of hand",
-      "stealth",
-      "survival",
-    ],
+    default: [...DEFAULT_CATEGORIES],
   },
 };
 
@@ -136,7 +112,7 @@ export interface SettingMenuConfig {
   label: string;
   hint?: string;
   icon?: string;
-  type: new (...args: any[]) => any;
+  type: new (...args: any[]) => foundry.applications.api.ApplicationV2<any, any, any>;
   restricted: boolean;
 }
 
@@ -236,7 +212,7 @@ export class SettingsManager {
       fallback !== null &&
       !Array.isArray(fallback)
     ) {
-      return foundry.utils.mergeObject(fallback, val, {
+      return FoundryUtils.mergeObject(fallback, val, {
         inplace: false,
       }) as SettingsSchema[K];
     }

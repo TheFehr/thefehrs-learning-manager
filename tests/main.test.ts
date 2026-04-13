@@ -1,13 +1,13 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { mount, unmount } from "svelte";
-import { LearningManager } from "../src/LearningManager";
-import { TabLogic } from "../src/logic/tab-logic";
-import { ActorProxy } from "../src/logic/actor-proxy";
-import { ProjectEngine } from "../src/logic/project-engine";
-import { Socket } from "../src/core/socket";
-import type { Actor5e, TimeUnit } from "../src/types";
-import { migrateData } from "../src/migrations/migration";
-import { Logger } from "../src/core/logger";
+import { LearningManager } from "@/LearningManager";
+import { TabLogic } from "@/logic/tab-logic";
+import { ActorProxy } from "@/logic/actor-proxy";
+import { ProjectEngine } from "@/logic/project-engine";
+import { Socket } from "@/core/socket";
+import type { Actor5e, TimeUnit } from "@/types";
+import { migrateData } from "@/migrations/migration";
+import { Logger } from "@/core/logger";
 
 vi.mock("svelte", () => ({
   mount: vi.fn(),
@@ -15,7 +15,7 @@ vi.mock("svelte", () => ({
   tick: vi.fn().mockResolvedValue(undefined),
 }));
 
-vi.mock("../src/core/logger", () => ({
+vi.mock("@/core/logger", () => ({
   Logger: {
     debug: vi.fn(),
     info: vi.fn(),
@@ -24,7 +24,7 @@ vi.mock("../src/core/logger", () => ({
   },
 }));
 
-vi.mock("../src/logic/project-engine", () => ({
+vi.mock("@/logic/project-engine", () => ({
   ProjectEngine: {
     initiateProjectFromItem: vi.fn(),
     processTraining: vi.fn(),
@@ -36,7 +36,7 @@ vi.mock("../src/logic/project-engine", () => ({
   },
 }));
 
-vi.mock("../src/migrations/migration", () => ({
+vi.mock("@/migrations/migration", () => ({
   migrateData: vi.fn().mockResolvedValue(undefined),
   registerMigrationSettings: vi.fn(),
 }));
@@ -243,10 +243,20 @@ describe("LearningManager", () => {
   describe("ActorProxy", () => {
     it("should handle bank and projects", async () => {
       const actor = new Actor() as unknown as Actor5e;
+      actor.items = [
+        {
+          id: "p1",
+          name: "Project 1",
+          getFlag: vi.fn().mockImplementation((_scope: string, key: string) => {
+            if (key === "isLearningProject") return true;
+            if (key === "projectData") return { progress: 0, target: 100 };
+            return null;
+          }),
+        } as any,
+      ];
       actor.flags = {
         "thefehrs-learning-manager": {
           bank: { total: 10 },
-          projects: [{ id: "p1" }],
         },
       };
 
@@ -257,7 +267,7 @@ describe("LearningManager", () => {
 
       const proxy = ActorProxy.forActor(actor);
       expect(proxy.bank.total).toBe(10);
-      expect(proxy.projects).toHaveLength(1);
+      expect(proxy.getMappedProjects()).toHaveLength(1);
       expect(proxy.currency.gp).toBe(0);
 
       await proxy.setBank({ total: 20 });

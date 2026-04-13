@@ -1,5 +1,5 @@
-import { MODULE_ID } from "../global.js";
-import type { NotificationLevel } from "../types.js";
+import { MODULE_ID } from "@/global.js";
+import type { NotificationLevel } from "@/types.js";
 
 const LEVELS: Record<NotificationLevel, number> = {
   none: 0,
@@ -53,13 +53,16 @@ export class LoggerSingleton {
    * Send an error-level notification or log.
    * @param message - The error message.
    * @param err - Optional related error or data.
+   * @param uiNotify - Whether to show a UI notification.
    */
-  error(message: string, err?: unknown) {
+  error(message: string, err?: unknown, uiNotify = true) {
     if (this.currentLevel >= LEVELS.error) {
-      try {
-        ui.notifications?.error(message);
-      } catch (uiErr) {
-        console.error(`${LOG_PREFIX}Logger | UI notification failed:`, uiErr);
+      if (uiNotify) {
+        try {
+          ui.notifications?.error(message);
+        } catch (uiErr) {
+          console.error(`${LOG_PREFIX}Logger | UI notification failed:`, uiErr);
+        }
       }
       if (err) {
         console.error(`${LOG_PREFIX}${message}`, err);
@@ -72,14 +75,17 @@ export class LoggerSingleton {
   /**
    * Send a warning-level notification or log.
    * @param message - The warning message.
+   * @param uiNotify - Whether to show a UI notification.
    * @param data - Optional related data.
    */
-  warn(message: string, ...data: any[]) {
+  warn(message: string, uiNotify = true, ...data: any[]) {
     if (this.currentLevel >= LEVELS.warn) {
-      try {
-        ui.notifications?.warn(message);
-      } catch (err) {
-        console.error(`${LOG_PREFIX}Logger | UI notification failed:`, err);
+      if (uiNotify) {
+        try {
+          ui.notifications?.warn(message);
+        } catch (err) {
+          console.error(`${LOG_PREFIX}Logger | UI notification failed:`, err);
+        }
       }
       if (data.length > 0) {
         console.warn(`${LOG_PREFIX}${message}`, ...data);

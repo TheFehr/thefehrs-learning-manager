@@ -5,8 +5,9 @@ import { migrateToV2 } from "./v2-native-items.js";
 import { migrateToV2Direct } from "./v2-direct.js";
 import { migrateToV2_1, migrateToV2_1_1 } from "./v2_1-flexible-methods.js";
 import { migrateToV3 } from "./v3-tutelage-selection.js";
-import { MODULE_ID } from "../global.js";
-import { Logger } from "../core/logger.js";
+import { MODULE_ID } from "@/global.js";
+import { Logger } from "@/core/logger.js";
+import { FoundryUtils } from "@/core/foundry-utils.js";
 
 export async function migrateData() {
   if (!game.user?.isGM) return;
@@ -69,7 +70,7 @@ export async function migrateData() {
 }
 
 function isNewerVersion(newer: string, current: string): boolean {
-  return (foundry.utils as any).isNewerVersion(newer, current);
+  return FoundryUtils.isNewerVersion(newer, current);
 }
 
 export function registerMigrationSettings() {

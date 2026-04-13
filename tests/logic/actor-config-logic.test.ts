@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { ActorConfigLogic } from "../../src/logic/actor-config-logic";
 
 describe("ActorConfigLogic", () => {
@@ -7,6 +7,13 @@ describe("ActorConfigLogic", () => {
     (global as any).ui = { notifications: { error: vi.fn() } };
     (global as any).CONFIG = (global as any).CONFIG || {};
     (global as any).fromUuid = vi.fn().mockResolvedValue({ documentName: "Item" });
+  });
+
+  afterEach(() => {
+    delete (global as any).ui;
+    delete (global as any).CONFIG;
+    delete (global as any).fromUuid;
+    delete (global as any).game;
   });
 
   it("should save teacher configuration to flags", async () => {
@@ -40,7 +47,7 @@ describe("ActorConfigLogic", () => {
 
     it("should return null if no search module is found", async () => {
       delete (global as any).CONFIG.SpotlightOmnisearch;
-      (global as any).game.modules.get = vi.fn().mockReturnValue(null);
+      (global as any).game = { modules: { get: vi.fn().mockReturnValue(null) } };
 
       const result = await ActorConfigLogic.searchProject();
       expect(result).toBeNull();

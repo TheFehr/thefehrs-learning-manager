@@ -1,8 +1,8 @@
 <script lang="ts">
-  import type { InstructorInstance } from "../../logic/tutelage-resolver.js";
-  import type { TimeUnit } from "../../types.js";
-  import { TabLogic } from "../../logic/tab-logic.js";
-  import { Logger } from "../../core/logger.js";
+  import type { InstructorInstance } from "@/logic/tutelage-resolver.js";
+  import type { TimeUnit } from "@/types.js";
+  import { TabLogic } from "@/logic/tab-logic.js";
+  import { Logger } from "@/core/logger.js";
 
   let { 
     instructors, 
@@ -11,7 +11,6 @@
     timeUnit, 
     lastInstructorUuid = "",
     lastInstructorName = "Self-Study",
-    resolve // Function to call when user makes a choice
   }: { 
     instructors: InstructorInstance[], 
     bestBookMod: number, 
@@ -19,7 +18,6 @@
     timeUnit: TimeUnit,
     lastInstructorUuid?: string,
     lastInstructorName?: string,
-    resolve: (value: { instructor: InstructorInstance | null, remember: boolean } | null) => void
   } = $props();
 
   let selectedKey = $state(lastInstructorUuid && lastInstructorName !== "Self-Study" 
@@ -75,6 +73,8 @@
             name="instructor-choice" 
             value={key} 
             bind:group={selectedKey} 
+            data-actor-uuid={instructor.actorUuid}
+            data-offering-name={instructor.offering.name}
         />
         <span class="name">{instructor.name} ({instructor.offering.name})</span>
         <span class="mod">+{instructor.offering.modifier}</span>

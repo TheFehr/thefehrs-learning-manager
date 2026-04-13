@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { getInvalidProjects } from "../src/apps/overview-logic.js";
-import { MODULE_ID } from "../src/global.js";
+import { getInvalidProjects } from "@/apps/overview-logic.js";
+import { MODULE_ID } from "@/global.js";
 
 describe("overview-logic", () => {
   beforeEach(() => {

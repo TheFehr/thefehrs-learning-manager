@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { Settings } from "../../core/settings.js";
-  import { ensureCategoryExists } from "../../logic/settings-logic.js";
-  import { Logger } from "../../core/logger.js";
+  import { Settings } from "@/core/settings.js";
+  import { ensureCategoryExists } from "@/logic/settings-logic.js";
+  import { Logger } from "@/core/logger.js";
 
   let { 
     categories = $bindable([]),

@@ -1,5 +1,5 @@
 <script lang="ts">
-import type { PackInfo } from "../../logic/settings-logic.js";
+import type { PackInfo } from "@/logic/settings-logic.js";
 
   let { 
     allowedCompendiums = $bindable([]), 

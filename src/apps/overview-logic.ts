@@ -1,8 +1,8 @@
-import { MODULE_ID } from "../global.js";
-import { Settings } from "../core/settings.js";
-import { Logger } from "../core/logger.js";
-import type { Item5e } from "../types.js";
-import type { ProjectFlagData } from "../logic/project-item.js";
+import { MODULE_ID } from "@/global.js";
+import { Settings } from "@/core/settings.js";
+import { Logger } from "@/core/logger.js";
+import type { Item5e } from "@/types.js";
+import type { ProjectFlagData } from "@/logic/project-item.js";
 
 export interface InvalidProjectReason {
   item: { name: string; sheet?: { render: (force: boolean) => void } };

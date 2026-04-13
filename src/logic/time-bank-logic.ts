@@ -1,5 +1,5 @@
-import { Logger } from "../core/logger.js";
-import type { TimeUnit } from "../types.js";
+import { Logger } from "@/core/logger.js";
+import type { TimeUnit } from "@/types.js";
 import type { ActorProxy } from "./actor-proxy.js";
 
 /**

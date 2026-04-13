@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { getModuleAPI } from "../src/types";
+import { getModuleAPI } from "@/types";
 
 describe("getModuleAPI", () => {
   beforeEach(() => {

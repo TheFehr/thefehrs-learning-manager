@@ -1,9 +1,9 @@
 <script lang="ts">
-  import { Settings } from "../../core/settings.js";
-  import type { Actor5e, TeacherOffering } from "../../types.js";
+  import { Settings } from "@/core/settings.js";
+  import type { Actor5e, TeacherOffering } from "@/types.js";
   import { untrack } from "svelte";
-  import { ActorConfigLogic } from "../../logic/actor-config-logic.js";
-  import CategorySelector from "../components/CategorySelector.svelte";
+  import { ActorConfigLogic } from "@/logic/actor-config-logic.js";
+  import CategorySelector from "@/apps/components/CategorySelector.svelte";
 
   let { actor } = $props<{ actor: Actor5e }>();
 
@@ -12,6 +12,7 @@
   let saveError = $state<string | null>(null);
   let initialized = $state(false);
   let initialSnapshot = $state<string>("");
+  let saveCounter = 0;
 
   const timeUnits = Settings.get("timeUnits") || [];
 
@@ -44,15 +45,22 @@
   });
 
   async function saveConfig(data: TeacherOffering[]) {
+    const token = ++saveCounter;
     isSaving = true;
     saveError = null;
     try {
       await ActorConfigLogic.saveConfig(actor, data);
-      initialSnapshot = JSON.stringify(data);
+      if (token === saveCounter) {
+        initialSnapshot = JSON.stringify(data);
+      }
     } catch (err) {
-      saveError = err instanceof Error ? err.message : String(err);
+      if (token === saveCounter) {
+        saveError = err instanceof Error ? err.message : String(err);
+      }
     } finally {
-      setTimeout(() => isSaving = false, 500);
+      if (token === saveCounter) {
+        isSaving = false;
+      }
     }
   }
 
@@ -85,7 +93,7 @@
     {#each offerings as offering, i}
       <section class="offering-card">
         <div class="offering-header">
-          <input type="text" bind:value={offering.name} onchange={(e) => e.stopPropagation()} placeholder="Lesson Name (e.g. Masterclass)" />
+          <input type="text" data-testid="lesson-name-input" bind:value={offering.name} placeholder="Lesson Name (e.g. Masterclass)" />
           <button type="button" class="tidy-button small danger" onclick={(e) => { e.stopPropagation(); removeOffering(i); }} title="Remove Offering">
             <i class="fas fa-trash"></i>
           </button>
@@ -93,17 +101,17 @@
 
         <div class="form-group">
           <label for="mod-{i}">Learning Modifier</label>
-          <input id="mod-{i}" type="number" bind:value={offering.modifier} onchange={(e) => e.stopPropagation()} oninput={(e) => e.stopPropagation()} min="0" placeholder="e.g. 5" />
+          <input id="mod-{i}" type="number" bind:value={offering.modifier} min="0" placeholder="e.g. 5" />
         </div>
 
-        <div class="costs-section">
+        <div class="costs-section" data-testid="costs-per-session">
           <h5>Costs per Session</h5>
           <div class="costs-grid">
             {#each timeUnits as unit}
               <div class="cost-row">
                 <label for="cost-{i}-{unit.id}">{unit.name}</label>
                 <div class="currency-input">
-                  <input id="cost-{i}-{unit.id}" type="number" bind:value={offering.costs[unit.id]} onchange={(e) => e.stopPropagation()} oninput={(e) => e.stopPropagation()} min="0" placeholder="0" />
+                  <input id="cost-{i}-{unit.id}" type="number" bind:value={offering.costs[unit.id]} min="0" placeholder="0" />
                   <span class="unit">CP</span>
                 </div>
               </div>

@@ -47,4 +47,23 @@ describe("Socket", () => {
       (global as any).game.socket = originalSocket;
     }
   });
+  it("should ignore invalid messages", async () => {
+    const handler = vi.fn();
+    Socket.listen(handler);
+
+    const registeredHandler = vi.mocked(game.socket.on).mock.calls[0][1];
+    const invalidMessage = { invalid: "payload" };
+
+    const { Logger } = await import("../../src/core/logger");
+    const warnSpy = vi.spyOn(Logger, "warn").mockImplementation(() => {});
+
+    await registeredHandler(invalidMessage);
+
+    expect(handler).not.toHaveBeenCalled();
+    expect(warnSpy).toHaveBeenCalledWith(
+      expect.stringContaining("Received invalid message payload"),
+      true,
+      expect.any(Object),
+    );
+  });
 });

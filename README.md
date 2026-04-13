@@ -1,8 +1,13 @@
 # The Fehrs Learning Manager
 
-A custom Downtime Engine and Learning Manager for Foundry VTT. This module integrates seamlessly into the **Tidy5e** character and party sheets, providing a robust, highly configurable system for tracking downtime learning, training projects, and tutelage.
+A custom Downtime Engine and Learning Manager for Foundry VTT. This module integrates seamlessly into the **Tidy5e** character sheet, providing a robust, highly configurable system for tracking downtime learning, training projects, and tutelage.
 
 Whether your players are learning a new language, training a feat, or mastering a tool proficiency, this module handles the time management, cost calculation, and progress tracking automatically.
+
+<div align="center">
+  <p>📸 <b>[Screenshot: Time Bank Footer in Tidy5e]</b><br>
+  <i>The persistent Time Bank bar in the Features tab showing available downtime units (e.g., Hours, Days, Weeks).</i></p>
+</div>
 
 ---
 
@@ -10,80 +15,100 @@ Whether your players are learning a new language, training a feat, or mastering 
 
 ### For the Game Master
 
-- **Data-Driven & System Agnostic:** The core code is completely rule-agnostic. All scaling matrices, learning rates, and tutelage modifiers are driven by configurable JSON data, allowing you to adapt the module to your specific campaign mechanics without touching the underlying code.
-- **Global Time Bank Distribution:** A dedicated GM interface on the Party Sheet to distribute configurable blocks of time (e.g., Hours, Days, Weeks) to specific characters or the entire party simultaneously.
-- **Custom Tutelage Matrix:** Define exactly how effective different teachers are (e.g., _Self-Taught_, _Amateur_, _Professional_). Set specific gold/silver/copper costs and progress yields based on the tier of the teacher and the time unit spent.
-- **Project Library & Dynamic Rewards:** Pre-define standard projects (e.g., "Learn Elvish", "Blacksmithing Training") with specific target goals. Attach UUIDs to auto-grant rewards—such as Items or Active Effects—directly to the player upon completion.
-- **Project Requirements:** Set specific attribute conditions that actors must meet to participate in learning projects.
+- **Intuitive Configuration UI:** Manage scaling matrices, learning rates, and tutelage modifiers directly in Foundry. While everything is backed by flexible JSON data, all management is done through a user-friendly settings panel.
+- **Custom Tutelage Matrix:** Define effectiveness and costs for different teachers (e.g., _Self-Taught_, _Amateur_, _Professional_).
+- **Project Library & Dynamic Rewards:** Pre-define standard projects and attach UUIDs to auto-grant Items or Active Effects upon completion.
+- **Requirement System:** Set attribute-based conditions (e.g., `Intelligence >= 13`) for project participation.
+- **Party Time Management:** A dedicated "Group Learning" tab on Party/Group actors for distributing time and tracking all party members' progress at once.
 
 ### For the Players
 
-- **Native Tidy5e Integration:** Adds a beautiful, dedicated "Learning" tab directly into the modern Tidy5e Character sheet.
-- **Automated Progression:** Players select their active project, choose their teacher tier, and click the time they want to spend. The engine automatically deducts the exact currency and applies the calculated progress.
-- **Clear UI:** Visual progress bars and time bank readouts let players know exactly how much downtime they have left and how close they are to their goals.
+- **Native Tidy5e Integration:** A dedicated "Time Bank" footer in the **Features** tab for managing available downtime (configurable units).
+- **Project-Based Learning:** Any Item (Feature, Tool, etc.) can be converted into a Learning Project.
+- **Dynamic Progress Tracking:** Project names and descriptions update automatically to show current progress and active instructors.
+- **Resolution Choice:** Choose between "Bulk" or "Separate" resolution when spending large time units.
+- **Teacher & Book Discovery:** Automatically detects nearby tokens acting as instructors or books in inventory that grant bonuses.
+
+---
+
+## 👥 Party Management & Time Distribution
+
+While players manage their own projects, the Game Master can oversee the entire party and distribute training time through the **Group Learning** tab on any **Group/Party actor**.
+
+- **Batch Distribution:** GMs can open the "Distribute Time" dialog to add (or deduct) time from multiple players simultaneously. This is the primary way for GMs to grant downtime rewards after a session or adventure.
+- **Party-Wide Overview:** See every character's active projects, current progress, and time bank status in a single unified view.
+- **Manual Overrides:** GMs can manually adjust progress or targets for any character's project directly from this tab.
+
+ <div align="center">
+   <p>📸 <b>[Screenshot: Group Learning Tab]</b><br>
+   <i>The unified party overview on the Group actor sheet with the "Distribute Time" button.</i></p>
+ </div>
+ 
+ ---
+ 
+ ## 🎲 Training Mechanics
+
+The Downtime Engine supports three primary ways to resolve training:
+
+1.  **Direct Resolution:** Progress is gained at a 1:1 ratio with time spent. Spend 1 hour, gain 1 progress.
+2.  **Roll Resolution:** Standard d20-based checks. GMs can configure the formula (e.g., `1d20 + @abilities.int.mod + @tutelage`), the DC (default **12**), and critical success strategies.
+3.  **Mathematical (Bulk) Resolution:** For large blocks of time, the engine can use a statistical formula to calculate the expected progress. This avoids rolling dozens of times for a large training session (e.g., a "Week" of downtime) while maintaining mathematical fairness.
+    - _Default Formula:_ `round(@hours * (22 - max(1, @dc - @mod)) / 20)`
+
+<div align="center">
+  <p>📸 <b>[Screenshot: Training Resolution Dialog]</b><br>
+  <i>Showing the choice between Bulk and Separate resolution with probability and expected progress.</i></p>
+</div>
+
+### Bulk vs. Separate Resolution
+
+When spending a "Bulk" time unit (like a **Day** composed of multiple **Hours**), players can choose:
+
+- **Bulk:** A single roll (or calculation) for the entire block.
+- **Separate:** Multiple individual rolls. The engine can summarize these to keep the chat clean.
+
+---
+
+## 👨‍🏫 Tutelage & Guidance
+
+Progress isn't just about time; it's about who is teaching you.
+
+- **Instructors:** The module automatically scans your configured "Teacher Compendiums" for eligible instructors who can provide guidance.
+- **Books:** Items in your inventory can also provide "Tutelage" modifiers if they match configured criteria.
+- **Cost Calculation:** Better teachers might yield more progress but cost more Gold, Silver, or Copper per hour.
+
+<div align="center">
+  <p>📸 <b>[Screenshot: Instructor Selection Dialog]</b><br>
+  <i>Showing available teachers, modifiers, and associated costs.</i></p>
+</div>
 
 ---
 
 ## 🛠️ In-Game Configuration
 
-The module features a comprehensive Settings UI where GMs can build out their learning matrix.
+### 1. Module Settings
 
-**Quick Start via JSON Import:**
-Instead of typing every value manually, you can construct your entire matrix (Time Units, Guidance Tiers, Global Rules, and Projects) in a single JSON file. Open the **Downtime Engine Config** panel in your game settings and click **Import JSON** to instantly populate your world's ruleset.
+Configure global rules, default DC, critical success behavior, and your custom "Time Units" (e.g., Hour = 1, Day = 10, Week = 70).
 
----
+<div align="center">
+  <p>📸 <b>[Screenshot: Downtime Engine Config]</b><br>
+  <i>Showing the global rules, time units, and tutelage matrix.</i></p>
+</div>
 
-## 💻 Development Setup
+### 2. Project Setup (Item Sheet)
 
-This project utilizes `vite` and `vite-plugin-fvtt` for lightning-fast Hot Module Replacement (HMR). When configured correctly, saving a file instantly updates the Foundry VTT UI without requiring a page refresh.
+Any Item can be turned into a "Learning Project." Configure its target goal, requirements, and what happens when it's finished.
 
-### 1. Prerequisites
+- **Auto-grant Rewards:** Automatically grant an Item or Active Effect upon completion.
+- **Follow-up Projects:** Link projects together. When "Basic Blacksmithing" finishes, "Advanced Smithing" can automatically become the active project.
 
-Ensure you have Node.js installed. Clone the repository and install the dependencies:
-
-```bash
-npm install
-```
-
-### 2. Code Quality & Hooks
-
-This project uses **Husky** and **lint-staged** to maintain code quality.
-
-- **Pre-commit Hook:** A Git `pre-commit` hook is automatically configured to run whenever you commit changes.
-- **Automatic Formatting:** On every commit, `lint-staged` runs `npm run fmt` (powered by `oxfmt`) on your staged files. This ensures all code adheres to the project's formatting standards before it enters the repository.
-
-To manually trigger formatting, you can run:
-
-```bash
-npm run fmt
-```
+<div align="center">
+  <p>📸 <b>[Screenshot: Project Configuration]</b><br>
+  <i>Showing how to set up a project (target, rewards, requirements, follow-up).</i></p>
+</div>
 
 ---
 
-## 🚀 Releasing a New Version
+## 🛠️ Development & Workflow
 
-The release process is simplified using `release-it`.
-
-### 1. Run the Release Command
-
-To start a new release, run:
-
-```bash
-npm run release
-```
-
-This will:
-
-1. Run formatting checks and tests.
-2. Prompt you to select the next version (Patch, Minor, Major).
-3. Automatically update the `version` field in `package.json` and `public/module.json`.
-4. Create a Git commit and tag (e.g., `v1.0.1`).
-5. Push the tag to GitHub.
-
-### 2. Automated Workflow
-
-Once the tag is pushed, the **Release Module** workflow on GitHub Actions will:
-
-1. Build the module distribution.
-2. Automatically update `dist/module.json` with the correct release information.
-3. Create a new GitHub Release with the bundled module and generated release notes.
+For information on how to set up the development environment, code quality standards, and the release process, please see [DEVELOPMENT.md](./DEVELOPMENT.md).

@@ -1,5 +1,5 @@
-import { Logger } from "../core/logger.js";
-import { getModuleAPI } from "../types.js";
+import { Logger } from "@/core/logger.js";
+import { getModuleAPI } from "@/types.js";
 
 /**
  * Orchestrates the search for an item using available modules.
@@ -13,27 +13,31 @@ export async function searchWithOmnisearchOrQuickInsert(
     if (omnisearch?.prompt) {
       const result = await omnisearch.prompt({ query });
       const uuid = result?.data?.uuid;
-      if (!uuid) return null;
-
-      const doc = await fromUuid(uuid as any);
-      if (!doc || (restrictTypes.length > 0 && !restrictTypes.includes(doc.documentName))) {
-        return null;
+      if (uuid) {
+        const doc = await fromUuid(uuid as any);
+        if (doc && (restrictTypes.length === 0 || restrictTypes.includes(doc.documentName))) {
+          return uuid;
+        }
       }
-      return uuid;
     }
   } catch (err) {
     Logger.error("Spotlight Omnisearch prompt failed:", err);
-    return null;
   }
 
   try {
     const quickInsert = getModuleAPI("quick-insert");
     if (quickInsert?.open) {
       return new Promise((resolve) => {
+        const timeoutId = setTimeout(() => {
+          Logger.warn("Quick Insert dialog timed out.");
+          resolve(null);
+        }, 60000); // 60 second timeout
+
         quickInsert.open({
           mode: 1, // Insert mode
           restrictTypes,
           onSubmit: async (item: { uuid: string }) => {
+            clearTimeout(timeoutId);
             const doc = await fromUuid(item.uuid as any);
             if (!doc || (restrictTypes.length > 0 && !restrictTypes.includes(doc.documentName))) {
               resolve(null);
@@ -41,7 +45,10 @@ export async function searchWithOmnisearchOrQuickInsert(
               resolve(item.uuid);
             }
           },
-          onClose: () => resolve(null),
+          onClose: () => {
+            clearTimeout(timeoutId);
+            resolve(null);
+          },
         });
       });
     }

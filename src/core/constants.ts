@@ -1,4 +1,4 @@
-import type { ActivityData5e } from "../types.js";
+import type { ActivityData5e } from "@/types.js";
 
 export function createBaseActivityTemplate(): Omit<
   ActivityData5e,

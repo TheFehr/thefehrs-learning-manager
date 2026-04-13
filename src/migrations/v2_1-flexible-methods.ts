@@ -1,5 +1,5 @@
-import { MODULE_ID } from "../global";
-import { Logger } from "../core/logger.js";
+import { MODULE_ID } from "@/global";
+import { Logger } from "@/core/logger.js";
 
 interface LegacyRules {
   method?: string;

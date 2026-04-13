@@ -1,5 +1,5 @@
 <script lang="ts">
-  import CategorySelector from "../../../src/apps/components/CategorySelector.svelte";
+  import CategorySelector from "@/apps/components/CategorySelector.svelte";
   let categories = $state(["cat1"]);
 </script>
 

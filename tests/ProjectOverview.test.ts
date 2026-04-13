@@ -1,7 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import ProjectOverview from "../src/apps/overview/ProjectOverview.svelte";
+import ProjectOverview from "@/apps/overview/ProjectOverview.svelte";
 import { mount, unmount, tick } from "svelte";
-import * as overviewLogic from "../src/apps/overview-logic.js";
+import * as overviewLogic from "@/apps/overview-logic.js";
+
+vi.mock("@/apps/overview-logic.js", () => ({
+  getInvalidProjects: vi.fn(),
+}));
 
 vi.unmock("svelte");
 
@@ -18,9 +22,6 @@ async function waitForIdle(target: HTMLElement) {
   }
   throw new Error("Timed out waiting for idle state");
 }
-vi.mock("../src/apps/overview-logic.js", () => ({
-  getInvalidProjects: vi.fn(),
-}));
 
 describe("ProjectOverview.svelte", () => {
   let instance: any;

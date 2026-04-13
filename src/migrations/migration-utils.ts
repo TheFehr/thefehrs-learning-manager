@@ -1,5 +1,6 @@
-import { MODULE_ID } from "../global.js";
-import { Logger } from "../core/logger.js";
+import { MODULE_ID } from "@/global.js";
+import { Logger } from "@/core/logger.js";
+import { FoundryUtils } from "@/core/foundry-utils.js";
 
 interface Actor5e {
   name: string;
@@ -26,7 +27,7 @@ interface Item5e {
 function generateProgressHtml(progress: number, target: number, tutelageName: string): string {
   const p = Number.isFinite(progress) ? Math.max(0, progress) : 0;
   const t = Number.isFinite(target) ? Math.max(0, target) : 0;
-  const escapedTutelageName = (foundry.utils as any).escapeHTML(tutelageName);
+  const escapedTutelageName = FoundryUtils.escapeHTML(tutelageName);
   const percentage = t > 0 ? Math.min(100, Math.max(0, (p / t) * 100)) : 0;
   return `<!-- learning-manager:progress-start -->
 <div class="learning-manager-progress-container" style="margin: 0.5rem 0 1rem 0; padding: 0.5rem; border: 1px solid var(--t5e-faint-color); border-radius: 4px; background: var(--t5e-background); font-family: var(--t5e-font-family);">
@@ -90,7 +91,7 @@ async function injectActivities(item: Item5e, target: number) {
   const timeUnits = (game.settings.get(MODULE_ID, "timeUnits") as unknown as any[]) || [];
   const activities: any[] = timeUnits.map((tu) => ({
     ...createBaseActivityTemplate(),
-    _id: (foundry.utils as any).randomID(),
+    _id: FoundryUtils.randomID(),
     img: "icons/svg/book.svg",
     sort: 0,
     description: { chatFlavor: `Training for ${tu.name}` },
@@ -100,7 +101,7 @@ async function injectActivities(item: Item5e, target: number) {
 
   activities.push({
     ...createBaseActivityTemplate(),
-    _id: (foundry.utils as any).randomID(),
+    _id: FoundryUtils.randomID(),
     img: "icons/svg/coins.svg",
     sort: 100,
     description: { chatFlavor: "Spending all available training time" },
@@ -149,7 +150,7 @@ export async function createProjectItemFromTemplate(
   try {
     rewardDoc = await fromUuid(rewardUuid as any);
   } catch (e) {
-    Logger.warn(`fromUuid failed for ${rewardUuid}:`, e);
+    Logger.warn(`fromUuid failed for ${rewardUuid}:`, true, e);
   }
 
   let itemData: any;
@@ -225,7 +226,12 @@ export async function createProjectItemFromTemplate(
   };
 
   const progressHtml = !projectData.isCompleted
-    ? generateProgressHtml(projectData.progress || 0, projectDataWithTarget.target, "None")
+    ? generateProgressHtml(
+        projectData.progress || 0,
+        projectDataWithTarget.target,
+        // Legacy/migrated projects may lack tutelage info so "None" is intentionally used as a placeholder
+        "None",
+      )
     : "";
 
   const updateData = {

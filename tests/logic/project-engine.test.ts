@@ -4,6 +4,7 @@ import { Settings } from "../../src/core/settings";
 import { TabLogic } from "../../src/logic/tab-logic";
 import { Socket } from "../../src/core/socket";
 import { ActorProxy } from "../../src/logic/actor-proxy";
+import { TutelageResolverService } from "../../src/logic/tutelage-resolver";
 import { MODULE_ID } from "../../src/global";
 
 vi.mock("../../src/logic/tab-logic", () => ({
@@ -18,6 +19,18 @@ vi.mock("../../src/logic/tab-logic", () => ({
   },
 }));
 
+vi.mock("../../src/logic/tutelage-resolver", () => ({
+  TutelageResolverService: {
+    getAvailableInstructors: vi.fn().mockResolvedValue([]),
+    getAvailableBooks: vi.fn().mockReturnValue([]),
+    resolveTutelage: vi.fn().mockReturnValue({
+      modifier: 0,
+      costs: {},
+      instructorName: "None",
+    }),
+  },
+}));
+
 describe("ProjectEngine", () => {
   const timeUnits = [
     { id: "hour", name: "Hour", short: "h", isBulk: false, ratio: 1 },
@@ -29,8 +42,8 @@ describe("ProjectEngine", () => {
       id: "tier1",
       name: "Tier 1",
       modifier: 2,
-      costs: { hour: 1, day: 10 },
-      progress: { hour: 1, day: 10 },
+      costs: { gp: 100 },
+      progress: { gp: 10 },
     },
   ];
 
@@ -39,8 +52,10 @@ describe("ProjectEngine", () => {
     (key: string) => {
       if (key in overrides) return overrides[key];
       if (key === "timeUnits") return timeUnits;
-      if (key === "rules") return { method: "direct" } as any;
       if (key === "guidanceTiers") return guidanceTiers;
+      if (key === "rules") return { method: "direct" } as any;
+      if (key === "teacherCompendiums") return ["world.teachers"];
+      if (key === "bookCompendiums") return ["world.books"];
       return null;
     };
 
@@ -68,8 +83,10 @@ describe("ProjectEngine", () => {
     // Default mocks that can be overridden in specific tests
     vi.spyOn(Settings, "get").mockImplementation((key) => {
       if (key === "timeUnits") return timeUnits;
-      if (key === "rules") return { method: "direct" } as any;
       if (key === "guidanceTiers") return guidanceTiers;
+      if (key === "rules") return { method: "direct" } as any;
+      if (key === "teacherCompendiums") return ["world.teachers"];
+      if (key === "bookCompendiums") return ["world.books"];
       return null;
     });
 
@@ -77,8 +94,10 @@ describe("ProjectEngine", () => {
       settings: {
         get: vi.fn().mockImplementation((_scope, key) => {
           if (key === "timeUnits") return timeUnits;
-          if (key === "rules") return { method: "direct" };
           if (key === "guidanceTiers") return guidanceTiers;
+          if (key === "rules") return { method: "direct" };
+          if (key === "teacherCompendiums") return ["world.teachers"];
+          if (key === "bookCompendiums") return ["world.books"];
           return null;
         }),
       },
@@ -91,7 +110,7 @@ describe("ProjectEngine", () => {
       const actor = new Actor() as any;
       const createdItem = new Item() as any;
       createdItem.getFlag.mockImplementation((scope: string, key: string) => {
-        if (key === "projectData") return { target: 10, requirements: [], tutelageId: "tier1" };
+        if (key === "projectData") return { target: 10, requirements: [], tutelageId: "" };
         return null;
       });
       actor.createEmbeddedDocuments = vi.fn().mockResolvedValue([createdItem]);
@@ -173,8 +192,9 @@ describe("ProjectEngine", () => {
 
       vi.mocked(Settings.get).mockImplementation((key) => {
         if (key === "timeUnits") return timeUnits;
-        if (key === "guidanceTiers") return guidanceTiers;
         if (key === "rules") return { method: "direct" } as any;
+        if (key === "teacherCompendiums") return ["world.teachers"];
+        if (key === "bookCompendiums") return ["world.books"];
         return null;
       });
 
@@ -190,7 +210,7 @@ describe("ProjectEngine", () => {
     it("should skip injection if target is 0", async () => {
       const item = new Item() as any;
       item.getFlag.mockImplementation((scope: string, key: string) => {
-        if (key === "projectData") return { target: 0, tutelageId: "tier1" };
+        if (key === "projectData") return { target: 0, tutelageId: "" };
         return null;
       });
 
@@ -211,7 +231,7 @@ describe("ProjectEngine", () => {
         target: 10,
         progress: 10,
         isCompleted: false,
-        tutelageId: "tier1",
+        tutelageId: "",
       };
 
       const item = new Item() as any;
@@ -264,7 +284,7 @@ describe("ProjectEngine", () => {
         target: 10,
         progress: 10,
         isCompleted: false,
-        tutelageId: "tier1",
+        tutelageId: "",
       };
 
       const item = new Item() as any;
@@ -319,7 +339,7 @@ describe("ProjectEngine", () => {
         stashedType: "weapon", // Original was weapon, current is feat
         stashedName: "Weapon",
         stashedSystem: { original: true },
-        tutelageId: "tier1",
+        tutelageId: "",
       };
 
       const item = new Item() as any;
@@ -359,7 +379,7 @@ describe("ProjectEngine", () => {
       const projectData = {
         progress: 9,
         target: 10,
-        tutelageId: "tier1",
+        tutelageId: "",
         isCompleted: false,
         stashedEffects: [],
         stashedActivities: {},
@@ -390,7 +410,8 @@ describe("ProjectEngine", () => {
 
       vi.mocked(Settings.get).mockImplementation((key) => {
         if (key === "timeUnits") return timeUnits;
-        if (key === "guidanceTiers") return guidanceTiers;
+        if (key === "teacherCompendiums") return ["world.teachers"];
+        if (key === "bookCompendiums") return ["world.books"];
         if (key === "rules") return { method: "direct" } as any;
         return null;
       });
@@ -531,7 +552,7 @@ describe("ProjectEngine", () => {
       const projectData = {
         target: 10,
         progress: 0,
-        tutelageId: "tier1",
+        tutelageId: "",
       };
 
       const item = new Item() as any;
@@ -595,7 +616,8 @@ describe("ProjectEngine", () => {
       vi.mocked(TabLogic.computeProgress).mockResolvedValueOnce({ progressGained: 1 });
       vi.mocked(Settings.get).mockImplementation((key) => {
         if (key === "timeUnits") return timeUnits;
-        if (key === "guidanceTiers") return guidanceTiers;
+        if (key === "teacherCompendiums") return ["world.teachers"];
+        if (key === "bookCompendiums") return ["world.books"];
         if (key === "rules") return { method: "direct" } as any;
         return null;
       });
@@ -728,7 +750,8 @@ describe("ProjectEngine", () => {
     it("should return activities for positive target", () => {
       vi.mocked(Settings.get).mockImplementation((key) => {
         if (key === "timeUnits") return timeUnits;
-        if (key === "guidanceTiers") return guidanceTiers;
+        if (key === "teacherCompendiums") return ["world.teachers"];
+        if (key === "bookCompendiums") return ["world.books"];
         if (key === "rules") return { method: "direct" } as any;
         return null;
       });

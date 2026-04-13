@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import PartyTab from "../../../src/apps/tabs/PartyTab.svelte";
+import PartyTab from "@/apps/tabs/PartyTab.svelte";
 import { mount, unmount, tick } from "svelte";
 
 vi.unmock("svelte");

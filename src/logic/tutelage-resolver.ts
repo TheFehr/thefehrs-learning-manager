@@ -1,7 +1,8 @@
-import { Settings } from "../core/settings.js";
-import { MODULE_ID } from "../global.js";
-import { Logger } from "../core/logger.js";
-import type { TeacherOffering, LearningBookBonus, Actor5e, ProjectItem } from "../types.js";
+import { Settings } from "@/core/settings.js";
+import { MODULE_ID } from "@/global.js";
+import { Logger } from "@/core/logger.js";
+import { FoundryUtils } from "@/core/foundry-utils.js";
+import type { TeacherOffering, LearningBookBonus, Actor5e, ProjectItem } from "@/types.js";
 
 export interface InstructorInstance {
   actorUuid: string;
@@ -94,7 +95,7 @@ export class TutelageResolverService {
         Logger.debug(`Scanning compendium ${id}, found ${index.size || index.length} entries.`);
 
         for (const entry of index) {
-          const offerings = (foundry.utils.getProperty(entry, flagPath) ||
+          const offerings = (FoundryUtils.getProperty(entry, flagPath) ||
             (entry as any)[flagPath]) as TeacherOffering[];
           if (offerings && Array.isArray(offerings)) {
             Logger.debug(

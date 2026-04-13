@@ -1,5 +1,5 @@
-import type { TimeBank, LearningActor, LearningProject, Actor5e } from "../types.js";
-import { DocumentUtils } from "../core/document-utils.js";
+import type { TimeBank, LearningActor, Actor5e } from "@/types.js";
+import { DocumentUtils } from "@/core/document-utils.js";
 
 export class ActorProxy {
   private actor: Actor5e;
@@ -28,10 +28,6 @@ export class ActorProxy {
     return this.actor.uuid;
   }
 
-  get projects(): LearningProject[] {
-    return this.actor.getFlag("thefehrs-learning-manager", "projects") || [];
-  }
-
   getMappedProjects() {
     return this.actor.items
       .filter((i) => i.getFlag("thefehrs-learning-manager", "isLearningProject"))
@@ -51,20 +47,6 @@ export class ActorProxy {
       });
   }
 
-  // When options.render === false, we use DocumentUtils.setFlagsSilently to bypass
-  // Foundry's normal document rendering cycle. This is useful for batch updates
-  // or to avoid unnecessary UI flicker. The method still returns the actor.
-  async setProjects(
-    projects: LearningProject[],
-    options: { render?: boolean } = {},
-  ): Promise<Actor> {
-    if (options.render === false) {
-      await DocumentUtils.setFlagsSilently(this.actor, { projects });
-      return this.actor as any;
-    }
-    return await this.actor.setFlag("thefehrs-learning-manager", "projects", projects);
-  }
-
   get bank(): TimeBank {
     return this.actor.getFlag("thefehrs-learning-manager", "bank") || { total: 0 };
   }
@@ -74,7 +56,10 @@ export class ActorProxy {
   // or to avoid unnecessary UI flicker. The method still returns the actor.
   async setBank(bank: TimeBank, options: { render?: boolean } = {}): Promise<Actor> {
     if (options.render === false) {
-      await DocumentUtils.setFlagsSilently(this.actor, { bank });
+      const success = await DocumentUtils.setFlagsSilently(this.actor, { bank });
+      if (!success) {
+        throw new Error("Downtime Engine | Failed to set bank silently");
+      }
       return this.actor as any;
     }
     return await this.actor.setFlag("thefehrs-learning-manager", "bank", bank);
