@@ -57,6 +57,11 @@ describe("ActorTutelageConfig.svelte", () => {
     expect(nameInput).not.toBeNull();
     expect(nameInput.value).toBe("Masterclass");
     expect(target.querySelector('[data-testid="costs-per-session"]')).not.toBeNull();
+
+    // Verify tooltip
+    const costInput = target.querySelector('input[type="number"][id^="cost-"]') as HTMLInputElement;
+    expect(costInput).not.toBeNull();
+    expect(costInput.getAttribute("data-tooltip")).toBe("1gp");
   });
 
   it("should not contain the removed project UUID section", async () => {

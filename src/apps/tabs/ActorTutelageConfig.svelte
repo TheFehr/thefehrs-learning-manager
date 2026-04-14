@@ -1,5 +1,6 @@
 <script lang="ts">
   import { Settings } from "@/core/settings.js";
+  import { TabLogic } from "@/logic/tab-logic.js";
   import type { Actor5e, TeacherOffering } from "@/types.js";
   import { untrack } from "svelte";
   import { ActorConfigLogic } from "@/logic/actor-config-logic.js";
@@ -135,7 +136,7 @@
               <div class="cost-row">
                 <label for="cost-{i}-{unit.id}">{unit.name}</label>
                 <div class="currency-input">
-                  <input id="cost-{i}-{unit.id}" type="number" bind:value={offering.costs[unit.id]} min="0" placeholder="0" />
+                  <input id="cost-{i}-{unit.id}" type="number" bind:value={offering.costs[unit.id]} min="0" placeholder="0" data-tooltip={TabLogic.formatCurrency(Number(offering.costs[unit.id]) || 0)} />
                   <span class="unit">CP</span>
                 </div>
               </div>

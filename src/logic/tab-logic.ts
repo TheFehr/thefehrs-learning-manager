@@ -259,7 +259,6 @@ export class TabLogic {
     if (!rules.checkFormula) return null;
 
     try {
-      const dc = Number(rules.checkDC) || DEFAULT_DC;
       const rollData = {
         ...actor.getRollData(),
         tutelage: tutelageMod,

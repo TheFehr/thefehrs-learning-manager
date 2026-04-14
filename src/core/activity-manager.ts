@@ -80,47 +80,43 @@ export class ActivityManager {
 
     const activitiesData = this.getActivitiesData(target);
 
-    try {
-      const activityUpdates: Record<string, any> = {};
+    const activityUpdates: Record<string, any> = {};
 
-      // 1. Identify and mark for removal any existing learning activities
-      const existingActivities = item.system.activities as any;
-      if (existingActivities) {
-        // system.activities can be a Map, Collection, or Array depending on document state/version
-        const activityList =
-          typeof existingActivities.values === "function"
-            ? Array.from(existingActivities.values())
-            : Array.isArray(existingActivities)
-              ? existingActivities
-              : Object.values(existingActivities);
+    // 1. Identify and mark for removal any existing learning activities
+    const existingActivities = item.system.activities as any;
+    if (existingActivities) {
+      // system.activities can be a Map, Collection, or Array depending on document state/version
+      const activityList =
+        typeof existingActivities.values === "function"
+          ? Array.from(existingActivities.values())
+          : Array.isArray(existingActivities)
+            ? existingActivities
+            : Object.values(existingActivities);
 
-        for (const activity of activityList as any[]) {
-          if (activity?.id && activity.flags?.["thefehrs-learning-manager"]?.isLearningActivity) {
-            activityUpdates[`-=${activity.id}`] = null;
-          }
+      for (const activity of activityList as any[]) {
+        if (activity?.id && activity.flags?.["thefehrs-learning-manager"]?.isLearningActivity) {
+          activityUpdates[`-=${activity.id}`] = null;
         }
       }
-
-      if (activitiesData.length === 0) {
-        Logger.debug(
-          `Clearing activities for "${(item as unknown as Item).name}" (target is ${target}).`,
-        );
-      } else {
-        // 2. Add the new activities (IDs already generated in getActivitiesData)
-        for (const activity of activitiesData) {
-          activityUpdates[activity._id] = activity;
-        }
-      }
-
-      if (Object.keys(activityUpdates).length > 0) {
-        await item.update({ "system.activities": activityUpdates } as any);
-        Logger.debug(`Successfully synced activities for "${(item as unknown as Item).name}".`);
-        return true;
-      }
-      return false;
-    } catch (err) {
-      throw err;
     }
+
+    if (activitiesData.length === 0) {
+      Logger.debug(
+        `Clearing activities for "${(item as unknown as Item).name}" (target is ${target}).`,
+      );
+    } else {
+      // 2. Add the new activities (IDs already generated in getActivitiesData)
+      for (const activity of activitiesData) {
+        activityUpdates[activity._id] = activity;
+      }
+    }
+
+    if (Object.keys(activityUpdates).length > 0) {
+      await item.update({ "system.activities": activityUpdates } as any);
+      Logger.debug(`Successfully synced activities for "${(item as unknown as Item).name}".`);
+      return true;
+    }
+    return false;
   }
 
   /**

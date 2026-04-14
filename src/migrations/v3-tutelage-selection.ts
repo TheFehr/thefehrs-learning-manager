@@ -39,7 +39,7 @@ export async function migrateToV3() {
   let rawTiers: GuidanceTier[];
   try {
     rawTiers = game.settings.get(MODULE_ID, "guidanceTiers") as unknown as GuidanceTier[];
-  } catch (err) {
+  } catch {
     Logger.debug("Legacy guidanceTiers setting not found, skipping migration.");
     await game.settings.set(MODULE_ID, "migrationVersion", "3.0.0");
     return;

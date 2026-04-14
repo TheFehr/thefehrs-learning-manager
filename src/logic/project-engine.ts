@@ -235,8 +235,6 @@ export class ProjectEngine {
       return false;
     }
 
-    const progress = projectDataFlags.progress || 0;
-
     const flags = learningActivity.flags["thefehrs-learning-manager"];
     const timeUnitId = flags?.timeUnitId;
     const timeUnits = Settings.get("timeUnits");
@@ -443,18 +441,6 @@ export class ProjectEngine {
       }
 
       isSeparate = choice === "separate";
-    }
-
-    // Confirmation before spending currency
-    if (costCp > 0) {
-      const formattedCost = TabLogic.formatCurrency(costCp);
-      const confirmed = await foundry.applications.api.DialogV2.confirm({
-        window: { title: "Confirm Tutelage Cost" },
-        content: `<p>This training session requires <b>${formattedCost}</b> in tutelage fees. Spend currency and proceed?</p>`,
-        rejectClose: false,
-        modal: true,
-      });
-      if (!confirmed) return false;
     }
 
     // Transactions - Deduct currency first
