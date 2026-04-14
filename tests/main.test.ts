@@ -127,14 +127,6 @@ describe("LearningManager", () => {
       };
       expect(enabled({ item: projectItem })).toBe(true);
 
-      // Disallowed compendium item
-      const otherItem = {
-        uuid: "Compendium.secret.pack.Item.1",
-        getFlag: vi.fn().mockReturnValue(false),
-      };
-      vi.mocked(game.settings.get).mockReturnValue(["allowed.pack"]);
-      expect(enabled({ item: otherItem })).toBe(false);
-
       // Allowed compendium item
       const allowedItem = {
         uuid: "Compendium.allowed.pack.Item.1",

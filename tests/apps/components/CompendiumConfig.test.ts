@@ -46,7 +46,7 @@ describe("CompendiumConfig.svelte", () => {
     });
     await tick();
 
-    expect(target.innerHTML).toContain('No "fitting" compendiums found.');
+    expect(target.innerHTML).toContain("No compendiums available.");
   });
 
   it("should toggle a compendium", async () => {
