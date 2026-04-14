@@ -40,6 +40,7 @@ describe("ItemConfigLogic", () => {
 
       const result = await ItemConfigLogic.saveConfig(
         mockItem,
+        true,
         {
           target: 10,
           followUpProjectId: "uuid123",
@@ -55,6 +56,7 @@ describe("ItemConfigLogic", () => {
       expect(result).toBe(true);
       expect(mockItem.update).toHaveBeenCalledWith(
         {
+          "flags.thefehrs-learning-manager.learningModeEnabled": true,
           "flags.thefehrs-learning-manager.projectData": {
             target: 10,
             followUpProjectId: "uuid123",
@@ -79,6 +81,7 @@ describe("ItemConfigLogic", () => {
 
       const result = await ItemConfigLogic.saveConfig(
         mockItem,
+        true,
         { target: 10, followUpProjectId: "", requirements: [], categories: [] },
         { modifier: 0, categories: [] },
       );

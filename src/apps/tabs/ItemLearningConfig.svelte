@@ -5,6 +5,7 @@
   import { ItemConfigLogic } from "@/logic/item-config-logic.js";
   import { LearningFeatType } from "@/logic/project-item.js";
   import CategorySelector from "@/apps/components/CategorySelector.svelte";
+  import AutoSaveBanner from "@/apps/components/AutoSaveBanner.svelte";
 
   let { item } = $props<{ item: Item5e }>();
 
@@ -14,6 +15,7 @@
   let categories = $state<string[]>([]);
   let bookModifier = $state(0);
   let bookCategories = $state<string[]>([]);
+  let learningModeEnabled = $state(false);
   let isSaving = $state(false);
   let saveError = $state<string | null>(null);
   let initialized = $state(false);
@@ -62,8 +64,12 @@
     const bookData = item.getFlag("thefehrs-learning-manager", "learningBookBonus");
     bookModifier = bookData?.modifier ?? 0;
     bookCategories = bookData?.categories ? [...bookData.categories] : [];
+
+    learningModeEnabled = (item.getFlag("thefehrs-learning-manager", "learningModeEnabled") as boolean) 
+      ?? (isActuallyProject || !!bookData || !!data);
     
     initialSnapshot = JSON.stringify({ 
+      learningModeEnabled,
       target: targetValue, 
       followUpProjectId, 
       requirements, 
@@ -82,10 +88,12 @@
     const cats = categories;
     const bMod = bookModifier;
     const bCats = bookCategories;
+    const enabled = learningModeEnabled;
     
     if (!untrack(() => initialized)) return;
 
     const currentSnapshot = JSON.stringify({ 
+      learningModeEnabled: enabled,
       target, 
       followUpProjectId: followUpId, 
       requirements: reqs,
@@ -97,6 +105,7 @@
 
     const timeout = setTimeout(() => {
       saveConfig(
+        enabled,
         showProjectConfig ? {
           target,
           followUpProjectId: followUpId,
@@ -114,6 +123,7 @@
   });
 
   async function saveConfig(
+    enabled: boolean,
     project?: { target: number; followUpProjectId: string; requirements: ProjectRequirement[]; categories: string[] },
     book?: { modifier: number; categories: string[] }
   ) {
@@ -121,12 +131,13 @@
     isSaving = true;
     saveError = null;
     try {
-      const ok = await ItemConfigLogic.saveConfig(item, project, book);
+      const ok = await ItemConfigLogic.saveConfig(item, enabled, project, book);
       if (token === saveCounter) {
         if (ok === false) {
           saveError = "Failed to save configuration. Please try again.";
         } else {
           initialSnapshot = JSON.stringify({ 
+            learningModeEnabled: enabled,
             target: project?.target ?? 0, 
             followUpProjectId: project?.followUpProjectId ?? "", 
             requirements: project?.requirements ?? [], 
@@ -180,11 +191,20 @@
 </script>
 
 <div class="thefehrs-item-target-config">
-  <header>
-    <h3>Downtime Engine: Learning Configuration</h3>
-    <p class="notes">Configure how this item is learned by players.</p>
-  </header>
+  <AutoSaveBanner {isSaving} {saveError} />
 
+  <div class="learning-mode-toggle">
+    <div class="form-group" style="margin: 0; padding: 0; background: none; border: none; flex-direction: row; flex-wrap: nowrap; align-items: center; justify-content: space-between;">
+      <label for="learning-mode-enabled" style="font-weight: bold; cursor: pointer; margin-bottom: 0; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Enable Learning Configuration</label>
+      <div class="form-fields" style="display: flex; justify-content: flex-end; flex: 0 0 30px;">
+        <input id="learning-mode-enabled" type="checkbox" bind:checked={learningModeEnabled} style="width: auto; margin: 0; cursor: pointer;" />
+      </div>
+    </div>
+    <p class="notes">Configure this item as a learnable project or a reference book.</p>
+  </div>
+
+  {#if learningModeEnabled}
+  <hr style="margin: 0;" />
   {#if showProjectConfig}
   <section class="project-config-section">
     <h4>Project Configuration</h4>
@@ -290,16 +310,7 @@
       </div>
     </section>
   {/if}
-
-  <footer class="auto-save-footer">
-    {#if isSaving}
-      <span class="saving-indicator"><i class="fas fa-spinner fa-spin"></i> Saving...</span>
-    {:else if saveError}
-      <span class="error-indicator"><i class="fas fa-exclamation-triangle"></i> Save Failed</span>
-    {:else}
-      <span class="saved-indicator"><i class="fas fa-check"></i> All changes saved</span>
-    {/if}
-  </footer>
+  {/if}
 </div>
 
 <style lang="scss">
@@ -308,18 +319,14 @@
     display: flex;
     flex-direction: column;
     gap: 1rem;
-    height: 100%;
-    overflow-y: auto;
 
-    h3, h4, h5 {
+    h4 {
       border-bottom: 1px solid var(--t5e-faint-color);
       padding-bottom: 0.5rem;
       margin-top: 0;
     }
 
     h5 {
-      border-bottom: none;
-      padding-bottom: 0;
       margin-top: 0.5rem;
       font-size: 0.95rem;
     }
@@ -328,6 +335,15 @@
       font-size: 0.85rem;
       color: var(--t5e-secondary-color);
       margin-bottom: 0.5rem;
+    }
+
+    .learning-mode-toggle {
+      .notes {
+        margin-top: 0.25rem;
+        margin-bottom: 0;
+        font-size: 0.85rem;
+        color: var(--t5e-secondary-color);
+      }
     }
 
     .form-group {
@@ -365,27 +381,6 @@
       display: flex;
       flex-direction: column;
       gap: 0.75rem;
-    }
-
-    .auto-save-footer {
-      margin-top: auto;
-      padding-top: 1rem;
-      display: flex;
-      justify-content: flex-end;
-      font-size: 0.8rem;
-      opacity: 0.7;
-
-      .saving-indicator {
-        color: var(--t5e-primary-accent-color);
-      }
-
-      .saved-indicator {
-        color: var(--t5e-success-color);
-      }
-
-      .error-indicator {
-        color: var(--t5e-danger-color);
-      }
     }
 
     button.danger {

@@ -11,6 +11,7 @@ export class ItemConfigLogic {
    */
   static async saveConfig(
     item: Item5e,
+    enabled: boolean,
     project?: {
       target: number;
       followUpProjectId: string;
@@ -22,7 +23,9 @@ export class ItemConfigLogic {
       categories: string[];
     },
   ) {
-    const flags: Record<string, unknown> = {};
+    const flags: Record<string, unknown> = {
+      learningModeEnabled: enabled,
+    };
 
     if (project) {
       flags.projectData = project;

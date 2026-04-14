@@ -164,6 +164,7 @@ declare module "fvtt-types/configuration" {
       "thefehrs-learning-manager": {
         bank?: TimeBank;
         teacherOfferings?: TeacherOffering[];
+        learningModeEnabled?: boolean;
       };
     };
     Item: {
@@ -175,6 +176,7 @@ declare module "fvtt-types/configuration" {
         stashedEffects?: unknown[];
         stashedActivities?: object;
         learningBookBonus?: LearningBookBonus;
+        learningModeEnabled?: boolean;
       };
       "tidy5e-sheet": {
         section?: string;

@@ -9,9 +9,10 @@ export class ActorConfigLogic {
   /**
    * Saves the teacher configuration to the actor's flags.
    */
-  static async saveConfig(actor: Actor5e, offerings: TeacherOffering[]) {
+  static async saveConfig(actor: Actor5e, offerings: TeacherOffering[], enabled: boolean) {
     return await DocumentUtils.setFlagsSilently(actor, {
       teacherOfferings: offerings,
+      learningModeEnabled: enabled,
     });
   }
 

@@ -4,10 +4,12 @@
   import { untrack } from "svelte";
   import { ActorConfigLogic } from "@/logic/actor-config-logic.js";
   import CategorySelector from "@/apps/components/CategorySelector.svelte";
+  import AutoSaveBanner from "@/apps/components/AutoSaveBanner.svelte";
 
   let { actor } = $props<{ actor: Actor5e }>();
 
   let offerings = $state<TeacherOffering[]>([]);
+  let learningModeEnabled = $state(false);
   let isSaving = $state(false);
   let saveError = $state<string | null>(null);
   let initialized = $state(false);
@@ -20,6 +22,7 @@
   $effect(() => {
     if (untrack(() => initialized)) return;
     const data = (actor.getFlag("thefehrs-learning-manager", "teacherOfferings") as TeacherOffering[]) || [];
+    learningModeEnabled = (actor.getFlag("thefehrs-learning-manager", "learningModeEnabled") as boolean) ?? data.length > 0;
     offerings = data.map(o => {
       const costs = o.costs || {};
       for (const unit of timeUnits) {
@@ -32,36 +35,37 @@
       };
     });
     
-    initialSnapshot = JSON.stringify(offerings);
+    initialSnapshot = JSON.stringify({ offerings, learningModeEnabled });
     initialized = true;
   });
 
   // Auto-save logic
   $effect(() => {
     const currentOfferings = offerings;
+    const currentEnabled = learningModeEnabled;
     if (!untrack(() => initialized)) return;
 
-    const currentSnapshot = JSON.stringify(currentOfferings);
+    const currentSnapshot = JSON.stringify({ offerings: currentOfferings, learningModeEnabled: currentEnabled });
     if (currentSnapshot === untrack(() => initialSnapshot)) return;
 
     const timeout = setTimeout(() => {
-      saveConfig(JSON.parse(JSON.stringify(currentOfferings)));
+      saveConfig(JSON.parse(JSON.stringify(currentOfferings)), currentEnabled);
     }, 500);
 
     return () => clearTimeout(timeout);
   });
 
-  async function saveConfig(data: TeacherOffering[]) {
+  async function saveConfig(data: TeacherOffering[], enabled: boolean) {
     const token = ++saveCounter;
     isSaving = true;
     saveError = null;
     try {
-      const ok = await ActorConfigLogic.saveConfig(actor, data);
+      const ok = await ActorConfigLogic.saveConfig(actor, data, enabled);
       if (token === saveCounter) {
         if (ok === false) {
           saveError = "Failed to save configuration. Please try again.";
         } else {
-          initialSnapshot = JSON.stringify(data);
+          initialSnapshot = JSON.stringify({ offerings: data, learningModeEnabled: enabled });
         }
       }
     } catch (err) {
@@ -95,11 +99,20 @@
 </script>
 
 <div class="thefehrs-actor-tutelage-config">
-  <header>
-    <h3>Downtime Engine: Tutelage Configuration</h3>
-    <p class="notes">Configure the lessons this instructor offers.</p>
-  </header>
+  <AutoSaveBanner {isSaving} {saveError} />
 
+  <div class="learning-mode-toggle">
+    <div class="form-group" style="margin: 0; padding: 0; background: none; border: none; flex-direction: row; flex-wrap: nowrap; align-items: center; justify-content: space-between;">
+      <label for="learning-mode-enabled" style="font-weight: bold; cursor: pointer; margin-bottom: 0; flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">Enable Instructor Configuration</label>
+      <div class="form-fields" style="display: flex; justify-content: flex-end; flex: 0 0 30px;">
+        <input id="learning-mode-enabled" type="checkbox" bind:checked={learningModeEnabled} style="width: auto; margin: 0; cursor: pointer;" />
+      </div>
+    </div>
+    <p class="notes">Allow this actor to offer lessons and training to players.</p>
+  </div>
+
+  {#if learningModeEnabled}
+  <hr style="margin: 0;" />
   <div class="offerings-list">
     {#each offerings as offering, i}
       <section class="offering-card">
@@ -142,16 +155,7 @@
   <button type="button" class="tidy-button" onclick={(e) => { e.stopPropagation(); addOffering(); }} style="margin-top: 1rem;">
     <i class="fas fa-plus"></i> Add New Lesson
   </button>
-
-  <footer class="auto-save-footer">
-    {#if isSaving}
-      <span class="saving-indicator"><i class="fas fa-spinner fa-spin"></i> Saving...</span>
-    {:else if saveError}
-      <span class="error-indicator"><i class="fas fa-exclamation-triangle"></i> Save Failed</span>
-    {:else}
-      <span class="saved-indicator"><i class="fas fa-check"></i> All changes saved</span>
-    {/if}
-  </footer>
+  {/if}
 </div>
 
 <style lang="scss">
@@ -160,26 +164,25 @@
     display: flex;
     flex-direction: column;
     gap: 1rem;
-    height: 100%;
-    overflow-y: auto;
-
-    h3, h5 {
-      border-bottom: 1px solid var(--t5e-faint-color);
-      padding-bottom: 0.5rem;
-      margin-top: 0;
-    }
 
     h5 {
-        border-bottom: none;
-        padding-bottom: 0;
-        margin-top: 0.5rem;
-        font-size: 0.95rem;
+      margin-top: 0.5rem;
+      font-size: 0.95rem;
     }
 
     .notes {
       font-size: 0.85rem;
       color: var(--t5e-secondary-color);
       margin-bottom: 0.5rem;
+    }
+
+    .learning-mode-toggle {
+      .notes {
+        margin-top: 0.25rem;
+        margin-bottom: 0;
+        font-size: 0.85rem;
+        color: var(--t5e-secondary-color);
+      }
     }
 
     .offerings-list {
@@ -243,19 +246,6 @@
     .categories-section {
         border-top: 1px solid var(--t5e-faint-color);
         padding-top: 0.5rem;
-    }
-
-    .auto-save-footer {
-      margin-top: auto;
-      padding-top: 1rem;
-      display: flex;
-      justify-content: flex-end;
-      font-size: 0.8rem;
-      opacity: 0.7;
-
-      .saving-indicator { color: var(--t5e-primary-accent-color); }
-      .saved-indicator { color: var(--t5e-success-color); }
-      .error-indicator { color: var(--t5e-danger-color); }
     }
 
     button.danger {

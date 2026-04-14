@@ -22,11 +22,12 @@ describe("ActorConfigLogic", () => {
     } as any;
     const offerings = [{ name: "Lesson", modifier: 5, costs: {}, categories: ["test"] }];
 
-    await ActorConfigLogic.saveConfig(actor, offerings);
+    await ActorConfigLogic.saveConfig(actor, offerings, true);
 
     expect(actor.update).toHaveBeenCalledWith(
       {
         "flags.thefehrs-learning-manager.teacherOfferings": offerings,
+        "flags.thefehrs-learning-manager.learningModeEnabled": true,
       },
       { render: false },
     );
