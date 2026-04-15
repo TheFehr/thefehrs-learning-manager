@@ -93,6 +93,7 @@ describe("v3-tutelage-selection migration", () => {
     const pack = {
       metadata: { id: "pack.id", collection: "pack" },
       collection: "pack",
+      getIndex: vi.fn().mockResolvedValue([]),
     };
     vi.mocked(game.packs.find).mockReturnValue(pack);
 
@@ -134,6 +135,7 @@ describe("v3-tutelage-selection migration", () => {
     const pack = {
       metadata: { id: "pack.id", collection: "pack" },
       collection: "pack",
+      getIndex: vi.fn().mockResolvedValue([]),
     };
     vi.mocked(game.packs.find).mockReturnValue(pack);
 
@@ -172,6 +174,7 @@ describe("v3-tutelage-selection migration", () => {
     const pack = {
       metadata: { id: "pack.id", collection: "pack" },
       collection: "pack",
+      getIndex: vi.fn().mockResolvedValue([]),
     };
     vi.mocked(game.packs.find).mockReturnValue(pack);
 

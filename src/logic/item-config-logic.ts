@@ -28,15 +28,20 @@ export class ItemConfigLogic {
       [`flags.${MODULE_ID}.learningModeEnabled`]: enabled,
     };
 
-    if (project) {
-      updateData[`flags.${MODULE_ID}.projectData`] = project;
+    if (enabled) {
+      if (project) {
+        updateData[`flags.${MODULE_ID}.projectData`] = project;
+      } else {
+        updateData[`flags.${MODULE_ID}.-=projectData`] = null;
+      }
+
+      if (book) {
+        updateData[`flags.${MODULE_ID}.learningBookBonus`] = book;
+      } else {
+        updateData[`flags.${MODULE_ID}.-=learningBookBonus`] = null;
+      }
     } else {
       updateData[`flags.${MODULE_ID}.-=projectData`] = null;
-    }
-
-    if (book) {
-      updateData[`flags.${MODULE_ID}.learningBookBonus`] = book;
-    } else {
       updateData[`flags.${MODULE_ID}.-=learningBookBonus`] = null;
     }
 

@@ -95,8 +95,11 @@ export async function ensureCategoryExists(category: string): Promise<void> {
   });
 
   if (confirm) {
-    await Settings.set("categories", [...categories, category]);
-    Logger.info(`Added "${category}" to the global categories list.`, true);
+    const latestCategories = Settings.get("categories") || [];
+    if (!latestCategories.includes(category)) {
+      await Settings.set("categories", [...latestCategories, category]);
+      Logger.info(`Added "${category}" to the global categories list.`, true);
+    }
   }
 }
 
@@ -175,6 +178,7 @@ export function validateSettings(data: unknown) {
     teacherCompendiums?: string[];
     bookCompendiums?: string[];
     allowedCompendiums?: string[];
+    categories?: string[];
   } = {};
 
   if (!isPlainObject(data)) {
@@ -282,6 +286,13 @@ export function validateSettings(data: unknown) {
   if (Array.isArray(data.allowedCompendiums)) {
     result.allowedCompendiums = data.allowedCompendiums.filter(
       (compendium: unknown): compendium is string => typeof compendium === "string",
+    );
+  }
+
+  // 6. Validate Categories
+  if (Array.isArray(data.categories)) {
+    result.categories = data.categories.filter(
+      (category: unknown): category is string => typeof category === "string",
     );
   }
 

@@ -494,6 +494,12 @@ export class ProjectEngine {
     await proxy.setBank({ total: bank.total - tu.ratio });
 
     if (completedNow) {
+      // Ensure latest instructor/remembered data is saved before completion
+      await this.updateItemWithProgress(
+        item as unknown as Item5e,
+        projectDataFlags,
+        instructorName,
+      );
       await this.completeProject(item as unknown as Item5e);
 
       if (excessProgress > 0 && projectDataFlags.followUpProjectId) {

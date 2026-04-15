@@ -33,6 +33,8 @@ export class ProjectLifecycle {
     }
 
     const stashedRequirements = rewardDoc.getFlag(Settings.ID, "projectData")?.requirements ?? [];
+    const stashedCategories = rewardDoc.getFlag(Settings.ID, "projectData")?.categories ?? [];
+    const stashedFollowUp = rewardDoc.getFlag(Settings.ID, "projectData")?.followUpProjectId ?? "";
 
     const tutelageName = "Self-Study";
 
@@ -44,6 +46,8 @@ export class ProjectLifecycle {
       isLearnedReward: false,
       isLearningProject: true,
       requirements: stashedRequirements,
+      categories: stashedCategories,
+      followUpProjectId: stashedFollowUp,
       stashedEffects,
       stashedActivities,
       stashedType,

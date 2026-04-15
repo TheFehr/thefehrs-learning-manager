@@ -75,6 +75,43 @@ describe("ActorProxy", () => {
     });
   });
 
+  it("projects getter should prefer progressPercentage from flags if present", () => {
+    const mockActor = {
+      items: [
+        {
+          id: "item-pref",
+          name: "Project Pref",
+          getFlag: vi.fn().mockImplementation((scope, key) => {
+            if (key === "isLearningProject") return true;
+            if (key === "projectData")
+              return {
+                progress: 10,
+                target: 100,
+                progressPercentage: 42,
+                lastInstructorName: "Tier 1",
+              };
+            return null;
+          }),
+        },
+      ],
+    } as any;
+
+    const proxy = new ActorProxy(mockActor);
+    const projects = proxy.projects;
+
+    expect(projects).toHaveLength(1);
+    expect(projects[0]).toEqual({
+      id: "item-pref",
+      name: "Project Pref",
+      progress: 10,
+      target: 100,
+      percentage: 10,
+      tutelageName: "Tier 1",
+      guidanceType: "Tier 1",
+      progressPercentage: 42,
+    });
+  });
+
   it("projects getter should use 'Self-Study' if lastInstructorName is missing", () => {
     const mockActor = {
       items: [

@@ -28,6 +28,7 @@ export type ProjectFlagData = {
   rememberedInstructorName?: string;
   progress?: number;
   target?: number;
+  progressPercentage?: number;
   categories?: string[];
   followUpProjectId?: string;
   requirements?: ProjectRequirement[];

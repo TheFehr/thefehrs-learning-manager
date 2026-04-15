@@ -145,6 +145,7 @@ export class PartyTabLogic {
         projectData.progress >= projectData.target &&
         !projectData.isCompleted
       ) {
+        await ProjectEngine.updateItemWithProgress(item as unknown as Item5e, projectData);
         await ProjectEngine.completeProject(item as unknown as Item5e);
       } else {
         await ProjectEngine.updateItemWithProgress(item as unknown as Item5e, projectData);

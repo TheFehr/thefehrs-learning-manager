@@ -150,6 +150,26 @@ export async function migrateToV3() {
         costs: tier.costs,
         categories: [], // Match all by default
       };
+
+      // Check if already exists
+      const instructorPackId = (instructorPack as any).metadata.id;
+      const index = await (instructorPack as any).getIndex({
+        fields: [`flags.${MODULE_ID}.legacyTierId`],
+      });
+      const existing = index.find(
+        (e: any) =>
+          (e.flags?.[MODULE_ID]?.legacyTierId || e[`flags.${MODULE_ID}.legacyTierId`]) === tier.id,
+      );
+
+      if (existing) {
+        tierToDocMap.set(tier.id, {
+          type: "instructor",
+          uuid: `Compendium.${instructorPackId}.${existing._id}`,
+          offeringName: offering.name,
+        });
+        continue;
+      }
+
       const actorData = {
         name: `${tier.name} (Legacy Instructor)`,
         type: "npc",
@@ -157,13 +177,14 @@ export async function migrateToV3() {
         flags: {
           [MODULE_ID]: {
             teacherOfferings: [offering],
+            legacyTierId: tier.id,
           },
         },
       };
       let created;
       try {
         const result = await (Actor as any).createDocuments([actorData], {
-          pack: (instructorPack as any).metadata.id,
+          pack: instructorPackId,
         });
         if (Array.isArray(result) && result.length > 0) {
           created = result[0];
@@ -185,6 +206,26 @@ export async function migrateToV3() {
         modifier: tier.modifier,
         categories: [], // Match all by default
       };
+
+      // Check if already exists
+      const bookPackId = (bookPack as any).metadata.id;
+      const index = await (bookPack as any).getIndex({
+        fields: [`flags.${MODULE_ID}.legacyTierId`],
+      });
+      const existing = index.find(
+        (e: any) =>
+          (e.flags?.[MODULE_ID]?.legacyTierId || e[`flags.${MODULE_ID}.legacyTierId`]) === tier.id,
+      );
+
+      if (existing) {
+        tierToDocMap.set(tier.id, {
+          type: "book",
+          uuid: `Compendium.${bookPackId}.${existing._id}`,
+          offeringName: "",
+        });
+        continue;
+      }
+
       const itemData = {
         name: `${tier.name} (Legacy Book)`,
         type: "loot",
@@ -192,13 +233,14 @@ export async function migrateToV3() {
         flags: {
           [MODULE_ID]: {
             learningBookBonus: bonus,
+            legacyTierId: tier.id,
           },
         },
       };
       let created;
       try {
         const result = await (Item as any).createDocuments([itemData], {
-          pack: (bookPack as any).metadata.id,
+          pack: bookPackId,
         });
         if (Array.isArray(result) && result.length > 0) {
           created = result[0];
@@ -250,11 +292,13 @@ export async function migrateToV3() {
           const bookDoc = await fromUuid(mapping.uuid as `Item.${string}`);
           if (bookDoc && bookDoc instanceof Item) {
             const bookBonus = bookDoc.getFlag(MODULE_ID, "learningBookBonus") as LearningBookBonus;
+            const detectedCats = detectCategories(project);
+
             const existingBook = (actor.items as any).find((i: any) => {
               const b = i.getFlag(MODULE_ID, "learningBookBonus") as LearningBookBonus;
               if (!b || b.modifier !== bookBonus.modifier) return false;
               const aCats = b.categories || [];
-              const bCats = bookBonus.categories || [];
+              const bCats = detectedCats || [];
               if (aCats.length !== bCats.length) return false;
               const sortedA = [...aCats].sort();
               const sortedB = [...bCats].sort();
@@ -266,7 +310,6 @@ export async function migrateToV3() {
               // Update the book to only work for this project's categories to match legacy behavior
               const bonus = (bookData.flags[MODULE_ID] as any)
                 .learningBookBonus as LearningBookBonus;
-              const detectedCats = detectCategories(project);
               bonus.categories = detectedCats;
 
               // Set sourceId so the resolver recognizes it if compendium filtering is on

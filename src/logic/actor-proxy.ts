@@ -49,6 +49,7 @@ export class ActorProxy {
           name: i.name,
           progress: projectData?.progress ?? 0,
           target: projectData?.target ?? 0,
+          progressPercentage: projectData?.progressPercentage,
           percentage:
             projectData && projectData.target && projectData.target > 0
               ? Math.min(100, Math.round(((projectData.progress ?? 0) / projectData.target) * 100))
