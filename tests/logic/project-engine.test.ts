@@ -23,7 +23,7 @@ vi.mock("../../src/logic/tutelage-resolver", () => ({
   TutelageResolverService: {
     getAvailableInstructors: vi.fn().mockResolvedValue([]),
     getAvailableBooks: vi.fn().mockReturnValue([]),
-    resolveTutelage: vi.fn().mockReturnValue({
+    resolveTutelage: vi.fn().mockResolvedValue({
       modifier: 0,
       costs: {},
       instructorName: "None",

@@ -257,7 +257,10 @@ class MockActor {
   id = "mock-id";
   name = "Mock Actor";
   flags: any = {};
-  system: any = {};
+  system: any = {
+    type: "character",
+    currency: { cp: 0, sp: 0, ep: 0, gp: 0, pp: 0 },
+  };
   items = new EmbeddedCollection();
 
   getFlag = vi.fn((scope: string, key: string) => {

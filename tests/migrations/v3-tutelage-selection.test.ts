@@ -18,6 +18,8 @@ describe("v3-tutelage-selection migration", () => {
       settings: {
         get: vi.fn(),
         set: vi.fn().mockResolvedValue(true),
+        settings: new Map(),
+        register: vi.fn(),
       },
       actors: { contents: [] },
       packs: packs,

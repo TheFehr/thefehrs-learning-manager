@@ -263,7 +263,7 @@ export class ProjectLifecycle {
       getUI().notifications?.warn(
         `Restored item "${createdItem.name}" but could not delete the original project item. You may have a duplicate.`,
       );
-      return false;
+      return true;
     }
     getUI().notifications?.info(`Learning Complete: ${createdItem.name} is now fully available!`);
     if (typeof (createdItem as Item5e).displayCard === "function") {

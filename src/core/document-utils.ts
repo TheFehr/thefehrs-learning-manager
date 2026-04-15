@@ -37,6 +37,36 @@ export class DocumentUtils {
   }
 
   /**
+   * Removes module-specific flags from a document without triggering a UI re-render.
+   *
+   * @param doc The document to update.
+   * @param keys The flag keys to remove.
+   * @returns A promise that resolves to `true` if the update succeeded, otherwise `false`.
+   */
+  static async unsetFlagsSilently(doc: any, keys: string[]): Promise<boolean> {
+    if (!doc || typeof doc.update !== "function") {
+      Logger.error("DocumentUtils.unsetFlagsSilently | Invalid document provided.", doc);
+      return false;
+    }
+
+    try {
+      const updateData: Record<string, unknown> = {};
+      for (const key of keys) {
+        updateData[`flags.${MODULE_ID}.-=${key}`] = null;
+      }
+
+      await doc.update(updateData, { render: false });
+      return true;
+    } catch (err) {
+      Logger.error(
+        `DocumentUtils.unsetFlagsSilently | Failed to update document ${doc.name || doc.id}:`,
+        err,
+      );
+      return false;
+    }
+  }
+
+  /**
    * Updates a document's data without triggering a UI re-render.
    *
    * @param doc The document to update.

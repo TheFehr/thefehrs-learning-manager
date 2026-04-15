@@ -127,6 +127,10 @@
     project?: { target: number; followUpProjectId: string; requirements: ProjectRequirement[]; categories: string[] },
     book?: { modifier: number; categories: string[] }
   ) {
+    if (enabled && project && project.target <= 0) {
+      saveError = "Target progress must be greater than 0.";
+      return;
+    }
     const token = ++saveCounter;
     isSaving = true;
     saveError = null;

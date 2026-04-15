@@ -75,6 +75,37 @@ describe("ActorProxy", () => {
     });
   });
 
+  it("projects getter should use 'Self-Study' if lastInstructorName is missing", () => {
+    const mockActor = {
+      items: [
+        {
+          id: "item2",
+          name: "Project 2",
+          getFlag: vi.fn().mockImplementation((scope, key) => {
+            if (key === "isLearningProject") return true;
+            if (key === "projectData") return { progress: 50, target: 100 };
+            return null;
+          }),
+        },
+      ],
+    } as any;
+
+    const proxy = new ActorProxy(mockActor);
+    const projects = proxy.projects;
+
+    expect(projects).toHaveLength(1);
+    expect(projects[0]).toEqual({
+      id: "item2",
+      name: "Project 2",
+      progress: 50,
+      target: 100,
+      percentage: 50,
+      tutelageName: "Self-Study",
+      guidanceType: "Self-Study",
+      progressPercentage: 50,
+    });
+  });
+
   it("getMappedProjects should handle zero target to avoid division by zero", () => {
     const mockActor = {
       items: [

@@ -233,7 +233,7 @@ export function validateSettings(data: unknown) {
       bulkExpectedFormula:
         typeof rawRules.bulkExpectedFormula === "string"
           ? rawRules.bulkExpectedFormula
-          : "round(@hours * (22 - max(1, @dc - (@abilities.int.mod + @tutelage))) / 20)",
+          : "round(@hours * (22 - max(1, @dc - (@mod))) / 20)",
       notificationLevel: ["none", "error", "info", "debug"].includes(
         String(rawRules.notificationLevel),
       )

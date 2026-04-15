@@ -305,28 +305,43 @@ export class ProjectEngine {
             rejectClose: false,
           });
 
-          dialog.render({ force: true }).then(() => {
-            const root = dialog.element.querySelector(".ude-instructor-dialog-root");
-            if (root) {
-              Logger.debug("ProjectEngine | Mounting InstructorSelectionDialog to dialog root.");
-              dialogInstance = mount(InstructorSelectionDialog, {
-                target: root,
-                props: {
-                  instructors,
-                  bestBookMod,
-                  bestBookNames,
-                  timeUnit: tu,
-                  lastInstructorUuid: lastId,
-                  lastInstructorName: lastName,
-                },
-              });
-            } else {
+          dialog
+            .render({ force: true })
+            .then(() => {
+              const root = dialog.element.querySelector(".ude-instructor-dialog-root");
+              if (root) {
+                Logger.debug("ProjectEngine | Mounting InstructorSelectionDialog to dialog root.");
+                dialogInstance = mount(InstructorSelectionDialog, {
+                  target: root,
+                  props: {
+                    instructors,
+                    bestBookMod,
+                    bestBookNames,
+                    timeUnit: tu,
+                    lastInstructorUuid: lastId,
+                    lastInstructorName: lastName,
+                  },
+                });
+              } else {
+                Logger.error(
+                  "ProjectEngine | Could not find ude-instructor-dialog-root in dialog element!",
+                  dialog.element,
+                );
+                resolve(null);
+              }
+            })
+            .catch((err: any) => {
               Logger.error(
-                "ProjectEngine | Could not find ude-instructor-dialog-root in dialog element!",
+                "ProjectEngine | Error rendering instructor selection dialog:",
+                err,
                 dialog.element,
               );
-            }
-          });
+              if (dialogInstance) {
+                unmount(dialogInstance);
+                dialogInstance = null;
+              }
+              resolve(null);
+            });
         })) as any;
 
         if (!choice || choice === "cancel") return false;
@@ -335,7 +350,7 @@ export class ProjectEngine {
       }
     }
 
-    const resolution = TutelageResolverService.resolveTutelage(
+    const resolution = await TutelageResolverService.resolveTutelage(
       actor,
       item as any,
       selectedInstructor?.actorUuid,

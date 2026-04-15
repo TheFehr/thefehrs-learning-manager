@@ -126,7 +126,17 @@
 
         <div class="form-group">
           <label for="mod-{i}">Learning Modifier</label>
-          <input id="mod-{i}" type="number" bind:value={offering.modifier} min="0" placeholder="e.g. 5" />
+          <input
+            id="mod-{i}"
+            type="number"
+            value={offering.modifier}
+            onchange={(e) => {
+              offering.modifier = Math.max(0, Number(e.currentTarget.value) || 0);
+              e.stopPropagation();
+            }}
+            min="0"
+            placeholder="e.g. 5"
+          />
         </div>
 
         <div class="costs-section" data-testid="costs-per-session">

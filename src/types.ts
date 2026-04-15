@@ -1,4 +1,5 @@
 import type {} from "@league-of-foundry-developers/foundry-vtt-types";
+import { getGame } from "@/core/foundry.js";
 
 declare global {
   interface LenientGlobalVariableTypes {
@@ -230,12 +231,15 @@ export type Actor5e<TSystem = ActorSystem5e> = Actor<any> & {
 
 /**
  * Type guard for Actor5e.
- * NOTE: This only verifies the value is an Actor instance. It does not
- * confirm dnd5e-specific system properties exist at runtime.
- * But as this module depends on the dnd5e system, it should be good enough.
+ * Verifies the document has dnd5e-specific runtime properties.
  */
 export function isActor5e(actor: any): actor is Actor5e {
-  return actor instanceof Actor;
+  return (
+    actor &&
+    typeof actor.getFlag === "function" &&
+    (actor as any).system !== undefined &&
+    typeof (actor as any).getRollData === "function"
+  );
 }
 
 export interface DisplayCardOptions {
@@ -305,13 +309,25 @@ export interface ModuleAPIs {
 export function getModuleAPI<T extends string & keyof ModuleAPIs>(
   id: T,
 ): ModuleAPIs[T] | undefined {
-  const game = (globalThis as any).game;
-  if (typeof game === "undefined" || !game.modules) return undefined;
+  let game: any;
+  try {
+    game = getGame();
+  } catch (err) {
+    Logger.error("getModuleAPI | getGame failed:", err);
+    return undefined;
+  }
+  if (!game || !game.modules) return undefined;
   const module = game.modules.get(id);
-  if (!module) return undefined;
+  if (!module) {
+    Logger.debug(`getModuleAPI | module ${id} not found`);
+    return undefined;
+  }
 
   const api = (module as any).api;
-  if (!api || typeof api !== "object") return undefined;
+  if (!api || typeof api !== "object") {
+    Logger.debug(`getModuleAPI | module ${id} has no api`);
+    return undefined;
+  }
 
   const validators: Partial<Record<keyof ModuleAPIs, (api: any) => boolean>> = {
     "quick-insert": (api) => typeof api.search === "function" && typeof api.open === "function",

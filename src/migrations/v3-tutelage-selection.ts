@@ -1,6 +1,7 @@
 import { MODULE_ID } from "@/global.js";
 import { Logger } from "@/core/logger.js";
 import { getGame, getUI } from "@/core/foundry.js";
+import { registerMigrationSettings } from "./migration-registration.js";
 
 interface GuidanceTier {
   id: string;
@@ -35,6 +36,7 @@ declare module "fvtt-types/configuration" {
 }
 
 export async function migrateToV3() {
+  registerMigrationSettings();
   const game = getGame();
   let rawTiers: GuidanceTier[];
   try {

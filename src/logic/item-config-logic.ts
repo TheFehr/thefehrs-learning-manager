@@ -1,3 +1,4 @@
+import { MODULE_ID } from "@/global.js";
 import { DocumentUtils } from "@/core/document-utils.js";
 import type { Item5e, ProjectRequirement } from "@/types.js";
 import { extractItemUuidFromDrop, searchWithOmnisearchOrQuickInsert } from "./config-utils.js";
@@ -23,23 +24,23 @@ export class ItemConfigLogic {
       categories: string[];
     },
   ) {
-    const flags: Record<string, unknown> = {
-      learningModeEnabled: enabled,
+    const updateData: Record<string, unknown> = {
+      [`flags.${MODULE_ID}.learningModeEnabled`]: enabled,
     };
 
     if (project) {
-      flags.projectData = project;
+      updateData[`flags.${MODULE_ID}.projectData`] = project;
     } else {
-      flags["-=projectData"] = null;
+      updateData[`flags.${MODULE_ID}.-=projectData`] = null;
     }
 
     if (book) {
-      flags.learningBookBonus = book;
+      updateData[`flags.${MODULE_ID}.learningBookBonus`] = book;
     } else {
-      flags["-=learningBookBonus"] = null;
+      updateData[`flags.${MODULE_ID}.-=learningBookBonus`] = null;
     }
 
-    return await DocumentUtils.setFlagsSilently(item, flags);
+    return await DocumentUtils.updateSilently(item, updateData);
   }
 
   /**

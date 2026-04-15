@@ -13,6 +13,9 @@ describe("DebugHelpers", () => {
     vi.clearAllMocks();
     (global as any).Actor = class {
       name = "";
+      system = {};
+      getFlag = vi.fn();
+      getRollData = vi.fn().mockReturnValue({});
     };
     (global as any).game = {
       user: { character: null },

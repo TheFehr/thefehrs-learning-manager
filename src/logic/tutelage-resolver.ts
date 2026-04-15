@@ -170,12 +170,12 @@ export class TutelageResolverService {
   /**
    * Resolves final tutelage modifier and cost.
    */
-  static resolveTutelage(
+  static async resolveTutelage(
     actor: Actor5e,
     projectItem: ProjectItem,
     selectedInstructorId?: string, // actorUuid of instructor
     selectedInstructorName?: string, // name of offering
-  ): { modifier: number; costs: Record<string, number>; instructorName: string } {
+  ): Promise<{ modifier: number; costs: Record<string, number>; instructorName: string }> {
     const books = this.getAvailableBooks(actor, projectItem);
     const bestBookMod = books.reduce((max, b) => Math.max(max, b.modifier), 0);
 
@@ -183,14 +183,20 @@ export class TutelageResolverService {
     let instructorCosts: Record<string, number> = {};
     let instructorName = "Self-Study";
 
-    if (selectedInstructorId && this.instructorCache) {
-      const instructor = this.instructorCache.find(
-        (i) => i.actorUuid === selectedInstructorId && i.offering.name === selectedInstructorName,
-      );
-      if (instructor) {
-        instructorMod = instructor.offering.modifier;
-        instructorCosts = instructor.offering.costs;
-        instructorName = instructor.offering.name;
+    if (selectedInstructorId) {
+      if (!this.instructorCache) {
+        await this.refreshCache();
+      }
+
+      if (this.instructorCache) {
+        const instructor = this.instructorCache.find(
+          (i) => i.actorUuid === selectedInstructorId && i.offering.name === selectedInstructorName,
+        );
+        if (instructor) {
+          instructorMod = instructor.offering.modifier;
+          instructorCosts = instructor.offering.costs;
+          instructorName = instructor.offering.name;
+        }
       }
     }
 

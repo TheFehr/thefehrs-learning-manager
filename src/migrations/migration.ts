@@ -76,23 +76,3 @@ export async function migrateData() {
 function isNewerVersion(newer: string, current: string): boolean {
   return FoundryUtils.isNewerVersion(newer, current);
 }
-
-export function registerMigrationSettings() {
-  const game = getGame();
-  if (!game.settings.settings.has(`${MODULE_ID}.guidanceTiers`)) {
-    game.settings.register(MODULE_ID, "guidanceTiers", {
-      scope: "world",
-      config: false,
-      type: Array,
-      default: [],
-    });
-  }
-  if (!game.settings.settings.has(`${MODULE_ID}.allowedCompendiums`)) {
-    game.settings.register(MODULE_ID, "allowedCompendiums", {
-      scope: "world",
-      config: false,
-      type: Array,
-      default: [],
-    });
-  }
-}
