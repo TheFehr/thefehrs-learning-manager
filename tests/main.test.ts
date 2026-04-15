@@ -199,6 +199,7 @@ describe("LearningManager", () => {
         await registeredHandler({ type: "timeGrantedSignal", data: null });
         expect(Logger.error).toHaveBeenCalledWith(
           expect.stringContaining("Failed to handle auto-train signal"),
+          true,
           expect.any(Error),
         );
       }

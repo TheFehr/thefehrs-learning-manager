@@ -127,17 +127,14 @@ export const DebugHelpers = {
    */
   getCache() {
     const cache = TutelageResolverService.getCache();
-    if (!cache) return null;
-    return {
-      size: cache.length,
-      instructors: cache.map((i) => ({
-        actorUuid: i.actorUuid,
-        actorName: i.name,
-        offeringName: i.offering.name,
-        modifier: i.offering.modifier,
-        categories: i.offering.categories,
-      })),
-    };
+    if (!cache) return [];
+    return cache.map((i) => ({
+      actorUuid: i.actorUuid,
+      actorName: i.name,
+      offeringName: i.offering.name,
+      modifier: i.offering.modifier,
+      categories: i.offering.categories,
+    }));
   },
 
   /**
@@ -203,6 +200,15 @@ export const DebugHelpers = {
    * @param version - The version to reset to (default: "0").
    */
   async resetMigration(version = "0") {
+    const confirmed = await foundry.applications.api.DialogV2.confirm({
+      window: { title: "Confirm Migration Reset" },
+      content: `<p>Are you sure you want to reset the migration version to <b>${version}</b> and rerun all migrations? This should only be done for debugging purposes.</p>`,
+      rejectClose: false,
+      modal: true,
+    });
+
+    if (!confirmed) return;
+
     await Settings.set("migrationVersion", version);
     Logger.info(`Migration version reset to ${version}. Rerunning migration...`, true);
     await this.runMigration();

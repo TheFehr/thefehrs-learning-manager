@@ -36,8 +36,8 @@
     }
   });
 
-  let effectiveMod = $derived(Math.max(bestBookMod, selectedInstructor?.offering.modifier || 0));
-  let costCp = $derived(selectedInstructor?.offering.costs[timeUnit.id] || 0);
+  let effectiveMod = $derived(Math.max(bestBookMod ?? 0, selectedInstructor?.offering.modifier ?? 0));
+  let costCp = $derived(selectedInstructor?.offering.costs[timeUnit.id] ?? 0);
 
   export function getResult() {
     return { instructor: selectedInstructor, remember };

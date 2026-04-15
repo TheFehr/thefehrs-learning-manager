@@ -132,7 +132,7 @@ export class ProjectEngine {
 
     if (activities.length === 0) {
       if (!allowedUnitIds)
-        getUI().notifications?.warn("No valid training activities found for this project.");
+        getUI()?.notifications?.warn("No valid training activities found for this project.");
       return false;
     }
 
@@ -172,7 +172,7 @@ export class ProjectEngine {
         consecutiveFailures++;
         if (consecutiveFailures >= maxConsecutiveFailures) {
           const msg = `Spend All loop aborted after ${consecutiveFailures} consecutive failures.`;
-          Logger.error(msg);
+          Logger.error(msg, true);
           break;
         }
         iterations++;
@@ -183,7 +183,7 @@ export class ProjectEngine {
       const newBank = proxy.bank.total || 0;
       if (newBank >= currentBank) {
         const msg = `Spend All loop detected no decrease in bank total after successful training for "${fitting.name}". Aborting to prevent infinite loop.`;
-        Logger.error(msg);
+        Logger.error(msg, true);
         break;
       }
 
@@ -231,7 +231,7 @@ export class ProjectEngine {
       (item.getFlag("thefehrs-learning-manager", "projectData") as ProjectFlagData) || {},
     );
     if (!projectDataFlags || !projectDataFlags.target || projectDataFlags.target <= 0) {
-      getUI().notifications?.warn("This project is awaiting a GM-defined target progress.");
+      getUI()?.notifications?.warn("This project is awaiting a GM-defined target progress.");
       return false;
     }
 
@@ -244,7 +244,7 @@ export class ProjectEngine {
     const proxy = ActorProxy.forActor(actor);
     const bank = proxy.bank;
     if ((bank.total || 0) < tu.ratio) {
-      getUI().notifications?.warn(`Not enough time!`);
+      getUI()?.notifications?.warn(`Not enough time!`);
       return false;
     }
 
@@ -325,6 +325,7 @@ export class ProjectEngine {
               } else {
                 Logger.error(
                   "ProjectEngine | Could not find ude-instructor-dialog-root in dialog element!",
+                  true,
                   dialog.element,
                 );
                 resolve(null);
@@ -333,6 +334,7 @@ export class ProjectEngine {
             .catch((err: any) => {
               Logger.error(
                 "ProjectEngine | Error rendering instructor selection dialog:",
+                true,
                 err,
                 dialog.element,
               );
@@ -340,6 +342,7 @@ export class ProjectEngine {
                 unmount(dialogInstance);
                 dialogInstance = null;
               }
+              dialog.close();
               resolve(null);
             });
         })) as any;
@@ -372,7 +375,7 @@ export class ProjectEngine {
     const totalCp = cur.pp * 1000 + cur.gp * 100 + cur.ep * 50 + cur.sp * 10 + cur.cp;
 
     if (totalCp < costCp) {
-      getUI().notifications?.warn(`Need ${costCp}cp!`);
+      getUI()?.notifications?.warn(`Need ${costCp}cp!`);
       return false;
     }
 
@@ -447,11 +450,11 @@ export class ProjectEngine {
       if (!choice) return false;
 
       if (choice === "bulk" && bulkValue === "unavailable") {
-        getUI().notifications?.warn(`The chosen bulk training path is unavailable.`);
+        getUI()?.notifications?.warn(`The chosen bulk training path is unavailable.`);
         return false;
       }
       if (choice === "separate" && separateValue === "unavailable") {
-        getUI().notifications?.warn(`The chosen separate training path is unavailable.`);
+        getUI()?.notifications?.warn(`The chosen separate training path is unavailable.`);
         return false;
       }
 
@@ -523,7 +526,7 @@ export class ProjectEngine {
             const { eligible, reason: reqReason } = TabLogic.meetsRequirements(actor, reqs);
 
             if (!eligible) {
-              getUI().notifications?.warn(
+              getUI()?.notifications?.warn(
                 `Could not start follow-up project: Requirements not met for ${escapedFollowUpName}: ${reqReason}`,
               );
             } else {
@@ -541,7 +544,7 @@ export class ProjectEngine {
                     (newFlags.target || 0) > 0 ? newFlags.target! : excessProgress,
                   );
                   await this.updateItemWithProgress(newItem, newFlags);
-                  getUI().notifications?.info(
+                  getUI()?.notifications?.info(
                     `Started follow-up project: ${FoundryUtils.escapeHTML(followUpItem.name || "")} with ${
                       newFlags.progress
                     } initial progress.`,
@@ -570,7 +573,7 @@ export class ProjectEngine {
       const successCount = rolls.filter(
         (r) => (r.total || 0) >= Number(rules.checkDC ?? DEFAULT_DC),
       ).length;
-      getUI().notifications?.info(
+      getUI()?.notifications?.info(
         `Training complete: Gained ${totalProgressGained} progress from ${tu.ratio} separate rolls (${successCount} successes).`,
       );
     } else {
@@ -590,9 +593,9 @@ export class ProjectEngine {
         reasons.length > 0
           ? `Training unsuccessful: ${reasons[0]}`
           : "Training unsuccessful - no progress gained.";
-      getUI().notifications?.info(msg);
+      getUI()?.notifications?.info(msg);
     } else if (isSeparate && tu.ratio <= ProjectEngine.BATCH_THRESHOLD) {
-      getUI().notifications?.info(
+      getUI()?.notifications?.info(
         `Training complete: Gained ${totalProgressGained} progress from ${tu.ratio} separate rolls.`,
       );
     }
@@ -620,7 +623,7 @@ export class ProjectEngine {
       const project = projects[0];
       await this.processSpendAll(project as Item5e, autoSpendUnits);
     } else if (projects.length > 1) {
-      getUI().notifications?.warn(
+      getUI()?.notifications?.warn(
         "Downtime Engine | You have auto-spending enabled, but more than one active project. Please open your character sheet and spend the time yourself.",
       );
     }

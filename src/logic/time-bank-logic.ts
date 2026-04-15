@@ -52,7 +52,7 @@ export class TimeBankLogic {
         await proxy.setBank({ total: newTotal });
       }
     } catch (err) {
-      Logger.error("Failed to update time bank:", err);
+      Logger.error("Failed to update time bank:", true, err);
       ui.notifications?.error(
         "Downtime Engine | Failed to update time bank. See application logs for details.",
       );

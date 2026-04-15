@@ -73,7 +73,7 @@ export async function migrateToV1Relational() {
       await game.settings.set(MODULE_ID, "projectTemplates" as any, library);
     }
   } catch (error) {
-    Logger.error("relational migration failed:", error);
+    Logger.error("relational migration failed:", true, error);
     throw error;
   }
 }

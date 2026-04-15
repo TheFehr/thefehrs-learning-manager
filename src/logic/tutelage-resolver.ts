@@ -116,7 +116,7 @@ export class TutelageResolverService {
         }
       }
     } catch (err) {
-      Logger.error("Failed to refresh instructor cache:", err);
+      Logger.error("Failed to refresh instructor cache:", true, err);
     }
 
     this.instructorCache = instructors;

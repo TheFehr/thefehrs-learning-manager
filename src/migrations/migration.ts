@@ -65,8 +65,8 @@ export async function migrateData() {
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    Logger.error("Migration failed:", err);
-    getUI().notifications?.error(
+    Logger.error("Migration failed:", true, err);
+    getUI()?.notifications?.error(
       `Downtime Engine | Migration failed: ${msg}. See console for details.`,
     );
     throw err;

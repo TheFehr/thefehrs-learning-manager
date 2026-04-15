@@ -88,6 +88,7 @@ describe("Data Migration Orchestrator", () => {
     await expect(migrateData()).rejects.toThrow("Fail");
     expect(Logger.error).toHaveBeenCalledWith(
       expect.stringContaining("Migration failed"),
+      true,
       expect.any(Error),
     );
   });

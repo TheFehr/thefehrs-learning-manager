@@ -4,14 +4,14 @@ import { createProjectItemFromTemplate, type LegacyProject } from "./migration-u
 import { getGame, getUI } from "@/core/foundry.js";
 
 export async function migrateToV2() {
-  getUI().notifications?.info("Migrating Downtime Engine projects to native Items (v2.0.0)...");
+  getUI()?.notifications?.info("Migrating Downtime Engine projects to native Items (v2.0.0)...");
   try {
     const game = getGame();
     const compendiumLabel = "UDE Migration";
     const compendiumName = "ude-migration";
     const compendiumKey = `world.${compendiumName}`;
 
-    let pack = getGame().packs?.get(compendiumKey);
+    let pack = game.packs?.get(compendiumKey);
     if (!pack) {
       pack = await (CompendiumCollection as any).createCompendium({
         type: "Item",
@@ -71,7 +71,7 @@ export async function migrateToV2() {
 
           if (success) {
             migratedCount++;
-            getUI().notifications?.info(`Migrating projects: ${migratedCount}/${totalProjects}`, {
+            getUI()?.notifications?.info(`Migrating projects: ${migratedCount}/${totalProjects}`, {
               progress: (migratedCount / totalProjects) as unknown as boolean,
             });
           } else {
@@ -126,7 +126,7 @@ export async function migrateToV2() {
       );
     }
   } catch (error) {
-    Logger.error("migration to v2.0.0 failed:", error);
+    Logger.error("migration to v2.0.0 failed:", true, error);
     getUI()?.notifications?.error(
       "Migration to v2.0.0 failed. Please check the console for details.",
     );

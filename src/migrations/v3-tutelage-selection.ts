@@ -117,12 +117,12 @@ export async function migrateToV3() {
     instructorPack = await getOrCreateCompendium("Actor", "Legacy Tutelage: Instructors");
     bookPack = await getOrCreateCompendium("Item", "Legacy Tutelage: Books");
   } catch (err) {
-    Logger.error("Migration failed: Error creating recovery compendiums:", err);
+    Logger.error("Migration failed: Error creating recovery compendiums:", true, err);
     return;
   }
 
   if (!instructorPack || !bookPack) {
-    Logger.error("Migration failed: Could not create/access recovery compendiums.");
+    Logger.error("Migration failed: Could not create/access recovery compendiums.", true);
     return;
   }
 
@@ -197,7 +197,11 @@ export async function migrateToV3() {
           created = result[0];
         }
       } catch (err) {
-        Logger.error(`Migration v3 | Failed to create legacy instructor for tier ${tier.id}:`, err);
+        Logger.error(
+          `Migration v3 | Failed to create legacy instructor for tier ${tier.id}:`,
+          true,
+          err,
+        );
         projectFailures++;
       }
 
@@ -254,7 +258,7 @@ export async function migrateToV3() {
           created = result[0];
         }
       } catch (err) {
-        Logger.error(`Migration v3 | Failed to create legacy book for tier ${tier.id}:`, err);
+        Logger.error(`Migration v3 | Failed to create legacy book for tier ${tier.id}:`, true, err);
         projectFailures++;
       }
 
@@ -274,6 +278,8 @@ export async function migrateToV3() {
         const projectData = project.getFlag(MODULE_ID, "projectData") as ProjectFlagData;
         if (!projectData || !projectData.tutelageId) continue;
 
+        const detectedCats = detectCategories(project);
+
         const mapping = tierToDocMap.get(projectData.tutelageId);
         if (!mapping) {
           // Orphaned or +0, reset
@@ -288,7 +294,6 @@ export async function migrateToV3() {
           projectData.tutelageId = "";
 
           // Detect categories from effects
-          const detectedCats = detectCategories(project);
           if (detectedCats.length > 0) {
             projectData.categories = [...(projectData.categories || []), ...detectedCats];
             projectData.categories = [...new Set(projectData.categories)];
@@ -300,7 +305,6 @@ export async function migrateToV3() {
           const bookDoc = await fromUuid(mapping.uuid as `Item.${string}`);
           if (bookDoc && bookDoc instanceof Item) {
             const bookBonus = bookDoc.getFlag(MODULE_ID, "learningBookBonus") as LearningBookBonus;
-            const detectedCats = detectCategories(project);
 
             const existingBook = (actor.items as any).find((i: any) => {
               const b = i.getFlag(MODULE_ID, "learningBookBonus") as LearningBookBonus;
@@ -330,7 +334,6 @@ export async function migrateToV3() {
           projectData.tutelageId = "";
 
           // Detect categories from effects
-          const detectedCats = detectCategories(project);
           if (detectedCats.length > 0) {
             projectData.categories = [...(projectData.categories || []), ...detectedCats];
             projectData.categories = [...new Set(projectData.categories)];
@@ -341,6 +344,7 @@ export async function migrateToV3() {
       } catch (err) {
         Logger.error(
           `Migration v3 | Failed to update project ${project.name} on actor ${actor.name}:`,
+          true,
           err,
         );
         projectFailures++;
@@ -350,11 +354,11 @@ export async function migrateToV3() {
 
   if (projectFailures === 0) {
     await game.settings.set(MODULE_ID, "migrationVersion", "3.0.0");
-    getUI().notifications?.info(
+    getUI()?.notifications?.info(
       `Migration to v3 (Tutelage Selection System) complete! Converted ${tiersToMigrate.length} tiers.`,
     );
   } else {
-    getUI().notifications?.warn(
+    getUI()?.notifications?.warn(
       `Migration to v3 partially completed with ${projectFailures} project failures. See console for details.`,
     );
   }

@@ -13,7 +13,7 @@
       errorMessage = null;
       invalidProjects = await getInvalidProjects();
     } catch (error) {
-      Logger.error("Error fetching invalid projects:", error);
+      Logger.error("Error fetching invalid projects:", true, error);
       errorMessage = "Failed to load invalid projects. Check console for details.";
     }
   }

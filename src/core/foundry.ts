@@ -24,14 +24,10 @@ export function getCanvas(): Canvas {
 
 /**
  * Safely get the global 'ui' instance.
- * @throws Error if ui is not initialized.
+ * Returns undefined if ui is not initialized.
  */
-export function getUI(): { notifications?: Notifications } & Record<string, any> {
-  const u = (globalThis as any).ui;
-  if (!u) {
-    throw new Error("Foundry VTT ui is not initialized yet.");
-  }
-  return u;
+export function getUI(): ({ notifications?: Notifications } & Record<string, any>) | undefined {
+  return (globalThis as any).ui;
 }
 
 /**

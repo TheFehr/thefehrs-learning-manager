@@ -59,18 +59,21 @@ export async function saveSettings(
       savedKeys.push(key);
     }
   } catch (err) {
-    Logger.error("Failed to save settings, rolling back:", err);
+    Logger.error("Failed to save settings, rolling back:", true, err);
 
     // Rollback only what was successfully saved
     for (const key of [...savedKeys].reverse()) {
       try {
         await Settings.set(key, snapshot[key]);
       } catch (rollbackErr) {
-        Logger.error(`Failed to rollback setting "${key}":`, rollbackErr);
+        Logger.error(`Failed to rollback setting "${key}":`, true, rollbackErr);
       }
     }
 
-    Logger.error("Failed to save settings: " + (err instanceof Error ? err.message : String(err)));
+    Logger.error(
+      "Failed to save settings: " + (err instanceof Error ? err.message : String(err)),
+      true,
+    );
     return false;
   }
 

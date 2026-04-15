@@ -39,7 +39,7 @@ function migrateRequirementOperators(requirements: any[]): {
  * 2. Migrates strict comparison operators (===, !==) to loose ones (==, !=) in requirements.
  */
 export async function migrateToV2_1() {
-  getUI().notifications?.info("Downtime Engine: Performing v2.1.0 migration...");
+  getUI()?.notifications?.info("Downtime Engine: Performing v2.1.0 migration...");
 
   try {
     const game = getGame();
@@ -128,7 +128,7 @@ export async function migrateToV2_1() {
     let hasFailures = false;
 
     for (const packId of allowedPacks) {
-      const pack = getGame().packs?.get(packId);
+      const pack = game.packs?.get(packId);
       if (!pack || pack.metadata.type !== "Item") continue;
 
       const wasLocked = pack.locked;
@@ -161,14 +161,14 @@ export async function migrateToV2_1() {
           }
         }
       } catch (err) {
-        Logger.error(`Failed to migrate compendium pack ${packId}:`, err);
+        Logger.error(`Failed to migrate compendium pack ${packId}:`, true, err);
         hasFailures = true;
       } finally {
         if (wasLocked) {
           try {
             await pack.configure({ locked: true });
           } catch (lockErr) {
-            Logger.error(`Failed to re-lock compendium pack ${packId}:`, lockErr);
+            Logger.error(`Failed to re-lock compendium pack ${packId}:`, true, lockErr);
             hasFailures = true;
           }
         }
@@ -180,10 +180,10 @@ export async function migrateToV2_1() {
     }
 
     await game.settings.set(MODULE_ID, "migrationVersion", "2.1.0");
-    getUI().notifications?.info("Downtime Engine: Migration to v2.1.0 complete.");
+    getUI()?.notifications?.info("Downtime Engine: Migration to v2.1.0 complete.");
   } catch (err) {
-    Logger.error("Migration to v2.1.0 failed:", err);
-    getUI().notifications?.error(
+    Logger.error("Migration to v2.1.0 failed:", true, err);
+    getUI()?.notifications?.error(
       "Downtime Engine: Migration to v2.1.0 failed. Check console for details.",
     );
     throw err;
@@ -194,7 +194,7 @@ export async function migrateToV2_1() {
  * Migration v2.1.1: Refreshes the bulk mathematical formula if it matches the old buggy default.
  */
 export async function migrateToV2_1_1() {
-  getUI().notifications?.info("Downtime Engine: Migration v2.1.1 (Formula refresh)...");
+  getUI()?.notifications?.info("Downtime Engine: Migration v2.1.1 (Formula refresh)...");
 
   try {
     const game = getGame();
@@ -205,15 +205,15 @@ export async function migrateToV2_1_1() {
     if (rules && rules.bulkExpectedFormula === oldBuggyDefault) {
       const updatedRules = { ...rules, bulkExpectedFormula: newDefault };
       await game.settings.set(MODULE_ID, "rules", updatedRules);
-      getUI().notifications?.info(
+      getUI()?.notifications?.info(
         "Downtime Engine: Bulk mathematical formula updated to new default.",
       );
     }
 
     await game.settings.set(MODULE_ID, "migrationVersion", "2.1.1");
   } catch (err) {
-    Logger.error("Migration to v2.1.1 failed:", err);
-    getUI().notifications?.error(
+    Logger.error("Migration to v2.1.1 failed:", true, err);
+    getUI()?.notifications?.error(
       "Downtime Engine: Migration to v2.1.1 failed. Check console for details.",
     );
     throw err;

@@ -50,7 +50,7 @@ export class Socket {
       Logger.debug(`Socket: Received message on "${id}":`, summary);
 
       handler(message).catch((err) => {
-        Logger.error("Socket: Error in handler:", err);
+        Logger.error("Socket: Error in handler:", true, err);
       });
     };
 

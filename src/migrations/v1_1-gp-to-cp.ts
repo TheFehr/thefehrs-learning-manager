@@ -35,7 +35,7 @@ export async function migrateV1_1GpToCp() {
       await game.settings.set(MODULE_ID, "guidanceTiers", tiers);
     }
   } catch (error) {
-    Logger.error("v1.1 migration failed:", error);
+    Logger.error("v1.1 migration failed:", true, error);
     throw error;
   }
 }

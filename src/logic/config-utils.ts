@@ -21,7 +21,7 @@ export async function searchWithOmnisearchOrQuickInsert(
       }
     }
   } catch (err) {
-    Logger.error("Spotlight Omnisearch prompt failed:", err);
+    Logger.error("Spotlight Omnisearch prompt failed:", true, err);
   }
 
   try {
@@ -53,7 +53,7 @@ export async function searchWithOmnisearchOrQuickInsert(
       });
     }
   } catch (err) {
-    Logger.error("Quick Insert failed:", err);
+    Logger.error("Quick Insert failed:", true, err);
     return null;
   }
 
@@ -76,7 +76,7 @@ export function extractItemUuidFromDrop(e: DragEvent): string | null {
       return data.uuid;
     }
   } catch (err) {
-    Logger.error("Failed to parse drop data:", err);
+    Logger.error("Failed to parse drop data:", true, err);
   }
   return null;
 }

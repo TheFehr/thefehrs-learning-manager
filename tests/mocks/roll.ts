@@ -7,6 +7,12 @@ export interface MockRollConfig {
   data?: any;
 }
 
+/**
+ * Simple roll evaluator for testing purposes.
+ * NOTE: This evaluator uses a basic left-to-right evaluation strategy and DOES NOT
+ * respect standard operator precedence (e.g., multiplication before addition).
+ * It also has specialized logic for common formulas used in this project.
+ */
 function evaluateFormula(formula: string, data: any) {
   let val = 0;
   let dice: any[] = [];

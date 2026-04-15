@@ -30,7 +30,7 @@ interface ProjectTemplateLegacy {
 }
 
 export async function migrateToV2Direct() {
-  getUI().notifications?.info("Downtime Engine: Performing direct migration to v2.0.0...");
+  getUI()?.notifications?.info("Downtime Engine: Performing direct migration to v2.0.0...");
 
   try {
     const game = getGame();
@@ -165,7 +165,7 @@ export async function migrateToV2Direct() {
       );
     }
   } catch (error) {
-    Logger.error("direct migration failed:", error);
+    Logger.error("direct migration failed:", true, error);
     getUI()?.notifications?.error(
       "Downtime Engine direct migration failed. Please check the console for details.",
     );

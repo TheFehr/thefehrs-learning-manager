@@ -32,19 +32,21 @@ describe("PartyTabLogic", () => {
       },
     };
 
-    // Spy on ui.notifications
-    if (!(global as any).ui) (global as any).ui = {};
-    if (!(global as any).ui.notifications)
-      (global as any).ui.notifications = { warn: vi.fn(), info: vi.fn() };
-    vi.spyOn(global.ui.notifications, "warn").mockImplementation(() => {});
-    vi.spyOn(global.ui.notifications, "info").mockImplementation(() => {});
+    // Ensure game and ui are initialized
+    (global as any).ui = {
+      notifications: {
+        warn: vi.fn(),
+        info: vi.fn(),
+        error: vi.fn(),
+      },
+    };
 
-    // Replace game.actors with a Map-like structure
-    if (!global.game) global.game = { ID: "thefehrs-learning-manager" } as any;
-    originalActors = global.game.actors;
-    const mockMap = new Map();
-    vi.spyOn(mockMap, "get");
-    global.game.actors = mockMap as any;
+    (global as any).game = {
+      ID: "thefehrs-learning-manager",
+      actors: new Map() as any,
+    };
+    originalActors = (global as any).game.actors;
+    vi.spyOn((global as any).game.actors, "get");
   });
 
   afterEach(() => {

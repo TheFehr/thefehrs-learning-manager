@@ -4,11 +4,6 @@ A custom Downtime Engine and Learning Manager for Foundry VTT. This module integ
 
 Whether your players are learning a new language, training a feat, or mastering a tool proficiency, this module handles the time management, cost calculation, and progress tracking automatically.
 
-<div align="center">
-  <p>📸 <b>[Screenshot: Time Bank Footer in Tidy5e]</b><br>
-  <i>The persistent Time Bank bar in the Features tab showing available downtime units (e.g., Hours, Days, Weeks).</i></p>
-</div>
-
 ---
 
 ## 🌟 Key Features
@@ -39,11 +34,6 @@ While players manage their own projects, the Game Master can oversee the entire 
 - **Party-Wide Overview:** See every character's active projects, current progress, and time bank status in a single unified view.
 - **Manual Overrides:** GMs can manually adjust progress or targets for any character's project directly from this tab.
 
-<div align="center">
-  <p>📸 <b>[Screenshot: Group Learning Tab]</b><br>
-  <i>The unified party overview on the Group actor sheet with the "Distribute Time" button.</i></p>
-</div>
-
 ---
 
 ## 🎲 Training Mechanics
@@ -54,11 +44,6 @@ The Downtime Engine supports three primary ways to resolve training:
 2.  **Roll Resolution:** Standard d20-based checks. GMs can configure the formula (e.g., `1d20 + @abilities.int.mod + @tutelage`), the DC (default **12**), and critical success strategies.
 3.  **Mathematical (Bulk) Resolution:** For large blocks of time, the engine can use a statistical formula to calculate the expected progress. This avoids rolling dozens of times for a large training session (e.g., a "Week" of downtime) while maintaining mathematical fairness.
     - _Default Formula:_ `round(@hours * (22 - max(1, @dc - @mod)) / 20)`
-
-<div align="center">
-  <p>📸 <b>[Screenshot: Training Resolution Dialog]</b><br>
-  <i>Showing the choice between Bulk and Separate resolution with probability and expected progress.</i></p>
-</div>
 
 ### Bulk vs. Separate Resolution
 
@@ -77,11 +62,6 @@ Progress isn't just about time; it's about who is teaching you.
 - **Books:** Items in your inventory can also provide "Tutelage" modifiers if they match configured criteria.
 - **Cost Calculation:** Better teachers might yield more progress but cost more Gold, Silver, or Copper per hour.
 
-<div align="center">
-  <p>📸 <b>[Screenshot: Instructor Selection Dialog]</b><br>
-  <i>Showing available teachers, modifiers, and associated costs.</i></p>
-</div>
-
 ---
 
 ## 🛠️ In-Game Configuration
@@ -90,22 +70,12 @@ Progress isn't just about time; it's about who is teaching you.
 
 Configure global rules, default DC, critical success behavior, and your custom "Time Units" (e.g., Hour = 1, Day = 10, Week = 70).
 
-<div align="center">
-  <p>📸 <b>[Screenshot: Downtime Engine Config]</b><br>
-  <i>Showing the global rules, time units, and tutelage matrix.</i></p>
-</div>
-
 ### 2. Project Setup (Item Sheet)
 
 Any Item can be turned into a "Learning Project." Configure its target goal, requirements, and what happens when it's finished.
 
 - **Auto-grant Rewards:** Automatically grant an Item or Active Effect upon completion.
 - **Follow-up Projects:** Link projects together. When "Basic Blacksmithing" finishes, "Advanced Smithing" can automatically become the active project.
-
-<div align="center">
-  <p>📸 <b>[Screenshot: Project Configuration]</b><br>
-  <i>Showing how to set up a project (target, rewards, requirements, follow-up).</i></p>
-</div>
 
 ---
 

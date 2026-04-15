@@ -41,7 +41,7 @@ export class ProjectUI {
 
       return clean.trim();
     } catch (err) {
-      Logger.error("Failed to parse HTML for stripping:", err);
+      Logger.error("Failed to parse HTML for stripping:", true, err);
       return html
         .replace(
           /<!-- learning-manager:progress-start -->[\s\S]*?<!-- learning-manager:progress-end -->/g,

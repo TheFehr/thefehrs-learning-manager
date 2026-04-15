@@ -28,6 +28,7 @@ vi.mock("../../src/core/settings", () => ({
 describe("DebugHelpers", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    TutelageResolverService.clearCache();
     (global as any).Actor = class {
       name = "";
       system = {};
@@ -208,12 +209,12 @@ describe("DebugHelpers", () => {
       ] as any);
       const cache = DebugHelpers.getCache();
       expect(cache).not.toBeNull();
-      expect(cache?.size).toBe(1);
+      expect(cache.length).toBe(1);
     });
 
     it("should refresh cache", async () => {
       vi.mocked(TutelageResolverService.refreshCache).mockResolvedValue();
-      vi.spyOn(DebugHelpers, "getCache").mockReturnValue({ size: 1, instructors: [] });
+      vi.spyOn(DebugHelpers, "getCache").mockReturnValue([{ actorUuid: "uuid" } as any]);
       await DebugHelpers.refreshCache();
       expect(TutelageResolverService.refreshCache).toHaveBeenCalled();
     });

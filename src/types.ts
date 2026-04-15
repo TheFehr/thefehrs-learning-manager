@@ -313,7 +313,7 @@ export function getModuleAPI<T extends string & keyof ModuleAPIs>(
   try {
     game = getGame();
   } catch (err) {
-    Logger.error("getModuleAPI | getGame failed:", err);
+    Logger.error("getModuleAPI | getGame failed:", true, err);
     return undefined;
   }
   if (!game || !game.modules) return undefined;

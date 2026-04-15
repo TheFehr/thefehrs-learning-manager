@@ -116,6 +116,7 @@ export async function getInvalidProjects(): Promise<InvalidProjectReason[]> {
         `Failed to read index for compendium "${packId}": ${
           error instanceof Error ? error.message : error
         }`,
+        true,
       );
       continue;
     }

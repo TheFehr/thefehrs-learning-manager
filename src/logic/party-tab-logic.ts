@@ -32,8 +32,8 @@ export class PartyTabLogic {
     const timeUnits = Settings.get("timeUnits");
     const totalBase = TabLogic.calculateTotalBaseTime(timeValues, timeUnits);
 
-    if (totalBase === 0) return getUI().notifications?.warn("No time entered.");
-    if (selectedIds.length === 0) return getUI().notifications?.warn("No recipients selected.");
+    if (totalBase === 0) return getUI()?.notifications?.warn("No time entered.");
+    if (selectedIds.length === 0) return getUI()?.notifications?.warn("No recipients selected.");
 
     let successCount = 0;
     for (const id of selectedIds) {
@@ -45,7 +45,7 @@ export class PartyTabLogic {
         await proxy.setBank({ total: (bank.total || 0) + totalBase });
         successCount++;
       } catch (err) {
-        Logger.error(`Failed to update bank for actor ${id}:`, err);
+        Logger.error(`Failed to update bank for actor ${id}:`, true, err);
       }
     }
 
@@ -74,6 +74,7 @@ export class PartyTabLogic {
       submit: () => void;
     }
     let svelteInstance: GrantTimeInstance | undefined;
+    let settled = false;
 
     const dialog = new foundry.applications.api.DialogV2({
       window: {
@@ -88,6 +89,7 @@ export class PartyTabLogic {
           icon: "fas fa-check",
           default: true,
           callback: async (_event, _button, _dialog) => {
+            if (settled) return;
             if (svelteInstance) await svelteInstance.submit();
           },
         },
@@ -96,7 +98,11 @@ export class PartyTabLogic {
         width: 400,
       },
       close: () => {
-        if (svelteInstance) unmount(svelteInstance);
+        if (svelteInstance) {
+          unmount(svelteInstance);
+          svelteInstance = undefined;
+        }
+        settled = true;
       },
     });
 
@@ -111,6 +117,8 @@ export class PartyTabLogic {
           isParty,
           members,
           onsubmit: (timeValues: Record<string, number>, selectedIds: string[]) => {
+            if (settled) return;
+            settled = true;
             this.processGrantTime(timeValues, selectedIds);
             dialog.close();
           },
@@ -209,12 +217,12 @@ export class PartyTabLogic {
   ) {
     const targetActor = getGame().actors?.get(actorId) as Actor5e | undefined;
     if (!targetActor || !targetActor.isOwner) {
-      getUI().notifications?.warn("You do not have permission to modify this actor's projects.");
+      getUI()?.notifications?.warn("You do not have permission to modify this actor's projects.");
       return;
     }
 
     if ((project.progress || 0) > 0 && !isGM) {
-      getUI().notifications?.warn("You cannot abort an in-progress project.");
+      getUI()?.notifications?.warn("You cannot abort an in-progress project.");
       return;
     }
 
@@ -235,8 +243,9 @@ export class PartyTabLogic {
    */
   private static async showDeleteConfirm(projectName: string, actorName: string): Promise<boolean> {
     return new Promise((resolve) => {
+      let settled = false;
       const container = document.createElement("div");
-      const svelteInstance = mount(AbortProjectDialog, {
+      let svelteInstance: any = mount(AbortProjectDialog, {
         target: container,
         props: {
           projectName,
@@ -256,21 +265,35 @@ export class PartyTabLogic {
             icon: "fas fa-check",
             label: "Yes",
             default: true,
-            callback: () => resolve(true),
+            callback: () => {
+              if (settled) return;
+              settled = true;
+              resolve(true);
+            },
           },
           {
             action: "no",
             icon: "fas fa-times",
             label: "No",
-            callback: () => resolve(false),
+            callback: () => {
+              if (settled) return;
+              settled = true;
+              resolve(false);
+            },
           },
         ],
         position: {
           width: 400,
         },
         close: () => {
-          unmount(svelteInstance);
-          resolve(false);
+          if (svelteInstance) {
+            unmount(svelteInstance);
+            svelteInstance = null;
+          }
+          if (!settled) {
+            settled = true;
+            resolve(false);
+          }
         },
       }).render({ force: true });
     });

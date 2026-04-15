@@ -85,9 +85,7 @@ export class PartyTab {
               ? Math.min(100, Math.round(((projectData.progress || 0) / projectData.target) * 100))
               : 0,
           canAbort:
-            ((projectData.progress || 0) === 0 && !isLearnedReward) ||
-            !!getGame().user?.isGM ||
-            false,
+            ((projectData.progress || 0) === 0 && !isLearnedReward) || !!getGame().user?.isGM,
           isItemBased: true,
         };
       })

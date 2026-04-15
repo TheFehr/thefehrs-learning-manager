@@ -263,7 +263,7 @@ export async function createProjectItemFromTemplate(
   };
 
   if (typeof (actor as any).createEmbeddedDocuments !== "function") {
-    Logger.error(`Actor ${actor.name} is missing createEmbeddedDocuments method.`);
+    Logger.error(`Actor ${actor.name} is missing createEmbeddedDocuments method.`, true);
     return null;
   }
 

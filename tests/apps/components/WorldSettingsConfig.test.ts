@@ -25,6 +25,7 @@ describe("WorldSettingsConfig.svelte", () => {
       critDoubleStrategy: "never",
       critThreshold: 20,
       notificationLevel: "info",
+      bulkExpectedFormula: "round(@hours * (22 - max(1, @dc - (@mod))) / 20)",
     },
     timeUnits: [{ id: "h", name: "Hour", short: "h", isBulk: false, ratio: 1 }],
     teacherCompendiums: [],
@@ -39,22 +40,13 @@ describe("WorldSettingsConfig.svelte", () => {
     vi.clearAllMocks();
     target = document.createElement("div");
     document.body.appendChild(target);
-
-    // Mock FileReader
-    (global as any).FileReader = class {
-      onload: any;
-      readAsText(file: File) {
-        setTimeout(() => {
-          this.onload({ target: { result: JSON.stringify({ rules: { nonBulkMethod: "roll" } }) } });
-        }, 0);
-      }
-    };
   });
 
   afterEach(() => {
     if (instance) unmount(instance);
     instance = undefined;
     target.remove();
+    vi.restoreAllMocks();
   });
 
   it("should mount and show header actions", async () => {
@@ -67,6 +59,17 @@ describe("WorldSettingsConfig.svelte", () => {
     expect(target.querySelector("button[title='Export Settings']")).not.toBeNull();
     expect(target.querySelector("button[title='Import Settings']")).not.toBeNull();
     expect(target.querySelector("button[title='Clear Tutelage Cache']")).not.toBeNull();
+
+    // Check child components presence via their headings or unique structures
+    const headers = Array.from(target.querySelectorAll("h3")).map((h) => h.textContent);
+    expect(headers).toContain("Global Rules");
+    expect(headers).toContain("Template Compendiums (Items)");
+    expect(headers).toContain("Instructor Compendiums (Actors)");
+    expect(headers).toContain("Book Compendiums (Items)");
+    expect(headers).toContain("Time Units");
+
+    expect(target.querySelectorAll(".compendium-list")).toHaveLength(3);
+    expect(target.querySelector(".tidy-table")).not.toBeNull(); // From TimeUnitsConfig
   });
 
   it("should call exportSettings on click", async () => {
@@ -81,6 +84,8 @@ describe("WorldSettingsConfig.svelte", () => {
 
     expect(foundry.utils.saveDataToFile).toHaveBeenCalled();
     const callArgs = (foundry.utils.saveDataToFile as any).mock.calls[0];
+    const exportedData = JSON.parse(callArgs[0]);
+    expect(exportedData.rules.checkDC).toBe(10);
     expect(callArgs[1]).toBe("application/json");
     expect(callArgs[2]).toBe("downtime-engine-settings.json");
   });
@@ -101,69 +106,258 @@ describe("WorldSettingsConfig.svelte", () => {
     expect(ui.notifications?.info).toHaveBeenCalledWith(expect.stringContaining("cache cleared"));
   });
 
-  it("should trigger file input on import click", async () => {
-    instance = mount(WorldSettingsConfig, {
-      target,
-      props: { ...mockProps },
+  describe("importSettings", () => {
+    let mockInput: HTMLInputElement;
+    let mockReader: any;
+    let createElementSpy: any;
+
+    beforeEach(() => {
+      mockReader = {
+        readAsText: vi.fn(),
+        onload: null as any,
+        onerror: null as any,
+        onabort: null as any,
+        error: new Error("File error"),
+        result: "",
+      };
+
+      const originalCreateElement = document.createElement.bind(document);
+      createElementSpy = vi.spyOn(document, "createElement").mockImplementation((tag) => {
+        if (tag === "input") {
+          mockInput = originalCreateElement("input") as HTMLInputElement;
+          vi.spyOn(mockInput, "click").mockImplementation(() => {});
+          return mockInput;
+        }
+        return originalCreateElement(tag);
+      });
+
+      (global as any).FileReader = vi.fn().mockImplementation(function (this: any) {
+        return mockReader;
+      });
     });
-    await tick();
 
-    const importBtn = target.querySelector("button[title='Import Settings']") as HTMLButtonElement;
+    it("should trigger file input on import click", async () => {
+      instance = mount(WorldSettingsConfig, {
+        target,
+        props: { ...mockProps },
+      });
+      await tick();
 
-    // Mock document.createElement to capture the input
-    const mockInput = {
-      click: vi.fn(),
-      style: {},
-      setAttribute: vi.fn(),
-      remove: vi.fn(),
-      parentNode: { removeChild: vi.fn() },
-    };
-    const createElementSpy = vi.spyOn(document, "createElement").mockReturnValue(mockInput as any);
-    const appendChildSpy = vi
-      .spyOn(document.body, "appendChild")
-      .mockImplementation(() => mockInput as any);
+      const importBtn = target.querySelector(
+        "button[title='Import Settings']",
+      ) as HTMLButtonElement;
+      importBtn.click();
 
-    importBtn.click();
-
-    expect(createElementSpy).toHaveBeenCalledWith("input");
-    expect(mockInput.click).toHaveBeenCalled();
-
-    createElementSpy.mockRestore();
-    appendChildSpy.mockRestore();
-  });
-
-  it("should successfully import settings", async () => {
-    // We already have FileReader mock in beforeEach that triggers onload
-    instance = mount(WorldSettingsConfig, {
-      target,
-      props: { ...mockProps },
+      expect(createElementSpy).toHaveBeenCalledWith("input");
+      expect(mockInput.type).toBe("file");
+      expect(mockInput.accept).toBe(".json");
+      expect(mockInput.click).toHaveBeenCalled();
     });
-    await tick();
 
-    // Trigger import logic by mocking the sequence
-    // This is hard to trigger via DOM because input is internal to importSettings
-    // But we can test that when reader.onload is called, it updates the props
-    const reader = new (global as any).FileReader();
-    const event = {
-      target: {
-        result: JSON.stringify({
-          rules: { nonBulkMethod: "roll", checkDC: 20 },
-          timeUnits: [{ id: "m", name: "Minute", short: "m", isBulk: false, ratio: 0.0166 }],
-        }),
-      },
-    };
+    it("should successfully import all setting types", async () => {
+      let rulesValue = mockProps.rules;
+      let timeUnitsValue = mockProps.timeUnits;
+      let teacherValue = mockProps.teacherCompendiums;
+      let bookValue = mockProps.bookCompendiums;
+      let allowedValue = mockProps.allowedCompendiums;
 
-    // We need to access the reader.onload from the component's internal scope,
-    // but we can also just verify that validateSettings is called.
-    const { validateSettings } = await import("@/logic/settings-logic");
-    const validateSpy = vi.spyOn({ validateSettings }, "validateSettings");
+      instance = mount(WorldSettingsConfig, {
+        target,
+        props: {
+          ...mockProps,
+          get rules() {
+            return rulesValue;
+          },
+          set rules(v) {
+            rulesValue = v;
+          },
+          get timeUnits() {
+            return timeUnitsValue;
+          },
+          set timeUnits(v) {
+            timeUnitsValue = v;
+          },
+          get teacherCompendiums() {
+            return teacherValue;
+          },
+          set teacherCompendiums(v) {
+            teacherValue = v;
+          },
+          get bookCompendiums() {
+            return bookValue;
+          },
+          set bookCompendiums(v) {
+            bookValue = v;
+          },
+          get allowedCompendiums() {
+            return allowedValue;
+          },
+          set allowedCompendiums(v) {
+            allowedValue = v;
+          },
+        },
+      });
+      await tick();
 
-    // Simulating the onload handler logic
-    const data = JSON.parse(event.target.result);
-    const validated = validateSettings(data);
-    expect(validated.rules?.checkDC).toBe(20);
-    expect(validated.timeUnits).toHaveLength(1);
+      const importBtn = target.querySelector(
+        "button[title='Import Settings']",
+      ) as HTMLButtonElement;
+      importBtn.click();
 
-    validateSpy.mockRestore();
+      // Simulate file selection
+      const importedData = {
+        rules: { ...mockProps.rules, checkDC: 30 },
+        timeUnits: [{ id: "d", name: "Day", short: "d", isBulk: false, ratio: 8 }],
+        teacherCompendiums: ["compendium.actors"],
+        bookCompendiums: ["compendium.items"],
+        allowedCompendiums: ["compendium.projects"],
+      };
+
+      const mockFile = new File([JSON.stringify(importedData)], "settings.json", {
+        type: "application/json",
+      });
+
+      // Mock files property on the real input
+      Object.defineProperty(mockInput, "files", {
+        value: [mockFile],
+        configurable: true,
+      });
+
+      // Trigger the event
+      if (mockInput.onchange) {
+        (mockInput as any).onchange({ target: mockInput });
+      }
+
+      expect(mockReader.readAsText).toHaveBeenCalledWith(mockFile);
+
+      // Simulate load
+      mockReader.result = JSON.stringify(importedData);
+      await mockReader.onload({ target: mockReader });
+
+      expect(rulesValue.checkDC).toBe(30);
+      expect(timeUnitsValue[0].id).toBe("d");
+      expect(teacherValue).toContain("compendium.actors");
+      expect(bookValue).toContain("compendium.items");
+      expect(allowedValue).toContain("compendium.projects");
+      expect(ui.notifications?.info).toHaveBeenCalledWith(
+        expect.stringContaining("Settings imported"),
+      );
+    });
+
+    it("should handle invalid JSON error during import", async () => {
+      instance = mount(WorldSettingsConfig, {
+        target,
+        props: { ...mockProps },
+      });
+      await tick();
+
+      const importBtn = target.querySelector(
+        "button[title='Import Settings']",
+      ) as HTMLButtonElement;
+      importBtn.click();
+
+      if (mockInput.onchange) {
+        (mockInput as any).onchange({ target: { files: [new File(["invalid"], "test.json")] } });
+      }
+
+      mockReader.result = "invalid-json";
+      await mockReader.onload({ target: mockReader });
+
+      expect(ui.notifications?.error).toHaveBeenCalledWith(
+        expect.stringContaining("Invalid JSON format"),
+      );
+    });
+
+    it("should handle FileReader error", async () => {
+      instance = mount(WorldSettingsConfig, {
+        target,
+        props: { ...mockProps },
+      });
+      await tick();
+
+      const importBtn = target.querySelector(
+        "button[title='Import Settings']",
+      ) as HTMLButtonElement;
+      importBtn.click();
+
+      if (mockInput.onchange) {
+        (mockInput as any).onchange({ target: { files: [new File([""], "test.json")] } });
+      }
+
+      mockReader.onerror();
+
+      expect(ui.notifications?.error).toHaveBeenCalledWith(
+        expect.stringContaining("Failed to read settings file"),
+      );
+    });
+
+    it("should handle FileReader abort", async () => {
+      instance = mount(WorldSettingsConfig, {
+        target,
+        props: { ...mockProps },
+      });
+      await tick();
+
+      const importBtn = target.querySelector(
+        "button[title='Import Settings']",
+      ) as HTMLButtonElement;
+      importBtn.click();
+
+      if (mockInput.onchange) {
+        (mockInput as any).onchange({ target: { files: [new File([""], "test.json")] } });
+      }
+
+      mockReader.onabort();
+
+      expect(ui.notifications?.warn).toHaveBeenCalledWith(
+        expect.stringContaining("Settings import aborted"),
+      );
+    });
+
+    it("should cleanup if visibility changes", async () => {
+      vi.useFakeTimers();
+      instance = mount(WorldSettingsConfig, {
+        target,
+        props: { ...mockProps },
+      });
+      await tick();
+
+      const importBtn = target.querySelector(
+        "button[title='Import Settings']",
+      ) as HTMLButtonElement;
+      importBtn.click();
+
+      document.dispatchEvent(new Event("visibilitychange"));
+
+      vi.advanceTimersByTime(600);
+
+      expect(mockInput.parentNode).toBeNull();
+      vi.useRealTimers();
+    });
+
+    it("should cleanup if no file is selected", async () => {
+      vi.useFakeTimers();
+      instance = mount(WorldSettingsConfig, {
+        target,
+        props: { ...mockProps },
+      });
+      await tick();
+
+      const importBtn = target.querySelector(
+        "button[title='Import Settings']",
+      ) as HTMLButtonElement;
+      importBtn.click();
+
+      // mockInput is already "in the body" via our mock logic
+      expect(mockInput.parentNode).toBe(document.body);
+
+      // We need to trigger handleCancel which is bound to window focus
+      window.dispatchEvent(new Event("focus"));
+
+      vi.advanceTimersByTime(600);
+
+      expect(mockInput.parentNode).toBeNull();
+      vi.useRealTimers();
+    });
   });
 });

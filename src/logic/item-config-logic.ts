@@ -52,7 +52,7 @@ export class ItemConfigLogic {
    * Orchestrates the search for a follow-up project using available modules.
    */
   static async searchFollowUp(): Promise<string | null> {
-    return await searchWithOmnisearchOrQuickInsert("!item ", ["Item"]);
+    return searchWithOmnisearchOrQuickInsert("!item ", ["Item"]);
   }
 
   /**

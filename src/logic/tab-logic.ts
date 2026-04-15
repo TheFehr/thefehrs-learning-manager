@@ -1,3 +1,4 @@
+import { combinations, getDieExpectation } from "./math-utils.js";
 import { DEFAULT_DC } from "@/global.js";
 import { ActorProxy } from "./actor-proxy.js";
 import { Logger } from "@/core/logger.js";
@@ -105,7 +106,7 @@ export class TabLogic {
                   (match, countStr, modType, modValueStr) => {
                     const count = countStr ? parseInt(countStr) : 1;
                     const modValue = modValueStr ? parseInt(modValueStr) : undefined;
-                    const expectation = this._getDieExpectation(count, 20, modType, modValue);
+                    const expectation = getDieExpectation(count, 20, modType, modValue);
                     return (expectation - 10.5).toString();
                   },
                 )
@@ -115,7 +116,7 @@ export class TabLogic {
                     const count = countStr ? parseInt(countStr) : 1;
                     const faces = parseInt(facesStr);
                     const modValue = modValueStr ? parseInt(modValueStr) : undefined;
-                    const expectation = this._getDieExpectation(count, faces, modType, modValue);
+                    const expectation = getDieExpectation(count, faces, modType, modValue);
                     return expectation.toString();
                   },
                 );
@@ -126,7 +127,7 @@ export class TabLogic {
           const evaluatedMod = await modRoll.evaluate();
           mod = evaluatedMod.total;
         } catch (err) {
-          Logger.error("Failed to calculate mod for mathematical progress:", err);
+          Logger.error("Failed to calculate mod for mathematical progress:", true, err);
         }
       }
       const bulkFormula =
@@ -163,7 +164,7 @@ export class TabLogic {
           progressGained,
         });
       } catch (err) {
-        Logger.error("Failed to evaluate bulk mathematical formula:", {
+        Logger.error("Failed to evaluate bulk mathematical formula:", true, {
           bulkFormula,
           formulaData,
           error: err,
@@ -174,85 +175,6 @@ export class TabLogic {
     }
 
     return { progressGained, roll, reason };
-  }
-
-  /**
-   * Calculates the mathematical expectation for a dice expression with keep/drop modifiers.
-   * Supports kh, kl, dh, dl.
-   */
-  private static _getDieExpectation(
-    count: number,
-    faces: number,
-    modifier?: string,
-    modValue?: number,
-  ): number {
-    if (!modifier) return (count * (faces + 1)) / 2;
-
-    let k = modValue ?? 1;
-    let highest = true;
-
-    const m = modifier.toLowerCase();
-    if (m === "kh") {
-      highest = true;
-      k = modValue ?? 1;
-    } else if (m === "kl") {
-      highest = false;
-      k = modValue ?? 1;
-    } else if (m === "dh") {
-      highest = false;
-      k = count - (modValue ?? 1);
-    } else if (m === "dl") {
-      highest = true;
-      k = count - (modValue ?? 1);
-    } else {
-      // Unsupported modifier, fallback to simple average
-      return (count * (faces + 1)) / 2;
-    }
-
-    // Clamp k to [0, count]
-    k = Math.max(0, Math.min(k, count));
-
-    if (k === 0) return 0;
-    if (k === count) return (count * (faces + 1)) / 2;
-
-    const combinations = (n: number, k: number): number => {
-      if (k < 0 || k > n) return 0;
-      if (k === 0 || k === n) return 1;
-      if (k > n / 2) k = n - k;
-      let res = 1;
-      for (let i = 1; i <= k; i++) {
-        res = (res * (n - i + 1)) / i;
-      }
-      return res;
-    };
-
-    const getBinomialP = (n: number, k: number, p: number): number => {
-      if (p <= 0) return 0;
-      if (p >= 1) return 1;
-      let total = 0;
-      for (let j = k; j <= n; j++) {
-        total += combinations(n, j) * Math.pow(p, j) * Math.pow(1 - p, n - j);
-      }
-      return total;
-    };
-
-    let totalE = 0;
-    if (highest) {
-      // Sum of expectations of k highest order statistics
-      for (let r = count - k + 1; r <= count; r++) {
-        for (let i = 0; i < faces; i++) {
-          totalE += 1 - getBinomialP(count, r, i / faces);
-        }
-      }
-    } else {
-      // Sum of expectations of k lowest order statistics
-      for (let r = 1; r <= k; r++) {
-        for (let i = 0; i < faces; i++) {
-          totalE += 1 - getBinomialP(count, r, i / faces);
-        }
-      }
-    }
-    return totalE;
   }
 
   /**
@@ -300,7 +222,7 @@ export class TabLogic {
       );
       return { rolls, isDeterministic: false };
     } catch (err) {
-      Logger.error("Failed to calculate outcomes:", err);
+      Logger.error("Failed to calculate outcomes:", true, err);
       return null;
     }
   }
@@ -372,7 +294,7 @@ export class TabLogic {
     const totalCp = cur.pp * 1000 + cur.gp * 100 + cur.ep * 50 + cur.sp * 10 + cur.cp;
 
     if (totalCp < costCp) {
-      getUI().notifications?.warn("Downtime Engine | Insufficient currency!");
+      getUI()?.notifications?.warn("Downtime Engine | Insufficient currency!");
       return false;
     }
 

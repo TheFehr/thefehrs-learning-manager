@@ -105,6 +105,7 @@ export class ProjectLifecycle {
     } catch (err) {
       Logger.error(
         `Failed to inject activities for item "${createdItem.name}". Project creation aborted.`,
+        true,
         err,
       );
       try {
@@ -112,6 +113,7 @@ export class ProjectLifecycle {
       } catch (deleteErr) {
         Logger.error(
           `Secondary failure: Failed to delete orphaned item "${createdItem.name}" (ID: ${createdItem.id}) during project creation rollback:`,
+          true,
           deleteErr,
         );
       }
@@ -262,14 +264,15 @@ export class ProjectLifecycle {
     } catch (err) {
       Logger.error(
         `Failed to delete original project item after restoration. New item created: ${createdItem.name} (${createdItem.id})`,
+        true,
         err,
       );
-      getUI().notifications?.warn(
+      getUI()?.notifications?.warn(
         `Restored item "${createdItem.name}" but could not delete the original project item. You may have a duplicate.`,
       );
       return true;
     }
-    getUI().notifications?.info(`Learning Complete: ${createdItem.name} is now fully available!`);
+    getUI()?.notifications?.info(`Learning Complete: ${createdItem.name} is now fully available!`);
     if (typeof (createdItem as Item5e).displayCard === "function") {
       await (createdItem as Item5e).displayCard({ rollMode });
     }
@@ -375,14 +378,14 @@ export class ProjectLifecycle {
       // 1. Update basic data, nested system, flags and activity removals atomically
       await item.update(primaryUpdate);
     } catch (err) {
-      Logger.error(`Failed to update item in-place:`, err);
-      getUI().notifications?.error(
+      Logger.error(`Failed to update item in-place:`, true, err);
+      getUI()?.notifications?.error(
         `Failed to complete project in-place for ${item.name}. See console for details.`,
       );
       return false;
     }
 
-    getUI().notifications?.info(`Learning Complete: ${item.name} is now fully available!`);
+    getUI()?.notifications?.info(`Learning Complete: ${item.name} is now fully available!`);
     if (typeof (item as Item5e).displayCard === "function") {
       await (item as Item5e).displayCard({ rollMode: Settings.get("rules").rollMode });
     }

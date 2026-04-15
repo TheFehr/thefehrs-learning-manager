@@ -58,6 +58,10 @@ describe("Migration v1.1 (GP to CP)", () => {
     const errorSpy = vi.spyOn(Logger, "error").mockImplementation(() => {});
 
     await expect(migrateV1_1GpToCp()).rejects.toThrow(error);
-    expect(errorSpy).toHaveBeenCalledWith(expect.stringContaining("v1.1 migration failed"), error);
+    expect(errorSpy).toHaveBeenCalledWith(
+      expect.stringContaining("v1.1 migration failed"),
+      true,
+      error,
+    );
   });
 });

@@ -69,7 +69,7 @@ export class LearningManager {
           try {
             await ProjectEngine.handleAutoTrainSignal();
           } catch (err) {
-            Logger.error("Failed to handle auto-train signal:", err);
+            Logger.error("Failed to handle auto-train signal:", true, err);
           }
         }
       }) || null;
@@ -80,7 +80,7 @@ export class LearningManager {
     try {
       await migrateData();
     } catch (err) {
-      Logger.error("Migration failed:", err);
+      Logger.error("Migration failed:", true, err);
     }
   }
 
@@ -91,7 +91,7 @@ export class LearningManager {
           try {
             await ProjectEngine.syncAllProjectActivities();
           } catch (err) {
-            Logger.error("Failed to sync activities after time unit change:", err);
+            Logger.error("Failed to sync activities after time unit change:", true, err);
           }
         },
       },
@@ -126,7 +126,7 @@ export class LearningManager {
       if (activity.flags?.[LearningManager.ID]?.isLearningActivity) {
         // We handle the training async but must return false synchronously to stop dnd5e's default use flow
         ProjectEngine.processTraining(activity).catch((err) => {
-          Logger.error("Training failed:", err);
+          Logger.error("Training failed:", true, err);
         });
         return false; // stop standard execution
       }
@@ -186,7 +186,7 @@ export class LearningManager {
             const { eligible, reason } = TabLogic.meetsRequirements(targetActor, requirements);
 
             if (!eligible) {
-              getUI().notifications?.warn(`Requirements not met for ${item5e.name}: ${reason}`);
+              getUI()?.notifications?.warn(`Requirements not met for ${item5e.name}: ${reason}`);
               return;
             }
 
@@ -195,9 +195,10 @@ export class LearningManager {
           .catch((err) => {
             Logger.error(
               `Failed to initiate project for item ${data.uuid} on actor ${targetActor.name}:`,
+              true,
               err,
             );
-            getUI().notifications?.error(
+            getUI()?.notifications?.error(
               `Downtime Engine | Failed to initiate project: ${err instanceof Error ? err.message : String(err)}`,
             );
           });

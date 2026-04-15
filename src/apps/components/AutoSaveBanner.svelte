@@ -27,6 +27,7 @@
     margin: -0.5rem -1rem 0 -1rem; /* Negate parent padding, keep bottom gap from parent */
     min-height: 2.25rem;
     box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    opacity: 0.85;
     transition: opacity 0.2s ease-in-out;
 
     &:hover {

@@ -64,6 +64,7 @@ describe("v1_2-crit-rules migration", () => {
     await expect(migrateToV1_2()).rejects.toThrow(error);
     expect(errorSpy).toHaveBeenCalledWith(
       expect.stringContaining("migration to v1.2.0 failed"),
+      true,
       error,
     );
   });

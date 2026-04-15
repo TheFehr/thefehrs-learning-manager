@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { migrateData } from "../../src/migrations/migration";
-import { MODULE_ID } from "../../src/global";
 import { FoundryUtils } from "../../src/core/foundry-utils";
 
 vi.mock("../../src/migrations/v1-relational", () => ({

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { SystemRules, TimeUnit, GuidanceTier } from "@/types.js";
+  import type { SystemRules, TimeUnit } from "@/types.js";
   import RulesConfig from "./RulesConfig.svelte";
   import CompendiumConfig from "./CompendiumConfig.svelte";
   import TimeUnitsConfig from "./TimeUnitsConfig.svelte";
@@ -91,7 +91,7 @@
 
         reader.onerror = () => {
           ui.notifications?.error("Downtime Engine | Failed to read settings file.");
-          Logger.error("FileReader error:", reader.error, false);
+          Logger.error("FileReader error:", false, reader.error);
           readerCleanup();
         };
         reader.onabort = () => {
@@ -123,7 +123,7 @@
               const msg = err instanceof Error ? err.message : String(err);
               ui.notifications?.error(`Downtime Engine | Failed to import settings: ${msg}`);
             }
-            Logger.error("Import error:", err, false);
+            Logger.error("Import error:", false, err);
           } finally {
             readerCleanup();
           }
@@ -133,13 +133,13 @@
           reader.readAsText(file);
         } catch (err) {
           ui.notifications?.error("Downtime Engine | Failed to start reading settings file.");
-          Logger.error("FileReader sync error:", err, false);
+          Logger.error("FileReader sync error:", false, err);
           readerCleanup();
         }
       };
       input.click();
     } catch (err) {
-      Logger.error("Failed to initialize settings import:", err);
+      Logger.error("Failed to initialize settings import:", true, err);
       if (input.parentNode) input.remove();
     }
   }

@@ -157,11 +157,7 @@
       }
     } finally {
       if (token === saveCounter) {
-        setTimeout(() => {
-          if (token === saveCounter) {
-            isSaving = false;
-          }
-        }, 500);
+        isSaving = false;
       }
     }
   }

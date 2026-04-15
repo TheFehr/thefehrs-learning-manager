@@ -37,7 +37,7 @@
         // Refresh suggestions from settings after potentially adding a new one
         globalCategories = Settings.get("categories") || [];
       } catch (err) {
-        Logger.error(`CategorySelector | Failed to ensure category "${val}" exists:`, err);
+        Logger.error(`CategorySelector | Failed to ensure category "${val}" exists:`, true, err);
       }
     }
   }
@@ -45,7 +45,7 @@
 
 <div class="category-selector-list">
   {#each categories as category, index}
-    {@const inputId = `category-input-${index}-${Math.random().toString(36).substring(2, 9)}`}
+    {@const inputId = `category-input-${listId}-${index}`}
     <div class="category-row">
       <label for={inputId} class="visually-hidden">Category {index + 1}</label>
       <input

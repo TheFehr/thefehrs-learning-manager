@@ -38,7 +38,7 @@ export class LoggerSingleton {
     if (this.currentLevel >= LEVELS.info) {
       if (uiNotify) {
         try {
-          getUI().notifications?.info(message);
+          getUI()?.notifications?.info(message);
         } catch (err) {
           console.error(`${LOG_PREFIX}Logger | UI notification failed:`, err);
         }
@@ -54,20 +54,20 @@ export class LoggerSingleton {
   /**
    * Send an error-level notification or log.
    * @param message - The error message.
-   * @param err - Optional related error or data.
    * @param uiNotify - Whether to show a UI notification.
+   * @param data - Optional related error or data.
    */
-  error(message: string, err?: unknown, uiNotify = true) {
+  error(message: string, uiNotify = true, ...data: any[]) {
     if (this.currentLevel >= LEVELS.error) {
       if (uiNotify) {
         try {
-          getUI().notifications?.error(message);
+          getUI()?.notifications?.error(message);
         } catch (uiErr) {
           console.error(`${LOG_PREFIX}Logger | UI notification failed:`, uiErr);
         }
       }
-      if (err) {
-        console.error(`${LOG_PREFIX}${message}`, err);
+      if (data.length > 0) {
+        console.error(`${LOG_PREFIX}${message}`, ...data);
       } else {
         console.error(`${LOG_PREFIX}${message}`);
       }
@@ -84,7 +84,7 @@ export class LoggerSingleton {
     if (this.currentLevel >= LEVELS.warn) {
       if (uiNotify) {
         try {
-          getUI().notifications?.warn(message);
+          getUI()?.notifications?.warn(message);
         } catch (err) {
           console.error(`${LOG_PREFIX}Logger | UI notification failed:`, err);
         }

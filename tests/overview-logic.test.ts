@@ -257,6 +257,7 @@ describe("overview-logic", () => {
     expect(result).toHaveLength(0);
     expect(loggerSpy).toHaveBeenCalledWith(
       expect.stringContaining('Failed to read index for compendium "pack1": Index load failed'),
+      true,
     );
     expect(pack2.getIndex).toHaveBeenCalled();
 

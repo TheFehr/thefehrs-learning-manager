@@ -11,6 +11,18 @@ describe("ConfigUtils", () => {
       vi.clearAllMocks();
       (global as any).CONFIG = {};
       (global as any).fromUuid = vi.fn();
+      (global as any).game = {
+        modules: {
+          get: vi.fn(),
+        },
+      };
+      (global as any).ui = {
+        notifications: {
+          error: vi.fn(),
+          warn: vi.fn(),
+          info: vi.fn(),
+        },
+      };
       vi.spyOn(Logger, "error").mockImplementation(() => {});
       vi.spyOn(Logger, "warn").mockImplementation(() => {});
       vi.spyOn(Logger, "info").mockImplementation(() => {});

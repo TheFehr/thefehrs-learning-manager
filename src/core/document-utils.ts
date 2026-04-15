@@ -15,7 +15,7 @@ export class DocumentUtils {
    */
   static async setFlagsSilently(doc: any, flags: Record<string, unknown>): Promise<boolean> {
     if (!doc || typeof doc.update !== "function") {
-      Logger.error("DocumentUtils.setFlagsSilently | Invalid document provided.", doc);
+      Logger.error("DocumentUtils.setFlagsSilently | Invalid document provided.", true, doc);
       return false;
     }
 
@@ -30,6 +30,7 @@ export class DocumentUtils {
     } catch (err) {
       Logger.error(
         `DocumentUtils.setFlagsSilently | Failed to update document ${doc.name || doc.id}:`,
+        true,
         err,
       );
       return false;
@@ -45,7 +46,7 @@ export class DocumentUtils {
    */
   static async unsetFlagsSilently(doc: any, keys: string[]): Promise<boolean> {
     if (!doc || typeof doc.update !== "function") {
-      Logger.error("DocumentUtils.unsetFlagsSilently | Invalid document provided.", doc);
+      Logger.error("DocumentUtils.unsetFlagsSilently | Invalid document provided.", true, doc);
       return false;
     }
 
@@ -60,6 +61,7 @@ export class DocumentUtils {
     } catch (err) {
       Logger.error(
         `DocumentUtils.unsetFlagsSilently | Failed to update document ${doc.name || doc.id}:`,
+        true,
         err,
       );
       return false;
@@ -75,7 +77,7 @@ export class DocumentUtils {
    */
   static async updateSilently(doc: any, data: Record<string, unknown>): Promise<boolean> {
     if (!doc || typeof doc.update !== "function") {
-      Logger.error("DocumentUtils.updateSilently | Invalid document provided.", doc);
+      Logger.error("DocumentUtils.updateSilently | Invalid document provided.", true, doc);
       return false;
     }
 
@@ -85,6 +87,7 @@ export class DocumentUtils {
     } catch (err) {
       Logger.error(
         `DocumentUtils.updateSilently | Failed to update document ${doc.name || doc.id}:`,
+        true,
         err,
       );
       return false;

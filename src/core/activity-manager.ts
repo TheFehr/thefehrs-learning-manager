@@ -126,7 +126,7 @@ export class ActivityManager {
   static async syncAllProjectActivities() {
     if (!getGame().user?.isGM) return;
 
-    getUI().notifications?.info("Downtime Engine | Syncing project activities...");
+    getUI()?.notifications?.info("Downtime Engine | Syncing project activities...");
 
     const actors = (getGame().actors || []) as unknown as Actor5e[];
     let updatedCount = 0;
@@ -146,6 +146,7 @@ export class ActivityManager {
         } catch (err) {
           Logger.error(
             `Failed to sync activities for item "${item.name}" on actor "${actor.name}":`,
+            true,
             err,
           );
           failedCount++;
@@ -161,11 +162,13 @@ export class ActivityManager {
     }
 
     if (failedCount > 0) {
-      getUI().notifications?.warn(
+      getUI()?.notifications?.warn(
         `Downtime Engine | Synced activities for ${updatedCount} items. ${failedCount} items failed (check application logs).`,
       );
     } else {
-      getUI().notifications?.info(`Downtime Engine | Synced activities for ${updatedCount} items.`);
+      getUI()?.notifications?.info(
+        `Downtime Engine | Synced activities for ${updatedCount} items.`,
+      );
     }
   }
 }

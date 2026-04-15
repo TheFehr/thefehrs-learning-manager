@@ -60,7 +60,8 @@ describe("SettingsConfig logic", () => {
       if (key === "rules") return { ...fullRules };
       if (key === "timeUnits") return [];
       if (key === "guidanceTiers") return [];
-      if (key === "allowedCompendiums") return [];
+      if (key === "teacherCompendiums") return [];
+      if (key === "bookCompendiums") return [];
       return null;
     });
 
