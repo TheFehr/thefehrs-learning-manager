@@ -10,8 +10,8 @@ export function registerMigrationSettings() {
   const settings = ["guidanceTiers", "allowedCompendiums", "teacherCompendiums", "bookCompendiums"];
 
   for (const setting of settings) {
-    if (!game.settings.settings.has(`${MODULE_ID}.${setting}`)) {
-      game.settings.register(MODULE_ID, setting, {
+    if (!game.settings.settings.has(`${MODULE_ID}.${setting}` as any)) {
+      game.settings.register(MODULE_ID, setting as any, {
         scope: "world",
         config: false,
         type: Array,
