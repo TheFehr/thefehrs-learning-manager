@@ -1,3 +1,5 @@
+import type { FoundrySocket } from "@/types.js";
+
 /**
  * Safely get the global 'game' instance.
  * @throws Error if game is not initialized.
@@ -34,6 +36,6 @@ export function getUI(): ({ notifications?: Notifications } & Record<string, any
  * Safely get the global 'socket' instance.
  * Returns null if no socket is available (e.g. in some specialized environments).
  */
-export function getSocket(): any {
+export function getSocket(): FoundrySocket | null {
   return (globalThis as any).game?.socket || null;
 }

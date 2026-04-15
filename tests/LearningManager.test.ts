@@ -7,15 +7,15 @@ import { Socket } from "../src/core/socket";
 import { migrateData } from "../src/migrations/migration";
 import { registerMigrationSettings } from "../src/migrations/migration-registration";
 
-vi.mock("../src/migrations/migration", () => ({
+vi.mock("@/migrations/migration", () => ({
   migrateData: vi.fn(),
 }));
 
-vi.mock("../src/migrations/migration-registration", () => ({
+vi.mock("@/migrations/migration-registration", () => ({
   registerMigrationSettings: vi.fn(),
 }));
 
-vi.mock("../src/core/settings", () => ({
+vi.mock("@/core/settings", () => ({
   Settings: {
     registerMenu: vi.fn(),
     get: vi.fn(),
@@ -25,7 +25,7 @@ vi.mock("../src/core/settings", () => ({
   },
 }));
 
-vi.mock("../src/logic/project-engine", () => ({
+vi.mock("@/logic/project-engine", () => ({
   ProjectEngine: {
     syncAllProjectActivities: vi.fn(),
     handleAutoTrainSignal: vi.fn(),
@@ -34,13 +34,13 @@ vi.mock("../src/logic/project-engine", () => ({
   },
 }));
 
-vi.mock("../src/logic/tutelage-resolver", () => ({
+vi.mock("@/logic/tutelage-resolver", () => ({
   TutelageResolverService: {
     clearCache: vi.fn(),
   },
 }));
 
-vi.mock("../src/core/socket", () => ({
+vi.mock("@/core/socket", () => ({
   Socket: {
     listen: vi.fn().mockReturnValue(vi.fn()),
     off: vi.fn(),
@@ -63,9 +63,9 @@ describe("LearningManager", () => {
     });
 
     it("should register config expansions", () => {
-      (global as any).CONFIG = { DND5E: { featureTypes: {} } };
+      (globalThis as any).CONFIG = { DND5E: { featureTypes: {} } };
       LearningManager.init();
-      expect(global.CONFIG.DND5E.featureTypes["learning-project"]).toBeDefined();
+      expect(globalThis.CONFIG.DND5E.featureTypes["learning-project"]).toBeDefined();
     });
   });
 
@@ -152,7 +152,7 @@ describe("LearningManager", () => {
       const mockActor = { name: "Actor", type: "character" };
       const mockData = { type: "Item", uuid: "Compendium.world.items.123" };
 
-      (global as any).fromUuid = vi.fn().mockResolvedValue({
+      (globalThis as any).fromUuid = vi.fn().mockResolvedValue({
         name: "Source Item",
         system: {},
       });

@@ -10,7 +10,7 @@ describe("TimeBankLogic", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    (global as any).ui = {
+    (globalThis as any).ui = {
       notifications: {
         warn: vi.fn(),
         error: vi.fn(),
@@ -20,7 +20,7 @@ describe("TimeBankLogic", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
-    delete (global as any).ui;
+    delete (globalThis as any).ui;
   });
 
   describe("getTimeValue", () => {
@@ -60,12 +60,16 @@ describe("TimeBankLogic", () => {
 
     it("should warn on invalid input", async () => {
       await TimeBankLogic.updateTime(units[0] as any, "abc", {} as any, 15, units as any);
-      expect(global.ui.notifications.warn).toHaveBeenCalledWith(expect.stringContaining("Invalid"));
+      expect(globalThis.ui.notifications.warn).toHaveBeenCalledWith(
+        expect.stringContaining("Invalid"),
+      );
     });
 
     it("should handle negative input strings by warning", async () => {
       await TimeBankLogic.updateTime(units[0] as any, "-5", {} as any, 15, units as any);
-      expect(global.ui.notifications.warn).toHaveBeenCalledWith(expect.stringContaining("Invalid"));
+      expect(globalThis.ui.notifications.warn).toHaveBeenCalledWith(
+        expect.stringContaining("Invalid"),
+      );
     });
 
     it("should floor decimal input and skip update when result equals current value", async () => {
@@ -82,7 +86,7 @@ describe("TimeBankLogic", () => {
       await TimeBankLogic.updateTime(units[0] as any, "2", mockProxy as any, 15, units as any);
 
       expect(console.error).toHaveBeenCalled();
-      expect(global.ui.notifications.error).toHaveBeenCalledWith(
+      expect(globalThis.ui.notifications.error).toHaveBeenCalledWith(
         expect.stringContaining("Failed to update"),
       );
     });

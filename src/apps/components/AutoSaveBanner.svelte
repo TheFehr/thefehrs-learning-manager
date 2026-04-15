@@ -2,7 +2,7 @@
   let { isSaving, saveError } = $props<{ isSaving: boolean, saveError: string | null }>();
 </script>
 
-<div class="auto-save-banner">
+<div class="auto-save-banner" role="status" aria-live="polite">
   {#if isSaving}
     <span class="saving-indicator"><i class="fas fa-spinner fa-spin"></i> Saving...</span>
   {:else if saveError}

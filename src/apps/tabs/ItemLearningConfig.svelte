@@ -122,6 +122,13 @@
     return () => clearTimeout(timeout);
   });
 
+  // Clear target validation error immediately when fixed
+  $effect(() => {
+    if (targetValue > 0 && saveError === "Target progress must be greater than 0.") {
+      saveError = null;
+    }
+  });
+
   async function saveConfig(
     enabled: boolean,
     project?: { target: number; followUpProjectId: string; requirements: ProjectRequirement[]; categories: string[] },

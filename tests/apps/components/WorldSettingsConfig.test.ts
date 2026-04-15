@@ -80,6 +80,7 @@ describe("WorldSettingsConfig.svelte", () => {
     await tick();
 
     const exportBtn = target.querySelector("button[title='Export Settings']") as HTMLButtonElement;
+    expect(exportBtn).not.toBeNull();
     exportBtn.click();
 
     expect(foundry.utils.saveDataToFile).toHaveBeenCalled();
@@ -100,6 +101,7 @@ describe("WorldSettingsConfig.svelte", () => {
     const clearBtn = target.querySelector(
       "button[title='Clear Tutelage Cache']",
     ) as HTMLButtonElement;
+    expect(clearBtn).not.toBeNull();
     clearBtn.click();
 
     expect(TutelageResolverService.clearCache).toHaveBeenCalled();
@@ -131,7 +133,7 @@ describe("WorldSettingsConfig.svelte", () => {
         return originalCreateElement(tag);
       });
 
-      (global as any).FileReader = vi.fn().mockImplementation(function (this: any) {
+      (globalThis as any).FileReader = vi.fn().mockImplementation(function (this: any) {
         return mockReader;
       });
     });
@@ -146,6 +148,7 @@ describe("WorldSettingsConfig.svelte", () => {
       const importBtn = target.querySelector(
         "button[title='Import Settings']",
       ) as HTMLButtonElement;
+      expect(importBtn).not.toBeNull();
       importBtn.click();
 
       expect(createElementSpy).toHaveBeenCalledWith("input");
@@ -202,6 +205,7 @@ describe("WorldSettingsConfig.svelte", () => {
       const importBtn = target.querySelector(
         "button[title='Import Settings']",
       ) as HTMLButtonElement;
+      expect(importBtn).not.toBeNull();
       importBtn.click();
 
       // Simulate file selection
@@ -254,6 +258,7 @@ describe("WorldSettingsConfig.svelte", () => {
       const importBtn = target.querySelector(
         "button[title='Import Settings']",
       ) as HTMLButtonElement;
+      expect(importBtn).not.toBeNull();
       importBtn.click();
 
       if (mockInput.onchange) {
@@ -278,6 +283,7 @@ describe("WorldSettingsConfig.svelte", () => {
       const importBtn = target.querySelector(
         "button[title='Import Settings']",
       ) as HTMLButtonElement;
+      expect(importBtn).not.toBeNull();
       importBtn.click();
 
       if (mockInput.onchange) {
@@ -301,6 +307,7 @@ describe("WorldSettingsConfig.svelte", () => {
       const importBtn = target.querySelector(
         "button[title='Import Settings']",
       ) as HTMLButtonElement;
+      expect(importBtn).not.toBeNull();
       importBtn.click();
 
       if (mockInput.onchange) {
@@ -325,6 +332,7 @@ describe("WorldSettingsConfig.svelte", () => {
       const importBtn = target.querySelector(
         "button[title='Import Settings']",
       ) as HTMLButtonElement;
+      expect(importBtn).not.toBeNull();
       importBtn.click();
 
       document.dispatchEvent(new Event("visibilitychange"));
@@ -346,6 +354,7 @@ describe("WorldSettingsConfig.svelte", () => {
       const importBtn = target.querySelector(
         "button[title='Import Settings']",
       ) as HTMLButtonElement;
+      expect(importBtn).not.toBeNull();
       importBtn.click();
 
       // mockInput is already "in the body" via our mock logic

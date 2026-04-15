@@ -50,7 +50,7 @@
     if (currentSnapshot === untrack(() => initialSnapshot)) return;
 
     const timeout = setTimeout(() => {
-      saveConfig(JSON.parse(JSON.stringify(currentOfferings)), currentEnabled);
+      saveConfig(structuredClone(currentOfferings), currentEnabled);
     }, 500);
 
     return () => clearTimeout(timeout);
@@ -133,6 +133,9 @@
             onchange={(e) => {
               offering.modifier = Math.max(0, Number(e.currentTarget.value) || 0);
               e.stopPropagation();
+            }}
+            onblur={(e) => {
+              offering.modifier = Math.max(0, Number(e.currentTarget.value) || 0);
             }}
             min="0"
             placeholder="e.g. 5"

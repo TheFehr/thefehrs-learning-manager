@@ -248,9 +248,11 @@ export class LearningManager {
         tabId: `${this.ID}-item-target-config`,
         html: '<div class="downtime-engine-svelte-root" style="height: 100%;"></div>',
         enabled: (context: { item?: Item; document?: Item }) => {
-          if (!getGame().user?.isGM) return false;
+          const user = getGame().user;
           const item = context?.item || context?.document;
-          if (!item) return false;
+          if (!user || !item) return false;
+
+          const isGM = user.isGM;
 
           const isLearningType =
             (item.type as string) === "feat" &&
@@ -258,11 +260,11 @@ export class LearningManager {
           const isProject = item.getFlag("thefehrs-learning-manager", "isLearningProject");
           const hasBookBonus = !!item.getFlag("thefehrs-learning-manager", "learningBookBonus");
 
-          if (isLearningType || isProject || hasBookBonus) return true;
+          if (isLearningType || isProject || hasBookBonus) return isGM;
 
           const uuid = (item as any).uuid || "";
           if (uuid.startsWith("Compendium.")) {
-            if (getGame().user?.isGM) return true;
+            if (isGM) return true;
             const parts = uuid.split(".");
             const packId = `${parts[1]}.${parts[2]}`;
             const isAllowed = Settings.get("allowedCompendiums").includes(packId);
@@ -289,16 +291,18 @@ export class LearningManager {
       tabId: `${this.ID}-actor-tutelage-config`,
       html: '<div class="downtime-engine-svelte-root" style="height: 100%;"></div>',
       enabled: (context: { actor?: Actor; document?: Actor }) => {
-        if (!getGame().user?.isGM) return false;
+        const user = getGame().user;
         const actor = context?.actor || context?.document;
-        if (!actor) return false;
+        if (!user || !actor) return false;
+
+        const isGM = user.isGM;
 
         const hasOfferings = !!actor.getFlag(this.ID, "teacherOfferings");
-        if (hasOfferings) return true;
+        if (hasOfferings) return isGM;
 
         const uuid = (actor as any).uuid || "";
         if (uuid.startsWith("Compendium.")) {
-          if (getGame().user?.isGM) return true;
+          if (isGM) return true;
           const parts = uuid.split(".");
           const packId = `${parts[1]}.${parts[2]}`;
           const isTeacherPack = Settings.get("teacherCompendiums").includes(packId);

@@ -3,7 +3,7 @@ import { ActivityManager } from "../../src/core/activity-manager";
 import { Settings } from "../../src/core/settings";
 import { Logger } from "../../src/core/logger";
 
-vi.mock("../../src/core/settings", () => ({
+vi.mock("@/core/settings", () => ({
   Settings: {
     get: vi.fn().mockImplementation((key) => {
       if (key === "timeUnits") {
@@ -18,18 +18,18 @@ vi.mock("../../src/core/settings", () => ({
 describe("ActivityManager", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (global as any).ui = { notifications: { info: vi.fn(), warn: vi.fn() } };
-    (global as any).game = { user: { isGM: true }, actors: [] };
-    (global as any).foundry = { utils: { randomID: vi.fn().mockReturnValue("rand123") } };
+    (globalThis as any).ui = { notifications: { info: vi.fn(), warn: vi.fn() } };
+    (globalThis as any).game = { user: { isGM: true }, actors: [] };
+    (globalThis as any).foundry = { utils: { randomID: vi.fn().mockReturnValue("rand123") } };
     vi.spyOn(Logger, "debug").mockImplementation(() => {});
     vi.spyOn(Logger, "error").mockImplementation(() => {});
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
-    delete (global as any).ui;
-    delete (global as any).game;
-    delete (global as any).foundry;
+    delete (globalThis as any).ui;
+    delete (globalThis as any).game;
+    delete (globalThis as any).foundry;
   });
 
   describe("getActivitiesData", () => {

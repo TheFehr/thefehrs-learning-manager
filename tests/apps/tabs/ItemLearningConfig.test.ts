@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import ItemLearningConfig from "../../../src/apps/tabs/ItemLearningConfig.svelte";
+import ItemLearningConfig from "@/apps/tabs/ItemLearningConfig.svelte";
 import { mount, unmount, tick } from "svelte";
 import { toggleUserGM } from "../../setup";
 
@@ -25,7 +25,7 @@ describe("ItemLearningConfig.svelte", () => {
     toggleUserGM(true);
     target = document.createElement("div");
     document.body.appendChild(target);
-    (global as any).game.settings.get = vi.fn().mockImplementation((_scope, key) => {
+    (globalThis as any).game.settings.get = vi.fn().mockImplementation((_scope, key) => {
       if (key === "allowedCompendiums") return ["world.pack"];
       if (key === "bookCompendiums") return [];
       if (key === "categories") return [];
@@ -61,6 +61,7 @@ describe("ItemLearningConfig.svelte", () => {
       b.textContent?.includes("Add Requirement"),
     );
     expect(addButton).not.toBeUndefined();
+    expect(addButton).not.toBeNull();
 
     addButton?.click();
     await tick();
@@ -70,6 +71,7 @@ describe("ItemLearningConfig.svelte", () => {
     const removeButton = target.querySelector(
       ".requirement-row button.danger",
     ) as HTMLButtonElement;
+    expect(removeButton).not.toBeNull();
     removeButton?.click();
     await tick();
 
@@ -77,7 +79,7 @@ describe("ItemLearningConfig.svelte", () => {
   });
 
   it("should show book configuration if item is in a book compendium", async () => {
-    (global as any).game.settings.get = vi.fn().mockImplementation((_scope, key) => {
+    (globalThis as any).game.settings.get = vi.fn().mockImplementation((_scope, key) => {
       if (key === "allowedCompendiums") return [];
       if (key === "bookCompendiums") return ["world.pack"];
       return [];
@@ -94,7 +96,7 @@ describe("ItemLearningConfig.svelte", () => {
   });
 
   it("should show both configurations if item is not in any restricted compendium", async () => {
-    (global as any).game.settings.get = vi.fn().mockImplementation((_scope, key) => {
+    (globalThis as any).game.settings.get = vi.fn().mockImplementation((_scope, key) => {
       if (key === "allowedCompendiums") return ["other.pack"];
       if (key === "bookCompendiums") return ["another.pack"];
       return [];

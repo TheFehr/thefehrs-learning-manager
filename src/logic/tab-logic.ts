@@ -1,4 +1,4 @@
-import { combinations, getDieExpectation } from "./math-utils.js";
+import { getDieExpectation } from "./math-utils.js";
 import { DEFAULT_DC } from "@/global.js";
 import { ActorProxy } from "./actor-proxy.js";
 import { Logger } from "@/core/logger.js";
@@ -90,10 +90,8 @@ export class TabLogic {
       let mod = 0;
       if (rules.checkFormula) {
         try {
-          // Replace all d20-based dice expressions with (E - 10.5) to extract the constant modifier relative to a single d20.
-          // This handles d20, 1d20, 2d20kh1, etc.
-          // We also replace other dice with their average/expected value to make it deterministic.
-          // For complex keep/drop dice that we don't support deterministic expectation for, we skip the rewrite.
+          // Check for unsupported keep/drop dice expressions (e.g., 4d6kh3) that aren't the common 2d20kh1/kl1.
+          // We can't easily calculate a deterministic expectation for these in a single pass.
           const hasUnsupportedKeepDrop =
             /\b\d*d\d+([khdl][hl]?\d+)\b/i.test(rules.checkFormula) &&
             !/\b2d20[khdl][hl]?1\b/i.test(rules.checkFormula);
@@ -101,6 +99,8 @@ export class TabLogic {
           const modFormula = hasUnsupportedKeepDrop
             ? rules.checkFormula
             : rules.checkFormula
+                // Replace d20-based dice with their relative modifier to a flat d20 roll (E - 10.5).
+                // This allows us to extract the "bonus" part of the formula for use in the bulk calculation.
                 .replace(
                   /\b(\d*)d20(?:([khdl][hl]?)(\d+)?)?\b/gi,
                   (match, countStr, modType, modValueStr) => {
@@ -110,6 +110,7 @@ export class TabLogic {
                     return (expectation - 10.5).toString();
                   },
                 )
+                // Replace all other dice with their average/expected value to make the formula deterministic.
                 .replace(
                   /\b(\d*)d(\d+)(?:([khdl][hl]?)(\d+)?)?\b/gi,
                   (match, countStr, facesStr, modType, modValueStr) => {
@@ -125,11 +126,14 @@ export class TabLogic {
             tutelage: tutelageMod,
           });
           const evaluatedMod = await modRoll.evaluate();
-          mod = evaluatedMod.total;
+          mod = evaluatedMod.total || 0;
         } catch (err) {
           Logger.error("Failed to calculate mod for mathematical progress:", true, err);
         }
       }
+      // The default bulk formula calculates progress based on success probability:
+      // P(Success) = (21 - (DC - mod)) / 20, clamped between 1/20 and 1.
+      // We multiply by @hours to get total expected progress.
       const bulkFormula =
         rules.bulkExpectedFormula || "round(@hours * (22 - max(1, @dc - @mod)) / 20)";
 

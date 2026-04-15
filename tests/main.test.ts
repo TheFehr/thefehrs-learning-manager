@@ -304,7 +304,7 @@ describe("LearningManager", () => {
         if (key === "projectData") return { requirements: [] };
         return null;
       });
-      global.fromUuid = vi.fn().mockResolvedValue(item);
+      globalThis.fromUuid = vi.fn().mockResolvedValue(item);
 
       LearningManager.init();
       const dropHook = vi.mocked(Hooks.on).mock.calls.find((c) => c[0] === "dropActorSheetData");

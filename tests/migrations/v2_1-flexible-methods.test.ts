@@ -5,8 +5,8 @@ import { MODULE_ID } from "../../src/global";
 describe("Migration v2.1", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (global as any).ui = { notifications: { info: vi.fn(), error: vi.fn() } };
-    (global as any).game = {
+    (globalThis as any).ui = { notifications: { info: vi.fn(), error: vi.fn() } };
+    (globalThis as any).game = {
       settings: {
         get: vi.fn().mockImplementation((ns, key) => {
           if (key === "rules") return {};

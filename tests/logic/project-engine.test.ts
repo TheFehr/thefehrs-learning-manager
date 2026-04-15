@@ -4,10 +4,9 @@ import { Settings } from "../../src/core/settings";
 import { TabLogic } from "../../src/logic/tab-logic";
 import { Socket } from "../../src/core/socket";
 import { ActorProxy } from "../../src/logic/actor-proxy";
-import { TutelageResolverService } from "../../src/logic/tutelage-resolver";
 import { MODULE_ID } from "../../src/global";
 
-vi.mock("../../src/logic/tab-logic", () => ({
+vi.mock("@/logic/tab-logic", () => ({
   TabLogic: {
     computeProgress: vi.fn().mockResolvedValue({ progressGained: 1 }),
     deductCurrency: vi.fn().mockResolvedValue(true),
@@ -19,7 +18,7 @@ vi.mock("../../src/logic/tab-logic", () => ({
   },
 }));
 
-vi.mock("../../src/logic/tutelage-resolver", () => ({
+vi.mock("@/logic/tutelage-resolver", () => ({
   TutelageResolverService: {
     getAvailableInstructors: vi.fn().mockResolvedValue([]),
     getAvailableBooks: vi.fn().mockReturnValue([]),
@@ -61,14 +60,14 @@ describe("ProjectEngine", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    (global as any).ui = {
+    (globalThis as any).ui = {
       notifications: {
         info: vi.fn(),
         warn: vi.fn(),
         error: vi.fn(),
       },
     };
-    global.Item = class {
+    globalThis.Item = class {
       constructor() {}
       update = vi.fn().mockResolvedValue(this);
       delete = vi.fn().mockResolvedValue(true);
@@ -90,7 +89,7 @@ describe("ProjectEngine", () => {
       return null;
     });
 
-    global.game = {
+    globalThis.game = {
       settings: {
         get: vi.fn().mockImplementation((_scope, key) => {
           if (key === "timeUnits") return timeUnits;
@@ -251,11 +250,11 @@ describe("ProjectEngine", () => {
         effects: [],
       });
 
-      global.fromUuid = vi.fn().mockResolvedValue(sourceItem);
+      globalThis.fromUuid = vi.fn().mockResolvedValue(sourceItem);
 
       await ProjectEngine.completeProject(item);
 
-      expect(global.fromUuid).toHaveBeenCalledWith("Compendium.some.uuid");
+      expect(globalThis.fromUuid).toHaveBeenCalledWith("Compendium.some.uuid");
       expect(actor.createEmbeddedDocuments).toHaveBeenCalledWith("Item", [
         expect.objectContaining({
           name: "Source Item",
@@ -305,7 +304,7 @@ describe("ProjectEngine", () => {
         return null;
       });
 
-      global.fromUuid = vi.fn().mockRejectedValue(new Error("Not found"));
+      globalThis.fromUuid = vi.fn().mockRejectedValue(new Error("Not found"));
 
       await ProjectEngine.completeProject(item);
 
@@ -352,7 +351,7 @@ describe("ProjectEngine", () => {
         return null;
       });
 
-      global.fromUuid = vi.fn().mockRejectedValue(new Error("Not found"));
+      globalThis.fromUuid = vi.fn().mockRejectedValue(new Error("Not found"));
 
       await ProjectEngine.completeProject(item);
 
@@ -470,7 +469,7 @@ describe("ProjectEngine", () => {
       const followUpItem = new Item() as any;
       followUpItem.name = "Second Project";
       followUpItem.getFlag.mockReturnValue({ requirements: [] });
-      global.fromUuid = vi.fn().mockResolvedValue(followUpItem);
+      globalThis.fromUuid = vi.fn().mockResolvedValue(followUpItem);
 
       vi.mocked(TabLogic.meetsRequirements).mockReturnValue({ eligible: true, reason: "" });
       vi.mocked(foundry.applications.api.DialogV2.confirm).mockResolvedValue(true);
@@ -868,12 +867,14 @@ describe("ProjectEngine", () => {
       vi.mocked(foundry.applications.api.DialogV2.confirm).mockResolvedValue(true);
 
       let calls = 0;
-      const processSpy = vi.spyOn(ProjectEngine, "processTraining").mockImplementation(async () => {
-        calls++;
-        if (calls === 1) return false; // Fail first call
-        mockProxy.bank.total -= 1;
-        return true;
-      });
+      const _processSpy = vi
+        .spyOn(ProjectEngine, "processTraining")
+        .mockImplementation(async () => {
+          calls++;
+          if (calls === 1) return false; // Fail first call
+          mockProxy.bank.total -= 1;
+          return true;
+        });
 
       actor.items = { get: vi.fn().mockReturnValue(item) };
       item.getFlag = vi.fn().mockReturnValue({ isCompleted: false });
@@ -898,7 +899,7 @@ describe("ProjectEngine", () => {
         isGM: false,
         character: mockActor,
       };
-      global.game.user = mockUser;
+      globalThis.game.user = mockUser;
 
       vi.spyOn(Settings, "get").mockImplementation((key) => {
         if (key === "autoSpend") return true;

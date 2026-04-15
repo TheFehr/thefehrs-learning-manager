@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import SettingsConfig from "../../src/apps/SettingsConfig.svelte";
+import SettingsConfig from "@/apps/SettingsConfig.svelte";
 import { mount, unmount, tick } from "svelte";
 import { toggleUserGM } from "../setup";
 
 vi.unmock("svelte");
 
-vi.mock("../../src/core/settings", () => ({
+vi.mock("@/core/settings", () => ({
   Settings: {
     rules: { nonBulkMethod: "roll", bulkMethod: "mathematical" },
     timeUnits: [],

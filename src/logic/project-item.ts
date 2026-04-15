@@ -67,7 +67,7 @@ export interface ProjectItem extends Omit<Item5e, "system"> {
 
   getFlag(scope: "thefehrs-learning-manager", key: "projectData"): ProjectFlagData | undefined;
   getFlag<T>(scope: string, key: string): T;
-  displayCard(options?: DisplayCardOptions): Promise<unknown>;
+  displayCard(options?: DisplayCardOptions): Promise<ChatMessage | void>;
 }
 
 export function projectData(item: Item5e): ProjectFlagData | undefined {

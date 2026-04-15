@@ -10,17 +10,17 @@ vi.mock("@/apps/overview-logic.js", () => ({
 vi.unmock("svelte");
 
 async function waitForIdle(target: HTMLElement) {
-  for (let i = 0; i < 20; i++) {
-    await tick();
-    const isLoading = target.querySelector(".loading-state") !== null;
-    const isRefreshing = (target.querySelector("button.refresh-button") as HTMLButtonElement)
-      ?.disabled;
-    if (!isLoading && !isRefreshing) {
-      return;
-    }
-    await new Promise((resolve) => setTimeout(resolve, 10));
-  }
-  throw new Error("Timed out waiting for idle state");
+  await vi.waitFor(
+    () => {
+      const isLoading = target.querySelector(".loading-state") !== null;
+      const isRefreshing = (target.querySelector("button.refresh-button") as HTMLButtonElement)
+        ?.disabled;
+      if (isLoading || isRefreshing) {
+        throw new Error("Still loading or refreshing");
+      }
+    },
+    { timeout: 2000, interval: 50 },
+  );
 }
 
 describe("ProjectOverview.svelte", () => {
@@ -96,6 +96,7 @@ describe("ProjectOverview.svelte", () => {
     await waitForIdle(target);
 
     const projectName = target.querySelector(".project-name") as HTMLElement;
+    expect(projectName).not.toBeNull();
 
     // Enter
     projectName.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
@@ -159,6 +160,7 @@ describe("ProjectOverview.svelte", () => {
     refreshButton.click();
 
     await waitForIdle(target);
+    await tick();
 
     expect(target.innerHTML).toContain("Broken Project 2");
   });

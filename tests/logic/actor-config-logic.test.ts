@@ -4,16 +4,16 @@ import { ActorConfigLogic } from "../../src/logic/actor-config-logic";
 describe("ActorConfigLogic", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (global as any).ui = { notifications: { error: vi.fn() } };
-    (global as any).CONFIG = (global as any).CONFIG || {};
-    (global as any).fromUuid = vi.fn().mockResolvedValue({ documentName: "Item" });
+    (globalThis as any).ui = { notifications: { error: vi.fn() } };
+    (globalThis as any).CONFIG = (globalThis as any).CONFIG || {};
+    (globalThis as any).fromUuid = vi.fn().mockResolvedValue({ documentName: "Item" });
   });
 
   afterEach(() => {
-    delete (global as any).ui;
-    delete (global as any).CONFIG;
-    delete (global as any).fromUuid;
-    delete (global as any).game;
+    delete (globalThis as any).ui;
+    delete (globalThis as any).CONFIG;
+    delete (globalThis as any).fromUuid;
+    delete (globalThis as any).game;
   });
 
   it("should save teacher configuration to flags", async () => {
@@ -35,20 +35,20 @@ describe("ActorConfigLogic", () => {
 
   describe("searchProject", () => {
     it("should use Spotlight Omnisearch if available", async () => {
-      (global as any).CONFIG.SpotlightOmnisearch = {
+      (globalThis as any).CONFIG.SpotlightOmnisearch = {
         prompt: vi.fn().mockResolvedValue({ data: { uuid: "item-uuid" } }),
       };
 
       const result = await ActorConfigLogic.searchProject();
       expect(result).toBe("item-uuid");
-      expect((global as any).CONFIG.SpotlightOmnisearch.prompt).toHaveBeenCalledWith({
+      expect((globalThis as any).CONFIG.SpotlightOmnisearch.prompt).toHaveBeenCalledWith({
         query: "!item ",
       });
     });
 
     it("should return null if no search module is found", async () => {
-      delete (global as any).CONFIG.SpotlightOmnisearch;
-      (global as any).game = { modules: { get: vi.fn().mockReturnValue(null) } };
+      delete (globalThis as any).CONFIG.SpotlightOmnisearch;
+      (globalThis as any).game = { modules: { get: vi.fn().mockReturnValue(null) } };
 
       const result = await ActorConfigLogic.searchProject();
       expect(result).toBeNull();

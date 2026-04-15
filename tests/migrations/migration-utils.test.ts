@@ -7,9 +7,9 @@ describe("migration-utils", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    (global as any).ui = { notifications: { error: vi.fn(), warn: vi.fn() } };
-    global.fromUuid = vi.fn();
-    global.Item = class {
+    (globalThis as any).ui = { notifications: { error: vi.fn(), warn: vi.fn() } };
+    globalThis.fromUuid = vi.fn();
+    globalThis.Item = class {
       constructor(public data: any) {}
       static name = "Item";
       toObject = vi.fn();
@@ -20,18 +20,18 @@ describe("migration-utils", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
-    delete (global as any).ui;
-    delete (global as any).fromUuid;
-    delete (global as any).Item;
+    delete (globalThis as any).ui;
+    delete (globalThis as any).fromUuid;
+    delete (globalThis as any).Item;
   });
 
   it("should successfully create a project item from template", async () => {
-    const mockTemplateItem = new (global.Item as any)({});
+    const mockTemplateItem = new (globalThis.Item as any)({});
     mockTemplateItem.name = "Template Item";
     mockTemplateItem.uuid = "template-uuid";
     mockTemplateItem.toObject.mockReturnValue({ system: { activities: {} }, type: "feat" });
 
-    vi.mocked(global.fromUuid).mockResolvedValue(mockTemplateItem as any);
+    vi.mocked(globalThis.fromUuid).mockResolvedValue(mockTemplateItem as any);
 
     const mockCreatedItem = {
       id: "new-item-id",
@@ -54,7 +54,7 @@ describe("migration-utils", () => {
     );
 
     expect(result).toBe(mockCreatedItem);
-    expect(global.fromUuid).toHaveBeenCalledWith("template-uuid");
+    expect(globalThis.fromUuid).toHaveBeenCalledWith("template-uuid");
     expect(mockTemplateItem.toObject).toHaveBeenCalled();
     expect(actor.createEmbeddedDocuments).toHaveBeenCalledWith("Item", [
       expect.objectContaining({
@@ -71,7 +71,7 @@ describe("migration-utils", () => {
       uuid: "template-uuid",
       toObject: vi.fn().mockReturnValue({ system: { activities: {} }, type: "feat" }),
     };
-    vi.mocked(global.fromUuid).mockResolvedValue(mockTemplateItem as any);
+    vi.mocked(globalThis.fromUuid).mockResolvedValue(mockTemplateItem as any);
     const actor = { createEmbeddedDocuments: vi.fn().mockResolvedValue([]) };
 
     const result = await createProjectItemFromTemplate(actor as any, "uuid", {} as any, 10);
@@ -82,7 +82,7 @@ describe("migration-utils", () => {
   });
 
   it("should handle fromUuid exception gracefully by warning", async () => {
-    vi.mocked(global.fromUuid).mockRejectedValue(new Error("Database error"));
+    vi.mocked(globalThis.fromUuid).mockRejectedValue(new Error("Database error"));
     const actor = { name: "Actor", createEmbeddedDocuments: vi.fn().mockResolvedValue([]) };
 
     const result = await createProjectItemFromTemplate(actor as any, "uuid", {} as any, 10);

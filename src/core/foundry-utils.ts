@@ -21,7 +21,11 @@ export class FoundryUtils {
   /**
    * Merges two objects.
    */
-  static mergeObject(original: object, other: object, options?: any): any {
+  static mergeObject(
+    original: object,
+    other: object,
+    options?: foundry.utils.MergeObjectOptions,
+  ): any {
     return foundry.utils.mergeObject(original, other, options);
   }
 

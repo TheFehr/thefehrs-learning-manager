@@ -12,9 +12,9 @@ import * as v2_1flexibleMethods from "../../src/migrations/v2_1-flexible-methods
 describe("Data Migration Orchestrator", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (global as any).game = (global as any).game || {};
-    (global as any).game.user = (global as any).game.user || { isGM: true };
-    (global as any).game.settings = (global as any).game.settings || {};
+    (globalThis as any).game = (globalThis as any).game || {};
+    (globalThis as any).game.user = (globalThis as any).game.user || { isGM: true };
+    (globalThis as any).game.settings = (globalThis as any).game.settings || {};
     game.user.isGM = true;
     (game.settings.get as any) = vi.fn().mockImplementation((_scope, key) => {
       if (key === "migrationVersion") return "0";

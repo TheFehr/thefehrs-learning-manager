@@ -1,18 +1,18 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import CategorySelector from "../../../src/apps/components/CategorySelector.svelte";
+import CategorySelector from "@/apps/components/CategorySelector.svelte";
 import CategorySelectorWrapper from "./CategorySelectorWrapper.svelte";
 import { mount, unmount, tick } from "svelte";
-import { Settings } from "../../../src/core/settings";
+import { Settings } from "@/core/settings";
 
 vi.unmock("svelte");
 
-vi.mock("../../../src/core/settings", () => ({
+vi.mock("@/core/settings", () => ({
   Settings: {
     get: vi.fn(),
   },
 }));
 
-vi.mock("../../../src/logic/settings-logic", () => ({
+vi.mock("@/logic/settings-logic", () => ({
   ensureCategoryExists: vi.fn().mockResolvedValue(true),
 }));
 
@@ -53,7 +53,7 @@ describe("CategorySelector.svelte", () => {
   });
 
   it("should call onValueChange when input changes", async () => {
-    const { ensureCategoryExists } = await import("../../../src/logic/settings-logic");
+    const { ensureCategoryExists } = await import("@/logic/settings-logic");
     const categories = [""];
     instance = mount(CategorySelector, {
       target,
@@ -94,12 +94,14 @@ describe("CategorySelector.svelte", () => {
     const addButton = Array.from(target.querySelectorAll("button")).find((b) =>
       b.textContent?.includes("Add Category"),
     ) as HTMLButtonElement;
-    addButton!.click();
+    expect(addButton).not.toBeNull();
+    addButton.click();
     await tick();
 
     expect(count.textContent).toBe("2");
 
     const removeButton = target.querySelector("button.danger") as HTMLButtonElement;
+    expect(removeButton).not.toBeNull();
     removeButton.click();
     await tick();
 

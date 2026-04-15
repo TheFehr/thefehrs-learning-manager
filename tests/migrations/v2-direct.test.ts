@@ -3,20 +3,20 @@ import { migrateToV2Direct } from "../../src/migrations/v2-direct";
 import * as migrationUtils from "../../src/migrations/migration-utils";
 import { MODULE_ID } from "../../src/global";
 
-vi.mock("../../src/migrations/migration-utils", () => ({
+vi.mock("@/migrations/migration-utils", () => ({
   createProjectItemFromTemplate: vi.fn().mockResolvedValue({}),
 }));
 
 describe("Migration v2 (Direct)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (global as any).ui = { notifications: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } };
-    (global as any).game = {
+    (globalThis as any).ui = { notifications: { info: vi.fn(), warn: vi.fn(), error: vi.fn() } };
+    (globalThis as any).game = {
       settings: { get: vi.fn(), set: vi.fn().mockResolvedValue(true) },
       user: { isGM: true },
       actors: [],
     };
-    (global as any).foundry = { utils: { randomID: vi.fn().mockReturnValue("rand123") } };
+    (globalThis as any).foundry = { utils: { randomID: vi.fn().mockReturnValue("rand123") } };
   });
 
   it("should migrate rules, tiers, and projects", async () => {

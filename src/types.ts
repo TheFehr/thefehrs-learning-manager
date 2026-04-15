@@ -8,8 +8,17 @@ declare global {
     ui: {
       notifications?: Notifications;
     } & Record<string, any>;
-    socket: any;
+    socket: FoundrySocket | null;
   }
+}
+
+/**
+ * Basic interface for Foundry's socket implementation.
+ */
+export interface FoundrySocket {
+  on(event: string, callback: (...args: any[]) => void): void;
+  off(event: string, callback: (...args: any[]) => void): void;
+  emit(event: string, ...args: any[]): void;
 }
 import type {
   CharacterActorSystemData,
@@ -225,7 +234,7 @@ declare global {
  * while providing our system and flag types.
  */
 export type Actor5e<TSystem = ActorSystem5e> = Actor<any> & {
-  system: Partial<TSystem>;
+  system: TSystem;
   getRollData(): Record<string, unknown>;
 };
 
@@ -252,8 +261,8 @@ export interface DisplayCardOptions {
  * Augmented Item type.
  */
 export type Item5e<TSystem = ItemSystem5e> = Item<any> & {
-  system: Partial<TSystem>;
-  displayCard(options?: DisplayCardOptions): Promise<unknown>;
+  system: TSystem;
+  displayCard(options?: DisplayCardOptions): Promise<ChatMessage | void>;
 };
 
 export type LearningActor = Actor5e & {

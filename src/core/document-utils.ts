@@ -19,6 +19,10 @@ export class DocumentUtils {
       return false;
     }
 
+    if (!flags || Object.keys(flags).length === 0) {
+      return true;
+    }
+
     try {
       const updateData: Record<string, unknown> = {};
       for (const [key, value] of Object.entries(flags)) {
@@ -48,6 +52,10 @@ export class DocumentUtils {
     if (!doc || typeof doc.update !== "function") {
       Logger.error("DocumentUtils.unsetFlagsSilently | Invalid document provided.", true, doc);
       return false;
+    }
+
+    if (!keys || keys.length === 0) {
+      return true;
     }
 
     try {

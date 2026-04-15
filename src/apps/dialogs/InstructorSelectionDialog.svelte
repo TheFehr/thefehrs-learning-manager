@@ -48,8 +48,9 @@
   <p>Choose an instructor for this session (<strong>{timeUnit.name}</strong>):</p>
   
   <div class="options">
-    <label class="option" class:selected={selectedKey === ""}>
+    <label class="option" class:selected={selectedKey === ""} for="instructor-self">
       <input 
+        id="instructor-self"
         type="radio" 
         name="instructor-choice" 
         value="" 
@@ -65,10 +66,12 @@
       <span class="cost">Free</span>
     </label>
 
-    {#each instructors as instructor}
+    {#each instructors as instructor, i}
       {@const key = JSON.stringify({ uuid: instructor.actorUuid, name: instructor.offering.name })}
-      <label class="option" class:selected={selectedKey === key}>
+      {@const id = `instructor-${i}`}
+      <label class="option" class:selected={selectedKey === key} for={id}>
         <input 
+            id={id}
             type="radio" 
             name="instructor-choice" 
             value={key} 

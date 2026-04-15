@@ -2,28 +2,28 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { ItemConfigLogic } from "../../src/logic/item-config-logic";
 import { getModuleAPI } from "../../src/types";
 
-vi.mock("../../src/types", () => ({
+vi.mock("@/types", () => ({
   getModuleAPI: vi.fn(),
 }));
 
 describe("ItemConfigLogic", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (global as any).ui = {
+    (globalThis as any).ui = {
       notifications: {
         error: vi.fn(),
         info: vi.fn(),
       },
     };
-    (global as any).CONFIG = {};
-    (global as any).fromUuid = vi.fn().mockResolvedValue({ documentName: "Item" });
+    (globalThis as any).CONFIG = {};
+    (globalThis as any).fromUuid = vi.fn().mockResolvedValue({ documentName: "Item" });
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
-    delete (global as any).ui;
-    delete (global as any).CONFIG;
-    delete (global as any).fromUuid;
+    delete (globalThis as any).ui;
+    delete (globalThis as any).CONFIG;
+    delete (globalThis as any).fromUuid;
   });
 
   describe("saveConfig", () => {
@@ -86,7 +86,7 @@ describe("ItemConfigLogic", () => {
         { modifier: 0, categories: [] },
       );
       expect(result).toBe(false);
-      expect(global.ui.notifications.error).toHaveBeenCalledWith(
+      expect(globalThis.ui.notifications.error).toHaveBeenCalledWith(
         expect.stringContaining("Failed to update document Test Item"),
       );
     });
@@ -94,17 +94,17 @@ describe("ItemConfigLogic", () => {
 
   describe("searchFollowUp", () => {
     it("should use SpotlightOmnisearch if available", async () => {
-      (global as any).CONFIG.SpotlightOmnisearch = {
+      (globalThis as any).CONFIG.SpotlightOmnisearch = {
         prompt: vi.fn().mockResolvedValue({ data: { uuid: "spotlight-uuid" } }),
       };
 
       const result = await ItemConfigLogic.searchFollowUp();
       expect(result).toBe("spotlight-uuid");
-      expect((global as any).CONFIG.SpotlightOmnisearch.prompt).toHaveBeenCalled();
+      expect((globalThis as any).CONFIG.SpotlightOmnisearch.prompt).toHaveBeenCalled();
     });
 
     it("should use QuickInsert if Spotlight is unavailable", async () => {
-      (global as any).CONFIG.SpotlightOmnisearch = null;
+      (globalThis as any).CONFIG.SpotlightOmnisearch = null;
       const mockQuickInsert = {
         open: vi.fn().mockImplementation((config: any) => {
           config.onSubmit({ uuid: "quick-uuid" });
@@ -118,7 +118,7 @@ describe("ItemConfigLogic", () => {
     });
 
     it("should notify and return null if no modules found", async () => {
-      (global as any).CONFIG.SpotlightOmnisearch = null;
+      (globalThis as any).CONFIG.SpotlightOmnisearch = null;
       vi.mocked(getModuleAPI).mockReturnValue(undefined);
 
       const result = await ItemConfigLogic.searchFollowUp();

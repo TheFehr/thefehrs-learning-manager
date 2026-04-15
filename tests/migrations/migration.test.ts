@@ -2,32 +2,32 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { migrateData } from "../../src/migrations/migration";
 import { FoundryUtils } from "../../src/core/foundry-utils";
 
-vi.mock("../../src/migrations/v1-relational", () => ({
+vi.mock("@/migrations/v1-relational", () => ({
   migrateToV1Relational: vi.fn(),
 }));
 
-vi.mock("../../src/migrations/v1_1-gp-to-cp", () => ({
+vi.mock("@/migrations/v1_1-gp-to-cp", () => ({
   migrateV1_1GpToCp: vi.fn(),
 }));
 
-vi.mock("../../src/migrations/v1_2-crit-rules", () => ({
+vi.mock("@/migrations/v1_2-crit-rules", () => ({
   migrateToV1_2: vi.fn(),
 }));
 
-vi.mock("../../src/migrations/v2-native-items", () => ({
+vi.mock("@/migrations/v2-native-items", () => ({
   migrateToV2: vi.fn(),
 }));
 
-vi.mock("../../src/migrations/v2-direct", () => ({
+vi.mock("@/migrations/v2-direct", () => ({
   migrateToV2Direct: vi.fn(),
 }));
 
-vi.mock("../../src/migrations/v2_1-flexible-methods", () => ({
+vi.mock("@/migrations/v2_1-flexible-methods", () => ({
   migrateToV2_1: vi.fn(),
   migrateToV2_1_1: vi.fn(),
 }));
 
-vi.mock("../../src/migrations/v3-tutelage-selection", () => ({
+vi.mock("@/migrations/v3-tutelage-selection", () => ({
   migrateToV3: vi.fn(),
 }));
 
@@ -43,8 +43,8 @@ describe("migration.ts", () => {
         set: vi.fn(),
       },
     };
-    (global as any).game = mockGame;
-    (global as any).ui = { notifications: { error: vi.fn() } };
+    (globalThis as any).game = mockGame;
+    (globalThis as any).ui = { notifications: { error: vi.fn() } };
   });
 
   it("should return early if user is not GM", async () => {

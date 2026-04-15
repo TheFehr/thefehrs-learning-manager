@@ -129,15 +129,19 @@ export async function migrateToV3() {
   const currentPacks =
     (game.settings.get(MODULE_ID, "teacherCompendiums") as unknown as string[]) || [];
   if (!currentPacks.includes(instructorPack.metadata.id)) {
-    const updatedPacks = [...new Set([...currentPacks, instructorPack.metadata.id])];
-    await game.settings.set(MODULE_ID, "teacherCompendiums", updatedPacks);
+    await game.settings.set(MODULE_ID, "teacherCompendiums", [
+      ...currentPacks,
+      instructorPack.metadata.id,
+    ]);
   }
 
   const currentBookPacks =
     (game.settings.get(MODULE_ID, "bookCompendiums") as unknown as string[]) || [];
   if (!currentBookPacks.includes(bookPack.metadata.id)) {
-    const updatedBookPacks = [...new Set([...currentBookPacks, bookPack.metadata.id])];
-    await game.settings.set(MODULE_ID, "bookCompendiums", updatedBookPacks);
+    await game.settings.set(MODULE_ID, "bookCompendiums", [
+      ...currentBookPacks,
+      bookPack.metadata.id,
+    ]);
   }
 
   const tierToDocMap = new Map<
@@ -146,6 +150,14 @@ export async function migrateToV3() {
   >();
 
   // 4. Convert used tiers to documents
+  const instructorPackId = (instructorPack as any).metadata.id;
+  const bookPackId = (bookPack as any).metadata.id;
+
+  const [instructorIndex, bookIndex] = await Promise.all([
+    (instructorPack as any).getIndex({ fields: [`flags.${MODULE_ID}.legacyTierId`] }),
+    (bookPack as any).getIndex({ fields: [`flags.${MODULE_ID}.legacyTierId`] }),
+  ]);
+
   let projectFailures = 0;
   for (const tier of tiersToMigrate) {
     const hasCost = Object.values(tier.costs || {}).some((c) => c > 0);
@@ -159,11 +171,7 @@ export async function migrateToV3() {
       };
 
       // Check if already exists
-      const instructorPackId = (instructorPack as any).metadata.id;
-      const index = await (instructorPack as any).getIndex({
-        fields: [`flags.${MODULE_ID}.legacyTierId`],
-      });
-      const existing = index.find(
+      const existing = instructorIndex.find(
         (e: any) =>
           (e.flags?.[MODULE_ID]?.legacyTierId || e[`flags.${MODULE_ID}.legacyTierId`]) === tier.id,
       );
@@ -220,11 +228,7 @@ export async function migrateToV3() {
       };
 
       // Check if already exists
-      const bookPackId = (bookPack as any).metadata.id;
-      const index = await (bookPack as any).getIndex({
-        fields: [`flags.${MODULE_ID}.legacyTierId`],
-      });
-      const existing = index.find(
+      const existing = bookIndex.find(
         (e: any) =>
           (e.flags?.[MODULE_ID]?.legacyTierId || e[`flags.${MODULE_ID}.legacyTierId`]) === tier.id,
       );
@@ -305,6 +309,13 @@ export async function migrateToV3() {
           const bookDoc = await fromUuid(mapping.uuid as `Item.${string}`);
           if (bookDoc && bookDoc instanceof Item) {
             const bookBonus = bookDoc.getFlag(MODULE_ID, "learningBookBonus") as LearningBookBonus;
+            if (!bookBonus) {
+              Logger.error(
+                `Migration v3 | Legacy book document ${bookDoc.uuid} is missing learningBookBonus flag.`,
+                true,
+              );
+              continue;
+            }
 
             const existingBook = (actor.items as any).find((i: any) => {
               const b = i.getFlag(MODULE_ID, "learningBookBonus") as LearningBookBonus;

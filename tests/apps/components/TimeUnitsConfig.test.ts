@@ -11,9 +11,9 @@ describe("TimeUnitsConfig.svelte", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    (global as any).foundry = (global as any).foundry || {};
-    (global as any).foundry.utils = (global as any).foundry.utils || {};
-    (global as any).foundry.utils.randomID = vi.fn().mockReturnValue("rand123");
+    (globalThis as any).foundry = (globalThis as any).foundry || {};
+    (globalThis as any).foundry.utils = (globalThis as any).foundry.utils || {};
+    (globalThis as any).foundry.utils.randomID = vi.fn().mockReturnValue("rand123");
     target = document.createElement("div");
     document.body.appendChild(target);
   });
@@ -22,7 +22,7 @@ describe("TimeUnitsConfig.svelte", () => {
     if (instance) unmount(instance);
     instance = undefined;
     target.remove();
-    delete (global as any).foundry;
+    delete (globalThis as any).foundry;
   });
 
   it("should mount and show units", async () => {

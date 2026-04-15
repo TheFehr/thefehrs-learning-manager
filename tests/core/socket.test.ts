@@ -36,15 +36,15 @@ describe("Socket", () => {
   });
 
   it("should do nothing if game.socket is not available", () => {
-    const originalSocket = (global as any).game.socket;
-    delete (global as any).game.socket;
+    const originalSocket = (globalThis as any).game.socket;
+    delete (globalThis as any).game.socket;
 
     try {
       // Should not throw
       expect(() => Socket.listen(vi.fn())).not.toThrow();
       expect(() => Socket.emitSignal("timeGrantedSignal")).not.toThrow();
     } finally {
-      (global as any).game.socket = originalSocket;
+      (globalThis as any).game.socket = originalSocket;
     }
   });
   it("should ignore invalid messages", async () => {

@@ -1,23 +1,22 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { ProjectLifecycle } from "../../src/logic/project-lifecycle";
-import { Settings } from "../../src/core/settings";
-import { ActivityManager } from "../../src/core/activity-manager";
-import { ProjectUI } from "../../src/core/project-ui";
+import { ProjectLifecycle } from "@/logic/project-lifecycle";
+import { Settings } from "@/core/settings";
+import { ActivityManager } from "@/core/activity-manager";
 
-vi.mock("../../src/core/settings", () => ({
+vi.mock("@/core/settings", () => ({
   Settings: {
     ID: "thefehrs-learning-manager",
     get: vi.fn(),
   },
 }));
 
-vi.mock("../../src/core/activity-manager", () => ({
+vi.mock("@/core/activity-manager", () => ({
   ActivityManager: {
     injectActivities: vi.fn().mockResolvedValue(true),
   },
 }));
 
-vi.mock("../../src/core/project-ui", () => ({
+vi.mock("@/core/project-ui", () => ({
   ProjectUI: {
     generateProgressHtml: vi.fn().mockReturnValue("<div>Progress</div>"),
   },
@@ -29,24 +28,37 @@ describe("ProjectLifecycle", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
+    (globalThis as any).Actor = class MockActor {
+      constructor(data: any) {
+        Object.assign(this, data);
+      }
+    };
+    (globalThis as any).Item = class MockItem {
+      constructor(data: any) {
+        Object.assign(this, data);
+      }
+      getFlag = vi.fn();
+      setFlag = vi.fn();
+      update = vi.fn().mockResolvedValue(this);
+      delete = vi.fn().mockResolvedValue(true);
+      toObject = vi.fn().mockReturnValue({ ...this });
+    };
+
     (Settings.get as any).mockImplementation((key: string) => {
       if (key === "rules") return { rollMode: "gmroll" };
       return null;
     });
-    mockItem = new (global as any).Item();
-    mockItem.getFlag = vi.fn();
-    mockItem.setFlag = vi.fn();
-    mockItem.update = vi.fn().mockResolvedValue(mockItem);
-    mockItem.delete = vi.fn().mockResolvedValue(true);
-    mockItem.toObject = vi.fn();
 
-    mockItem.name = "Source Item";
-    mockItem.uuid = "Item.Source";
-    mockItem.type = "feat";
-    mockItem.system = {
-      description: { value: "Description" },
-      activities: {},
-    };
+    mockItem = new (globalThis as any).Item({
+      name: "Source Item",
+      uuid: "Item.Source",
+      type: "feat",
+      system: {
+        description: { value: "Description" },
+        activities: {},
+      },
+    });
+
     mockItem.getFlag.mockReturnValue({ target: 10 });
     mockItem.toObject.mockReturnValue({
       name: "Source Item",
@@ -57,14 +69,12 @@ describe("ProjectLifecycle", () => {
 
     mockActor = {
       name: "Test Actor",
-      createEmbeddedDocuments: vi.fn().mockImplementation(async () => {
-        const item = new (global as any).Item();
-        item.delete = vi.fn().mockResolvedValue(true);
-        item.update = vi.fn().mockResolvedValue(item);
+      createEmbeddedDocuments: vi.fn().mockImplementation(async (type, data) => {
+        const item = new (globalThis as any).Item(data[0]);
         return [item];
       }),
     };
-    (global as any).fromUuid = vi.fn();
+    (globalThis as any).fromUuid = vi.fn();
   });
 
   describe("initiateProjectFromItem", () => {
@@ -72,7 +82,20 @@ describe("ProjectLifecycle", () => {
       const result = await ProjectLifecycle.initiateProjectFromItem(mockActor, mockItem);
 
       expect(result).toBeDefined();
-      expect(mockActor.createEmbeddedDocuments).toHaveBeenCalled();
+      expect(mockActor.createEmbeddedDocuments).toHaveBeenCalledWith("Item", [
+        expect.objectContaining({
+          name: "Source Item (0/10)",
+          type: "feat",
+          flags: expect.objectContaining({
+            "thefehrs-learning-manager": expect.objectContaining({
+              isLearningProject: true,
+              projectData: expect.objectContaining({
+                stashedSourceUuid: "Item.Source",
+              }),
+            }),
+          }),
+        }),
+      ]);
       expect(ActivityManager.injectActivities).toHaveBeenCalled();
     });
 
@@ -101,14 +124,18 @@ describe("ProjectLifecycle", () => {
         isLearningProject: true,
         projectData: { target: 10, progress: 10, stashedSourceUuid: "Item.Source" },
       });
-      const mockSourceItem = new (global as any).Item();
+      const mockSourceItem = new (globalThis as any).Item({ name: "Source" });
       mockSourceItem.toObject = vi.fn().mockReturnValue({ name: "Source" });
-      (global as any).fromUuid.mockResolvedValue(mockSourceItem);
+      (globalThis as any).fromUuid.mockResolvedValue(mockSourceItem);
       mockItem.actor = mockActor;
 
       await ProjectLifecycle.completeProject(mockItem);
 
-      expect(mockActor.createEmbeddedDocuments).toHaveBeenCalled();
+      expect(mockActor.createEmbeddedDocuments).toHaveBeenCalledWith("Item", [
+        expect.objectContaining({
+          name: "Source",
+        }),
+      ]);
       expect(mockItem.delete).toHaveBeenCalled();
     });
   });

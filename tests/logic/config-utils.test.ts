@@ -9,14 +9,14 @@ describe("ConfigUtils", () => {
   describe("searchWithOmnisearchOrQuickInsert", () => {
     beforeEach(() => {
       vi.clearAllMocks();
-      (global as any).CONFIG = {};
-      (global as any).fromUuid = vi.fn();
-      (global as any).game = {
+      (globalThis as any).CONFIG = {};
+      (globalThis as any).fromUuid = vi.fn();
+      (globalThis as any).game = {
         modules: {
           get: vi.fn(),
         },
       };
-      (global as any).ui = {
+      (globalThis as any).ui = {
         notifications: {
           error: vi.fn(),
           warn: vi.fn(),
@@ -31,19 +31,19 @@ describe("ConfigUtils", () => {
     it("should use Spotlight Omnisearch if available", async () => {
       const mockResult = { data: { uuid: "Item.123" } };
       const mockDoc = { documentName: "Item" };
-      (global as any).CONFIG.SpotlightOmnisearch = {
+      (globalThis as any).CONFIG.SpotlightOmnisearch = {
         prompt: vi.fn().mockResolvedValue(mockResult),
       };
-      (global as any).fromUuid.mockResolvedValue(mockDoc);
+      (globalThis as any).fromUuid.mockResolvedValue(mockDoc);
 
       const result = await searchWithOmnisearchOrQuickInsert();
 
       expect(result).toBe("Item.123");
-      expect(global.CONFIG.SpotlightOmnisearch.prompt).toHaveBeenCalled();
+      expect(globalThis.CONFIG.SpotlightOmnisearch.prompt).toHaveBeenCalled();
     });
 
     it("should return null if Spotlight Omnisearch returns no result", async () => {
-      (global as any).CONFIG.SpotlightOmnisearch = {
+      (globalThis as any).CONFIG.SpotlightOmnisearch = {
         prompt: vi.fn().mockResolvedValue(null),
       };
 
@@ -58,11 +58,11 @@ describe("ConfigUtils", () => {
         }),
         search: vi.fn(),
       };
-      (global as any).game.modules.get = vi.fn().mockReturnValue({
+      (globalThis as any).game.modules.get = vi.fn().mockReturnValue({
         active: true,
         api: mockQuickInsert,
       });
-      (global as any).fromUuid.mockResolvedValue({ documentName: "Item" });
+      (globalThis as any).fromUuid.mockResolvedValue({ documentName: "Item" });
 
       const result = await searchWithOmnisearchOrQuickInsert();
 
@@ -77,7 +77,7 @@ describe("ConfigUtils", () => {
         }),
         search: vi.fn(),
       };
-      (global as any).game.modules.get = vi.fn().mockReturnValue({
+      (globalThis as any).game.modules.get = vi.fn().mockReturnValue({
         active: true,
         api: mockQuickInsert,
       });
@@ -87,10 +87,10 @@ describe("ConfigUtils", () => {
     });
 
     it("should handle Spotlight Omnisearch error", async () => {
-      (global as any).CONFIG.SpotlightOmnisearch = {
+      (globalThis as any).CONFIG.SpotlightOmnisearch = {
         prompt: vi.fn().mockRejectedValue(new Error("Omnisearch failed")),
       };
-      (global as any).game.modules.get = vi.fn().mockReturnValue(undefined);
+      (globalThis as any).game.modules.get = vi.fn().mockReturnValue(undefined);
 
       const result = await searchWithOmnisearchOrQuickInsert();
       expect(result).toBeNull();
@@ -98,8 +98,8 @@ describe("ConfigUtils", () => {
     });
 
     it("should handle Quick Insert error", async () => {
-      (global as any).CONFIG.SpotlightOmnisearch = undefined;
-      (global as any).game.modules.get = vi.fn().mockImplementation(() => {
+      (globalThis as any).CONFIG.SpotlightOmnisearch = undefined;
+      (globalThis as any).game.modules.get = vi.fn().mockImplementation(() => {
         throw new Error("Quick Insert failed");
       });
 

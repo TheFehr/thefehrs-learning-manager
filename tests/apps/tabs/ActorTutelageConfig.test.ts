@@ -1,11 +1,11 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import ActorTutelageConfig from "../../../src/apps/tabs/ActorTutelageConfig.svelte";
+import ActorTutelageConfig from "@/apps/tabs/ActorTutelageConfig.svelte";
 import { mount, unmount, tick } from "svelte";
-import { Settings } from "../../../src/core/settings";
+import { Settings } from "@/core/settings";
 
 vi.unmock("svelte");
 
-vi.mock("../../../src/core/settings", () => ({
+vi.mock("@/core/settings", () => ({
   Settings: {
     get: vi.fn(),
   },

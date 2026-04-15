@@ -13,7 +13,7 @@ describe("v3-tutelage-selection migration", () => {
       );
     (packs as any).find = vi.fn().mockImplementation((fn: any) => packs.find(fn));
 
-    (global as any).game = {
+    (globalThis as any).game = {
       user: { isGM: true },
       settings: {
         get: vi.fn(),
@@ -26,7 +26,7 @@ describe("v3-tutelage-selection migration", () => {
       system: { id: "dnd5e" },
     };
 
-    (global as any).Actor = class MockActor {
+    (globalThis as any).Actor = class MockActor {
       static createDocuments = vi.fn().mockResolvedValue([{ uuid: "Actor.1" }]);
       id = "mock-id";
       name = "Mock Actor";
@@ -38,7 +38,7 @@ describe("v3-tutelage-selection migration", () => {
       createEmbeddedDocuments = vi.fn();
     } as any;
 
-    (global as any).Item = class MockItem {
+    (globalThis as any).Item = class MockItem {
       static createDocuments = vi.fn().mockResolvedValue([{ uuid: "Item.1" }]);
       id = "mock-item-id";
       name = "Mock Item";
@@ -48,11 +48,11 @@ describe("v3-tutelage-selection migration", () => {
       toObject = vi.fn().mockReturnValue({});
     } as any;
 
-    (global as any).fromUuid = vi.fn();
-    (global as any).ui = { notifications: { info: vi.fn(), error: vi.fn(), warn: vi.fn() } };
-    (global as any).CompendiumCollection = { createCompendium: vi.fn() };
+    (globalThis as any).fromUuid = vi.fn();
+    (globalThis as any).ui = { notifications: { info: vi.fn(), error: vi.fn(), warn: vi.fn() } };
+    (globalThis as any).CompendiumCollection = { createCompendium: vi.fn() };
 
-    (global as any).foundry = {
+    (globalThis as any).foundry = {
       applications: {
         api: {
           DialogV2: {
@@ -227,7 +227,11 @@ describe("v3-tutelage-selection migration", () => {
     actor.items = [project];
     (game.actors.contents as any[]).push(actor);
 
-    const pack = { metadata: { id: "pack.id" }, collection: "pack" };
+    const pack = {
+      metadata: { id: "pack.id", collection: "pack" },
+      collection: "pack",
+      getIndex: vi.fn().mockResolvedValue([]),
+    };
     vi.mocked(game.packs.find).mockReturnValue(pack);
 
     vi.mocked(foundry.applications.api.DialogV2.confirm).mockResolvedValue(false);
@@ -390,7 +394,11 @@ describe("v3-tutelage-selection migration", () => {
     actor.items = [project];
     (game.actors.contents as any[]).push(actor);
 
-    const pack = { metadata: { id: "pack.id" }, collection: "pack" };
+    const pack = {
+      metadata: { id: "pack.id", collection: "pack" },
+      collection: "pack",
+      getIndex: vi.fn().mockResolvedValue([]),
+    };
     vi.mocked(game.packs.find).mockReturnValue(pack);
 
     await migrateToV3();

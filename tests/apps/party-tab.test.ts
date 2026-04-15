@@ -16,7 +16,7 @@ describe("PartyTab", () => {
       return null;
     });
 
-    global.game = {
+    globalThis.game = {
       user: { isGM: true },
       actors: {
         get: vi.fn(),
@@ -26,7 +26,7 @@ describe("PartyTab", () => {
       },
     } as any;
 
-    global.Actor = class Actor {
+    globalThis.Actor = class Actor {
       id = "";
       name = "";
       items = [];
@@ -37,8 +37,8 @@ describe("PartyTab", () => {
   });
 
   afterEach(() => {
-    delete (global as any).game;
-    delete (global as any).Actor;
+    delete (globalThis as any).game;
+    delete (globalThis as any).Actor;
     vi.restoreAllMocks();
   });
 

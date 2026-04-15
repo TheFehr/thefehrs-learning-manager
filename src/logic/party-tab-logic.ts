@@ -242,7 +242,7 @@ export class PartyTabLogic {
    * Internal helper to show deletion confirmation dialog.
    */
   private static async showDeleteConfirm(projectName: string, actorName: string): Promise<boolean> {
-    return new Promise((resolve) => {
+    return new Promise<boolean>((resolve) => {
       let settled = false;
       const container = document.createElement("div");
       let svelteInstance: any = mount(AbortProjectDialog, {
@@ -253,7 +253,7 @@ export class PartyTabLogic {
         },
       });
 
-      new foundry.applications.api.DialogV2({
+      const dialog = new foundry.applications.api.DialogV2({
         window: {
           title: "Abort Project",
           contentClasses: ["thefehrs-learning-manager-dialog"],
@@ -295,7 +295,9 @@ export class PartyTabLogic {
             resolve(false);
           }
         },
-      }).render({ force: true });
+      });
+
+      dialog.render({ force: true });
     });
   }
 }

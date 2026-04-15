@@ -8,12 +8,12 @@ describe("TabLogic", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    originalRoll = global.Roll;
-    global.Roll = MockRoll as any;
+    originalRoll = globalThis.Roll;
+    globalThis.Roll = MockRoll as any;
   });
 
   afterEach(() => {
-    global.Roll = originalRoll;
+    globalThis.Roll = originalRoll;
     vi.restoreAllMocks();
   });
 
@@ -47,7 +47,7 @@ describe("TabLogic", () => {
     });
 
     it("should return 0 progress on failed non-bulk roll", async () => {
-      global.Roll = class extends (global.Roll as any) {
+      globalThis.Roll = class extends (globalThis.Roll as any) {
         evaluate() {
           this.total = 10;
           this.dice = [{ faces: 20, results: [{ result: 10, active: true }] }];
@@ -121,7 +121,7 @@ describe("TabLogic", () => {
         critDoubleStrategy: "any",
         critThreshold: 20,
       };
-      global.Roll = class extends (global.Roll as any) {
+      globalThis.Roll = class extends (globalThis.Roll as any) {
         evaluate() {
           this.total = 20;
           this.dice = [{ faces: 20, results: [{ result: 20, active: true }] }];
@@ -140,7 +140,7 @@ describe("TabLogic", () => {
         critDoubleStrategy: "all",
         critThreshold: 18,
       };
-      global.Roll = class extends (global.Roll as any) {
+      globalThis.Roll = class extends (globalThis.Roll as any) {
         evaluate() {
           this.total = 20;
           this.dice = [
@@ -163,7 +163,7 @@ describe("TabLogic", () => {
 
     it("should return 0 and reason if formula is invalid in 'roll' method", async () => {
       const invalidRules = { ...rules, checkFormula: "invalid" };
-      global.Roll = class {
+      globalThis.Roll = class {
         constructor() {
           throw new Error("Invalid formula");
         }

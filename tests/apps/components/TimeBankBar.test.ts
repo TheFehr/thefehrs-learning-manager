@@ -3,7 +3,6 @@ import TimeBankBar from "@/apps/components/TimeBankBar.svelte";
 import { mount, unmount, tick } from "svelte";
 import { Settings } from "@/core/settings";
 import { ActorProxy } from "@/logic/actor-proxy";
-import { TimeBankLogic } from "@/logic/time-bank-logic";
 
 vi.unmock("svelte");
 
@@ -43,6 +42,7 @@ describe("TimeBankBar.svelte", () => {
 
   afterEach(() => {
     if (instance) unmount(instance);
+    instance = undefined;
     target.remove();
   });
 

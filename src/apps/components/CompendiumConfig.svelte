@@ -55,7 +55,7 @@ import type { PackInfo } from "@/logic/settings-logic.js";
         <span>
           {pack.label} 
           {#if pack.isFitting}
-            <i class="fas fa-star" title="Contains relevant items"></i>
+            <i class="fas fa-star" title="Contains relevant items" aria-hidden="true"></i>
           {/if}
           <small>[{pack.id}]</small>
         </span>

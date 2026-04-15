@@ -6,8 +6,8 @@ import { Logger } from "../../src/core/logger";
 describe("Migration v1.1 (GP to CP)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (global as any).ui = { notifications: { info: vi.fn(), error: vi.fn() } };
-    (global as any).game = {
+    (globalThis as any).ui = { notifications: { info: vi.fn(), error: vi.fn() } };
+    (globalThis as any).game = {
       settings: {
         get: vi.fn(),
         set: vi.fn().mockResolvedValue(true),

@@ -4,7 +4,7 @@ import { Settings, SettingsManager, SETTINGS_DEFINITIONS } from "../../src/core/
 describe("SettingsManager", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (global as any).game = {
+    (globalThis as any).game = {
       settings: {
         get: vi.fn(),
         set: vi.fn(),
@@ -18,7 +18,7 @@ describe("SettingsManager", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
-    delete (global as any).game;
+    delete (globalThis as any).game;
   });
 
   it("should have correct ID", () => {

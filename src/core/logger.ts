@@ -35,20 +35,7 @@ export class LoggerSingleton {
    * @param data - Optional related data.
    */
   info(message: string, uiNotify = false, ...data: any[]) {
-    if (this.currentLevel >= LEVELS.info) {
-      if (uiNotify) {
-        try {
-          getUI()?.notifications?.info(message);
-        } catch (err) {
-          console.error(`${LOG_PREFIX}Logger | UI notification failed:`, err);
-        }
-      }
-      if (data.length > 0) {
-        console.info(`${LOG_PREFIX}${message}`, ...data);
-      } else {
-        console.info(`${LOG_PREFIX}${message}`);
-      }
-    }
+    this._log("info", message, uiNotify, ...data);
   }
 
   /**
@@ -58,20 +45,7 @@ export class LoggerSingleton {
    * @param data - Optional related error or data.
    */
   error(message: string, uiNotify = true, ...data: any[]) {
-    if (this.currentLevel >= LEVELS.error) {
-      if (uiNotify) {
-        try {
-          getUI()?.notifications?.error(message);
-        } catch (uiErr) {
-          console.error(`${LOG_PREFIX}Logger | UI notification failed:`, uiErr);
-        }
-      }
-      if (data.length > 0) {
-        console.error(`${LOG_PREFIX}${message}`, ...data);
-      } else {
-        console.error(`${LOG_PREFIX}${message}`);
-      }
-    }
+    this._log("error", message, uiNotify, ...data);
   }
 
   /**
@@ -81,20 +55,7 @@ export class LoggerSingleton {
    * @param data - Optional related data.
    */
   warn(message: string, uiNotify = true, ...data: any[]) {
-    if (this.currentLevel >= LEVELS.warn) {
-      if (uiNotify) {
-        try {
-          getUI()?.notifications?.warn(message);
-        } catch (err) {
-          console.error(`${LOG_PREFIX}Logger | UI notification failed:`, err);
-        }
-      }
-      if (data.length > 0) {
-        console.warn(`${LOG_PREFIX}${message}`, ...data);
-      } else {
-        console.warn(`${LOG_PREFIX}${message}`);
-      }
-    }
+    this._log("warn", message, uiNotify, ...data);
   }
 
   /**
@@ -103,11 +64,30 @@ export class LoggerSingleton {
    * @param data - Optional related data.
    */
   debug(message: string, ...data: any[]) {
-    if (this.currentLevel >= LEVELS.debug) {
+    this._log("debug", message, false, ...data);
+  }
+
+  /**
+   * Internal helper to handle logging and notifications.
+   */
+  private _log(level: NotificationLevel, message: string, uiNotify: boolean, ...data: any[]) {
+    if (this.currentLevel >= LEVELS[level]) {
+      if (uiNotify) {
+        try {
+          const ui = getUI();
+          if (ui?.notifications) {
+            (ui.notifications as any)[level](message);
+          }
+        } catch (err) {
+          console.error(`${LOG_PREFIX}Logger | UI notification failed:`, err);
+        }
+      }
+
+      const consoleMethod = level === "none" ? "log" : level;
       if (data.length > 0) {
-        console.debug(`${LOG_PREFIX}${message}`, ...data);
+        (console as any)[consoleMethod](`${LOG_PREFIX}${message}`, ...data);
       } else {
-        console.debug(`${LOG_PREFIX}${message}`);
+        (console as any)[consoleMethod](`${LOG_PREFIX}${message}`);
       }
     }
   }

@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { ProjectOverviewApp } from "../../src/apps/overview-app.js";
+import { ProjectOverviewApp } from "@/apps/overview-app.js";
 import { mount, unmount } from "svelte";
 
 // Mock svelte
@@ -24,7 +24,7 @@ describe("ProjectOverviewApp", () => {
     if (app) {
       try {
         await app.close();
-      } catch (e) {
+      } catch {
         // ignore already closed
       }
     }

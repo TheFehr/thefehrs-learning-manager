@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import CompendiumConfig from "../../../src/apps/components/CompendiumConfig.svelte";
+import CompendiumConfig from "@/apps/components/CompendiumConfig.svelte";
 import { mount, unmount, tick } from "svelte";
 
 vi.unmock("svelte");

@@ -9,12 +9,14 @@ describe("AutoSaveBanner.svelte", () => {
   let instance: any;
 
   beforeEach(() => {
+    vi.clearAllMocks();
     target = document.createElement("div");
     document.body.appendChild(target);
   });
 
   afterEach(() => {
     if (instance) unmount(instance);
+    instance = undefined;
     target.remove();
   });
 

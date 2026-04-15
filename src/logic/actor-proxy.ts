@@ -1,6 +1,7 @@
 import type { TimeBank, Actor5e, Item5e, LearningActor } from "@/types.js";
 import type { ProjectFlagData } from "./project-item.js";
 import { DocumentUtils } from "@/core/document-utils.js";
+import { MODULE_ID } from "@/global.js";
 
 export class ActorProxy {
   private actor: Actor5e;
@@ -39,11 +40,9 @@ export class ActorProxy {
 
   getMappedProjects() {
     return (this.actor.items as unknown as Item5e[])
-      .filter((i: Item5e) => i.getFlag("thefehrs-learning-manager", "isLearningProject"))
+      .filter((i: Item5e) => i.getFlag(MODULE_ID, "isLearningProject"))
       .map((i: Item5e) => {
-        const projectData = i.getFlag("thefehrs-learning-manager", "projectData") as
-          | ProjectFlagData
-          | undefined;
+        const projectData = i.getFlag(MODULE_ID, "projectData") as ProjectFlagData | undefined;
         return {
           id: i.id,
           name: i.name,
@@ -60,7 +59,7 @@ export class ActorProxy {
   }
 
   get bank(): TimeBank {
-    return this.actor.getFlag("thefehrs-learning-manager", "bank") || { total: 0 };
+    return this.actor.getFlag(MODULE_ID, "bank") || { total: 0 };
   }
 
   // When options.render === false, we use DocumentUtils.setFlagsSilently to bypass
@@ -74,11 +73,7 @@ export class ActorProxy {
       }
       return this.actor;
     }
-    return (await (this.actor as any).setFlag(
-      "thefehrs-learning-manager",
-      "bank",
-      bank,
-    )) as Actor5e;
+    return (await (this.actor as any).setFlag(MODULE_ID, "bank", bank)) as Actor5e;
   }
 
   async update(data: object, options: { render?: boolean } = {}): Promise<Actor5e> {

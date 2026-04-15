@@ -4,8 +4,8 @@ import {
   saveSettings,
   ensureCategoryExists,
   getAvailablePacks,
-} from "../../src/logic/settings-logic";
-import { Settings } from "../../src/core/settings";
+} from "@/logic/settings-logic";
+import { Settings } from "@/core/settings";
 import { toggleUserGM } from "../setup";
 
 describe("settings-logic", () => {
@@ -78,7 +78,7 @@ describe("settings-logic", () => {
   });
 
   describe("saveSettings rollback", () => {
-    const fullRules: import("../../src/types").SystemRules = {
+    const fullRules: any = {
       nonBulkMethod: "direct",
       bulkMethod: "direct",
       rollMode: "gmroll",
@@ -89,9 +89,7 @@ describe("settings-logic", () => {
       notificationLevel: "info",
     };
 
-    const fullTimeUnits: import("../../src/types").TimeUnit[] = [
-      { id: "h", name: "Hour", short: "h", isBulk: false, ratio: 1 },
-    ];
+    const fullTimeUnits: any[] = [{ id: "h", name: "Hour", short: "h", isBulk: false, ratio: 1 }];
 
     beforeEach(() => {
       vi.clearAllMocks();
@@ -105,10 +103,11 @@ describe("settings-logic", () => {
       });
     });
 
-    it("should rollback only successful updates on failure", async () => {
+    it("should rollback only successful updates on failure and maintain correct order", async () => {
       // Mock set to fail on timeUnits
-      const setSpy = vi.spyOn(Settings, "set").mockImplementation(async (key, value) => {
+      const setSpy = vi.spyOn(Settings, "set").mockImplementation(async (key, _value) => {
         if (key === "timeUnits") throw new Error("Failed!");
+        return undefined as any;
       });
 
       const updatedRules = { ...fullRules, nonBulkMethod: "roll" as const };
@@ -117,15 +116,17 @@ describe("settings-logic", () => {
       // Rules should be the first one in toSave
       await saveSettings(updatedRules, updatedTimeUnits, [], [], false, []);
 
-      // Should have tried to set rules and timeUnits
-      expect(setSpy).toHaveBeenCalledWith("rules", updatedRules);
-      expect(setSpy).toHaveBeenCalledWith("timeUnits", updatedTimeUnits);
+      // Verify call order using setSpy.mock.calls
+      // 1. Set rules (updated)
+      // 2. Set timeUnits (fails)
+      // 3. Rollback rules (to original)
+      expect(setSpy.mock.calls).toHaveLength(3);
+      expect(setSpy.mock.calls[0]).toEqual(["rules", updatedRules]);
+      expect(setSpy.mock.calls[1]).toEqual(["timeUnits", updatedTimeUnits]);
+      expect(setSpy.mock.calls[2]).toEqual(["rules", fullRules]);
 
       // Should NOT have tried to set allowedCompendiums (because timeUnits failed)
       expect(setSpy).not.toHaveBeenCalledWith("allowedCompendiums", expect.anything());
-
-      // Rollback should happen for rules (it was saved before timeUnits failed)
-      expect(setSpy).toHaveBeenCalledWith("rules", fullRules); // rolled back to original
     });
   });
 
@@ -172,7 +173,7 @@ describe("settings-logic", () => {
           getIndex: vi.fn().mockResolvedValue([]),
         },
       ];
-      (global as any).game.packs = { contents: mockPacks };
+      (globalThis as any).game.packs = { contents: mockPacks };
     });
 
     it("should return all packs if no flagToMatch provided", async () => {
@@ -189,7 +190,7 @@ describe("settings-logic", () => {
     });
 
     it("should check index for fitting items if flagToMatch is provided", async () => {
-      const pack = (global as any).game.packs.contents[0];
+      const pack = (globalThis as any).game.packs.contents[0];
       pack.getIndex.mockResolvedValue([
         { name: "Teacher", "flags.thefehrs-learning-manager.teacherOfferings": [{ name: "Art" }] },
       ]);

@@ -4,14 +4,14 @@ import { Logger } from "../../src/core/logger";
 describe("Logger", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (global as any).ui = {
+    (globalThis as any).ui = {
       notifications: {
         info: vi.fn(),
         error: vi.fn(),
         warn: vi.fn(),
       },
     };
-    (global as any).game = {
+    (globalThis as any).game = {
       settings: {
         get: vi.fn(),
       },
@@ -24,8 +24,8 @@ describe("Logger", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
-    delete (global as any).ui;
-    delete (global as any).game;
+    delete (globalThis as any).ui;
+    delete (globalThis as any).game;
   });
 
   it("should show info notification and log to console when uiNotify is true", () => {

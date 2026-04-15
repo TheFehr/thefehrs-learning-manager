@@ -16,7 +16,7 @@ describe("v2-native-items migration", () => {
   });
 
   afterEach(() => {
-    delete (global as any).fromUuid;
+    delete (globalThis as any).fromUuid;
   });
 
   it("should migrate legacy projects to native items and inject targets", async () => {
@@ -55,7 +55,7 @@ describe("v2-native-items migration", () => {
       }
     };
 
-    global.fromUuid = vi.fn().mockResolvedValue(new MockRewardItem());
+    globalThis.fromUuid = vi.fn().mockResolvedValue(new MockRewardItem());
 
     await migrateToV2();
 

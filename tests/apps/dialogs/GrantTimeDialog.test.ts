@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import GrantTimeDialog from "../../../src/apps/dialogs/GrantTimeDialog.svelte";
+import GrantTimeDialog from "@/apps/dialogs/GrantTimeDialog.svelte";
 import { mount, unmount, tick } from "svelte";
 
 vi.unmock("svelte");
@@ -19,6 +19,7 @@ describe("GrantTimeDialog.svelte", () => {
   ];
 
   beforeEach(() => {
+    vi.clearAllMocks();
     target = document.createElement("div");
     document.body.appendChild(target);
   });
@@ -85,6 +86,7 @@ describe("GrantTimeDialog.svelte", () => {
     // Initially all selected if isParty is true
     expect(checkboxes[0].checked).toBe(true);
 
+    expect(checkboxes[0]).not.toBeNull();
     checkboxes[0].click();
     await tick();
     expect(checkboxes[0].checked).toBe(false);

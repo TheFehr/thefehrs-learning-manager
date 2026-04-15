@@ -5,20 +5,20 @@ import { MODULE_ID } from "../../src/global";
 describe("Migration v1 (Relational)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    (global as any).ui = { notifications: { info: vi.fn() } };
-    (global as any).game = {
+    (globalThis as any).ui = { notifications: { info: vi.fn() } };
+    (globalThis as any).game = {
       actors: { contents: [] },
       settings: { get: vi.fn().mockReturnValue([]), set: vi.fn().mockResolvedValue(true) },
     };
-    (global as any).foundry = (global as any).foundry || {};
-    (global as any).foundry.utils = (global as any).foundry.utils || {};
-    (global as any).foundry.utils.randomID = vi.fn().mockReturnValue("rand123");
+    (globalThis as any).foundry = (globalThis as any).foundry || {};
+    (globalThis as any).foundry.utils = (globalThis as any).foundry.utils || {};
+    (globalThis as any).foundry.utils.randomID = vi.fn().mockReturnValue("rand123");
   });
 
   afterEach(() => {
-    delete (global as any).ui;
-    delete (global as any).game;
-    delete (global as any).foundry;
+    delete (globalThis as any).ui;
+    delete (globalThis as any).game;
+    delete (globalThis as any).foundry;
   });
 
   it("should migrate projects without templateId", async () => {
@@ -34,7 +34,7 @@ describe("Migration v1 (Relational)", () => {
       getFlag: vi.fn().mockReturnValue([mockProject]),
       setFlag: vi.fn().mockResolvedValue(true),
     };
-    (global as any).game.actors.contents = [mockActor as any];
+    (globalThis as any).game.actors.contents = [mockActor as any];
 
     await migrateToV1Relational();
 
@@ -49,7 +49,7 @@ describe("Migration v1 (Relational)", () => {
         }),
       ]),
     );
-    expect((global as any).game.settings.set).toHaveBeenCalledWith(
+    expect((globalThis as any).game.settings.set).toHaveBeenCalledWith(
       MODULE_ID,
       "projectTemplates",
       expect.arrayContaining([
@@ -68,7 +68,7 @@ describe("Migration v1 (Relational)", () => {
       getFlag: vi.fn().mockReturnValue([]),
       setFlag: vi.fn(),
     };
-    (global as any).game.actors.contents = [mockActor as any];
+    (globalThis as any).game.actors.contents = [mockActor as any];
 
     await migrateToV1Relational();
 
@@ -86,7 +86,7 @@ describe("Migration v1 (Relational)", () => {
       getFlag: vi.fn().mockReturnValue([mockProject]),
       setFlag: vi.fn().mockResolvedValue(true),
     };
-    (global as any).game.actors.contents = [mockActor as any];
+    (globalThis as any).game.actors.contents = [mockActor as any];
 
     await migrateToV1Relational();
 
@@ -99,7 +99,7 @@ describe("Migration v1 (Relational)", () => {
         }),
       ]),
     );
-    expect((global as any).game.settings.set).not.toHaveBeenCalledWith(
+    expect((globalThis as any).game.settings.set).not.toHaveBeenCalledWith(
       MODULE_ID,
       "projectTemplates",
       expect.any(Array),
@@ -112,7 +112,7 @@ describe("Migration v1 (Relational)", () => {
       getFlag: vi.fn().mockReturnValue(flagValue),
       setFlag: vi.fn(),
     };
-    (global as any).game.actors.contents = [mockActor as any];
+    (globalThis as any).game.actors.contents = [mockActor as any];
 
     await migrateToV1Relational();
 

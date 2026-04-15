@@ -23,6 +23,7 @@ describe("InstructorSelectionDialog.svelte", () => {
   ];
 
   beforeEach(() => {
+    vi.clearAllMocks();
     target = document.createElement("div");
     document.body.appendChild(target);
   });

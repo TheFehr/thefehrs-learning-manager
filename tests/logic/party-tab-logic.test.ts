@@ -5,10 +5,10 @@ import { TabLogic } from "../../src/logic/tab-logic";
 import { ActorProxy } from "../../src/logic/actor-proxy";
 import { ProjectEngine } from "../../src/logic/project-engine";
 
-vi.mock("../../src/core/settings");
-vi.mock("../../src/logic/tab-logic");
-vi.mock("../../src/logic/actor-proxy");
-vi.mock("../../src/logic/project-engine");
+vi.mock("@/core/settings");
+vi.mock("@/logic/tab-logic");
+vi.mock("@/logic/actor-proxy");
+vi.mock("@/logic/project-engine");
 
 describe("PartyTabLogic", () => {
   let originalActors: any;
@@ -16,7 +16,7 @@ describe("PartyTabLogic", () => {
 
   beforeEach(() => {
     vi.clearAllMocks();
-    originalFoundry = (global as any).foundry;
+    originalFoundry = (globalThis as any).foundry;
 
     // Mock Settings.get
     vi.spyOn(Settings, "get").mockImplementation((key) => {
@@ -26,14 +26,14 @@ describe("PartyTabLogic", () => {
     });
 
     // Mock ChatMessage.implementation
-    (global as any).ChatMessage = {
+    (globalThis as any).ChatMessage = {
       implementation: {
         create: vi.fn().mockResolvedValue({}),
       },
     };
 
     // Ensure game and ui are initialized
-    (global as any).ui = {
+    (globalThis as any).ui = {
       notifications: {
         warn: vi.fn(),
         info: vi.fn(),
@@ -41,27 +41,27 @@ describe("PartyTabLogic", () => {
       },
     };
 
-    (global as any).game = {
+    (globalThis as any).game = {
       ID: "thefehrs-learning-manager",
       actors: new Map() as any,
     };
-    originalActors = (global as any).game.actors;
-    vi.spyOn((global as any).game.actors, "get");
+    originalActors = (globalThis as any).game.actors;
+    vi.spyOn((globalThis as any).game.actors, "get");
   });
 
   afterEach(() => {
-    if (global.game) global.game.actors = originalActors;
-    (global as any).foundry = originalFoundry;
+    if (globalThis.game) globalThis.game.actors = originalActors;
+    (globalThis as any).foundry = originalFoundry;
     vi.restoreAllMocks();
-    delete (global as any).ui;
-    delete (global as any).ChatMessage;
+    delete (globalThis as any).ui;
+    delete (globalThis as any).ChatMessage;
   });
 
   describe("openActorSheet", () => {
     it("should open actor sheet by uuid", async () => {
       const mockSheet = { render: vi.fn() };
       const mockDoc = { sheet: mockSheet };
-      (global as any).fromUuid = vi.fn().mockResolvedValue(mockDoc);
+      (globalThis as any).fromUuid = vi.fn().mockResolvedValue(mockDoc);
 
       await PartyTabLogic.openActorSheet("Actor.123");
 
@@ -70,7 +70,7 @@ describe("PartyTabLogic", () => {
     });
 
     it("should do nothing if actor not found", async () => {
-      (global as any).fromUuid = vi.fn().mockResolvedValue(null);
+      (globalThis as any).fromUuid = vi.fn().mockResolvedValue(null);
       await PartyTabLogic.openActorSheet("Actor.123");
       expect(fromUuid).toHaveBeenCalledWith("Actor.123");
     });
