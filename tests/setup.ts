@@ -112,7 +112,7 @@ globalThis.Roll = class {
   terms: any[] = [];
   total = 0;
   _evaluated = false;
-  async evaluate() {
+  evaluate() {
     if (this._evaluated) return this;
 
     const tokens = this.formula.split(/([+\-*/])/);

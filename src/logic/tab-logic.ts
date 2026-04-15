@@ -92,26 +92,33 @@ export class TabLogic {
           // Replace all d20-based dice expressions with (E - 10.5) to extract the constant modifier relative to a single d20.
           // This handles d20, 1d20, 2d20kh1, etc.
           // We also replace other dice with their average/expected value to make it deterministic.
-          const modFormula = rules.checkFormula
-            .replace(
-              /\b(\d*)d20(?:([khdl][hl]?)(\d+)?)?\b/gi,
-              (match, countStr, modType, modValueStr) => {
-                const count = countStr ? parseInt(countStr) : 1;
-                const modValue = modValueStr ? parseInt(modValueStr) : undefined;
-                const expectation = this._getDieExpectation(count, 20, modType, modValue);
-                return (expectation - 10.5).toString();
-              },
-            )
-            .replace(
-              /\b(\d*)d(\d+)(?:([khdl][hl]?)(\d+)?)?\b/gi,
-              (match, countStr, facesStr, modType, modValueStr) => {
-                const count = countStr ? parseInt(countStr) : 1;
-                const faces = parseInt(facesStr);
-                const modValue = modValueStr ? parseInt(modValueStr) : undefined;
-                const expectation = this._getDieExpectation(count, faces, modType, modValue);
-                return expectation.toString();
-              },
-            );
+          // For complex keep/drop dice that we don't support deterministic expectation for, we skip the rewrite.
+          const hasUnsupportedKeepDrop =
+            /\b\d*d\d+([khdl][hl]?\d+)\b/i.test(rules.checkFormula) &&
+            !/\b2d20[khdl][hl]?1\b/i.test(rules.checkFormula);
+
+          const modFormula = hasUnsupportedKeepDrop
+            ? rules.checkFormula
+            : rules.checkFormula
+                .replace(
+                  /\b(\d*)d20(?:([khdl][hl]?)(\d+)?)?\b/gi,
+                  (match, countStr, modType, modValueStr) => {
+                    const count = countStr ? parseInt(countStr) : 1;
+                    const modValue = modValueStr ? parseInt(modValueStr) : undefined;
+                    const expectation = this._getDieExpectation(count, 20, modType, modValue);
+                    return (expectation - 10.5).toString();
+                  },
+                )
+                .replace(
+                  /\b(\d*)d(\d+)(?:([khdl][hl]?)(\d+)?)?\b/gi,
+                  (match, countStr, facesStr, modType, modValueStr) => {
+                    const count = countStr ? parseInt(countStr) : 1;
+                    const faces = parseInt(facesStr);
+                    const modValue = modValueStr ? parseInt(modValueStr) : undefined;
+                    const expectation = this._getDieExpectation(count, faces, modType, modValue);
+                    return expectation.toString();
+                  },
+                );
           const modRoll = new Roll(modFormula, {
             ...actor.getRollData(),
             tutelage: tutelageMod,

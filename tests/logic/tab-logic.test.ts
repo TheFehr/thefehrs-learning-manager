@@ -48,7 +48,7 @@ describe("TabLogic", () => {
 
     it("should return 0 progress on failed non-bulk roll", async () => {
       global.Roll = class extends (global.Roll as any) {
-        async evaluate() {
+        evaluate() {
           this.total = 10;
           this.dice = [{ faces: 20, results: [{ result: 10, active: true }] }];
           this._evaluated = true;
@@ -93,7 +93,7 @@ describe("TabLogic", () => {
         critThreshold: 20,
       };
       global.Roll = class extends (global.Roll as any) {
-        async evaluate() {
+        evaluate() {
           this.total = 20;
           this.dice = [{ faces: 20, results: [{ result: 20, active: true }] }];
           this._evaluated = true;

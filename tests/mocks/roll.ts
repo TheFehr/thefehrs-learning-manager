@@ -106,7 +106,7 @@ export class MockRoll {
     this.terms = [];
   }
 
-  async evaluate() {
+  evaluate() {
     if (this._evaluated) return this;
 
     if (this.total === undefined || this.dice === undefined) {
