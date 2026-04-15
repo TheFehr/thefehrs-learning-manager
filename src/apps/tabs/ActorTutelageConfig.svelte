@@ -25,7 +25,7 @@
     const data = (actor.getFlag("thefehrs-learning-manager", "teacherOfferings") as TeacherOffering[]) || [];
     learningModeEnabled = (actor.getFlag("thefehrs-learning-manager", "learningModeEnabled") as boolean) ?? data.length > 0;
     offerings = data.map(o => {
-      const costs = { ...(o.costs || {}) };
+      const costs = { ...o.costs };
       for (const unit of timeUnits) {
         costs[unit.id] = costs[unit.id] || 0;
       }
