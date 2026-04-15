@@ -399,7 +399,7 @@ export class ProjectLifecycle {
   static async updateItemWithProgress(
     item: Item,
     projectData: ProjectFlagData,
-    instructorName: string = "None",
+    instructorName: string = "Self-Study",
   ) {
     const progressHtml = ProjectUI.generateProgressHtml(
       projectData.progress ?? 0,

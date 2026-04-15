@@ -296,13 +296,13 @@ export class LearningManager {
         if (!user || !actor) return false;
 
         const isGM = user.isGM;
+        if (!isGM) return false;
 
         const hasOfferings = !!actor.getFlag(this.ID, "teacherOfferings");
         if (hasOfferings) return isGM;
 
         const uuid = (actor as any).uuid || "";
         if (uuid.startsWith("Compendium.")) {
-          if (isGM) return true;
           const parts = uuid.split(".");
           const packId = `${parts[1]}.${parts[2]}`;
           const isTeacherPack = Settings.get("teacherCompendiums").includes(packId);
@@ -367,10 +367,6 @@ export class LearningManager {
 
     const existing = this.svelteInstances.get(appId);
     if (existing) {
-      if (existing.target === target) {
-        // Already mounted on this target, don't remount
-        return;
-      }
       unmount(existing.instance);
       this.svelteInstances.delete(appId);
     }

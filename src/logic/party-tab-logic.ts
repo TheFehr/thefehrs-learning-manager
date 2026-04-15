@@ -116,11 +116,14 @@ export class PartyTabLogic {
           timeUnits,
           isParty,
           members,
-          onsubmit: (timeValues: Record<string, number>, selectedIds: string[]) => {
+          onsubmit: async (timeValues: Record<string, number>, selectedIds: string[]) => {
             if (settled) return;
             settled = true;
-            this.processGrantTime(timeValues, selectedIds);
-            dialog.close();
+            try {
+              await this.processGrantTime(timeValues, selectedIds);
+            } finally {
+              dialog.close();
+            }
           },
         } as any,
       }) as unknown as GrantTimeInstance;

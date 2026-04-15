@@ -86,10 +86,13 @@ export async function saveSettings(
  */
 export async function ensureCategoryExists(category: string): Promise<void> {
   if (!category) return;
-  const categories = Settings.get("categories") || [];
-  if (categories.includes(category)) return;
+  const normalizedCategory = category.trim();
+  if (!normalizedCategory) return;
 
-  const escapedCategory = FoundryUtils.escapeHTML(category);
+  const categories = Settings.get("categories") || [];
+  if (categories.includes(normalizedCategory)) return;
+
+  const escapedCategory = FoundryUtils.escapeHTML(normalizedCategory);
   const confirm = await foundry.applications.api.DialogV2.confirm({
     window: { title: "Downtime Engine | New Category" },
     content: `<p>The category "<strong>${escapedCategory}</strong>" is not in the global list. Would you like to add it?</p>`,
@@ -99,9 +102,9 @@ export async function ensureCategoryExists(category: string): Promise<void> {
 
   if (confirm) {
     const latestCategories = Settings.get("categories") || [];
-    if (!latestCategories.includes(category)) {
-      await Settings.set("categories", [...latestCategories, category]);
-      Logger.info(`Added "${category}" to the global categories list.`, true);
+    if (!latestCategories.includes(normalizedCategory)) {
+      await Settings.set("categories", [...latestCategories, normalizedCategory]);
+      Logger.info(`Added "${normalizedCategory}" to the global categories list.`, true);
     }
   }
 }

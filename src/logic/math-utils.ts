@@ -16,8 +16,15 @@ export function combinations(n: number, k: number): number {
  * Calculates the binomial probability P(X >= k) for n trials and success probability p.
  */
 export function getBinomialP(n: number, k: number, p: number): number {
+  // 1. Handle k bounds first
+  if (k > n) return 0; // Impossible to get more successes than trials
+  if (k <= 0) return 1; // Guaranteed to get at least 0 successes
+
+  // 2. Handle p bounds safely
   if (p <= 0) return 0;
   if (p >= 1) return 1;
+
+  // 3. Calculate normally
   let total = 0;
   for (let j = k; j <= n; j++) {
     total += combinations(n, j) * Math.pow(p, j) * Math.pow(1 - p, n - j);

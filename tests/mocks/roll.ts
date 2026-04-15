@@ -135,8 +135,8 @@ export class MockRoll {
   clone() {
     const r = new MockRoll(this.formula, JSON.parse(JSON.stringify(this.data)));
     r.total = this.total;
-    r.dice = this.dice ? [...this.dice] : undefined;
-    r.terms = [...this.terms];
+    r.dice = this.dice ? JSON.parse(JSON.stringify(this.dice)) : undefined;
+    r.terms = JSON.parse(JSON.stringify(this.terms));
     r._evaluated = this._evaluated;
     return r;
   }

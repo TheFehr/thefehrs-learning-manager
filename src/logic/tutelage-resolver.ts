@@ -107,7 +107,7 @@ export class TutelageResolverService {
                 actorUuid:
                   entry.uuid ||
                   (pack as any).getUuid(entry._id) ||
-                  `${pack.collection}.Actor.${entry._id}`,
+                  `Compendium.${pack.metadata.id}.Actor.${entry._id}`,
                 name: entry.name,
                 offering: offering,
               });

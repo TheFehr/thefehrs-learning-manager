@@ -307,40 +307,47 @@ export async function migrateToV3() {
         } else if (mapping.type === "book") {
           // Distribute book to actor if they don't have it
           const bookDoc = await fromUuid(mapping.uuid as `Item.${string}`);
-          if (bookDoc && bookDoc instanceof Item) {
-            const bookBonus = bookDoc.getFlag(MODULE_ID, "learningBookBonus") as LearningBookBonus;
-            if (!bookBonus) {
-              Logger.error(
-                `Migration v3 | Legacy book document ${bookDoc.uuid} is missing learningBookBonus flag.`,
-                true,
-              );
-              continue;
-            }
+          if (!(bookDoc instanceof Item)) {
+            Logger.error(
+              `Migration v3 | Legacy book document could not be resolved: ${mapping.uuid}`,
+              true,
+            );
+            projectFailures++;
+            continue;
+          }
 
-            const existingBook = (actor.items as any).find((i: any) => {
-              const b = i.getFlag(MODULE_ID, "learningBookBonus") as LearningBookBonus;
-              if (!b || b.modifier !== bookBonus.modifier) return false;
-              const aCats = b.categories || [];
-              const bCats = detectedCats || [];
-              if (aCats.length !== bCats.length) return false;
-              const sortedA = [...aCats].sort();
-              const sortedB = [...bCats].sort();
-              return sortedA.every((v, idx) => v === sortedB[idx]);
-            });
+          const bookBonus = bookDoc.getFlag(MODULE_ID, "learningBookBonus") as LearningBookBonus;
+          if (!bookBonus) {
+            Logger.error(
+              `Migration v3 | Legacy book document ${bookDoc.uuid} is missing learningBookBonus flag.`,
+              true,
+            );
+            projectFailures++;
+            continue;
+          }
 
-            if (!existingBook) {
-              const bookData = bookDoc.toObject();
-              // Update the book to only work for this project's categories to match legacy behavior
-              const bonus = (bookData.flags[MODULE_ID] as any)
-                .learningBookBonus as LearningBookBonus;
-              bonus.categories = detectedCats;
+          const existingBook = (actor.items as any).find((i: any) => {
+            const b = i.getFlag(MODULE_ID, "learningBookBonus") as LearningBookBonus;
+            if (!b || b.modifier !== bookBonus.modifier) return false;
+            const aCats = b.categories || [];
+            const bCats = detectedCats || [];
+            if (aCats.length !== bCats.length) return false;
+            const sortedA = [...aCats].sort();
+            const sortedB = [...bCats].sort();
+            return sortedA.every((v, idx) => v === sortedB[idx]);
+          });
 
-              // Set sourceId so the resolver recognizes it if compendium filtering is on
-              bookData.flags.core = bookData.flags.core || {};
-              (bookData.flags.core as any).sourceId = bookDoc.uuid;
+          if (!existingBook) {
+            const bookData = bookDoc.toObject();
+            // Update the book to only work for this project's categories to match legacy behavior
+            const bonus = (bookData.flags[MODULE_ID] as any).learningBookBonus as LearningBookBonus;
+            bonus.categories = detectedCats;
 
-              await actor.createEmbeddedDocuments("Item", [bookData]);
-            }
+            // Set sourceId so the resolver recognizes it if compendium filtering is on
+            bookData.flags.core = bookData.flags.core || {};
+            (bookData.flags.core as any).sourceId = bookDoc.uuid;
+
+            await actor.createEmbeddedDocuments("Item", [bookData]);
           }
           projectData.tutelageId = "";
 
