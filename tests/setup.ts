@@ -79,6 +79,7 @@ globalThis.foundry = {
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#39;");
     }),
+    saveDataToFile: vi.fn(),
   },
   dice: {
     terms: {

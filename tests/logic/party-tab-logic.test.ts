@@ -55,6 +55,25 @@ describe("PartyTabLogic", () => {
     delete (global as any).ChatMessage;
   });
 
+  describe("openActorSheet", () => {
+    it("should open actor sheet by uuid", async () => {
+      const mockSheet = { render: vi.fn() };
+      const mockDoc = { sheet: mockSheet };
+      (global as any).fromUuid = vi.fn().mockResolvedValue(mockDoc);
+
+      await PartyTabLogic.openActorSheet("Actor.123");
+
+      expect(fromUuid).toHaveBeenCalledWith("Actor.123");
+      expect(mockSheet.render).toHaveBeenCalledWith(true);
+    });
+
+    it("should do nothing if actor not found", async () => {
+      (global as any).fromUuid = vi.fn().mockResolvedValue(null);
+      await PartyTabLogic.openActorSheet("Actor.123");
+      expect(fromUuid).toHaveBeenCalledWith("Actor.123");
+    });
+  });
+
   describe("processGrantTime", () => {
     it("should call signalTimeDistribution after granting time", async () => {
       const timeValues = { hour: 1 };
@@ -63,7 +82,7 @@ describe("PartyTabLogic", () => {
       vi.mocked(TabLogic.calculateTotalBaseTime).mockReturnValue(1);
       vi.mocked(TabLogic.formatTimeBank).mockReturnValue("1h");
 
-      const mockActor = { id: "actor1" };
+      const mockActor = { id: "actor1", type: "character" };
       (game.actors as any).set(mockActor.id, mockActor);
 
       const mockProxy = {
@@ -75,6 +94,32 @@ describe("PartyTabLogic", () => {
       await PartyTabLogic.processGrantTime(timeValues, selectedIds);
 
       expect(ProjectEngine.signalTimeDistribution).toHaveBeenCalled();
+      expect(ChatMessage.implementation.create).toHaveBeenCalled();
+    });
+
+    it("should handle errors when updating bank", async () => {
+      const timeValues = { hour: 1 };
+      const selectedIds = ["actor1"];
+
+      vi.mocked(TabLogic.calculateTotalBaseTime).mockReturnValue(1);
+      const mockActor = { id: "actor1", type: "character" };
+      (game.actors as any).set(mockActor.id, mockActor);
+
+      const mockProxy = {
+        bank: { total: 0 },
+        setBank: vi.fn().mockRejectedValue(new Error("Update failed")),
+      };
+      vi.mocked(ActorProxy.forActor).mockReturnValue(mockProxy as any);
+
+      await PartyTabLogic.processGrantTime(timeValues, selectedIds);
+
+      expect(ProjectEngine.signalTimeDistribution).toHaveBeenCalled();
+      // Should still create chat message but with 0 success count if it failed
+      expect(ChatMessage.implementation.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          content: expect.stringContaining("0 characters"),
+        }),
+      );
     });
 
     it("should not call signalTimeDistribution if no time is entered", async () => {
@@ -137,6 +182,22 @@ describe("PartyTabLogic", () => {
       expect(ProjectEngine.injectActivities).toHaveBeenCalledWith(mockItem, 20);
       expect(ProjectEngine.updateItemWithProgress).toHaveBeenCalled();
     });
+
+    it("should complete project if target is lowered below current progress", async () => {
+      const mockProjectData = { progress: 15, target: 20 };
+      const mockItem = { getFlag: vi.fn().mockReturnValue(mockProjectData), name: "Test" };
+      const mockActor = { items: { get: vi.fn().mockReturnValue(mockItem) } };
+      (game.actors as any).set("actor1", mockActor);
+
+      await PartyTabLogic.updateTarget("actor1", { id: "item1" } as any, 10, true);
+
+      expect(ProjectEngine.completeProject).toHaveBeenCalledWith(mockItem);
+    });
+
+    it("should do nothing if NOT GM", async () => {
+      await PartyTabLogic.updateTarget("actor1", { id: "item1" } as any, 20, false);
+      expect(ProjectEngine.updateItemWithProgress).not.toHaveBeenCalled();
+    });
   });
 
   describe("deleteProject", () => {
@@ -186,6 +247,16 @@ describe("PartyTabLogic", () => {
 
       await PartyTabLogic.deleteProject("actor1", {} as any, false);
       expect(ui.notifications.warn).toHaveBeenCalledWith(expect.stringContaining("permission"));
+    });
+
+    it("should warn if trying to abort in-progress project without being GM", async () => {
+      const mockActor = { isOwner: true };
+      (game.actors as any).set("actor1", mockActor);
+
+      await PartyTabLogic.deleteProject("actor1", { progress: 5 } as any, false);
+      expect(ui.notifications.warn).toHaveBeenCalledWith(
+        expect.stringContaining("cannot abort an in-progress project"),
+      );
     });
   });
 });

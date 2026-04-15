@@ -112,8 +112,14 @@ export async function migrateToV3() {
   }
 
   // 3. Create Recovery Compendiums
-  const instructorPack = await getOrCreateCompendium("Actor", "Legacy Tutelage: Instructors");
-  const bookPack = await getOrCreateCompendium("Item", "Legacy Tutelage: Books");
+  let instructorPack, bookPack;
+  try {
+    instructorPack = await getOrCreateCompendium("Actor", "Legacy Tutelage: Instructors");
+    bookPack = await getOrCreateCompendium("Item", "Legacy Tutelage: Books");
+  } catch (err) {
+    Logger.error("Migration failed: Error creating recovery compendiums:", err);
+    return;
+  }
 
   if (!instructorPack || !bookPack) {
     Logger.error("Migration failed: Could not create/access recovery compendiums.");
@@ -140,6 +146,7 @@ export async function migrateToV3() {
   >();
 
   // 4. Convert used tiers to documents
+  let projectFailures = 0;
   for (const tier of tiersToMigrate) {
     const hasCost = Object.values(tier.costs || {}).some((c) => c > 0);
     if (hasCost) {
@@ -191,6 +198,7 @@ export async function migrateToV3() {
         }
       } catch (err) {
         Logger.error(`Migration v3 | Failed to create legacy instructor for tier ${tier.id}:`, err);
+        projectFailures++;
       }
 
       if (created) {
@@ -247,6 +255,7 @@ export async function migrateToV3() {
         }
       } catch (err) {
         Logger.error(`Migration v3 | Failed to create legacy book for tier ${tier.id}:`, err);
+        projectFailures++;
       }
 
       if (created) {
@@ -256,7 +265,6 @@ export async function migrateToV3() {
   }
 
   // 5. Update world items and distribute books
-  let projectFailures = 0;
   for (const actor of actorsWithProjects) {
     const projects = (actor.items as any).filter((i: any) =>
       i.getFlag(MODULE_ID, "isLearningProject"),

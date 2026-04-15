@@ -137,4 +137,113 @@ describe("TutelageResolverService", () => {
     expect(books[0].name).toBe("Spellbook");
     expect(books[0].modifier).toBe(2);
   });
+
+  it("should return cached instructors if available", async () => {
+    const project = { getFlag: vi.fn().mockReturnValue({ categories: ["magic"] }) } as any;
+    await TutelageResolverService.getAvailableInstructors(project);
+
+    // Spy on refreshCache to see if it's called again
+    const spy = vi.spyOn(TutelageResolverService as any, "refreshCache");
+    await TutelageResolverService.getAvailableInstructors(project);
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+});
+
+describe("getCache", () => {
+  it("should return the current instructor cache", async () => {
+    const project = { getFlag: vi.fn().mockReturnValue({ categories: ["magic"] }) } as any;
+    await TutelageResolverService.getAvailableInstructors(project);
+    const cache = TutelageResolverService.getCache();
+    expect(cache).not.toBeNull();
+    expect(cache).toHaveLength(1);
+  });
+});
+
+describe("resolveTutelage", () => {
+  it("should resolve self-study if no instructor selected", async () => {
+    const actor = { items: [] } as any;
+    const project = { getFlag: vi.fn().mockReturnValue({ categories: [] }) } as any;
+    const result = await TutelageResolverService.resolveTutelage(actor, project);
+    expect(result.modifier).toBe(0);
+    expect(result.instructorName).toBe("Self-Study");
+  });
+
+  it("should resolve with instructor if selected", async () => {
+    const actor = { items: [] } as any;
+    const project = {
+      name: "Test",
+      getFlag: vi.fn().mockReturnValue({ categories: ["magic"] }),
+    } as any;
+
+    const result = await TutelageResolverService.resolveTutelage(
+      actor,
+      project,
+      "Compendium.pack1.Actor.actor1",
+      "Lesson 1",
+    );
+
+    expect(result.modifier).toBe(5);
+    expect(result.instructorName).toBe("Lesson 1");
+  });
+
+  it("should use best modifier between book and instructor", async () => {
+    const actor = {
+      items: [
+        {
+          name: "Super Book",
+          getFlag: vi.fn().mockImplementation((scope, key) => {
+            if (scope === MODULE_ID && key === "learningBookBonus")
+              return { modifier: 10, categories: [] };
+            return null;
+          }),
+        },
+      ],
+    } as any;
+    const project = { getFlag: vi.fn().mockReturnValue({ categories: [] }) } as any;
+
+    const result = await TutelageResolverService.resolveTutelage(
+      actor,
+      project,
+      "Compendium.pack1.Actor.actor1",
+      "Lesson 1",
+    );
+
+    expect(result.modifier).toBe(10); // Book (10) > Instructor (5)
+  });
+});
+
+describe("getAvailableBooks", () => {
+  it("should filter books by compendium if configured", () => {
+    (game.settings.get as any).mockImplementation((_scope, key) => {
+      if (key === "bookCompendiums") return ["my.pack"];
+      return [];
+    });
+
+    const project = { getFlag: vi.fn().mockReturnValue({ categories: [] }) } as any;
+    const actor = {
+      items: [
+        {
+          name: "Allowed Book",
+          getFlag: vi.fn().mockImplementation((scope, key) => {
+            if (scope === MODULE_ID && key === "learningBookBonus") return { modifier: 2 };
+            if (scope === "core" && key === "sourceId") return "Compendium.my.pack.item1";
+            return null;
+          }),
+        },
+        {
+          name: "Forbidden Book",
+          getFlag: vi.fn().mockImplementation((scope, key) => {
+            if (scope === MODULE_ID && key === "learningBookBonus") return { modifier: 5 };
+            if (scope === "core" && key === "sourceId") return "Compendium.other.pack.item2";
+            return null;
+          }),
+        },
+      ],
+    } as any;
+
+    const books = TutelageResolverService.getAvailableBooks(actor, project);
+    expect(books).toHaveLength(1);
+    expect(books[0].name).toBe("Allowed Book");
+  });
 });

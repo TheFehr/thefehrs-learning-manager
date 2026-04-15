@@ -250,4 +250,155 @@ describe("v3-tutelage-selection migration", () => {
 
     expect(game.settings.set).toHaveBeenCalledWith(MODULE_ID, "migrationVersion", "3.0.0");
   });
+
+  it("should handle error when getting guidance tiers", async () => {
+    vi.mocked(game.settings.get).mockImplementation((_scope, key) => {
+      if (key === "guidanceTiers") throw new Error("Not found");
+      return null;
+    });
+
+    await migrateToV3();
+
+    expect(game.settings.set).toHaveBeenCalledWith(MODULE_ID, "migrationVersion", "3.0.0");
+  });
+
+  it("should skip if rawTiers is empty", async () => {
+    vi.mocked(game.settings.get).mockImplementation((_scope, key) => {
+      if (key === "guidanceTiers") return [];
+      return null;
+    });
+
+    await migrateToV3();
+
+    expect(game.settings.set).toHaveBeenCalledWith(MODULE_ID, "migrationVersion", "3.0.0");
+  });
+
+  it("should handle failure to create compendiums", async () => {
+    const tiers = [{ id: "t1", name: "Teacher", modifier: 5, costs: { cp: 100 } }];
+    vi.mocked(game.settings.get).mockImplementation((_scope, key) => {
+      if (key === "guidanceTiers") return tiers;
+      return null;
+    });
+
+    const project = new Item() as any;
+    project.getFlag.mockImplementation((_scope: string, key: string) => {
+      if (key === "isLearningProject") return true;
+      if (key === "projectData") return { tutelageId: "t1" };
+      return null;
+    });
+    const actor = new Actor() as any;
+    actor.items = [project];
+    (game.actors.contents as any[]).push(actor);
+
+    // Mock pack find to return null to trigger getOrCreateCompendium creation failure
+    vi.mocked(game.packs.find).mockReturnValue(undefined);
+    vi.mocked(CompendiumCollection.createCompendium).mockRejectedValue(new Error("Failed"));
+
+    await migrateToV3();
+
+    expect(ui.notifications.info).not.toHaveBeenCalledWith(expect.stringContaining("complete"));
+  });
+
+  it("should use existing legacy instructor if already created in pack", async () => {
+    const tiers = [{ id: "t1", name: "Teacher", modifier: 5, costs: { cp: 100 } }];
+    vi.mocked(game.settings.get).mockImplementation((_scope, key) => {
+      if (key === "guidanceTiers") return tiers;
+      if (key === "teacherCompendiums") return [];
+      if (key === "bookCompendiums") return [];
+      return null;
+    });
+
+    const project = new Item() as any;
+    project.getFlag.mockImplementation((_scope: string, key: string) => {
+      if (key === "isLearningProject") return true;
+      if (key === "projectData") return { tutelageId: "t1" };
+      return null;
+    });
+    const actor = new Actor() as any;
+    actor.items = [project];
+    (game.actors.contents as any[]).push(actor);
+
+    const pack = {
+      metadata: { id: "pack.id", collection: "pack" },
+      collection: "pack",
+      getIndex: vi
+        .fn()
+        .mockResolvedValue([{ _id: "existingId", flags: { [MODULE_ID]: { legacyTierId: "t1" } } }]),
+    };
+    vi.mocked(game.packs.find).mockReturnValue(pack);
+
+    await migrateToV3();
+
+    expect(Actor.createDocuments).not.toHaveBeenCalled();
+    expect(project.setFlag).toHaveBeenCalledWith(
+      MODULE_ID,
+      "projectData",
+      expect.objectContaining({
+        lastInstructorUuid: "Compendium.pack.id.existingId",
+      }),
+    );
+  });
+
+  it("should handle creation errors gracefully", async () => {
+    const tiers = [{ id: "t1", name: "Teacher", modifier: 5, costs: { cp: 100 } }];
+    vi.mocked(game.settings.get).mockImplementation((_scope, key) => {
+      if (key === "guidanceTiers") return tiers;
+      if (key === "teacherCompendiums") return [];
+      if (key === "bookCompendiums") return [];
+      return null;
+    });
+
+    const project = new Item() as any;
+    project.getFlag.mockImplementation((_scope: string, key: string) => {
+      if (key === "isLearningProject") return true;
+      if (key === "projectData") return { tutelageId: "t1" };
+      return null;
+    });
+    const actor = new Actor() as any;
+    actor.items = [project];
+    (game.actors.contents as any[]).push(actor);
+
+    const pack = {
+      metadata: { id: "pack.id", collection: "pack" },
+      collection: "pack",
+      getIndex: vi.fn().mockResolvedValue([]),
+    };
+    vi.mocked(game.packs.find).mockReturnValue(pack);
+    vi.mocked(Actor.createDocuments).mockRejectedValue(new Error("Creation failed"));
+
+    await migrateToV3();
+
+    expect(ui.notifications.warn).toHaveBeenCalledWith(
+      expect.stringContaining("partially completed"),
+    );
+  });
+
+  it("should handle orphaned tier IDs by resetting them", async () => {
+    const tiers = [{ id: "t1", name: "Teacher", modifier: 5, costs: { cp: 100 } }];
+    vi.mocked(game.settings.get).mockImplementation((_scope, key) => {
+      if (key === "guidanceTiers") return tiers;
+      return [];
+    });
+
+    const project = new Item() as any;
+    project.getFlag.mockImplementation((_scope: string, key: string) => {
+      if (key === "isLearningProject") return true;
+      if (key === "projectData") return { tutelageId: "orphaned" };
+      return null;
+    });
+    const actor = new Actor() as any;
+    actor.items = [project];
+    (game.actors.contents as any[]).push(actor);
+
+    const pack = { metadata: { id: "pack.id" }, collection: "pack" };
+    vi.mocked(game.packs.find).mockReturnValue(pack);
+
+    await migrateToV3();
+
+    expect(project.setFlag).toHaveBeenCalledWith(
+      MODULE_ID,
+      "projectData",
+      expect.objectContaining({ tutelageId: "" }),
+    );
+  });
 });

@@ -1,10 +1,27 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { DebugHelpers } from "../../src/core/debug";
 import { ActorProxy } from "../../src/logic/actor-proxy";
+import { TutelageResolverService } from "../../src/logic/tutelage-resolver";
+import { Settings } from "../../src/core/settings";
 
 vi.mock("../../src/logic/actor-proxy", () => ({
   ActorProxy: {
     forActor: vi.fn(),
+  },
+}));
+
+vi.mock("../../src/logic/tutelage-resolver", () => ({
+  TutelageResolverService: {
+    clearCache: vi.fn(),
+    getCache: vi.fn(),
+    refreshCache: vi.fn(),
+  },
+}));
+
+vi.mock("../../src/core/settings", () => ({
+  Settings: {
+    get: vi.fn(),
+    set: vi.fn(),
   },
 }));
 
@@ -86,6 +103,19 @@ describe("DebugHelpers", () => {
       );
       expect(ActorProxy.forActor).not.toHaveBeenCalled();
     });
+
+    it("should warn if bank is already empty and trying to remove time", async () => {
+      const mockActor = new (global as any).Actor();
+      mockActor.name = "Character";
+      global.game.user.character = mockActor;
+      const mockProxy = { bank: { total: 0 }, setBank: vi.fn() };
+      vi.mocked(ActorProxy.forActor).mockReturnValue(mockProxy as any);
+
+      await DebugHelpers.addTime(-5);
+
+      expect(console.warn).toHaveBeenCalledWith(expect.stringContaining("Bank already empty"));
+      expect(mockProxy.setBank).not.toHaveBeenCalled();
+    });
   });
 
   describe("addGP", () => {
@@ -143,6 +173,66 @@ describe("DebugHelpers", () => {
         ep: 0,
         pp: 0,
       });
+    });
+
+    it("should warn if no GP available to remove", async () => {
+      const mockActor = new (global as any).Actor();
+      mockActor.name = "Character";
+      global.game.user.character = mockActor;
+      const mockProxy = {
+        currency: { gp: 0, sp: 0, cp: 0, ep: 0, pp: 0 },
+        updateCurrency: vi.fn(),
+      };
+      vi.mocked(ActorProxy.forActor).mockReturnValue(mockProxy as any);
+
+      await DebugHelpers.addGP(-10);
+
+      expect(console.warn).toHaveBeenCalledWith(expect.stringContaining("No GP available"));
+      expect(mockProxy.updateCurrency).not.toHaveBeenCalled();
+    });
+  });
+
+  describe("Cache and Config helpers", () => {
+    it("should clear cache", () => {
+      DebugHelpers.clearCache();
+      expect(TutelageResolverService.clearCache).toHaveBeenCalled();
+    });
+
+    it("should get cache", () => {
+      vi.mocked(TutelageResolverService.getCache).mockReturnValue([
+        {
+          actorUuid: "uuid",
+          name: "Actor",
+          offering: { name: "Offering", modifier: 1, categories: ["magic"], costs: {} },
+        },
+      ] as any);
+      const cache = DebugHelpers.getCache();
+      expect(cache).not.toBeNull();
+      expect(cache?.size).toBe(1);
+    });
+
+    it("should refresh cache", async () => {
+      vi.mocked(TutelageResolverService.refreshCache).mockResolvedValue();
+      vi.spyOn(DebugHelpers, "getCache").mockReturnValue({ size: 1, instructors: [] });
+      await DebugHelpers.refreshCache();
+      expect(TutelageResolverService.refreshCache).toHaveBeenCalled();
+    });
+
+    it("should get config", () => {
+      vi.mocked(Settings.get).mockReturnValue([]);
+      const config = DebugHelpers.getConfig();
+      expect(config).toHaveProperty("teacherCompendiums");
+      expect(config).toHaveProperty("bookCompendiums");
+    });
+  });
+
+  describe("Migration helpers", () => {
+    it("should reset migration", async () => {
+      vi.mocked(Settings.set).mockResolvedValue(undefined as any);
+      vi.spyOn(DebugHelpers, "runMigration").mockResolvedValue();
+      await DebugHelpers.resetMigration("1.0.0");
+      expect(Settings.set).toHaveBeenCalledWith("migrationVersion", "1.0.0");
+      expect(DebugHelpers.runMigration).toHaveBeenCalled();
     });
   });
 });

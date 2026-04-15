@@ -1,5 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { validateSettings, saveSettings } from "../../src/logic/settings-logic";
+import {
+  validateSettings,
+  saveSettings,
+  ensureCategoryExists,
+  getAvailablePacks,
+} from "../../src/logic/settings-logic";
 import { Settings } from "../../src/core/settings";
 import { toggleUserGM } from "../setup";
 
@@ -121,6 +126,79 @@ describe("settings-logic", () => {
 
       // Rollback should happen for rules (it was saved before timeUnits failed)
       expect(setSpy).toHaveBeenCalledWith("rules", fullRules); // rolled back to original
+    });
+  });
+
+  describe("ensureCategoryExists", () => {
+    beforeEach(() => {
+      vi.clearAllMocks();
+    });
+
+    it("should return early if category is empty", async () => {
+      await ensureCategoryExists("");
+      expect(Settings.get).not.toHaveBeenCalled();
+    });
+
+    it("should return early if category already exists", async () => {
+      vi.spyOn(Settings, "get").mockReturnValue(["Action", "Bonus Action"]);
+      await ensureCategoryExists("Action");
+      expect(Settings.set).not.toHaveBeenCalled();
+    });
+
+    it("should prompt and add category if it doesn't exist", async () => {
+      vi.spyOn(Settings, "get").mockReturnValue(["Action"]);
+      vi.spyOn(Settings, "set").mockResolvedValue(undefined as any);
+      (foundry.applications.api.DialogV2.confirm as any).mockResolvedValue(true);
+
+      await ensureCategoryExists("Bonus Action");
+
+      expect(foundry.applications.api.DialogV2.confirm).toHaveBeenCalled();
+      expect(Settings.set).toHaveBeenCalledWith("categories", ["Action", "Bonus Action"]);
+    });
+  });
+
+  describe("getAvailablePacks", () => {
+    beforeEach(() => {
+      vi.clearAllMocks();
+      const mockPacks = [
+        {
+          metadata: { id: "world.items", label: "Items", type: "Item" },
+          documentName: "Item",
+          getIndex: vi.fn().mockResolvedValue([]),
+        },
+        {
+          metadata: { id: "world.actors", label: "Actors", type: "Actor" },
+          documentName: "Actor",
+          getIndex: vi.fn().mockResolvedValue([]),
+        },
+      ];
+      (global as any).game.packs = { contents: mockPacks };
+    });
+
+    it("should return all packs if no flagToMatch provided", async () => {
+      const result = await getAvailablePacks("Item");
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe("world.items");
+      expect(result[0].isFitting).toBe(true);
+    });
+
+    it("should filter by type", async () => {
+      const result = await getAvailablePacks("Actor");
+      expect(result).toHaveLength(1);
+      expect(result[0].id).toBe("world.actors");
+    });
+
+    it("should check index for fitting items if flagToMatch is provided", async () => {
+      const pack = (global as any).game.packs.contents[0];
+      pack.getIndex.mockResolvedValue([
+        { name: "Teacher", "flags.thefehrs-learning-manager.teacherOfferings": [{ name: "Art" }] },
+      ]);
+
+      const result = await getAvailablePacks("Item", "teacherOfferings");
+      expect(result[0].isFitting).toBe(true);
+      expect(pack.getIndex).toHaveBeenCalledWith({
+        fields: ["flags.thefehrs-learning-manager.teacherOfferings"],
+      });
     });
   });
 });

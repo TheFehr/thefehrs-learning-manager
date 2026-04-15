@@ -219,5 +219,55 @@ describe("ActorProxy", () => {
       await proxy.updateCurrency(newCurrency);
       expect(mockActor.update).toHaveBeenCalledWith({ system: { currency: newCurrency } }, {});
     });
+
+    it("should get bank from flags", () => {
+      mockActor.getFlag.mockReturnValue({ total: 50 });
+      expect(proxy.bank).toEqual({ total: 50 });
+    });
+
+    it("should set bank", async () => {
+      const newBank = { total: 100 };
+      await proxy.setBank(newBank);
+      expect(mockActor.setFlag).toHaveBeenCalledWith("thefehrs-learning-manager", "bank", newBank);
+    });
+
+    it("should set bank silently", async () => {
+      const { DocumentUtils } = await import("../../src/core/document-utils");
+      const spy = vi.spyOn(DocumentUtils, "setFlagsSilently").mockResolvedValue(true);
+
+      const newBank = { total: 100 };
+      await proxy.setBank(newBank, { render: false });
+
+      expect(spy).toHaveBeenCalledWith(mockActor, { bank: newBank });
+      spy.mockRestore();
+    });
+
+    it("should throw if silent setBank fails", async () => {
+      const { DocumentUtils } = await import("../../src/core/document-utils");
+      const spy = vi.spyOn(DocumentUtils, "setFlagsSilently").mockResolvedValue(false);
+
+      await expect(proxy.setBank({ total: 100 }, { render: false })).rejects.toThrow(
+        "Failed to set bank silently",
+      );
+      spy.mockRestore();
+    });
+
+    it("should create embedded documents", async () => {
+      mockActor.createEmbeddedDocuments = vi.fn().mockResolvedValue([{ id: "item1" }]);
+      const data = [{ name: "New Item" }];
+      const result = await proxy.createEmbeddedDocuments("Item", data);
+
+      expect(mockActor.createEmbeddedDocuments).toHaveBeenCalledWith("Item", data);
+      expect(result).toHaveLength(1);
+    });
+
+    it("should delete embedded documents", async () => {
+      mockActor.deleteEmbeddedDocuments = vi.fn().mockResolvedValue(["item1"]);
+      const ids = ["item1"];
+      const result = await proxy.deleteEmbeddedDocuments("Item", ids);
+
+      expect(mockActor.deleteEmbeddedDocuments).toHaveBeenCalledWith("Item", ids);
+      expect(result).toEqual(["item1"]);
+    });
   });
 });
