@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach, beforeAll } from "vitest";
 import { mount, unmount } from "svelte";
 import { LearningManager } from "@/LearningManager";
 import { TabLogic } from "@/logic/tab-logic";
@@ -7,6 +7,7 @@ import { ProjectEngine } from "@/logic/project-engine";
 import { Socket } from "@/core/socket";
 import type { Actor5e, TimeUnit } from "@/types";
 import { migrateData } from "@/migrations/migration";
+import { registerMigrationSettings } from "@/migrations/migration-registration";
 import { Logger } from "@/core/logger";
 
 vi.mock("svelte", () => ({
@@ -38,6 +39,9 @@ vi.mock("@/logic/project-engine", () => ({
 
 vi.mock("@/migrations/migration", () => ({
   migrateData: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock("@/migrations/migration-registration", () => ({
   registerMigrationSettings: vi.fn(),
 }));
 
@@ -48,12 +52,48 @@ describe("LearningManager", () => {
     { id: "week", name: "Week", short: "w", isBulk: true, ratio: 70 },
   ];
 
+  let originalFromUuid: any;
+  let originalWindowEvent: any;
+
+  beforeAll(() => {
+    originalFromUuid = (globalThis as any).fromUuid;
+    originalWindowEvent = (window as any).event;
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
+    LearningManager.svelteInstances = new Map();
+    LearningManager.socketHandler = null;
+
+    if (originalFromUuid === undefined) {
+      delete (globalThis as any).fromUuid;
+    } else {
+      (globalThis as any).fromUuid = originalFromUuid;
+    }
+
+    if (originalWindowEvent === undefined) {
+      delete (window as any).event;
+    } else {
+      (window as any).event = originalWindowEvent;
+    }
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
+    LearningManager.svelteInstances = new Map();
+    LearningManager.socketHandler = null;
+
+    if (originalFromUuid === undefined) {
+      delete (globalThis as any).fromUuid;
+    } else {
+      (globalThis as any).fromUuid = originalFromUuid;
+    }
+
+    if (originalWindowEvent === undefined) {
+      delete (window as any).event;
+    } else {
+      (window as any).event = originalWindowEvent;
+    }
   });
 
   describe("TabLogic.formatTimeBank", () => {
@@ -96,6 +136,7 @@ describe("LearningManager", () => {
       };
 
       LearningManager.init();
+      expect(registerMigrationSettings).toHaveBeenCalled();
       expect(game.settings.register).toHaveBeenCalledWith(
         "thefehrs-learning-manager",
         "rules",

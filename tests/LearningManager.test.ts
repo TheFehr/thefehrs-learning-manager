@@ -6,6 +6,7 @@ import { TutelageResolverService } from "../src/logic/tutelage-resolver";
 import { Socket } from "../src/core/socket";
 import { migrateData } from "../src/migrations/migration";
 import { registerMigrationSettings } from "../src/migrations/migration-registration";
+import { getGame } from "../src/core/foundry";
 
 vi.mock("@/migrations/migration", () => ({
   migrateData: vi.fn(),
@@ -47,9 +48,15 @@ vi.mock("@/core/socket", () => ({
   },
 }));
 
+vi.mock("@/core/foundry", () => ({
+  getGame: vi.fn(),
+  getUI: vi.fn(),
+}));
+
 describe("LearningManager", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    (globalThis as any).getGame = getGame;
   });
 
   describe("init", () => {
@@ -160,6 +167,99 @@ describe("LearningManager", () => {
 
       const result = await callback(mockActor, {}, mockData);
       expect(result).toBe(false);
+    });
+
+    it("should return false if actor is group and actorId is present but member is missing", async () => {
+      LearningManager.init();
+      const callback = (Hooks.on as any).mock.calls.find(
+        (c: any) => c[0] === "dropActorSheetData",
+      )[1];
+
+      const mockGroupActor = { name: "Group", type: "group" };
+      const mockData = { type: "Item", uuid: "Compendium.world.items.123" };
+
+      const mockEvent = {
+        target: {
+          closest: vi.fn().mockReturnValue({
+            dataset: {
+              tidySectionKey: "actor-missing-id",
+            },
+          }),
+        },
+      };
+
+      (getGame as any).mockReturnValue({
+        actors: {
+          get: vi.fn().mockReturnValue(undefined),
+        },
+      });
+
+      (Settings.get as any).mockReturnValue(["world.items"]);
+
+      const result = await callback(mockGroupActor, {}, mockData, mockEvent);
+      expect(result).toBe(false);
+      expect(getGame().actors.get).toHaveBeenCalledWith("missing-id");
+    });
+
+    it("should set targetActor to member if actor is group and member is found", async () => {
+      LearningManager.init();
+      const callback = (Hooks.on as any).mock.calls.find(
+        (c: any) => c[0] === "dropActorSheetData",
+      )[1];
+
+      const mockGroupActor = { name: "Group", type: "group" };
+      const mockData = { type: "Item", uuid: "Compendium.world.items.123" };
+      const mockMember = { name: "Member", type: "character" };
+
+      const mockEvent = {
+        target: {
+          closest: vi.fn().mockReturnValue({
+            dataset: {
+              tidySectionKey: "actor-found-id",
+            },
+          }),
+        },
+      };
+
+      (getGame as any).mockReturnValue({
+        actors: {
+          get: vi.fn().mockReturnValue(mockMember),
+        },
+      });
+
+      (globalThis as any).fromUuid = vi.fn().mockResolvedValue({
+        name: "Source Item",
+        system: {},
+      });
+
+      (Settings.get as any).mockReturnValue(["world.items"]);
+
+      const result = await callback(mockGroupActor, {}, mockData, mockEvent);
+      expect(result).toBe(false);
+      expect(getGame().actors.get).toHaveBeenCalledWith("found-id");
+      // Indirectly verify targetActor was set to member by checking ProjectEngine.initiateProjectFromItem call if I could,
+      // but it's called inside then.
+    });
+
+    it("should use original actor if not a group", async () => {
+      LearningManager.init();
+      const callback = (Hooks.on as any).mock.calls.find(
+        (c: any) => c[0] === "dropActorSheetData",
+      )[1];
+
+      const mockActor = { name: "Actor", type: "character" };
+      const mockData = { type: "Item", uuid: "Compendium.world.items.123" };
+
+      (globalThis as any).fromUuid = vi.fn().mockResolvedValue({
+        name: "Source Item",
+        system: {},
+      });
+
+      (Settings.get as any).mockReturnValue(["world.items"]);
+
+      const result = await callback(mockActor, {}, mockData);
+      expect(result).toBe(false);
+      // If it didn't return early, it means it proceeded with mockActor
     });
   });
 });

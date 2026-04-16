@@ -145,9 +145,10 @@ export class MockRoll {
 }
 
 export function createMockRoll(formula: string, config: MockRollConfig = {}) {
-  const r = new MockRoll(formula, config.data);
+  const data = config.data ? JSON.parse(JSON.stringify(config.data)) : {};
+  const r = new MockRoll(formula, data);
   r.total = config.total;
-  r.dice = config.dice;
-  r.terms = config.terms ?? [];
+  r.dice = config.dice ? JSON.parse(JSON.stringify(config.dice)) : undefined;
+  r.terms = config.terms ? JSON.parse(JSON.stringify(config.terms)) : [];
   return r;
 }

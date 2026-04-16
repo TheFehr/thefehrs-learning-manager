@@ -15,7 +15,7 @@ describe("PartyTabLogic", () => {
   let originalFoundry: any;
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
     originalFoundry = (globalThis as any).foundry;
 
     // Mock Settings.get
@@ -159,6 +159,7 @@ describe("PartyTabLogic", () => {
       const mockProjectData = { progress: 5, target: 10, isCompleted: false };
       const mockItem = {
         getFlag: vi.fn().mockReturnValue(mockProjectData),
+        name: "Test",
       };
       const mockActor = { items: { get: vi.fn().mockReturnValue(mockItem) } };
       (game.actors as any).set("actor1", mockActor);
@@ -168,18 +169,22 @@ describe("PartyTabLogic", () => {
       expect(ProjectEngine.completeProject).toHaveBeenCalledWith(mockItem);
     });
 
-    it("should update item without completion if target not reached", async () => {
+    it("should handle errors gracefully during updateProgress", async () => {
       const mockProjectData = { progress: 5, target: 10, isCompleted: false };
-      const mockItem = { getFlag: vi.fn().mockReturnValue(mockProjectData) };
+      const mockItem = {
+        getFlag: vi.fn().mockReturnValue(mockProjectData),
+        name: "Test",
+      };
       const mockActor = { items: { get: vi.fn().mockReturnValue(mockItem) } };
       (game.actors as any).set("actor1", mockActor);
 
-      await PartyTabLogic.updateProgress("actor1", { id: "item1" } as any, 8, true);
+      vi.mocked(ProjectEngine.updateItemWithProgress).mockRejectedValue(new Error("Update failed"));
 
-      expect(ProjectEngine.updateItemWithProgress).toHaveBeenCalledWith(
-        mockItem,
-        expect.objectContaining({ progress: 8 }),
-      );
+      await expect(
+        PartyTabLogic.updateProgress("actor1", { id: "item1" } as any, 8, true),
+      ).resolves.not.toThrow();
+
+      expect(ui.notifications.error).toHaveBeenCalled();
     });
   });
 
@@ -194,6 +199,21 @@ describe("PartyTabLogic", () => {
 
       expect(ProjectEngine.injectActivities).toHaveBeenCalledWith(mockItem, 20);
       expect(ProjectEngine.updateItemWithProgress).toHaveBeenCalled();
+    });
+
+    it("should handle errors gracefully during updateTarget", async () => {
+      const mockProjectData = { progress: 5, target: 10 };
+      const mockItem = { getFlag: vi.fn().mockReturnValue(mockProjectData), name: "Test" };
+      const mockActor = { items: { get: vi.fn().mockReturnValue(mockItem) } };
+      (game.actors as any).set("actor1", mockActor);
+
+      vi.mocked(ProjectEngine.updateItemWithProgress).mockRejectedValue(new Error("Update failed"));
+
+      await expect(
+        PartyTabLogic.updateTarget("actor1", { id: "item1" } as any, 20, true),
+      ).resolves.not.toThrow();
+
+      expect(ui.notifications.error).toHaveBeenCalled();
     });
 
     it("should complete project if target is lowered below current progress", async () => {

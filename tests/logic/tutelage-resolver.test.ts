@@ -1,8 +1,11 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { TutelageResolverService } from "@/logic/tutelage-resolver";
 import { MODULE_ID } from "@/global";
 
 describe("TutelageResolverService", () => {
+  const _origGame = (globalThis as any).game;
+  const _origFoundry = (globalThis as any).foundry;
+
   beforeEach(() => {
     vi.clearAllMocks();
     (globalThis as any).game = {
@@ -40,6 +43,13 @@ describe("TutelageResolverService", () => {
     };
 
     TutelageResolverService.clearCache();
+  });
+
+  afterEach(() => {
+    vi.clearAllMocks();
+    TutelageResolverService.clearCache();
+    (globalThis as any).game = _origGame;
+    (globalThis as any).foundry = _origFoundry;
   });
 
   describe("refreshCache", () => {
@@ -165,11 +175,10 @@ describe("TutelageResolverService", () => {
       const project = { getFlag: vi.fn().mockReturnValue({ categories: ["magic"] }) } as any;
       await TutelageResolverService.getAvailableInstructors(project);
 
-      // Spy on refreshCache to see if it's called again
-      const spy = vi.spyOn(TutelageResolverService as any, "refreshCache");
+      const packsGet = game.packs.get as any;
+      packsGet.mockClear();
       await TutelageResolverService.getAvailableInstructors(project);
-      expect(spy).not.toHaveBeenCalled();
-      spy.mockRestore();
+      expect(packsGet).not.toHaveBeenCalled();
     });
   });
 

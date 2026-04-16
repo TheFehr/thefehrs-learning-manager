@@ -27,6 +27,13 @@ describe("math-utils", () => {
       // P(X >= 2) = 0.25
       expect(getBinomialP(2, 2, 0.5)).toBe(0.25);
     });
+
+    it("should normalize non-integer k using Math.ceil", () => {
+      // P(X >= 0.5) should be same as P(X >= 1)
+      expect(getBinomialP(2, 0.5, 0.5)).toBe(0.75);
+      // P(X >= 1.2) should be same as P(X >= 2)
+      expect(getBinomialP(2, 1.2, 0.5)).toBe(0.25);
+    });
   });
 
   describe("getDieExpectation", () => {
@@ -78,6 +85,28 @@ describe("math-utils", () => {
 
     it("should handle k=count", () => {
       expect(getDieExpectation(2, 20, "kh", 2)).toBe(21);
+    });
+
+    it("should default modValue to 1 if undefined", () => {
+      expect(getDieExpectation(2, 20, "kh", undefined)).toBeCloseTo(13.825, 3);
+    });
+
+    it("should fallback for non-numeric or infinite modValue", () => {
+      // 2d20 simple average is 21
+      expect(getDieExpectation(2, 20, "kh", NaN)).toBe(21);
+      expect(getDieExpectation(2, 20, "kh", Infinity)).toBe(21);
+    });
+
+    it("should floor fractional modValue", () => {
+      // 2d20kh1.5 should be same as 2d20kh1
+      expect(getDieExpectation(2, 20, "kh", 1.5)).toBeCloseTo(13.825, 3);
+    });
+
+    it("should clamp modValue to [0, count]", () => {
+      // 2d20kh3 should be same as 2d20kh2
+      expect(getDieExpectation(2, 20, "kh", 3)).toBe(21);
+      // 2d20kh-1 should be same as 2d20kh0
+      expect(getDieExpectation(2, 20, "kh", -1)).toBe(0);
     });
 
     it("should throw RangeError for invalid count", () => {
