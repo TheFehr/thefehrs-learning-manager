@@ -269,12 +269,7 @@ export class LearningManager {
 
           const uuid = (item as any).uuid || "";
           if (uuid.startsWith("Compendium.")) {
-            if (isGM) return true;
-            const parts = uuid.split(".");
-            const packId = `${parts[1]}.${parts[2]}`;
-            const isAllowed = Settings.get("allowedCompendiums").includes(packId);
-            const isBookPack = Settings.get("bookCompendiums").includes(packId);
-            return isAllowed || isBookPack;
+            return isGM;
           }
 
           return false;
