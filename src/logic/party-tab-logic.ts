@@ -28,12 +28,21 @@ export class PartyTabLogic {
   /**
    * Processes the distribution of training time to multiple actors.
    */
-  static async processGrantTime(timeValues: Record<string, number>, selectedIds: string[]) {
+  static async processGrantTime(
+    timeValues: Record<string, number>,
+    selectedIds: string[],
+  ): Promise<boolean> {
     const timeUnits = Settings.get("timeUnits");
     const totalBase = TabLogic.calculateTotalBaseTime(timeValues, timeUnits);
 
-    if (totalBase === 0) return getUI()?.notifications?.warn("No time entered.");
-    if (selectedIds.length === 0) return getUI()?.notifications?.warn("No recipients selected.");
+    if (totalBase === 0) {
+      getUI()?.notifications?.warn("No time entered.");
+      return false;
+    }
+    if (selectedIds.length === 0) {
+      getUI()?.notifications?.warn("No recipients selected.");
+      return false;
+    }
 
     let successCount = 0;
     for (const id of selectedIds) {
@@ -49,6 +58,8 @@ export class PartyTabLogic {
       }
     }
 
+    if (successCount === 0) return false;
+
     const actionWord = totalBase > 0 ? "Granted" : "Deducted";
     const preposition = totalBase > 0 ? "to" : "from";
     const formattedTime = TabLogic.formatTimeBank(Math.abs(totalBase), timeUnits);
@@ -61,6 +72,7 @@ export class PartyTabLogic {
       content: `${actionWord} <strong>${formattedTime}</strong> ${preposition} ${successCount} characters.`,
     });
     ProjectEngine.signalTimeDistribution();
+    return true;
   }
 
   /**
@@ -120,9 +132,15 @@ export class PartyTabLogic {
             if (settled) return;
             settled = true;
             try {
-              await this.processGrantTime(timeValues, selectedIds);
-            } finally {
-              dialog.close();
+              const success = await this.processGrantTime(timeValues, selectedIds);
+              if (success) {
+                dialog.close();
+              } else {
+                settled = false;
+              }
+            } catch (err) {
+              settled = false;
+              throw err;
             }
           },
         } as any,

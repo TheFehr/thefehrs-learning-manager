@@ -415,17 +415,16 @@ export class ProjectLifecycle {
     projectData: ProjectFlagData,
     instructorName: string = "Self-Study",
   ) {
-    const progressHtml = ProjectUI.generateProgressHtml(
-      projectData.progress ?? 0,
-      projectData.target ?? 0,
-      instructorName,
-    );
+    const progress = projectData.progress ?? 0;
+    const target = projectData.target ?? 0;
+
+    const progressHtml = ProjectUI.generateProgressHtml(progress, target, instructorName);
 
     const stashedName = projectData.stashedName || item.name;
     const stashedDescription = projectData.stashedDescription || "";
 
     const success = await DocumentUtils.updateSilently(item, {
-      name: `${stashedName} (${projectData.progress}/${projectData.target})`,
+      name: `${stashedName} (${progress}/${target})`,
       ["system.description.value"]: progressHtml + stashedDescription,
       [`flags.${Settings.ID}.projectData`]: projectData,
     } as Record<string, any>);

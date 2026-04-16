@@ -77,14 +77,20 @@ describe("PartyTabLogic", () => {
   });
 
   describe("processGrantTime", () => {
-    it("should call signalTimeDistribution after granting time", async () => {
+    it("should call signalTimeDistribution and return true after granting time", async () => {
       const timeValues = { hour: 1 };
       const selectedIds = ["actor1"];
 
       vi.mocked(TabLogic.calculateTotalBaseTime).mockReturnValue(1);
       vi.mocked(TabLogic.formatTimeBank).mockReturnValue("1h");
 
-      const mockActor = { id: "actor1", type: "character" };
+      const mockActor = {
+        id: "actor1",
+        type: "character",
+        system: {},
+        getFlag: vi.fn(),
+        getRollData: vi.fn(),
+      };
       (game.actors as any).set(mockActor.id, mockActor);
 
       const mockProxy = {
@@ -93,18 +99,25 @@ describe("PartyTabLogic", () => {
       };
       vi.mocked(ActorProxy.forActor).mockReturnValue(mockProxy as any);
 
-      await PartyTabLogic.processGrantTime(timeValues, selectedIds);
+      const result = await PartyTabLogic.processGrantTime(timeValues, selectedIds);
 
+      expect(result).toBe(true);
       expect(ProjectEngine.signalTimeDistribution).toHaveBeenCalled();
       expect(ChatMessage.implementation.create).toHaveBeenCalled();
     });
 
-    it("should handle errors when updating bank", async () => {
+    it("should handle errors when updating bank and return false if none succeeded", async () => {
       const timeValues = { hour: 1 };
       const selectedIds = ["actor1"];
 
       vi.mocked(TabLogic.calculateTotalBaseTime).mockReturnValue(1);
-      const mockActor = { id: "actor1", type: "character" };
+      const mockActor = {
+        id: "actor1",
+        type: "character",
+        system: {},
+        getFlag: vi.fn(),
+        getRollData: vi.fn(),
+      };
       (game.actors as any).set(mockActor.id, mockActor);
 
       const mockProxy = {
@@ -113,31 +126,29 @@ describe("PartyTabLogic", () => {
       };
       vi.mocked(ActorProxy.forActor).mockReturnValue(mockProxy as any);
 
-      await PartyTabLogic.processGrantTime(timeValues, selectedIds);
+      const result = await PartyTabLogic.processGrantTime(timeValues, selectedIds);
 
-      expect(ProjectEngine.signalTimeDistribution).toHaveBeenCalled();
-      // Should still create chat message but with 0 success count if it failed
-      expect(ChatMessage.implementation.create).toHaveBeenCalledWith(
-        expect.objectContaining({
-          content: expect.stringContaining("0 characters"),
-        }),
-      );
+      expect(result).toBe(false);
+      expect(ProjectEngine.signalTimeDistribution).not.toHaveBeenCalled();
+      expect(ChatMessage.implementation.create).not.toHaveBeenCalled();
     });
 
-    it("should not call signalTimeDistribution if no time is entered", async () => {
+    it("should return false if no time is entered", async () => {
       vi.mocked(TabLogic.calculateTotalBaseTime).mockReturnValue(0);
 
-      await PartyTabLogic.processGrantTime({}, ["actor1"]);
+      const result = await PartyTabLogic.processGrantTime({}, ["actor1"]);
 
+      expect(result).toBe(false);
       expect(ProjectEngine.signalTimeDistribution).not.toHaveBeenCalled();
       expect(ui.notifications.warn).toHaveBeenCalledWith("No time entered.");
     });
 
-    it("should not call signalTimeDistribution if no recipients selected", async () => {
+    it("should return false if no recipients selected", async () => {
       vi.mocked(TabLogic.calculateTotalBaseTime).mockReturnValue(1);
 
-      await PartyTabLogic.processGrantTime({ hour: 1 }, []);
+      const result = await PartyTabLogic.processGrantTime({ hour: 1 }, []);
 
+      expect(result).toBe(false);
       expect(ProjectEngine.signalTimeDistribution).not.toHaveBeenCalled();
       expect(ui.notifications.warn).toHaveBeenCalledWith("No recipients selected.");
     });

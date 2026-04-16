@@ -79,8 +79,8 @@ export class TutelageResolverService {
     const compendiumIds = Settings.get("teacherCompendiums") || [];
     const instructors: InstructorInstance[] = [];
 
-    try {
-      for (const id of compendiumIds) {
+    for (const id of compendiumIds) {
+      try {
         const pack = getGame().packs?.get(id);
         if (!pack) {
           Logger.warn(`Compendium ${id} not found.`);
@@ -114,9 +114,9 @@ export class TutelageResolverService {
             }
           }
         }
+      } catch (err) {
+        Logger.error(`Failed to process compendium ${id}:`, true, err);
       }
-    } catch (err) {
-      Logger.error("Failed to refresh instructor cache:", true, err);
     }
 
     this.instructorCache = instructors;
@@ -184,19 +184,14 @@ export class TutelageResolverService {
     let instructorName = "Self-Study";
 
     if (selectedInstructorId) {
-      if (!this.instructorCache) {
-        await this.refreshCache();
-      }
-
-      if (this.instructorCache) {
-        const instructor = this.instructorCache.find(
-          (i) => i.actorUuid === selectedInstructorId && i.offering.name === selectedInstructorName,
-        );
-        if (instructor) {
-          instructorMod = instructor.offering.modifier;
-          instructorCosts = instructor.offering.costs;
-          instructorName = instructor.offering.name;
-        }
+      const availableInstructors = await this.getAvailableInstructors(projectItem);
+      const instructor = availableInstructors.find(
+        (i) => i.actorUuid === selectedInstructorId && i.offering.name === selectedInstructorName,
+      );
+      if (instructor) {
+        instructorMod = instructor.offering.modifier;
+        instructorCosts = instructor.offering.costs;
+        instructorName = instructor.offering.name;
       }
     }
 

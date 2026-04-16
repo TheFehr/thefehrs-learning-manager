@@ -79,5 +79,17 @@ describe("math-utils", () => {
     it("should handle k=count", () => {
       expect(getDieExpectation(2, 20, "kh", 2)).toBe(21);
     });
+
+    it("should throw RangeError for invalid count", () => {
+      expect(() => getDieExpectation(0, 20)).toThrow(RangeError);
+      expect(() => getDieExpectation(-1, 20)).toThrow(RangeError);
+      expect(() => getDieExpectation(1.5, 20)).toThrow(RangeError);
+    });
+
+    it("should throw RangeError for invalid faces", () => {
+      expect(() => getDieExpectation(1, 0)).toThrow(RangeError);
+      expect(() => getDieExpectation(1, -1)).toThrow(RangeError);
+      expect(() => getDieExpectation(1, 20.5)).toThrow(RangeError);
+    });
   });
 });

@@ -127,8 +127,8 @@ export class MockRoll {
   static fromTerms(terms: any[]) {
     const formula = terms.map((t) => t.formula ?? String(t.total ?? t.result ?? "")).join(" ");
     const r = new MockRoll(formula);
-    r.terms = [...terms];
-    r.dice = terms.filter((t) => t.faces);
+    r.terms = JSON.parse(JSON.stringify(terms));
+    r.dice = r.terms.filter((t: any) => t.faces);
     return r;
   }
 

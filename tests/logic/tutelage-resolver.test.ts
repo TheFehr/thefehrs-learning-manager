@@ -42,6 +42,68 @@ describe("TutelageResolverService", () => {
     TutelageResolverService.clearCache();
   });
 
+  describe("refreshCache", () => {
+    it("should isolate failing compendiums during refreshCache", async () => {
+      // Setup: two compendiums, the first one will throw an error
+      (game.settings.get as any).mockImplementation((_scope: string, key: string) => {
+        if (key === "teacherCompendiums") return ["fail-pack", "success-pack"];
+        return [];
+      });
+
+      const successPack = {
+        metadata: { type: "Actor", id: "success-pack" },
+        getIndex: vi.fn().mockResolvedValue([
+          {
+            _id: "actor1",
+            name: "Good Teacher",
+            uuid: "Compendium.success-pack.Actor.actor1",
+            flags: {
+              [MODULE_ID]: {
+                teacherOfferings: [{ name: "Lesson", modifier: 5, categories: [] }],
+              },
+            },
+          },
+        ]),
+      };
+
+      const failPack = {
+        metadata: { type: "Actor", id: "fail-pack" },
+        getIndex: vi.fn().mockRejectedValue(new Error("Index failure")),
+      };
+
+      (game.packs.get as any).mockImplementation((id: string) => {
+        if (id === "fail-pack") return failPack;
+        if (id === "success-pack") return successPack;
+        return null;
+      });
+
+      // Execute
+      await TutelageResolverService.refreshCache();
+
+      // Verify
+      const cache = TutelageResolverService.getCache();
+      expect(cache).toHaveLength(1);
+      expect(cache[0].name).toBe("Good Teacher");
+    });
+
+    it("should skip non-actor compendiums", async () => {
+      (game.settings.get as any).mockImplementation((_scope: string, key: string) => {
+        if (key === "teacherCompendiums") return ["item-pack"];
+        return [];
+      });
+
+      const itemPack = {
+        metadata: { type: "Item" },
+      };
+
+      (game.packs.get as any).mockReturnValue(itemPack);
+
+      await TutelageResolverService.refreshCache();
+
+      expect(TutelageResolverService.getCache()).toHaveLength(0);
+    });
+  });
+
   describe("getAvailableInstructors", () => {
     it("should match instructor by category", async () => {
       const project = {
@@ -246,6 +308,28 @@ describe("TutelageResolverService", () => {
       );
 
       expect(result.modifier).toBe(10); // Book (10) > Instructor (5)
+    });
+
+    it("should NOT resolve with instructor if instructor is no longer applicable for project categories", async () => {
+      const actor = { items: [] } as any;
+      // Project is "physical", but Instructor 1 only supports "magic"
+      const project = {
+        name: "Test",
+        getFlag: vi.fn().mockImplementation((scope, key) => {
+          if (scope === MODULE_ID && key === "projectData") return { categories: ["physical"] };
+          return null;
+        }),
+      } as any;
+
+      const result = await TutelageResolverService.resolveTutelage(
+        actor,
+        project,
+        "Compendium.pack1.Actor.actor1",
+        "Lesson 1",
+      );
+
+      expect(result.modifier).toBe(0);
+      expect(result.instructorName).toBe("Self-Study");
     });
   });
 });

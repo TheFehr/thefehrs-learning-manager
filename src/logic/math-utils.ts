@@ -42,6 +42,13 @@ export function getDieExpectation(
   modifier?: string,
   modValue?: number,
 ): number {
+  if (count < 1 || !Number.isInteger(count)) {
+    throw new RangeError(`count must be a positive integer, got ${count}`);
+  }
+  if (faces < 1 || !Number.isInteger(faces)) {
+    throw new RangeError(`faces must be a positive integer, got ${faces}`);
+  }
+
   if (!modifier) return (count * (faces + 1)) / 2;
 
   let k = modValue ?? 1;
