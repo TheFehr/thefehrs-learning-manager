@@ -85,11 +85,11 @@ function evaluateFormula(formula: string, data: any) {
 
   // Handle bulk formula logic from tab-logic.test.ts
   if (formula.includes("@hours")) {
-    const hours = data?.hours || 0;
-    const dc = data?.dc || 0;
-    const tutelage = data?.tutelage || 0;
+    const hours = data?.hours ?? 0;
+    const dc = data?.dc ?? 0;
+    const tutelage = data?.tutelage ?? 0;
     const mod = data?.mod;
-    const intMod = data?.abilities?.int?.mod || 0;
+    const intMod = data?.abilities?.int?.mod ?? 0;
     const effectiveMod = mod ?? intMod + tutelage;
     const minRoll = Math.max(1, dc - effectiveMod);
     t = Math.round((hours * (22 - minRoll)) / 20);

@@ -255,7 +255,18 @@ describe("v3-tutelage-selection migration", () => {
     expect(game.settings.set).toHaveBeenCalledWith(MODULE_ID, "migrationVersion", "3.0.0");
   });
 
-  it("should handle error when getting guidance tiers", async () => {
+  it("should handle error when getting guidance tiers by not advancing version if projects exist", async () => {
+    // Add project that uses a tier
+    const project = new Item() as any;
+    project.getFlag.mockImplementation((_scope: string, key: string) => {
+      if (key === "isLearningProject") return true;
+      if (key === "projectData") return { tutelageId: "t1" };
+      return null;
+    });
+    const actor = new Actor() as any;
+    actor.items = [project];
+    (game.actors.contents as any[]).push(actor);
+
     vi.mocked(game.settings.get).mockImplementation((_scope, key) => {
       if (key === "guidanceTiers") throw new Error("Not found");
       return null;
@@ -263,10 +274,21 @@ describe("v3-tutelage-selection migration", () => {
 
     await migrateToV3();
 
-    expect(game.settings.set).toHaveBeenCalledWith(MODULE_ID, "migrationVersion", "3.0.0");
+    expect(game.settings.set).not.toHaveBeenCalledWith(MODULE_ID, "migrationVersion", "3.0.0");
   });
 
-  it("should skip if rawTiers is empty", async () => {
+  it("should skip and retry if rawTiers is empty but projects exist", async () => {
+    // Add project that uses a tier
+    const project = new Item() as any;
+    project.getFlag.mockImplementation((_scope: string, key: string) => {
+      if (key === "isLearningProject") return true;
+      if (key === "projectData") return { tutelageId: "t1" };
+      return null;
+    });
+    const actor = new Actor() as any;
+    actor.items = [project];
+    (game.actors.contents as any[]).push(actor);
+
     vi.mocked(game.settings.get).mockImplementation((_scope, key) => {
       if (key === "guidanceTiers") return [];
       return null;
@@ -274,6 +296,12 @@ describe("v3-tutelage-selection migration", () => {
 
     await migrateToV3();
 
+    expect(game.settings.set).not.toHaveBeenCalledWith(MODULE_ID, "migrationVersion", "3.0.0");
+  });
+
+  it("should mark as complete if no projects are found using tiers", async () => {
+    // No actors/projects in game.actors.contents
+    await migrateToV3();
     expect(game.settings.set).toHaveBeenCalledWith(MODULE_ID, "migrationVersion", "3.0.0");
   });
 

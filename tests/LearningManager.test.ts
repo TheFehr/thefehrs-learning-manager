@@ -1,12 +1,12 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { LearningManager } from "../src/LearningManager";
-import { Settings, SettingsManager } from "../src/core/settings";
-import { ProjectEngine } from "../src/logic/project-engine";
-import { TutelageResolverService } from "../src/logic/tutelage-resolver";
-import { Socket } from "../src/core/socket";
-import { migrateData } from "../src/migrations/migration";
-import { registerMigrationSettings } from "../src/migrations/migration-registration";
-import { getGame } from "../src/core/foundry";
+import { describe, it, expect, vi, beforeEach, afterEach, beforeAll } from "vitest";
+import { LearningManager } from "@/LearningManager";
+import { Settings, SettingsManager } from "@/core/settings";
+import { ProjectEngine } from "@/logic/project-engine";
+import { TutelageResolverService } from "@/logic/tutelage-resolver";
+import { Socket } from "@/core/socket";
+import { migrateData } from "@/migrations/migration";
+import { registerMigrationSettings } from "@/migrations/migration-registration";
+import { getGame } from "@/core/foundry";
 
 vi.mock("@/migrations/migration", () => ({
   migrateData: vi.fn(),
@@ -54,9 +54,35 @@ vi.mock("@/core/foundry", () => ({
 }));
 
 describe("LearningManager", () => {
+  let originalConfig: any;
+
+  beforeAll(() => {
+    originalConfig = (globalThis as any).CONFIG;
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
     (globalThis as any).getGame = getGame;
+    LearningManager.svelteInstances = new Map();
+    LearningManager.socketHandler = null;
+
+    if (originalConfig === undefined) {
+      delete (globalThis as any).CONFIG;
+    } else {
+      (globalThis as any).CONFIG = originalConfig;
+    }
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    LearningManager.svelteInstances = new Map();
+    LearningManager.socketHandler = null;
+
+    if (originalConfig === undefined) {
+      delete (globalThis as any).CONFIG;
+    } else {
+      (globalThis as any).CONFIG = originalConfig;
+    }
   });
 
   describe("init", () => {

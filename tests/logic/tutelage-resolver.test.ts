@@ -225,7 +225,7 @@ describe("TutelageResolverService", () => {
 
     it("should filter books by compendium if configured", () => {
       (game.settings.get as any).mockImplementation((_scope, key) => {
-        if (key === "bookCompendiums") return ["my.pack"];
+        if (key === "bookCompendiums") return ["my.pack", "modern.pack"];
         return [];
       });
 
@@ -233,10 +233,18 @@ describe("TutelageResolverService", () => {
       const actor = {
         items: [
           {
-            name: "Allowed Book",
+            name: "Legacy Allowed Book",
             getFlag: vi.fn().mockImplementation((scope, key) => {
               if (scope === MODULE_ID && key === "learningBookBonus") return { modifier: 2 };
               if (scope === "core" && key === "sourceId") return "Compendium.my.pack.item1";
+              return null;
+            }),
+          },
+          {
+            name: "Modern Allowed Book",
+            _stats: { compendiumSource: "Compendium.modern.pack.item3" },
+            getFlag: vi.fn().mockImplementation((scope, key) => {
+              if (scope === MODULE_ID && key === "learningBookBonus") return { modifier: 3 };
               return null;
             }),
           },
@@ -252,8 +260,9 @@ describe("TutelageResolverService", () => {
       } as any;
 
       const books = TutelageResolverService.getAvailableBooks(actor, project);
-      expect(books).toHaveLength(1);
-      expect(books[0].name).toBe("Allowed Book");
+      expect(books).toHaveLength(2);
+      expect(books.some((b) => b.name === "Legacy Allowed Book")).toBe(true);
+      expect(books.some((b) => b.name === "Modern Allowed Book")).toBe(true);
     });
   });
 
