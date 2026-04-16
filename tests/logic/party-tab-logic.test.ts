@@ -216,8 +216,8 @@ describe("PartyTabLogic", () => {
       await PartyTabLogic.deleteProject(
         "actor1",
         { id: "item1", progress: 0 } as any,
-        false,
         confirmFn,
+        false,
       );
 
       expect(mockItem.delete).toHaveBeenCalled();
@@ -236,8 +236,8 @@ describe("PartyTabLogic", () => {
       await PartyTabLogic.deleteProject(
         "actor1",
         { id: "item1", progress: 0 } as any,
-        false,
         confirmFn,
+        false,
       );
 
       expect(mockItem.delete).not.toHaveBeenCalled();
@@ -247,7 +247,7 @@ describe("PartyTabLogic", () => {
       const mockActor = { isOwner: false };
       (game.actors as any).set("actor1", mockActor);
 
-      await PartyTabLogic.deleteProject("actor1", {} as any, false);
+      await PartyTabLogic.deleteProject("actor1", {} as any, undefined, false);
       expect(ui.notifications.warn).toHaveBeenCalledWith(expect.stringContaining("permission"));
     });
 
@@ -255,7 +255,7 @@ describe("PartyTabLogic", () => {
       const mockActor = { isOwner: true };
       (game.actors as any).set("actor1", mockActor);
 
-      await PartyTabLogic.deleteProject("actor1", { progress: 5 } as any, false);
+      await PartyTabLogic.deleteProject("actor1", { progress: 5 } as any, undefined, false);
       expect(ui.notifications.warn).toHaveBeenCalledWith(
         expect.stringContaining("cannot abort an in-progress project"),
       );

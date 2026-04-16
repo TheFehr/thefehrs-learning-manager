@@ -85,9 +85,13 @@ export class ProjectLifecycle {
       }),
     };
 
-    const items = await actor.createEmbeddedDocuments("Item", [updateData] as any[]);
+    const items = await DocumentUtils.safeCreateEmbeddedDocuments<Item5e>(
+      actor,
+      "Item",
+      [updateData] as any[],
+      rewardDoc.name ?? "Unknown Reward",
+    );
     if (!items || items.length === 0) {
-      Logger.error(`Failed to create embedded item "${rewardDoc.name}" on actor ${actor.name}`);
       return null;
     }
 
@@ -229,7 +233,12 @@ export class ProjectLifecycle {
         },
       };
 
-      const createdDocs = await actor.createEmbeddedDocuments("Item", [createData]);
+      const createdDocs = await DocumentUtils.safeCreateEmbeddedDocuments<Item>(
+        actor,
+        "Item",
+        [createData],
+        sourceItem.name ?? "Unknown Item",
+      );
       const created = createdDocs?.[0];
 
       if (created) {
@@ -312,7 +321,12 @@ export class ProjectLifecycle {
       );
     }
 
-    const createdDocs = await actor.createEmbeddedDocuments("Item", [clonedData] as any[]);
+    const createdDocs = await DocumentUtils.safeCreateEmbeddedDocuments<Item>(
+      actor,
+      "Item",
+      [clonedData] as any[],
+      item.name ?? "Unknown Item",
+    );
     const created = createdDocs?.[0];
 
     if (created) {

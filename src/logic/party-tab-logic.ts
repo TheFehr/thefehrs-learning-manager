@@ -215,8 +215,8 @@ export class PartyTabLogic {
   static async deleteProject(
     actorId: string,
     project: ProjectMappedData,
-    isGM: boolean,
     confirmFn?: () => Promise<boolean>,
+    isGM?: boolean,
   ) {
     const targetActor = getGame().actors?.get(actorId) as Actor5e | undefined;
     if (!targetActor || !targetActor.isOwner) {

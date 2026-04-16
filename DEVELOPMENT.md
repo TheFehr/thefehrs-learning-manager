@@ -56,6 +56,14 @@ When a migration needs to access a setting that has been removed from the curren
   ```
 - **Registration**: Ensure the legacy setting is registered (e.g., in `migration.ts` or at the start of the migration function) using `game.settings.register` to avoid runtime errors when calling `game.settings.get`.
 
+### Foundry VTT Version & Application Architecture
+
+This project exclusively supports **Foundry VTT V12+** and utilizes the **ApplicationV2** framework for all user interfaces.
+
+- **Exclusion of Application V1**: Legacy `Application` (V1), `FormApplication`, and related legacy classes must not be used for new development.
+- **Lifecycle Management**: All UI components are built with Svelte 5 and mounted within `ApplicationV2` windows.
+- **Cleanup Requirement**: Global cleanup is managed via the `closeApplicationV2` hook in `LearningManager.ts`. Any new Svelte-mounted components that exist outside of a standard `ApplicationV2` lifecycle (e.g., injected content) must ensure their IDs are tracked in `LearningManager.svelteInstances` to be correctly unmounted when their parent sheet closes.
+
 ### Code Quality & Reviews
 
 - **Address Findings Safely**: When addressing CodeRabbit or other AI review findings, ensure that suggested improvements (like adding type safety or using managers) do not violate the isolation rules for migrations.

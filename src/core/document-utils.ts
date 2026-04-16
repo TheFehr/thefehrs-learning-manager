@@ -101,4 +101,47 @@ export class DocumentUtils {
       return false;
     }
   }
+
+  /**
+   * Safe wrapper for createEmbeddedDocuments to handle potential exceptions.
+   *
+   * @param actor The parent actor.
+   * @param type The document type (e.g., "Item").
+   * @param docs The document data to create.
+   * @param rewardName The name of the reward for logging context.
+   * @returns A promise that resolves to the created documents, or an empty array if failed.
+   */
+  static async safeCreateEmbeddedDocuments<T = any>(
+    actor: Actor,
+    type: string,
+    docs: any[],
+    rewardName: string,
+  ): Promise<T[]> {
+    if (!actor || typeof actor.createEmbeddedDocuments !== "function") {
+      Logger.error(
+        "DocumentUtils.safeCreateEmbeddedDocuments | Invalid actor provided.",
+        true,
+        actor,
+      );
+      return [];
+    }
+
+    try {
+      const results = (await actor.createEmbeddedDocuments(type as any, docs)) as unknown as T[];
+      if (!results || results.length === 0) {
+        Logger.error(
+          `DocumentUtils.safeCreateEmbeddedDocuments | Failed to create embedded documents for "${rewardName}" on actor "${actor.name || actor.id}" (no documents returned).`,
+        );
+        return [];
+      }
+      return results;
+    } catch (err) {
+      Logger.error(
+        `DocumentUtils.safeCreateEmbeddedDocuments | Exception occurred during createEmbeddedDocuments for "${rewardName}" on actor "${actor.name || actor.id}":`,
+        true,
+        err,
+      );
+      return [];
+    }
+  }
 }

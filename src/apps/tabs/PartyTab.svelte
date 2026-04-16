@@ -30,7 +30,7 @@
   }
 
   function deleteProject(actorId: string, project: ProjectMappedData) {
-    PartyTabLogic.deleteProject(actorId, project, isGM);
+    PartyTabLogic.deleteProject(actorId, project, undefined, isGM);
   }
 </script>
 

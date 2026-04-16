@@ -210,13 +210,17 @@ export class LearningManager {
       this.registerTidyTabs(api);
     });
 
-    Hooks.on("closeApplication", (app: { id: string }) => {
-      const existing = this.svelteInstances.get(app.id);
-      if (existing) {
-        unmount(existing.instance);
-        this.svelteInstances.delete(app.id);
+    const cleanupApps = (app: { id: string | number }) => {
+      const suffix = `-${app.id}`;
+      for (const [key, value] of this.svelteInstances.entries()) {
+        if (String(key).endsWith(suffix)) {
+          unmount(value.instance);
+          this.svelteInstances.delete(key);
+        }
       }
-    });
+    };
+
+    Hooks.on("closeApplicationV2", cleanupApps);
   }
 
   private static registerTidyTabs(api: Tidy5eApi) {
@@ -235,6 +239,7 @@ export class LearningManager {
               const partyData = PartyTabLogic.getData(actor);
               return { ...partyData, actor };
             },
+            "tab",
           );
         },
       }),
@@ -280,6 +285,7 @@ export class LearningManager {
             ".downtime-engine-svelte-root",
             ItemLearningConfig,
             (item: Item) => ({ item }),
+            "tab",
           );
         },
       }),
@@ -317,6 +323,7 @@ export class LearningManager {
           ".downtime-engine-svelte-root",
           ActorTutelageConfig,
           (actor: Actor) => ({ actor }),
+          "tab",
         );
       },
     });
@@ -341,7 +348,7 @@ export class LearningManager {
             ".downtime-engine-time-bank-bar-root",
             TimeBankBar,
             (actor: Actor) => ({ actor }),
-            `time-bank-bar-${params.app.id}`,
+            "time-bank-bar",
           );
         },
       }),
@@ -357,9 +364,9 @@ export class LearningManager {
     selector: string,
     Component: Parameters<typeof mount>[0],
     getProps: (doc: DocType) => Record<string, unknown>,
-    customAppId?: string,
+    prefix: string,
   ) {
-    const appId = customAppId || params.app.id;
+    const appId = `${prefix}-${params.app.id}`;
     const target = (params.tabContentsElement || params.element)?.querySelector(
       selector,
     ) as HTMLElement;

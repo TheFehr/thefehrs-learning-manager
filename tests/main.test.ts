@@ -387,28 +387,53 @@ describe("LearningManager", () => {
   });
 
   describe("Application Lifecycle", () => {
-    it("should unmount Svelte instance when application is closed", async () => {
+    it("should unmount Svelte instance when ApplicationV2 is closed", async () => {
       LearningManager.init();
       const mockInstance = { some: "instance" };
-      LearningManager.svelteInstances.set("app123", {
+      LearningManager.svelteInstances.set("tab-v2-app", {
         instance: mockInstance,
         target: document.createElement("div"),
       });
 
-      const closeHook = vi.mocked(Hooks.on).mock.calls.find((c) => c[0] === "closeApplication");
+      const closeHook = vi.mocked(Hooks.on).mock.calls.find((c) => c[0] === "closeApplicationV2");
+      expect(closeHook).toBeDefined();
+
+      closeHook![1]({ id: "v2-app" });
+
+      expect(unmount).toHaveBeenCalledWith(mockInstance);
+      expect(LearningManager.svelteInstances.has("tab-v2-app")).toBe(false);
+    });
+
+    it("should unmount prefixed Svelte instances when ApplicationV2 is closed", async () => {
+      LearningManager.init();
+      const mockMainInstance = { some: "main-instance" };
+      const mockBarInstance = { some: "bar-instance" };
+
+      LearningManager.svelteInstances.set("tab-app123", {
+        instance: mockMainInstance,
+        target: document.createElement("div"),
+      });
+      LearningManager.svelteInstances.set("time-bank-bar-app123", {
+        instance: mockBarInstance,
+        target: document.createElement("div"),
+      });
+
+      const closeHook = vi.mocked(Hooks.on).mock.calls.find((c) => c[0] === "closeApplicationV2");
       expect(closeHook).toBeDefined();
 
       closeHook![1]({ id: "app123" });
 
-      expect(unmount).toHaveBeenCalledWith(mockInstance);
-      expect(LearningManager.svelteInstances.has("app123")).toBe(false);
+      expect(unmount).toHaveBeenCalledWith(mockMainInstance);
+      expect(unmount).toHaveBeenCalledWith(mockBarInstance);
+      expect(LearningManager.svelteInstances.has("tab-app123")).toBe(false);
+      expect(LearningManager.svelteInstances.has("time-bank-bar-app123")).toBe(false);
     });
 
-    it("should handle renderSvelte with existing instance", async () => {
+    it("should handle renderSvelte with existing instance and standardized prefix", async () => {
       const mockOldInstance = { old: true };
       const actor = { id: "actor1" };
       const app = { id: "app1", actor };
-      LearningManager.svelteInstances.set("app1", {
+      LearningManager.svelteInstances.set("tab-app1", {
         instance: mockOldInstance,
         target: document.createElement("div"),
       });
@@ -417,11 +442,11 @@ describe("LearningManager", () => {
       const selector = ".root";
       params.element.innerHTML = '<div class="root"></div>';
 
-      (LearningManager as any).renderSvelte(params, selector, {}, () => ({}));
+      (LearningManager as any).renderSvelte(params, selector, {}, () => ({}), "tab");
 
       expect(unmount).toHaveBeenCalledWith(mockOldInstance);
       expect(mount).toHaveBeenCalled();
-      expect(LearningManager.svelteInstances.get("app1")).toBeDefined();
+      expect(LearningManager.svelteInstances.get("tab-app1")).toBeDefined();
     });
   });
 });
