@@ -231,7 +231,7 @@ export async function createProjectItemFromTemplate(
         projectData.progress || 0,
         projectDataWithTarget.target,
         // Legacy/migrated projects may lack tutelage info so "None" is intentionally used as a placeholder
-        "None",
+        "Self-Study",
       )
     : "";
 

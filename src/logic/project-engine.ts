@@ -74,7 +74,7 @@ export class ProjectEngine {
   static async updateItemWithProgress(
     item: Item5e,
     projectData: ProjectFlagData,
-    instructorName: string = "None",
+    instructorName: string = "Self-Study",
   ): Promise<boolean> {
     return ProjectLifecycle.updateItemWithProgress(item, projectData, instructorName);
   }
