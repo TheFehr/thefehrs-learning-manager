@@ -22,20 +22,30 @@
   // Initialize from actor flags once
   $effect(() => {
     if (untrack(() => initialized)) return;
-    const data = (actor.getFlag("thefehrs-learning-manager", "teacherOfferings") as TeacherOffering[]) || [];
-    learningModeEnabled = (actor.getFlag("thefehrs-learning-manager", "learningModeEnabled") as boolean) ?? data.length > 0;
+    const rawData = actor.getFlag("thefehrs-learning-manager", "teacherOfferings");
+    const data = Array.isArray(rawData) ? rawData : [];
+
     offerings = data.map(o => {
-      const costs = { ...o.costs };
+      const sanitizedCosts: Record<string, number> = {};
       for (const unit of timeUnits) {
-        costs[unit.id] = costs[unit.id] || 0;
+        const rawCost = o.costs?.[unit.id];
+        const numericCost = Number(rawCost);
+        sanitizedCosts[unit.id] = !isNaN(numericCost) && numericCost >= 0 ? numericCost : 0;
       }
+
       return {
         ...o,
+        name: typeof o.name === "string" ? o.name : "New Lesson",
+        modifier: typeof o.modifier === "number" ? o.modifier : 0,
         categories: Array.isArray(o.categories) ? o.categories : [],
-        costs
+        costs: sanitizedCosts,
       };
     });
-    
+
+    learningModeEnabled =
+      (actor.getFlag("thefehrs-learning-manager", "learningModeEnabled") as boolean) ??
+      offerings.length > 0;
+
     initialSnapshot = JSON.stringify({ offerings, learningModeEnabled });
     initialized = true;
   });

@@ -239,7 +239,7 @@ export class ProjectLifecycle {
         [createData],
         sourceItem.name ?? "Unknown Item",
       );
-      const created = createdDocs?.[0];
+      const created = createdDocs[0];
 
       if (created) {
         return await this.handlePostCreationCleanup(
@@ -414,7 +414,7 @@ export class ProjectLifecycle {
     item: Item,
     projectData: ProjectFlagData,
     instructorName: string = "Self-Study",
-  ) {
+  ): Promise<boolean> {
     const progress = projectData.progress ?? 0;
     const target = projectData.target ?? 0;
 
@@ -430,7 +430,11 @@ export class ProjectLifecycle {
     } as Record<string, any>);
 
     if (!success) {
-      throw new Error(`Failed to update item "${item.name}" with new progress.`);
+      Logger.error(`Failed to update item "${item.name}" (${item.id}) with new progress.`, false, {
+        projectData,
+      });
     }
+
+    return success;
   }
 }

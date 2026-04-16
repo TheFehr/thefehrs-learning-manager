@@ -16,7 +16,10 @@ export function combinations(n: number, k: number): number {
  * Calculates the binomial probability P(X >= k) for n trials and success probability p.
  */
 export function getBinomialP(n: number, k: number, p: number): number {
-  // 1. Handle k bounds first
+  // Normalize k to an integer (at least k successes)
+  k = Math.ceil(k);
+
+  // 1. Handle k bounds first (after normalization)
   if (k > n) return 0; // Impossible to get more successes than trials
   if (k <= 0) return 1; // Guaranteed to get at least 0 successes
 
@@ -51,29 +54,32 @@ export function getDieExpectation(
 
   if (!modifier) return (count * (faces + 1)) / 2;
 
-  let k = modValue ?? 1;
+  const safeMod = modValue === undefined ? 1 : Math.floor(Number(modValue));
+  if (!Number.isFinite(safeMod)) {
+    return (count * (faces + 1)) / 2;
+  }
+  const clampedMod = Math.max(0, Math.min(safeMod, count));
+
+  let k = 1;
   let highest = true;
 
   const m = modifier.toLowerCase();
   if (m === "kh") {
     highest = true;
-    k = modValue ?? 1;
+    k = clampedMod;
   } else if (m === "kl") {
     highest = false;
-    k = modValue ?? 1;
+    k = clampedMod;
   } else if (m === "dh") {
     highest = false;
-    k = count - (modValue ?? 1);
+    k = count - clampedMod;
   } else if (m === "dl") {
     highest = true;
-    k = count - (modValue ?? 1);
+    k = count - clampedMod;
   } else {
     // Unsupported modifier, fallback to simple average
     return (count * (faces + 1)) / 2;
   }
-
-  // Clamp k to [0, count]
-  k = Math.max(0, Math.min(k, count));
 
   if (k === 0) return 0;
   if (k === count) return (count * (faces + 1)) / 2;

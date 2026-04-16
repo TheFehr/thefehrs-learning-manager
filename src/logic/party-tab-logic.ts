@@ -163,21 +163,25 @@ export class PartyTabLogic {
 
     const item = targetActor.items.get(project.id);
     if (item) {
-      const proxyItem = item as unknown as ProjectItem;
-      const projectData = proxyItem.getFlag("thefehrs-learning-manager", "projectData");
-      if (!projectData) return;
+      try {
+        const proxyItem = item as unknown as ProjectItem;
+        const projectData = proxyItem.getFlag("thefehrs-learning-manager", "projectData");
+        if (!projectData) return;
 
-      projectData.progress = Math.max(0, Math.min(newProgress, projectData.target || 0));
-      if (
-        projectData.target &&
-        projectData.target > 0 &&
-        projectData.progress >= projectData.target &&
-        !projectData.isCompleted
-      ) {
-        await ProjectEngine.updateItemWithProgress(item as unknown as Item5e, projectData);
-        await ProjectEngine.completeProject(item as unknown as Item5e);
-      } else {
-        await ProjectEngine.updateItemWithProgress(item as unknown as Item5e, projectData);
+        projectData.progress = Math.max(0, Math.min(newProgress, projectData.target || 0));
+        if (
+          projectData.target &&
+          projectData.target > 0 &&
+          projectData.progress >= projectData.target &&
+          !projectData.isCompleted
+        ) {
+          await ProjectEngine.updateItemWithProgress(item as unknown as Item5e, projectData);
+          await ProjectEngine.completeProject(item as unknown as Item5e);
+        } else {
+          await ProjectEngine.updateItemWithProgress(item as unknown as Item5e, projectData);
+        }
+      } catch (err) {
+        Logger.error(`Failed to manually update progress for "${item.name}":`, true, err);
       }
     }
   }
@@ -197,33 +201,37 @@ export class PartyTabLogic {
 
     const item = targetActor.items.get(project.id);
     if (item) {
-      const projectData = (item.getFlag(
-        "thefehrs-learning-manager",
-        "projectData",
-      ) as ProjectFlagData) || { progress: 0, target: 0 };
-      const oldTarget = projectData.target;
-      projectData.target = Math.max(0, newTarget);
-      Logger.debug(`updateTarget: Setting target to ${projectData.target} for ${item.name}`);
+      try {
+        const projectData = (item.getFlag(
+          "thefehrs-learning-manager",
+          "projectData",
+        ) as ProjectFlagData) || { progress: 0, target: 0 };
+        const oldTarget = projectData.target;
+        projectData.target = Math.max(0, newTarget);
+        Logger.debug(`updateTarget: Setting target to ${projectData.target} for ${item.name}`);
 
-      if (oldTarget !== projectData.target) {
-        if (
-          projectData.target &&
-          projectData.target > 0 &&
-          projectData.progress !== undefined &&
-          projectData.progress >= projectData.target
-        ) {
-          await ProjectEngine.updateItemWithProgress(item as unknown as Item5e, projectData);
-          await ProjectEngine.completeProject(item as unknown as Item5e);
-          return;
+        if (oldTarget !== projectData.target) {
+          if (
+            projectData.target &&
+            projectData.target > 0 &&
+            projectData.progress !== undefined &&
+            projectData.progress >= projectData.target
+          ) {
+            await ProjectEngine.updateItemWithProgress(item as unknown as Item5e, projectData);
+            await ProjectEngine.completeProject(item as unknown as Item5e);
+            return;
+          }
+
+          Logger.debug(
+            `target changed from ${oldTarget} to ${projectData.target}. Syncing activities...`,
+          );
+          await ProjectEngine.injectActivities(item as unknown as Item5e, projectData.target);
         }
 
-        Logger.debug(
-          `target changed from ${oldTarget} to ${projectData.target}. Syncing activities...`,
-        );
-        await ProjectEngine.injectActivities(item as unknown as Item5e, projectData.target);
+        await ProjectEngine.updateItemWithProgress(item as unknown as Item5e, projectData);
+      } catch (err) {
+        Logger.error(`Failed to manually update target for "${item.name}":`, true, err);
       }
-
-      await ProjectEngine.updateItemWithProgress(item as unknown as Item5e, projectData);
     }
   }
 
@@ -236,26 +244,30 @@ export class PartyTabLogic {
     confirmFn?: () => Promise<boolean>,
     isGM?: boolean,
   ) {
-    const targetActor = getGame().actors?.get(actorId) as Actor5e | undefined;
-    if (!targetActor || !targetActor.isOwner) {
-      getUI()?.notifications?.warn("You do not have permission to modify this actor's projects.");
-      return;
-    }
+    try {
+      const targetActor = getGame().actors?.get(actorId) as Actor5e | undefined;
+      if (!targetActor || !targetActor.isOwner) {
+        getUI()?.notifications?.warn("You do not have permission to modify this actor's projects.");
+        return;
+      }
 
-    if ((project.progress || 0) > 0 && !isGM) {
-      getUI()?.notifications?.warn("You cannot abort an in-progress project.");
-      return;
-    }
+      if ((project.progress || 0) > 0 && !isGM) {
+        getUI()?.notifications?.warn("You cannot abort an in-progress project.");
+        return;
+      }
 
-    const projectName = project.name || "Unknown Project";
+      const projectName = project.name || "Unknown Project";
 
-    const confirmed = confirmFn
-      ? await confirmFn()
-      : await this.showDeleteConfirm(projectName, targetActor.name || "Unknown Actor");
+      const confirmed = confirmFn
+        ? await confirmFn()
+        : await this.showDeleteConfirm(projectName, targetActor.name || "Unknown Actor");
 
-    if (confirmed) {
-      const item = targetActor.items.get(project.id);
-      if (item) await item.delete();
+      if (confirmed) {
+        const item = targetActor.items.get(project.id);
+        if (item) await item.delete();
+      }
+    } catch (err) {
+      Logger.error(`Failed to delete project:`, true, err);
     }
   }
 

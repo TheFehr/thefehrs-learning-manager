@@ -165,7 +165,8 @@ export class LearningManager {
 
           if (actorId) {
             const member = getGame().actors?.get(actorId);
-            if (member) targetActor = member;
+            if (!member) return false;
+            targetActor = member;
           } else {
             // If we can't find a specific member via the event target,
             // we might be dropping on the general sheet or we can't resolve the target.

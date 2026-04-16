@@ -62,7 +62,7 @@ This project exclusively supports **Foundry VTT V12+** and utilizes the **Applic
 
 - **Exclusion of Application V1**: Legacy `Application` (V1), `FormApplication`, and related legacy classes must not be used for new development.
 - **Lifecycle Management**: All UI components are built with Svelte 5 and mounted within `ApplicationV2` windows.
-- **Cleanup Requirement**: Global cleanup is managed via the `closeApplicationV2` hook in `LearningManager.ts`. Any new Svelte-mounted components that exist outside of a standard `ApplicationV2` lifecycle (e.g., injected content) must ensure their IDs are tracked in `LearningManager.svelteInstances` to be correctly unmounted when their parent sheet closes.
+- **Cleanup Requirement**: Global cleanup is managed via the `closeApplicationV2` hook in `LearningManager.ts`. Any new Svelte-mounted components that exist outside a standard `ApplicationV2` lifecycle (e.g., injected content) must ensure their IDs are tracked in `LearningManager.svelteInstances` to be correctly unmounted when their parent sheet closes.
 
 ### Code Quality & Reviews
 
