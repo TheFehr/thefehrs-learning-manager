@@ -83,4 +83,62 @@ describe("ActorTutelageConfig.svelte", () => {
     expect(target.innerHTML).not.toContain("Applicable Projects");
     expect(target.querySelector(".projects-list")).toBeNull();
   });
+
+  it("should sanitize teacherOfferings data from actor flags", async () => {
+    const mockActor = {
+      getFlag: vi.fn().mockImplementation((scope, key) => {
+        if (scope === "thefehrs-learning-manager") {
+          if (key === "teacherOfferings") {
+            return [
+              {
+                name: "Invalid Offering",
+                modifier: "invalid",
+                costs: {
+                  hour: -10, // should be clamped to 0
+                  unknown: 50, // should be ignored (not rendered)
+                },
+                categories: "not-an-array", // should be defaulted to []
+              },
+            ];
+          }
+          if (key === "learningModeEnabled") return null;
+        }
+        return null;
+      }),
+    } as any;
+
+    instance = mount(ActorTutelageConfig, {
+      target,
+      props: { actor: mockActor } as any,
+    });
+
+    await tick();
+    await tick();
+
+    // Check learningModeEnabled (should be true because offerings.length > 0)
+    const checkbox = target.querySelector("#learning-mode-enabled") as HTMLInputElement;
+    expect(checkbox.checked).toBe(true);
+
+    // Check costs - hour should be 0 due to clamping
+    const hourCostInput = target.querySelector('input[id$="-hour"]') as HTMLInputElement;
+    expect(hourCostInput.value).toBe("0");
+  });
+
+  it("should handle null teacherOfferings", async () => {
+    const mockActor = {
+      getFlag: vi.fn().mockReturnValue(null),
+    } as any;
+
+    instance = mount(ActorTutelageConfig, {
+      target,
+      props: { actor: mockActor } as any,
+    });
+
+    await tick();
+    await tick();
+
+    const checkbox = target.querySelector("#learning-mode-enabled") as HTMLInputElement;
+    expect(checkbox.checked).toBe(false);
+    expect(target.querySelector(".offering-card")).toBeNull();
+  });
 });
