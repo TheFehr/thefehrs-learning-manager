@@ -29,6 +29,12 @@ interface ProjectFlagData {
   categories?: string[];
 }
 
+function mergeCategories(projectData: ProjectFlagData, detectedCats: string[]) {
+  if (detectedCats.length > 0) {
+    projectData.categories = [...new Set([...(projectData.categories || []), ...detectedCats])];
+  }
+}
+
 declare module "fvtt-types/configuration" {
   interface SettingConfig {
     "thefehrs-learning-manager.guidanceTiers": any[];
@@ -38,25 +44,8 @@ declare module "fvtt-types/configuration" {
 export async function migrateToV3() {
   registerMigrationSettings();
   const game = getGame();
-  let rawTiers: GuidanceTier[];
-  try {
-    rawTiers = game.settings.get(MODULE_ID, "guidanceTiers") as unknown as GuidanceTier[];
-  } catch {
-    Logger.debug("Legacy guidanceTiers setting not found, skipping migration.");
-    await game.settings.set(MODULE_ID, "migrationVersion", "3.0.0");
-    return;
-  }
 
-  if (!rawTiers || rawTiers.length === 0) {
-    Logger.debug("No legacy guidance tiers found, skipping migration.");
-    await game.settings.set(MODULE_ID, "migrationVersion", "3.0.0");
-    Logger.info("Migration to 3.0.0 applied (no legacy tiers found).");
-    return;
-  }
-
-  Logger.debug("Starting migration v3 (Tutelage Selection System)...");
-
-  // 1. Scan for used tutelageIds
+  // 1. Scan for used tutelageIds first to determine if migration is actually needed
   const usedTierIds = new Set<string>();
   const actorsWithProjects: Actor[] = [];
   const actors = game.actors?.contents || [];
@@ -77,13 +66,31 @@ export async function migrateToV3() {
   }
 
   if (usedTierIds.size === 0) {
-    Logger.debug("No projects using guidance tiers found. Just clearing settings.");
+    Logger.debug("No projects using guidance tiers found. Marking migration as complete.");
     await game.settings.set(MODULE_ID, "migrationVersion", "3.0.0");
     Logger.info("Migration to 3.0.0 applied (no active guidance tiers found).");
     return;
   }
 
-  // 2. Generate Dry Run Report
+  // 2. Read legacy guidance tiers
+  let rawTiers: GuidanceTier[];
+  try {
+    rawTiers = game.settings.get(MODULE_ID, "guidanceTiers") as unknown as GuidanceTier[];
+  } catch (err) {
+    Logger.error(`Migration v3 | Failed to read ${MODULE_ID}.guidanceTiers:`, false, err);
+    return;
+  }
+
+  if (!rawTiers || rawTiers.length === 0) {
+    Logger.debug(
+      `Migration v3 | No legacy guidance tiers found for ${MODULE_ID}, but projects use them. Skipping for now (will retry).`,
+    );
+    return;
+  }
+
+  Logger.debug("Starting migration v3 (Tutelage Selection System)...");
+
+  // 3. Generate Dry Run Report
   const tiersToMigrate = rawTiers.filter((t) => usedTierIds.has(t.id));
   const orphanedIds = Array.from(usedTierIds).filter((id) => !rawTiers.some((t) => t.id === id));
   const orphanedSet = new Set(orphanedIds);
@@ -112,7 +119,7 @@ export async function migrateToV3() {
     return;
   }
 
-  // 3. Create Recovery Compendiums
+  // 4. Create Recovery Compendiums
   let instructorPack, bookPack;
   try {
     instructorPack = await getOrCreateCompendium("Actor", "Legacy Tutelage: Instructors");
@@ -150,7 +157,7 @@ export async function migrateToV3() {
     { type: "instructor" | "book" | "self-study"; uuid: string; offeringName: string }
   >();
 
-  // 4. Convert used tiers to documents
+  // 5. Convert used tiers to documents
   const instructorPackId = (instructorPack as any).metadata.id;
   const bookPackId = (bookPack as any).metadata.id;
 
@@ -294,7 +301,7 @@ export async function migrateToV3() {
     }
   }
 
-  // 5. Update world items and distribute books
+  // 6. Update world items and distribute books
   for (const actor of actorsWithProjects) {
     const projects = (actor.items as any).filter((i: any) =>
       i.getFlag(MODULE_ID, "isLearningProject"),
@@ -331,15 +338,12 @@ export async function migrateToV3() {
           projectData.tutelageId = "";
 
           // Detect categories from effects
-          if (detectedCats.length > 0) {
-            projectData.categories = [...(projectData.categories || []), ...detectedCats];
-            projectData.categories = [...new Set(projectData.categories)];
-          }
+          mergeCategories(projectData, detectedCats);
 
           await project.setFlag(MODULE_ID, "projectData", projectData);
         } else if (mapping.type === "book") {
           // Distribute book to actor if they don't have it
-          const bookDoc = await fromUuid(mapping.uuid as `Item.${string}`);
+          const bookDoc = await fromUuid(mapping.uuid as any);
           if (!(bookDoc instanceof Item)) {
             Logger.error(
               `Migration v3 | Legacy book document could not be resolved: ${mapping.uuid}`,
@@ -385,20 +389,14 @@ export async function migrateToV3() {
           projectData.tutelageId = "";
 
           // Detect categories from effects
-          if (detectedCats.length > 0) {
-            projectData.categories = [...(projectData.categories || []), ...detectedCats];
-            projectData.categories = [...new Set(projectData.categories)];
-          }
+          mergeCategories(projectData, detectedCats);
 
           await project.setFlag(MODULE_ID, "projectData", projectData);
         } else if (mapping.type === "self-study") {
           projectData.tutelageId = "";
 
           // Detect categories from effects
-          if (detectedCats.length > 0) {
-            projectData.categories = [...(projectData.categories || []), ...detectedCats];
-            projectData.categories = [...new Set(projectData.categories)];
-          }
+          mergeCategories(projectData, detectedCats);
 
           await project.setFlag(MODULE_ID, "projectData", projectData);
         }
@@ -509,7 +507,9 @@ async function getOrCreateCompendium(type: "Actor" | "Item", label: string) {
         e.message?.toLowerCase().includes("already exists") || e.code === "EEXIST";
       if (isExistsError) {
         pack = game.packs!.find(
-          (p: any) => p.metadata.name === packName || p.metadata.name === rawPackName,
+          (p: any) =>
+            (p.metadata.name === packName || p.metadata.name === rawPackName) &&
+            p.metadata.type === type,
         );
         if (!pack) throw e; // If we STILL can't find it, something is very wrong
       } else {

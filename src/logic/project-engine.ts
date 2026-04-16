@@ -273,6 +273,15 @@ export class ProjectEngine {
       } else if (!options.skipPrompt) {
         let dialogInstance: any;
         const choice = (await new Promise((resolve) => {
+          const cleanup = (shouldCloseDialog = false) => {
+            if (dialogInstance) {
+              unmount(dialogInstance);
+              dialogInstance = null;
+            }
+            resolve(null);
+            if (shouldCloseDialog === true) dialog.close();
+          };
+
           const dialog = new (foundry.applications.api.DialogV2 as any)({
             window: {
               title: `Select Instructor: ${item.name}`,
@@ -294,13 +303,7 @@ export class ProjectEngine {
                 callback: () => resolve("cancel"),
               },
             ],
-            close: () => {
-              if (dialogInstance) {
-                unmount(dialogInstance);
-                dialogInstance = null;
-              }
-              resolve(null);
-            },
+            close: () => cleanup(),
             modal: true,
             rejectClose: false,
           });
@@ -328,7 +331,7 @@ export class ProjectEngine {
                   true,
                   dialog.element,
                 );
-                resolve(null);
+                cleanup(true);
               }
             })
             .catch((err: any) => {
@@ -338,12 +341,7 @@ export class ProjectEngine {
                 err,
                 dialog.element,
               );
-              if (dialogInstance) {
-                unmount(dialogInstance);
-                dialogInstance = null;
-              }
-              dialog.close();
-              resolve(null);
+              cleanup(true);
             });
         })) as any;
 
