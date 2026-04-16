@@ -147,7 +147,7 @@ export async function migrateToV3() {
 
   const tierToDocMap = new Map<
     string,
-    { type: "instructor" | "book"; uuid: string; offeringName: string }
+    { type: "instructor" | "book" | "self-study"; uuid: string; offeringName: string }
   >();
 
   // 4. Convert used tiers to documents
@@ -284,6 +284,13 @@ export async function migrateToV3() {
       if (created) {
         tierToDocMap.set(tier.id, { type: "book", uuid: created.uuid, offeringName: "" });
       }
+    } else {
+      // No cost and non-positive modifier, treat as self-study
+      tierToDocMap.set(tier.id, {
+        type: "self-study",
+        uuid: "",
+        offeringName: "",
+      });
     }
   }
 
@@ -375,6 +382,16 @@ export async function migrateToV3() {
 
             await actor.createEmbeddedDocuments("Item", [bookData]);
           }
+          projectData.tutelageId = "";
+
+          // Detect categories from effects
+          if (detectedCats.length > 0) {
+            projectData.categories = [...(projectData.categories || []), ...detectedCats];
+            projectData.categories = [...new Set(projectData.categories)];
+          }
+
+          await project.setFlag(MODULE_ID, "projectData", projectData);
+        } else if (mapping.type === "self-study") {
           projectData.tutelageId = "";
 
           // Detect categories from effects

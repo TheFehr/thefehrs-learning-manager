@@ -554,4 +554,44 @@ describe("v3-tutelage-selection migration", () => {
       expect.objectContaining({ tutelageId: "" }),
     );
   });
+
+  it("should migrate tiers with no cost and non-positive modifier to self-study", async () => {
+    const tiers = [{ id: "tSelf", name: "Self Study", modifier: 0, costs: { cp: 0 } }];
+    vi.mocked(game.settings.get).mockImplementation((_scope, key) => {
+      if (key === "guidanceTiers") return tiers;
+      if (key === "teacherCompendiums") return [];
+      if (key === "bookCompendiums") return [];
+      return null;
+    });
+
+    const project = new Item() as any;
+    project.name = "Self Project";
+    project.getFlag.mockImplementation((_scope: string, key: string) => {
+      if (key === "isLearningProject") return true;
+      if (key === "projectData") return { tutelageId: "tSelf" };
+      return null;
+    });
+
+    const actor = new Actor() as any;
+    actor.items = [project];
+    (game.actors.contents as any[]).push(actor);
+
+    const pack = {
+      metadata: { id: "pack.id", collection: "pack" },
+      collection: "pack",
+      getIndex: vi.fn().mockResolvedValue([]),
+    };
+    vi.mocked(game.packs.find).mockReturnValue(pack);
+
+    await migrateToV3();
+
+    expect(project.setFlag).toHaveBeenCalledWith(
+      MODULE_ID,
+      "projectData",
+      expect.objectContaining({
+        tutelageId: "",
+      }),
+    );
+    expect(ui.notifications.info).toHaveBeenCalledWith(expect.stringContaining("complete"));
+  });
 });
