@@ -86,6 +86,7 @@ export async function migrateToV3() {
   // 2. Generate Dry Run Report
   const tiersToMigrate = rawTiers.filter((t) => usedTierIds.has(t.id));
   const orphanedIds = Array.from(usedTierIds).filter((id) => !rawTiers.some((t) => t.id === id));
+  const orphanedSet = new Set(orphanedIds);
 
   let reportHtml = `<h3>Tutelage System Migration: Dry Run Report</h3>
         <p>This migration will convert your legacy Guidance Tiers into a dynamic Instructor & Book system.</p>
@@ -203,6 +204,13 @@ export async function migrateToV3() {
         });
         if (Array.isArray(result) && result.length > 0) {
           created = result[0];
+        } else {
+          Logger.error(
+            `Migration v3 | Failed to create legacy instructor for tier ${tier.id}: Result was empty or non-array.`,
+            true,
+            result,
+          );
+          projectFailures++;
         }
       } catch (err) {
         Logger.error(
@@ -260,6 +268,13 @@ export async function migrateToV3() {
         });
         if (Array.isArray(result) && result.length > 0) {
           created = result[0];
+        } else {
+          Logger.error(
+            `Migration v3 | Failed to create legacy book for tier ${tier.id}: Result was empty or non-array.`,
+            true,
+            result,
+          );
+          projectFailures++;
         }
       } catch (err) {
         Logger.error(`Migration v3 | Failed to create legacy book for tier ${tier.id}:`, true, err);
@@ -286,9 +301,20 @@ export async function migrateToV3() {
 
         const mapping = tierToDocMap.get(projectData.tutelageId);
         if (!mapping) {
-          // Orphaned or +0, reset
-          projectData.tutelageId = "";
-          await project.setFlag(MODULE_ID, "projectData", projectData);
+          const isTrulyOrphaned =
+            orphanedSet.has(projectData.tutelageId) || projectData.tutelageId === "+0";
+          if (isTrulyOrphaned) {
+            // Orphaned or explicit self-study, reset
+            projectData.tutelageId = "";
+            await project.setFlag(MODULE_ID, "projectData", projectData);
+          } else {
+            // Not a known orphan, preserve ID for manual review/retry
+            Logger.warn(
+              `Migration v3 | Project ${project.name} (${project.id}) on actor ${actor.name} has missing mapping for tutelageId "${projectData.tutelageId}", but it is not a known orphan. Preserving ID.`,
+              true,
+            );
+            projectFailures++;
+          }
           continue;
         }
 

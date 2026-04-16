@@ -149,6 +149,7 @@ describe("LearningManager", () => {
       // Non-GM user
       game.user.isGM = false;
       expect(enabled({ item: learningTypeItem })).toBe(false);
+      expect(enabled({ item: allowedItem } as any)).toBe(false);
 
       // Regular item (non-learning, non-compendium)
       game.user.isGM = true;
