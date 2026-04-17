@@ -30,7 +30,7 @@ describe("PartyTab", () => {
       id = "";
       name = "";
       items = [];
-      system = {};
+      system = { abilities: {}, attributes: {} };
       getFlag = vi.fn();
       getRollData = vi.fn().mockReturnValue({});
     } as any;

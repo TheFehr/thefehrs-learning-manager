@@ -58,7 +58,7 @@
     const data = item.getFlag("thefehrs-learning-manager", "projectData");
     targetValue = data?.target ?? 0;
     followUpProjectId = data?.followUpProjectId ?? "";
-    requirements = data?.requirements ? JSON.parse(JSON.stringify(data.requirements)) : [];
+    requirements = data?.requirements ? structuredClone(data.requirements) : [];
     categories = data?.categories ? [...data.categories] : [];
 
     const bookData = item.getFlag("thefehrs-learning-manager", "learningBookBonus");
@@ -68,6 +68,7 @@
     learningModeEnabled = (item.getFlag("thefehrs-learning-manager", "learningModeEnabled") as boolean) 
       ?? (isActuallyProject || !!bookData || !!data);
     
+    // Deterministic property order for snapshot comparison
     initialSnapshot = JSON.stringify({ 
       learningModeEnabled,
       target: targetValue, 
@@ -92,6 +93,7 @@
     
     if (!untrack(() => initialized)) return;
 
+    // Deterministic property order for snapshot comparison
     const currentSnapshot = JSON.stringify({ 
       learningModeEnabled: enabled,
       target, 
@@ -109,7 +111,7 @@
         showProjectConfig ? {
           target,
           followUpProjectId: followUpId,
-          requirements: JSON.parse(JSON.stringify(reqs)),
+          requirements: structuredClone(reqs),
           categories: [...cats]
         } : undefined,
         showBookConfig ? {

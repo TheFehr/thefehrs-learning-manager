@@ -373,7 +373,7 @@ describe("ProjectEngine", () => {
           bank: { total: 100 },
         },
       };
-      actor.system = { currency: { gp: 10, sp: 0, cp: 0 } };
+      actor.system.currency = { gp: 10, sp: 0, cp: 0 };
 
       const projectData = {
         progress: 9,
@@ -415,7 +415,7 @@ describe("ProjectEngine", () => {
         return null;
       });
 
-      const result = await ProjectEngine.processTraining(activity as any);
+      const result = await ProjectEngine.processTraining(activity as any, { skipPrompt: true });
 
       expect(result).toBe(true);
       // Check for completion update (atomic since Phase 1 refactor)
@@ -443,10 +443,8 @@ describe("ProjectEngine", () => {
     it("should handle excess progress and initiate follow-up project", async () => {
       const actor = new Actor() as any;
       actor.name = "Actor";
-      actor.system = {
-        currency: { gp: 10, sp: 0, cp: 0 },
-        abilities: { int: { mod: 0 } },
-      };
+      actor.system.currency = { gp: 10, sp: 0, cp: 0 };
+      actor.system.abilities = { int: { mod: 0 } };
       actor.getFlag.mockReturnValue({ total: 100 }); // bank
       actor.getRollData = vi.fn().mockReturnValue({});
 
@@ -482,7 +480,7 @@ describe("ProjectEngine", () => {
       const activity = { item, flags: { [MODULE_ID]: { timeUnitId: "hour" } } };
       vi.mocked(TabLogic.computeProgress).mockResolvedValue({ progressGained: 5 }); // 4 excess
 
-      await ProjectEngine.processTraining(activity as any);
+      await ProjectEngine.processTraining(activity as any, { skipPrompt: true });
 
       expect(initiateSpy).toHaveBeenCalledWith(actor, followUpItem);
     });
@@ -494,7 +492,7 @@ describe("ProjectEngine", () => {
           bank: { total: 100 },
         },
       };
-      actor.system = { currency: { gp: 10, sp: 0, cp: 0 } };
+      actor.system.currency = { gp: 10, sp: 0, cp: 0 };
 
       const item = new Item() as any;
       item.actor = actor;
@@ -531,7 +529,7 @@ describe("ProjectEngine", () => {
         return null;
       });
 
-      await ProjectEngine.processTraining(activity as any);
+      await ProjectEngine.processTraining(activity as any, { skipPrompt: true });
 
       expect(mockRoll.toMessage).toHaveBeenCalledWith(
         expect.objectContaining({ flavor: expect.any(String) }),
@@ -546,7 +544,7 @@ describe("ProjectEngine", () => {
           bank: { total: 100 },
         },
       };
-      actor.system = { currency: { gp: 10, sp: 0, cp: 0 } };
+      actor.system.currency = { gp: 10, sp: 0, cp: 0 };
 
       const projectData = {
         target: 10,
@@ -576,7 +574,7 @@ describe("ProjectEngine", () => {
         reason: "Mock failure reason",
       });
 
-      await ProjectEngine.processTraining(activity as any);
+      await ProjectEngine.processTraining(activity as any, { skipPrompt: true });
 
       expect(ui.notifications.info).toHaveBeenCalledWith(
         "Training unsuccessful: Mock failure reason",
@@ -586,7 +584,7 @@ describe("ProjectEngine", () => {
     it("should not duplicate progress indicators in name and description", async () => {
       const actor = new Actor() as any;
       actor.flags = { [MODULE_ID]: { bank: { total: 100 } } };
-      actor.system = { currency: { gp: 10, sp: 0, cp: 0 } };
+      actor.system.currency = { gp: 10, sp: 0, cp: 0 };
 
       const item = new Item() as any;
       item.actor = actor;
@@ -621,7 +619,7 @@ describe("ProjectEngine", () => {
         return null;
       });
 
-      await ProjectEngine.processTraining(activity as any);
+      await ProjectEngine.processTraining(activity as any, { skipPrompt: true });
 
       expect(item.update).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -642,7 +640,7 @@ describe("ProjectEngine", () => {
     it("should abort if the chosen bulk method is unavailable", async () => {
       const actor = new Actor() as any;
       actor.flags = { [MODULE_ID]: { bank: { total: 100 } } };
-      actor.system = { currency: { gp: 10, sp: 0, cp: 0 } };
+      actor.system.currency = { gp: 10, sp: 0, cp: 0 };
       actor.getRollData = vi.fn().mockReturnValue({});
 
       const item = new Item() as any;
@@ -682,7 +680,7 @@ describe("ProjectEngine", () => {
     it("should abort if the chosen separate method is unavailable", async () => {
       const actor = new Actor() as any;
       actor.flags = { [MODULE_ID]: { bank: { total: 100 } } };
-      actor.system = { currency: { gp: 10, sp: 0, cp: 0 } };
+      actor.system.currency = { gp: 10, sp: 0, cp: 0 };
       actor.getRollData = vi.fn().mockReturnValue({});
 
       const item = new Item() as any;

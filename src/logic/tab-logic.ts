@@ -31,7 +31,7 @@ export class TabLogic {
     let reason: string | undefined = undefined;
 
     const effectiveMethod = tu.isBulk ? rules.bulkMethod : rules.nonBulkMethod;
-    const dc = Number(rules.checkDC) || DEFAULT_DC;
+    const dc = rules.checkDC ?? DEFAULT_DC;
 
     if (effectiveMethod === "direct") {
       progressGained = tu.ratio;
@@ -246,7 +246,7 @@ export class TabLogic {
     const { rolls, isDeterministic } = res;
     const strategy = rules.critDoubleStrategy ?? "never";
     const threshold = Number(rules.critThreshold) || 20;
-    const dc = Number(rules.checkDC) || DEFAULT_DC;
+    const dc = rules.checkDC ?? DEFAULT_DC;
 
     let totalProgress = 0;
     rolls.forEach((r, idx) => {
@@ -276,7 +276,7 @@ export class TabLogic {
   ): Promise<number | null> {
     const res = await this._getOutcomes(actor, rules, tutelageMod);
     if (!res) return null;
-    const dc = Number(rules.checkDC) || DEFAULT_DC;
+    const dc = rules.checkDC ?? DEFAULT_DC;
     const successCount = res.rolls.filter((r) => (r.total || 0) >= dc).length;
     return successCount / 20;
   }

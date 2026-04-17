@@ -165,5 +165,15 @@ describe("ItemConfigLogic", () => {
 
       expect(ItemConfigLogic.handleDrop(mockEvent)).toBeNull();
     });
+
+    it("should safely handle null dataTransfer", () => {
+      const mockEvent = {
+        preventDefault: vi.fn(),
+        stopPropagation: vi.fn(),
+        dataTransfer: null,
+      } as any;
+
+      expect(ItemConfigLogic.handleDrop(mockEvent)).toBeNull();
+    });
   });
 });

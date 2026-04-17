@@ -126,6 +126,10 @@ export class DocumentUtils {
       return [];
     }
 
+    if (!docs || docs.length === 0) {
+      return [];
+    }
+
     try {
       const results = (await actor.createEmbeddedDocuments(type as any, docs)) as unknown as T[];
       if (!results || results.length === 0) {

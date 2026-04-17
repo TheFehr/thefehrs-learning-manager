@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { migrateData } from "../../src/migrations/migration";
 import { FoundryUtils } from "../../src/core/foundry-utils";
 
@@ -47,6 +47,12 @@ describe("migration.ts", () => {
     (globalThis as any).ui = { notifications: { error: vi.fn() } };
   });
 
+  afterEach(() => {
+    vi.restoreAllMocks();
+    delete (globalThis as any).game;
+    delete (globalThis as any).ui;
+  });
+
   it("should return early if user is not GM", async () => {
     mockGame.user.isGM = false;
     await migrateData();
@@ -60,10 +66,12 @@ describe("migration.ts", () => {
     const { migrateToV2Direct } = await import("../../src/migrations/v2-direct");
     const { migrateToV2_1, migrateToV2_1_1 } =
       await import("../../src/migrations/v2_1-flexible-methods");
+    const { migrateToV3 } = await import("../../src/migrations/v3-tutelage-selection");
 
     expect(migrateToV2Direct).toHaveBeenCalled();
     expect(migrateToV2_1).toHaveBeenCalled();
     expect(migrateToV2_1_1).toHaveBeenCalled();
+    expect(migrateToV3).not.toHaveBeenCalled();
   });
 
   it("should skip older migrations if version is up to date", async () => {

@@ -17,6 +17,8 @@ describe("Migration v1.1 (GP to CP)", () => {
 
   afterEach(() => {
     vi.restoreAllMocks();
+    delete (globalThis as any).game;
+    delete (globalThis as any).ui;
   });
 
   it("should migrate tier costs from gp to cp", async () => {

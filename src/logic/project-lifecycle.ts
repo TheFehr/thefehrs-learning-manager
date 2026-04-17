@@ -239,7 +239,7 @@ export class ProjectLifecycle {
         [createData],
         sourceItem.name ?? "Unknown Item",
       );
-      const created = createdDocs[0];
+      const created = createdDocs?.[0];
 
       if (created) {
         return await this.handlePostCreationCleanup(
@@ -375,8 +375,9 @@ export class ProjectLifecycle {
     // Merge stashed activities (non-learning ones)
     const systemToUpdate: Record<string, unknown> = { ...(sanitizedSystem as any) };
     if (projectDataFlags.stashedActivities) {
+      const baseActivities = systemToUpdate.activities as Record<string, unknown>;
       systemToUpdate.activities = {
-        ...(systemToUpdate.activities as Record<string, unknown>),
+        ...baseActivities,
         ...projectDataFlags.stashedActivities,
       };
     }

@@ -377,8 +377,18 @@ export async function migrateToV3() {
           if (!existingBook) {
             const bookData = bookDoc.toObject();
             // Update the book to only work for this project's categories to match legacy behavior
+            if (!bookData.flags) bookData.flags = {};
+            if (!bookData.flags[MODULE_ID]) bookData.flags[MODULE_ID] = {};
+
             const bonus = (bookData.flags[MODULE_ID] as any).learningBookBonus as LearningBookBonus;
-            bonus.categories = detectedCats;
+            if (bonus) {
+              bonus.categories = detectedCats;
+            } else {
+              (bookData.flags[MODULE_ID] as any).learningBookBonus = {
+                modifier: bookBonus.modifier,
+                categories: detectedCats,
+              };
+            }
 
             // Set sourceId so the resolver recognizes it if compendium filtering is on
             bookData.flags.core = bookData.flags.core || {};

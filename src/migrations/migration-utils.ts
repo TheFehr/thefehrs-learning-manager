@@ -89,7 +89,9 @@ function createBaseActivityTemplate(): any {
 async function injectActivities(item: Item5e, target: number) {
   if (target <= 0) return;
 
-  const timeUnits = (getGame().settings.get(MODULE_ID, "timeUnits") as unknown as any[]) || [];
+  const rawTimeUnits = (getGame().settings.get(MODULE_ID, "timeUnits") as unknown as any[]) || [];
+  const timeUnits = rawTimeUnits.filter((tu) => tu && tu.id && tu.name);
+
   const activities: any[] = timeUnits.map((tu) => ({
     ...createBaseActivityTemplate(),
     _id: FoundryUtils.randomID(),

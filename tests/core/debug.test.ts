@@ -31,7 +31,7 @@ describe("DebugHelpers", () => {
     TutelageResolverService.clearCache();
     (globalThis as any).Actor = class {
       name = "";
-      system = {};
+      system = { abilities: {}, attributes: {} };
       getFlag = vi.fn();
       getRollData = vi.fn().mockReturnValue({});
     };
@@ -217,6 +217,18 @@ describe("DebugHelpers", () => {
       vi.spyOn(DebugHelpers, "getCache").mockReturnValue([{ actorUuid: "uuid" } as any]);
       await DebugHelpers.refreshCache();
       expect(TutelageResolverService.refreshCache).toHaveBeenCalled();
+    });
+
+    it("should throw if TutelageResolverService.getCache throws", () => {
+      vi.mocked(TutelageResolverService.getCache).mockImplementation(() => {
+        throw new Error("Cache error");
+      });
+      expect(() => DebugHelpers.getCache()).toThrow("Cache error");
+    });
+
+    it("should throw if TutelageResolverService.refreshCache throws", async () => {
+      vi.mocked(TutelageResolverService.refreshCache).mockRejectedValue(new Error("Refresh error"));
+      await expect(DebugHelpers.refreshCache()).rejects.toThrow("Refresh error");
     });
 
     it("should get config", () => {

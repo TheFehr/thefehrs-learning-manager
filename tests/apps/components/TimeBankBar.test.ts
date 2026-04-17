@@ -27,7 +27,7 @@ vi.mock("@/logic/time-bank-logic", () => ({
 
 describe("TimeBankBar.svelte", () => {
   let target: HTMLElement;
-  let instance: any;
+  let instance: ReturnType<typeof mount> | undefined;
   const mockUnits = [{ id: "hour", name: "Hour", short: "h", ratio: 1 }];
   const mockActor = { id: "actor1" };
   const mockProxy = { bank: { total: 100 } };

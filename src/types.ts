@@ -247,6 +247,10 @@ export function isActor5e(actor: any): actor is Actor5e {
     actor &&
     typeof actor.getFlag === "function" &&
     (actor as any).system !== undefined &&
+    typeof (actor as any).system === "object" &&
+    (actor as any).system !== null &&
+    ((actor as any).system.abilities !== undefined ||
+      (actor as any).system.attributes !== undefined) &&
     typeof (actor as any).getRollData === "function"
   );
 }

@@ -323,50 +323,56 @@ describe("WorldSettingsConfig.svelte", () => {
 
     it("should cleanup if visibility changes", async () => {
       vi.useFakeTimers();
-      instance = mount(WorldSettingsConfig, {
-        target,
-        props: { ...mockProps },
-      });
-      await tick();
+      try {
+        instance = mount(WorldSettingsConfig, {
+          target,
+          props: { ...mockProps },
+        });
+        await tick();
 
-      const importBtn = target.querySelector(
-        "button[title='Import Settings']",
-      ) as HTMLButtonElement;
-      expect(importBtn).not.toBeNull();
-      importBtn.click();
+        const importBtn = target.querySelector(
+          "button[title='Import Settings']",
+        ) as HTMLButtonElement;
+        expect(importBtn).not.toBeNull();
+        importBtn.click();
 
-      document.dispatchEvent(new Event("visibilitychange"));
+        document.dispatchEvent(new Event("visibilitychange"));
 
-      vi.advanceTimersByTime(600);
+        vi.advanceTimersByTime(600);
 
-      expect(mockInput.parentNode).toBeNull();
-      vi.useRealTimers();
+        expect(mockInput.parentNode).toBeNull();
+      } finally {
+        vi.useRealTimers();
+      }
     });
 
     it("should cleanup if no file is selected", async () => {
       vi.useFakeTimers();
-      instance = mount(WorldSettingsConfig, {
-        target,
-        props: { ...mockProps },
-      });
-      await tick();
+      try {
+        instance = mount(WorldSettingsConfig, {
+          target,
+          props: { ...mockProps },
+        });
+        await tick();
 
-      const importBtn = target.querySelector(
-        "button[title='Import Settings']",
-      ) as HTMLButtonElement;
-      expect(importBtn).not.toBeNull();
-      importBtn.click();
+        const importBtn = target.querySelector(
+          "button[title='Import Settings']",
+        ) as HTMLButtonElement;
+        expect(importBtn).not.toBeNull();
+        importBtn.click();
 
-      // mockInput is already "in the body" via our mock logic
-      expect(mockInput.parentNode).toBe(document.body);
+        // mockInput is already "in the body" via our mock logic
+        expect(mockInput.parentNode).toBe(document.body);
 
-      // We need to trigger handleCancel which is bound to window focus
-      window.dispatchEvent(new Event("focus"));
+        // We need to trigger handleCancel which is bound to window focus
+        window.dispatchEvent(new Event("focus"));
 
-      vi.advanceTimersByTime(600);
+        vi.advanceTimersByTime(600);
 
-      expect(mockInput.parentNode).toBeNull();
-      vi.useRealTimers();
+        expect(mockInput.parentNode).toBeNull();
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 });

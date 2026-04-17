@@ -36,4 +36,60 @@ describe("TimeUnitsConfig.svelte", () => {
     expect(nameInput).not.toBeNull();
     expect(nameInput.value).toBe("Hour");
   });
+
+  it("should add a unit when clicking the add button", async () => {
+    const units = [...mockTimeUnits];
+    instance = mount(TimeUnitsConfig, {
+      target,
+      props: { timeUnits: units },
+    });
+    await tick();
+
+    const addBtn = Array.from(target.querySelectorAll("button")).find((b) =>
+      b.textContent?.includes("Add Unit"),
+    );
+    expect(addBtn).toBeDefined();
+    addBtn!.click();
+    await tick();
+
+    expect(target.querySelectorAll("tbody tr")).toHaveLength(2);
+  });
+
+  it("should remove a unit when clicking the remove button", async () => {
+    const units = [
+      { id: "u1", name: "Unit 1", short: "u1", isBulk: false, ratio: 1 },
+      { id: "u2", name: "Unit 2", short: "u2", isBulk: false, ratio: 1 },
+    ];
+    instance = mount(TimeUnitsConfig, {
+      target,
+      props: { timeUnits: units },
+    });
+    await tick();
+
+    const removeBtn = target.querySelector("button[title='Delete Time Unit']") as HTMLButtonElement;
+    expect(removeBtn).not.toBeNull();
+    removeBtn.click();
+    await tick();
+
+    expect(target.querySelectorAll("tbody tr")).toHaveLength(1);
+  });
+
+  it("should handle mounting with empty units", async () => {
+    const units: any[] = [];
+    instance = mount(TimeUnitsConfig, {
+      target,
+      props: { timeUnits: units },
+    });
+    await tick();
+
+    expect(target.querySelectorAll("tbody tr")).toHaveLength(0);
+
+    const addBtn = Array.from(target.querySelectorAll("button")).find((b) =>
+      b.textContent?.includes("Add Unit"),
+    );
+    addBtn!.click();
+    await tick();
+
+    expect(target.querySelectorAll("tbody tr")).toHaveLength(1);
+  });
 });

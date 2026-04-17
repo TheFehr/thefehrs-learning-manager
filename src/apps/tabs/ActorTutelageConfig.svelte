@@ -159,7 +159,21 @@
               <div class="cost-row">
                 <label for="cost-{i}-{unit.id}">{unit.name}</label>
                 <div class="currency-input">
-                  <input id="cost-{i}-{unit.id}" type="number" bind:value={offering.costs[unit.id]} min="0" placeholder="0" data-tooltip={TabLogic.formatCurrency(Number(offering.costs[unit.id]) || 0)} />
+                  <input
+                    id="cost-{i}-{unit.id}"
+                    type="number"
+                    value={offering.costs[unit.id]}
+                    onchange={(e) => {
+                      offering.costs[unit.id] = Math.max(0, Number(e.currentTarget.value) || 0);
+                      e.stopPropagation();
+                    }}
+                    onblur={(e) => {
+                      offering.costs[unit.id] = Math.max(0, Number(e.currentTarget.value) || 0);
+                    }}
+                    min="0"
+                    placeholder="0"
+                    data-tooltip={TabLogic.formatCurrency(Number(offering.costs[unit.id]) || 0)}
+                  />
                   <span class="unit">CP</span>
                 </div>
               </div>

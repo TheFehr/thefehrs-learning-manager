@@ -5,8 +5,8 @@ export class ProjectUI {
   static generateProgressHtml(progress: number, target: number, tutelageName: string): string {
     const p = Number.isFinite(progress) ? Math.max(0, progress) : 0;
     const t = Number.isFinite(target) ? Math.max(0, target) : 0;
-    const pLabel = Number.isFinite(progress) ? p : String(progress);
-    const tLabel = Number.isFinite(target) ? t : String(target);
+    const pLabel = Number.isFinite(progress) ? p : "—";
+    const tLabel = Number.isFinite(target) ? t : "—";
     const escapedTutelageName = FoundryUtils.escapeHTML(tutelageName);
     const percentage = t > 0 ? Math.min(100, Math.max(0, (p / t) * 100)) : 0;
     return `<!-- learning-manager:progress-start -->

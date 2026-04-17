@@ -75,7 +75,7 @@ export class LoggerSingleton {
       if (uiNotify) {
         try {
           const ui = getUI();
-          if (ui?.notifications) {
+          if (ui?.notifications && level !== "none") {
             (ui.notifications as any)[level](message);
           }
         } catch (err) {

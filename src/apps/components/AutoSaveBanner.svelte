@@ -2,7 +2,7 @@
   let { isSaving, saveError } = $props<{ isSaving: boolean, saveError: string | null }>();
 </script>
 
-<div class="auto-save-banner" role="status" aria-live="polite">
+<div class="auto-save-banner {saveError ? 'error' : ''}" role="status" aria-live="polite">
   {#if isSaving}
     <span class="saving-indicator"><i class="fas fa-spinner fa-spin"></i> Saving...</span>
   {:else if saveError}
@@ -29,6 +29,10 @@
     box-shadow: 0 2px 4px rgba(0,0,0,0.05);
     opacity: 0.85;
     transition: opacity 0.2s ease-in-out;
+
+    &.error {
+      opacity: 1;
+    }
 
     &:hover {
         opacity: 1;

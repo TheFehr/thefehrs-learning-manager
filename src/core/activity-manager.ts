@@ -124,11 +124,12 @@ export class ActivityManager {
    * Useful when time units change in settings.
    */
   static async syncAllProjectActivities() {
-    if (!getGame().user?.isGM) return;
+    const game = getGame();
+    if (!game?.user?.isGM) return;
 
     getUI()?.notifications?.info("Downtime Engine | Syncing project activities...");
 
-    const actors = (getGame().actors || []) as unknown as Actor5e[];
+    const actors = (game.actors || []) as unknown as Actor5e[];
     let updatedCount = 0;
     let failedCount = 0;
 

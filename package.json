@@ -8,7 +8,7 @@
     "build": "tsc && vite build",
     "fmt": "oxfmt --no-error-on-unmatched-pattern",
     "fmt:check": "oxfmt --check",
-    "lint": "oxlint src",
+    "lint": "oxlint src tests",
     "test": "vitest run",
     "test:watch": "vitest",
     "release": "release-it",

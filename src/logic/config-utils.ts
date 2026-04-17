@@ -31,7 +31,7 @@ export async function searchWithOmnisearchOrQuickInsert(
         const timeoutId = setTimeout(() => {
           Logger.warn("Quick Insert dialog timed out.");
           resolve(null);
-        }, 60000); // 60 second timeout
+        }, 30000); // 30 second timeout
 
         quickInsert.open({
           mode: 1, // Insert mode

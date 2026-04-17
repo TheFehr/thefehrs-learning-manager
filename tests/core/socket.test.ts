@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { Socket } from "../../src/core/socket";
 import { Settings } from "../../src/core/settings";
+import { Logger } from "../../src/core/logger";
 
 describe("Socket", () => {
   beforeEach(() => {
@@ -47,15 +48,14 @@ describe("Socket", () => {
       (globalThis as any).game.socket = originalSocket;
     }
   });
+
   it("should ignore invalid messages", async () => {
     const handler = vi.fn();
+    const warnSpy = vi.spyOn(Logger, "warn").mockImplementation(() => {});
     Socket.listen(handler);
 
     const registeredHandler = vi.mocked(game.socket.on).mock.calls[0][1];
     const invalidMessage = { invalid: "payload" };
-
-    const { Logger } = await import("../../src/core/logger");
-    const warnSpy = vi.spyOn(Logger, "warn").mockImplementation(() => {});
 
     await registeredHandler(invalidMessage);
 

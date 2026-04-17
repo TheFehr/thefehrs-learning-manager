@@ -55,6 +55,20 @@ describe("LearningManager", () => {
   let originalFromUuid: any;
   let originalWindowEvent: any;
 
+  const restoreGlobals = () => {
+    if (originalFromUuid === undefined) {
+      delete (globalThis as any).fromUuid;
+    } else {
+      (globalThis as any).fromUuid = originalFromUuid;
+    }
+
+    if (originalWindowEvent === undefined) {
+      delete (window as any).event;
+    } else {
+      (window as any).event = originalWindowEvent;
+    }
+  };
+
   beforeAll(() => {
     originalFromUuid = (globalThis as any).fromUuid;
     originalWindowEvent = (window as any).event;
@@ -64,36 +78,14 @@ describe("LearningManager", () => {
     vi.clearAllMocks();
     LearningManager.svelteInstances = new Map();
     LearningManager.socketHandler = null;
-
-    if (originalFromUuid === undefined) {
-      delete (globalThis as any).fromUuid;
-    } else {
-      (globalThis as any).fromUuid = originalFromUuid;
-    }
-
-    if (originalWindowEvent === undefined) {
-      delete (window as any).event;
-    } else {
-      (window as any).event = originalWindowEvent;
-    }
+    restoreGlobals();
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
     LearningManager.svelteInstances = new Map();
     LearningManager.socketHandler = null;
-
-    if (originalFromUuid === undefined) {
-      delete (globalThis as any).fromUuid;
-    } else {
-      (globalThis as any).fromUuid = originalFromUuid;
-    }
-
-    if (originalWindowEvent === undefined) {
-      delete (window as any).event;
-    } else {
-      (window as any).event = originalWindowEvent;
-    }
+    restoreGlobals();
   });
 
   describe("TabLogic.formatTimeBank", () => {
@@ -353,7 +345,7 @@ describe("LearningManager", () => {
 
       expect(dropHook).toBeDefined();
       const mockSheet = { activeTab: "any-tab" };
-      await dropHook![1](groupActor, mockSheet, data);
+      await dropHook![1](groupActor, mockSheet, data, (window as any).event);
       await new Promise((resolve) => setTimeout(resolve, 0));
       expect(ProjectEngine.initiateProjectFromItem).toHaveBeenCalledWith(memberActor, item);
     });
@@ -377,7 +369,7 @@ describe("LearningManager", () => {
       const dropHook = vi.mocked(Hooks.on).mock.calls.find((c) => c[0] === "dropActorSheetData");
 
       expect(dropHook).toBeDefined();
-      const result = await dropHook![1](groupActor, {}, data);
+      const result = await dropHook![1](groupActor, {}, data, (window as any).event);
 
       expect(result).toBe(false);
       expect(ProjectEngine.initiateProjectFromItem).not.toHaveBeenCalled();

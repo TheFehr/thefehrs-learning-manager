@@ -55,9 +55,8 @@ export class PartyTab {
     member: PartyMemberData,
     timeUnits: TimeUnit[],
   ): MemberMappedData | null {
-    const actualActor =
-      member.actor ||
-      (this.getMemberId(member) ? (getGame().actors as any)?.get(this.getMemberId(member)!) : null);
+    const memberId = this.getMemberId(member);
+    const actualActor = member.actor || (memberId ? getGame().actors?.get(memberId) : null);
 
     if (!isActor5e(actualActor)) return null;
     const proxy = ActorProxy.forActor(actualActor);

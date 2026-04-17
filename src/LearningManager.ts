@@ -150,9 +150,13 @@ export class LearningManager {
         let targetActor = actor;
 
         if ((targetActor.type as string) === "group") {
-          // Use the event from the hook if provided, otherwise fall back to window.event
-          const dragEvent = _event || (window as unknown as { event?: DragEvent }).event;
-          const target = dragEvent?.target as HTMLElement | undefined;
+          // Use the event from the hook if provided.
+          const dragEvent = _event;
+          if (!dragEvent) {
+            Logger.warn("dropActorSheetData | Missing drag event. Aborting drop handling.");
+            return true;
+          }
+          const target = dragEvent.target as HTMLElement | undefined;
 
           const actorRow = target?.closest('[data-tidy-section-key^="actor-"]') as
             | HTMLElement
@@ -297,11 +301,10 @@ export class LearningManager {
         const actor = context?.actor || context?.document;
         if (!user || !actor) return false;
 
-        const isGM = user.isGM;
-        if (!isGM) return false;
+        if (!user.isGM) return false;
 
         const hasOfferings = !!actor.getFlag(this.ID, "teacherOfferings");
-        if (hasOfferings) return isGM;
+        if (hasOfferings) return true;
 
         const uuid = (actor as any).uuid || "";
         if (uuid.startsWith("Compendium.")) {

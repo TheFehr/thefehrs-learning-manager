@@ -8,7 +8,7 @@ import { migrateToV3 } from "./v3-tutelage-selection.js";
 import { MODULE_ID } from "@/global.js";
 import { Logger } from "@/core/logger.js";
 import { FoundryUtils } from "@/core/foundry-utils.js";
-import { getGame, getUI } from "@/core/foundry.js";
+import { getGame } from "@/core/foundry.js";
 
 export async function migrateData() {
   const game = getGame();
@@ -65,10 +65,7 @@ export async function migrateData() {
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    Logger.error("Migration failed:", true, err);
-    getUI()?.notifications?.error(
-      `Downtime Engine | Migration failed: ${msg}. See console for details.`,
-    );
+    Logger.error(`Migration failed: ${msg}`, true, err);
     throw err;
   }
 }

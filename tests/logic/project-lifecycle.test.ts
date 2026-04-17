@@ -25,9 +25,11 @@ vi.mock("@/core/project-ui", () => ({
 describe("ProjectLifecycle", () => {
   let mockActor: any;
   let mockItem: any;
+  let createdItems: any[] = [];
 
   beforeEach(() => {
     vi.clearAllMocks();
+    createdItems = [];
     (globalThis as any).Actor = class MockActor {
       constructor(data: any) {
         Object.assign(this, data);
@@ -71,6 +73,7 @@ describe("ProjectLifecycle", () => {
       name: "Test Actor",
       createEmbeddedDocuments: vi.fn().mockImplementation(async (type, data) => {
         const item = new (globalThis as any).Item(data[0]);
+        createdItems.push(item);
         return [item];
       }),
     };
@@ -112,8 +115,7 @@ describe("ProjectLifecycle", () => {
       const result = await ProjectLifecycle.initiateProjectFromItem(mockActor, mockItem);
 
       expect(result).toBeNull();
-      const createdItem = (await mockActor.createEmbeddedDocuments.mock.results[0].value)[0];
-      expect(createdItem.delete).toHaveBeenCalled();
+      expect(createdItems[0].delete).toHaveBeenCalled();
     });
   });
 

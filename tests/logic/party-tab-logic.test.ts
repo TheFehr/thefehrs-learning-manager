@@ -46,7 +46,6 @@ describe("PartyTabLogic", () => {
       actors: new Map() as any,
     };
     originalActors = (globalThis as any).game.actors;
-    vi.spyOn((globalThis as any).game.actors, "get");
   });
 
   afterEach(() => {
@@ -55,6 +54,7 @@ describe("PartyTabLogic", () => {
     vi.restoreAllMocks();
     delete (globalThis as any).ui;
     delete (globalThis as any).ChatMessage;
+    delete (globalThis as any).fromUuid;
   });
 
   describe("openActorSheet", () => {
@@ -65,14 +65,14 @@ describe("PartyTabLogic", () => {
 
       await PartyTabLogic.openActorSheet("Actor.123");
 
-      expect(fromUuid).toHaveBeenCalledWith("Actor.123");
+      expect(globalThis.fromUuid).toHaveBeenCalledWith("Actor.123");
       expect(mockSheet.render).toHaveBeenCalledWith(true);
     });
 
     it("should do nothing if actor not found", async () => {
       (globalThis as any).fromUuid = vi.fn().mockResolvedValue(null);
       await PartyTabLogic.openActorSheet("Actor.123");
-      expect(fromUuid).toHaveBeenCalledWith("Actor.123");
+      expect(globalThis.fromUuid).toHaveBeenCalledWith("Actor.123");
     });
   });
 
@@ -87,7 +87,7 @@ describe("PartyTabLogic", () => {
       const mockActor = {
         id: "actor1",
         type: "character",
-        system: {},
+        system: { abilities: {}, attributes: {} },
         getFlag: vi.fn(),
         getRollData: vi.fn(),
       };
@@ -114,7 +114,7 @@ describe("PartyTabLogic", () => {
       const mockActor = {
         id: "actor1",
         type: "character",
-        system: {},
+        system: { abilities: {}, attributes: {} },
         getFlag: vi.fn(),
         getRollData: vi.fn(),
       };

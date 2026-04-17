@@ -39,11 +39,18 @@ describe("ProjectOverviewApp", () => {
   it("should mount svelte component on _onRender", async () => {
     const context = {};
     const options = {};
+    app.element = document.createElement("div");
 
     // @ts-expect-error - accessing protected method for testing
     await app._onRender(context, options);
 
-    expect(mount).toHaveBeenCalled();
+    expect(mount).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        target: app.element,
+        props: expect.anything(),
+      }),
+    );
   });
 
   it("should unmount svelte component on close", async () => {

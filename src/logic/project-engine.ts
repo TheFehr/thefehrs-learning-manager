@@ -16,6 +16,16 @@ import InstructorSelectionDialog from "@/apps/dialogs/InstructorSelectionDialog.
 import { ProjectUI } from "@/core/project-ui.js";
 import { getGame, getUI } from "@/core/foundry.js";
 
+export interface InstructorDialogResult {
+  instructor: {
+    actorUuid: string;
+    offering: {
+      name: string;
+    };
+  } | null;
+  remember: boolean;
+}
+
 export class ProjectEngine {
   static readonly BATCH_THRESHOLD = 12;
 
@@ -272,13 +282,12 @@ export class ProjectEngine {
         selectedInstructor = remembered;
       } else if (!options.skipPrompt) {
         let dialogInstance: any;
-        const choice = (await new Promise((resolve) => {
+        const choice = await new Promise<InstructorDialogResult | "cancel" | null>((resolve) => {
           const cleanup = (shouldCloseDialog = false) => {
             if (dialogInstance) {
               unmount(dialogInstance);
               dialogInstance = null;
             }
-            resolve(null);
             if (shouldCloseDialog === true) dialog.close();
           };
 
@@ -343,7 +352,7 @@ export class ProjectEngine {
               );
               cleanup(true);
             });
-        })) as any;
+        });
 
         if (!choice || choice === "cancel") return false;
         selectedInstructor = choice.instructor;

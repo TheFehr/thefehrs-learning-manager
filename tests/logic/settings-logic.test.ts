@@ -136,14 +136,16 @@ describe("settings-logic", () => {
     });
 
     it("should return early if category is empty", async () => {
+      const getSpy = vi.spyOn(Settings, "get");
       await ensureCategoryExists("");
-      expect(Settings.get).not.toHaveBeenCalled();
+      expect(getSpy).not.toHaveBeenCalled();
     });
 
     it("should return early if category already exists", async () => {
       vi.spyOn(Settings, "get").mockReturnValue(["Action", "Bonus Action"]);
+      const setSpy = vi.spyOn(Settings, "set");
       await ensureCategoryExists("Action");
-      expect(Settings.set).not.toHaveBeenCalled();
+      expect(setSpy).not.toHaveBeenCalled();
     });
 
     it("should prompt and add category if it doesn't exist", async () => {

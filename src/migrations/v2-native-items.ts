@@ -33,6 +33,13 @@ export async function migrateToV2() {
       totalProjects += projects.length;
     }
 
+    const notification =
+      totalProjects > 0
+        ? getUI()?.notifications?.info(`Migrating projects: 0/${totalProjects}`, {
+            progress: true,
+          })
+        : null;
+
     for (const actor of actors) {
       // Step 1: Migrate legacy actor projects to Items
       const projects = (actor.getFlag(MODULE_ID, "projects" as any) as any[]) || [];
@@ -71,8 +78,9 @@ export async function migrateToV2() {
 
           if (success) {
             migratedCount++;
-            getUI()?.notifications?.info(`Migrating projects: ${migratedCount}/${totalProjects}`, {
-              progress: (migratedCount / totalProjects) as unknown as boolean,
+            notification?.update({
+              message: `Migrating projects: ${migratedCount}/${totalProjects}`,
+              progress: migratedCount / totalProjects,
             });
           } else {
             Logger.warn(
