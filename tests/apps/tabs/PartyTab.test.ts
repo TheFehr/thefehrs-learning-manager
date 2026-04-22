@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import PartyTab from "@/apps/tabs/PartyTab.svelte";
 import { mount, unmount, tick } from "svelte";
+import { PartyTabLogic } from "@/logic/party-tab-logic";
 
 vi.unmock("svelte");
 
@@ -82,5 +83,100 @@ describe("PartyTab.svelte", () => {
     await tick();
 
     expect(target.innerHTML).toContain("No active projects");
+  });
+
+  it("should trigger openActorSheet when clicking on an actor container", async () => {
+    instance = mount(PartyTab, {
+      target,
+      props: mockProps as any,
+    });
+    await tick();
+
+    const actorContainer = target.querySelector(".actor-container") as HTMLElement;
+    expect(actorContainer).not.toBeNull();
+    actorContainer.click();
+
+    expect(PartyTabLogic.openActorSheet).toHaveBeenCalledWith("Actor.actor1");
+  });
+
+  it("should trigger grantTime when clicking the distribute time button", async () => {
+    instance = mount(PartyTab, {
+      target,
+      props: mockProps as any,
+    });
+    await tick();
+
+    const grantBtn = target.querySelector(".grant-time-btn") as HTMLButtonElement;
+    expect(grantBtn).not.toBeNull();
+    grantBtn.click();
+
+    expect(PartyTabLogic.grantTime).toHaveBeenCalledWith(mockProps.members, mockActor);
+  });
+
+  it("should allow editing progress and target in edit mode", async () => {
+    instance = mount(PartyTab, {
+      target,
+      props: mockProps as any,
+    });
+    await tick();
+
+    // Toggle edit mode
+    const toggleBtn = target.querySelector(".toggle-progress-edit") as HTMLButtonElement;
+    toggleBtn.click();
+    await tick();
+
+    // Change Progress
+    const progressInput = target.querySelector(".update-project-progress") as HTMLInputElement;
+    expect(progressInput).not.toBeNull();
+    progressInput.value = "7";
+    progressInput.dispatchEvent(new Event("change", { bubbles: true }));
+    await tick();
+    await tick();
+
+    expect(PartyTabLogic.updateProgress).toHaveBeenCalledWith(
+      "actor1",
+      mockProps.members[0].projects[0],
+      7,
+      true,
+    );
+
+    // Change Target
+    const targetInput = target.querySelector(".update-project-target") as HTMLInputElement;
+    expect(targetInput).not.toBeNull();
+    targetInput.value = "20";
+    targetInput.dispatchEvent(new Event("change", { bubbles: true }));
+    await tick();
+    await tick();
+
+    expect(PartyTabLogic.updateTarget).toHaveBeenCalledWith(
+      "actor1",
+      mockProps.members[0].projects[0],
+      20,
+      true,
+    );
+  });
+
+  it("should trigger deleteProject when clicking the delete button in edit mode", async () => {
+    instance = mount(PartyTab, {
+      target,
+      props: mockProps as any,
+    });
+    await tick();
+
+    // Toggle edit mode
+    const toggleBtn = target.querySelector(".toggle-progress-edit") as HTMLButtonElement;
+    toggleBtn.click();
+    await tick();
+
+    const deleteBtn = target.querySelector(".delete-project") as HTMLButtonElement;
+    expect(deleteBtn).not.toBeNull();
+    deleteBtn.click();
+
+    expect(PartyTabLogic.deleteProject).toHaveBeenCalledWith(
+      "actor1",
+      mockProps.members[0].projects[0],
+      undefined,
+      true,
+    );
   });
 });

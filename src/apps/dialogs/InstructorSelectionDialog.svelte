@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import type { InstructorInstance } from "@/logic/tutelage-resolver.js";
   import type { TimeUnit } from "@/types.js";
   import { TabLogic } from "@/logic/tab-logic.js";
@@ -20,10 +21,14 @@
     lastInstructorName?: string,
   } = $props();
 
-  let selectedKey = $state(lastInstructorUuid && lastInstructorName !== "Self-Study" 
-    ? JSON.stringify({ uuid: lastInstructorUuid, name: lastInstructorName }) 
-    : "");
+  let selectedKey = $state("");
   let remember = $state(false);
+
+  onMount(() => {
+    if (lastInstructorUuid && lastInstructorName !== "Self-Study") {
+      selectedKey = JSON.stringify({ uuid: lastInstructorUuid, name: lastInstructorName });
+    }
+  });
 
   let selectedInstructor = $derived.by(() => {
     if (!selectedKey) return null;
