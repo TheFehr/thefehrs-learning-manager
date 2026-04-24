@@ -3,9 +3,8 @@
   import type {MemberMappedData, ProjectMappedData} from "@/apps/party-tab.js";
   import {PartyTabLogic} from "@/logic/party-tab-logic.js";
 
-  let {members, tierOptions, isGM, actor} = $props<{
+  let {members, isGM, actor} = $props<{
     members: MemberMappedData[];
-    tierOptions: Record<string, string>;
     isGM: boolean;
     actor: Actor;
   }>();

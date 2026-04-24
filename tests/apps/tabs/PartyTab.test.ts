@@ -45,7 +45,6 @@ describe("PartyTab.svelte", () => {
         ],
       },
     ],
-    tierOptions: { tier1: "Tier 1" },
     isGM: true,
   };
 

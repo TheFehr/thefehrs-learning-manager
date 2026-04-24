@@ -5,12 +5,13 @@ import { MODULE_ID } from "../../src/global";
 describe("v3-tutelage-selection migration", () => {
   let packs: any[];
 
-  function makePack(id: string, index: any[] = []) {
+  function makePack(id: string, index: any[] = [], type: string = "Actor") {
     const existing = packs.find(
       (p) => p.metadata?.id === id || p.collection === id || p.metadata?.name === id,
     );
     if (existing) {
       existing.getIndex.mockResolvedValue(index);
+      existing.metadata.type = type;
       return existing;
     }
     const p = {
@@ -18,7 +19,7 @@ describe("v3-tutelage-selection migration", () => {
         id,
         collection: id.split(".")[1] || id,
         name: id.split(".")[1] || id,
-        type: "Actor",
+        type: type,
       },
       collection: id.split(".")[1] || id,
       getIndex: vi.fn().mockResolvedValue(index),
@@ -59,8 +60,8 @@ describe("v3-tutelage-selection migration", () => {
       .fn()
       .mockImplementation((fn: any) => Array.prototype.find.call(packs, fn));
 
-    makePack("legacy-tutelage-instructors");
-    makePack("legacy-tutelage-books");
+    makePack("legacy-tutelage-instructors", [], "Actor");
+    makePack("legacy-tutelage-books", [], "Item");
 
     (globalThis as any).game = {
       user: { isGM: true },
@@ -286,6 +287,7 @@ describe("v3-tutelage-selection migration", () => {
   });
 
   it("should handle failure to create compendiums", async () => {
+    packs.length = 0;
     const tiers = [{ id: "t1", name: "Teacher", modifier: 5, costs: { cp: 100 } }];
     vi.mocked(game.settings.get).mockImplementation((_scope, key) => {
       if (key === "guidanceTiers") return tiers;
@@ -300,6 +302,7 @@ describe("v3-tutelage-selection migration", () => {
     await migrateToV3();
 
     expect(ui.notifications.info).not.toHaveBeenCalledWith(expect.stringContaining("complete"));
+    expect(game.settings.set).not.toHaveBeenCalledWith(MODULE_ID, "migrationVersion", "3.0.0");
   });
 
   it("should use existing legacy instructor if already created in pack", async () => {

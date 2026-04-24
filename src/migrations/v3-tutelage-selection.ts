@@ -80,7 +80,22 @@ export async function migrateToV3() {
       Logger.warn(`Migration v3 | ${MODULE_ID}.guidanceTiers is not an array.`, false, stored);
       rawTiers = [];
     } else {
-      rawTiers = stored as GuidanceTier[];
+      rawTiers = stored.filter((t: any) => {
+        const isValid =
+          t &&
+          typeof t === "object" &&
+          typeof t.id === "string" &&
+          typeof t.modifier === "number" &&
+          t.costs &&
+          typeof t.costs === "object";
+
+        if (!isValid) {
+          Logger.warn(
+            `Migration v3 | Dropping invalid guidance tier: ${JSON.stringify(t || "null")}`,
+          );
+        }
+        return isValid;
+      }) as GuidanceTier[];
     }
   } catch (err) {
     Logger.error(`Migration v3 | Failed to read ${MODULE_ID}.guidanceTiers:`, false, err);
@@ -397,6 +412,8 @@ export async function migrateToV3() {
             }
 
             // Set sourceId so the resolver recognizes it if compendium filtering is on
+            bookData._stats = bookData._stats || {};
+            bookData._stats.compendiumSource = bookDoc.uuid;
             bookData.flags.core = bookData.flags.core || {};
             (bookData.flags.core as any).sourceId = bookDoc.uuid;
 

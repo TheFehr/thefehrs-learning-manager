@@ -124,6 +124,18 @@ describe("WorldSettingsConfig.svelte", () => {
         result: "",
       };
 
+      (globalThis as any).FileReader = vi.fn().mockImplementation(function (this: any) {
+        return mockReader;
+      });
+    });
+
+    afterEach(() => {
+      (globalThis as any).FileReader = originalFileReader;
+      createElementSpy?.mockRestore();
+      createElementSpy = undefined;
+    });
+
+    function setupCreateElementSpy() {
       const originalCreateElement = document.createElement.bind(document);
       createElementSpy = vi.spyOn(document, "createElement").mockImplementation((tag) => {
         if (tag === "input") {
@@ -133,18 +145,10 @@ describe("WorldSettingsConfig.svelte", () => {
         }
         return originalCreateElement(tag);
       });
-
-      (globalThis as any).FileReader = vi.fn().mockImplementation(function (this: any) {
-        return mockReader;
-      });
-    });
-
-    afterEach(() => {
-      (globalThis as any).FileReader = originalFileReader;
-      createElementSpy?.mockRestore();
-    });
+    }
 
     it("should trigger file input on import click", async () => {
+      setupCreateElementSpy();
       instance = mount(WorldSettingsConfig, {
         target,
         props: { ...mockProps },
@@ -164,6 +168,7 @@ describe("WorldSettingsConfig.svelte", () => {
     });
 
     it("should successfully import all setting types", async () => {
+      setupCreateElementSpy();
       let rulesValue = mockProps.rules;
       let timeUnitsValue = mockProps.timeUnits;
       let teacherValue = mockProps.teacherCompendiums;
@@ -234,14 +239,14 @@ describe("WorldSettingsConfig.svelte", () => {
       });
 
       // Trigger the event
-      if (mockInput.onchange) {
-        (mockInput as any).onchange({ target: mockInput });
-      }
+      expect(mockInput.onchange).toBeTruthy();
+      (mockInput as any).onchange({ target: mockInput });
 
       expect(mockReader.readAsText).toHaveBeenCalledWith(mockFile);
 
       // Simulate load
       mockReader.result = JSON.stringify(importedData);
+      expect(mockReader.onload).toBeTruthy();
       await mockReader.onload({ target: mockReader });
 
       expect(rulesValue.checkDC).toBe(30);
@@ -255,6 +260,7 @@ describe("WorldSettingsConfig.svelte", () => {
     });
 
     it("should handle invalid JSON error during import", async () => {
+      setupCreateElementSpy();
       instance = mount(WorldSettingsConfig, {
         target,
         props: { ...mockProps },
@@ -267,11 +273,11 @@ describe("WorldSettingsConfig.svelte", () => {
       expect(importBtn).not.toBeNull();
       importBtn.click();
 
-      if (mockInput.onchange) {
-        (mockInput as any).onchange({ target: { files: [new File(["invalid"], "test.json")] } });
-      }
+      expect(mockInput.onchange).toBeTruthy();
+      (mockInput as any).onchange({ target: { files: [new File(["invalid"], "test.json")] } });
 
       mockReader.result = "invalid-json";
+      expect(mockReader.onload).toBeTruthy();
       await mockReader.onload({ target: mockReader });
 
       expect(ui.notifications?.error).toHaveBeenCalledWith(
@@ -280,6 +286,7 @@ describe("WorldSettingsConfig.svelte", () => {
     });
 
     it("should handle FileReader error", async () => {
+      setupCreateElementSpy();
       instance = mount(WorldSettingsConfig, {
         target,
         props: { ...mockProps },
@@ -292,10 +299,10 @@ describe("WorldSettingsConfig.svelte", () => {
       expect(importBtn).not.toBeNull();
       importBtn.click();
 
-      if (mockInput.onchange) {
-        (mockInput as any).onchange({ target: { files: [new File([""], "test.json")] } });
-      }
+      expect(mockInput.onchange).toBeTruthy();
+      (mockInput as any).onchange({ target: { files: [new File([""], "test.json")] } });
 
+      expect(mockReader.onerror).toBeTruthy();
       mockReader.onerror();
 
       expect(ui.notifications?.error).toHaveBeenCalledWith(
@@ -304,6 +311,7 @@ describe("WorldSettingsConfig.svelte", () => {
     });
 
     it("should handle FileReader abort", async () => {
+      setupCreateElementSpy();
       instance = mount(WorldSettingsConfig, {
         target,
         props: { ...mockProps },
@@ -316,10 +324,10 @@ describe("WorldSettingsConfig.svelte", () => {
       expect(importBtn).not.toBeNull();
       importBtn.click();
 
-      if (mockInput.onchange) {
-        (mockInput as any).onchange({ target: { files: [new File([""], "test.json")] } });
-      }
+      expect(mockInput.onchange).toBeTruthy();
+      (mockInput as any).onchange({ target: { files: [new File([""], "test.json")] } });
 
+      expect(mockReader.onabort).toBeTruthy();
       mockReader.onabort();
 
       expect(ui.notifications?.warn).toHaveBeenCalledWith(
@@ -328,6 +336,7 @@ describe("WorldSettingsConfig.svelte", () => {
     });
 
     it("should cleanup if visibility changes", async () => {
+      setupCreateElementSpy();
       vi.useFakeTimers();
       try {
         instance = mount(WorldSettingsConfig, {
@@ -353,6 +362,7 @@ describe("WorldSettingsConfig.svelte", () => {
     });
 
     it("should cleanup if no file is selected", async () => {
+      setupCreateElementSpy();
       vi.useFakeTimers();
       try {
         instance = mount(WorldSettingsConfig, {

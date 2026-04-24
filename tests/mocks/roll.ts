@@ -57,7 +57,7 @@ function evaluateFormula(formula: string, data: any) {
     if (trimmed.startsWith("@")) {
       const path = trimmed.slice(1);
       tokenVal = path.split(".").reduce((o, i) => (o ? o[i] : undefined), data) || 0;
-    } else if (trimmed.includes("d")) {
+    } else if (/\d*d\d+/i.test(trimmed)) {
       tokenVal = val || 10;
     } else {
       // Basic extraction of numbers from tokens like "round" or "20)"

@@ -96,31 +96,35 @@ export class TabLogic {
             /\b\d*d\d+([khdl][hl]?\d+)\b/i.test(rules.checkFormula) &&
             !/\b2d20(kh|kl|dh|dl)1\b/i.test(rules.checkFormula);
 
-          const modFormula = hasUnsupportedKeepDrop
-            ? rules.checkFormula
-            : rules.checkFormula
-                // Replace d20-based dice with their relative modifier to a flat d20 roll (E - 10.5).
-                // This allows us to extract the "bonus" part of the formula for use in the bulk calculation.
-                .replace(
-                  /\b(\d*)d20(?:([khdl][hl]?)(\d+)?)?\b/gi,
-                  (match, countStr, modType, modValueStr) => {
-                    const count = countStr ? parseInt(countStr) : 1;
-                    const modValue = modValueStr ? parseInt(modValueStr) : undefined;
-                    const expectation = getDieExpectation(count, 20, modType, modValue);
-                    return (expectation - 10.5).toString();
-                  },
-                )
-                // Replace all other dice with their average/expected value to make the formula deterministic.
-                .replace(
-                  /\b(\d*)d(\d+)(?:([khdl][hl]?)(\d+)?)?\b/gi,
-                  (match, countStr, facesStr, modType, modValueStr) => {
-                    const count = countStr ? parseInt(countStr) : 1;
-                    const faces = parseInt(facesStr);
-                    const modValue = modValueStr ? parseInt(modValueStr) : undefined;
-                    const expectation = getDieExpectation(count, faces, modType, modValue);
-                    return expectation.toString();
-                  },
-                );
+          if (hasUnsupportedKeepDrop) {
+            Logger.warn(
+              `Mathematical progress: Unsupported keep/drop dice expression in formula "${rules.checkFormula}". Falling back to average expectation.`,
+            );
+          }
+
+          const modFormula = rules.checkFormula
+            // Replace d20-based dice with their relative modifier to a flat d20 roll (E - 10.5).
+            // This allows us to extract the "bonus" part of the formula for use in the bulk calculation.
+            .replace(
+              /\b(\d*)d20(?:([khdl][hl]?)(\d+)?)?\b/gi,
+              (match, countStr, modType, modValueStr) => {
+                const count = countStr ? parseInt(countStr) : 1;
+                const modValue = modValueStr ? parseInt(modValueStr) : undefined;
+                const expectation = getDieExpectation(count, 20, modType, modValue);
+                return (expectation - 10.5).toString();
+              },
+            )
+            // Replace all other dice with their average/expected value to make the formula deterministic.
+            .replace(
+              /\b(\d*)d(\d+)(?:([khdl][hl]?)(\d+)?)?\b/gi,
+              (match, countStr, facesStr, modType, modValueStr) => {
+                const count = countStr ? parseInt(countStr) : 1;
+                const faces = parseInt(facesStr);
+                const modValue = modValueStr ? parseInt(modValueStr) : undefined;
+                const expectation = getDieExpectation(count, faces, modType, modValue);
+                return expectation.toString();
+              },
+            );
           const modRoll = new Roll(modFormula, {
             ...actor.getRollData(),
             tutelage: tutelageMod,
@@ -303,6 +307,36 @@ export class TabLogic {
     }
 
     let remaining = totalCp - costCp;
+    const newPp = Math.floor(remaining / 1000);
+    remaining %= 1000;
+    const newGp = Math.floor(remaining / 100);
+    remaining %= 100;
+    const newEp = Math.floor(remaining / 50);
+    remaining %= 50;
+    const newSp = Math.floor(remaining / 10);
+    const newCp = remaining % 10;
+
+    await proxy.updateCurrency({ pp: newPp, gp: newGp, ep: newEp, sp: newSp, cp: newCp });
+    return true;
+  }
+
+  /**
+   * Adds currency to an actor.
+   */
+  static async addCurrency(actor: Actor, amountCp: number): Promise<boolean> {
+    if (isNaN(amountCp) || amountCp < 0) {
+      Logger.warn(`Invalid currency amount: ${amountCp}. Must be a non-negative number.`);
+      return false;
+    }
+    if (!isActor5e(actor)) {
+      Logger.warn("Cannot add currency to non-dnd5e actor.");
+      return false;
+    }
+    const proxy = ActorProxy.forActor(actor);
+    const cur = proxy.currency;
+    const totalCp = cur.pp * 1000 + cur.gp * 100 + cur.ep * 50 + cur.sp * 10 + cur.cp;
+
+    let remaining = totalCp + amountCp;
     const newPp = Math.floor(remaining / 1000);
     remaining %= 1000;
     const newGp = Math.floor(remaining / 100);

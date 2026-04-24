@@ -503,77 +503,104 @@ export class ProjectEngine {
     // Deduct time from bank
     await proxy.setBank({ total: bank.total - tu.ratio });
 
-    if (completedNow) {
-      // Ensure latest instructor/remembered data is saved before completion
-      await this.updateItemWithProgress(
-        item as unknown as Item5e,
-        projectDataFlags,
-        instructorName,
-      );
-      await this.completeProject(item as unknown as Item5e);
+    try {
+      if (completedNow) {
+        // Ensure latest instructor/remembered data is saved before completion
+        await this.updateItemWithProgress(
+          item as unknown as Item5e,
+          projectDataFlags,
+          instructorName,
+        );
+        await this.completeProject(item as unknown as Item5e);
 
-      if (excessProgress > 0 && projectDataFlags.followUpProjectId) {
-        const followUpItem = (await fromUuid(
-          projectDataFlags.followUpProjectId as `Item.${string}`,
-        )) as unknown as Item | null;
-        if (followUpItem) {
-          const escapedItemName = FoundryUtils.escapeHTML(item.name || "");
-          const escapedFollowUpName = FoundryUtils.escapeHTML(followUpItem.name || "");
+        if (excessProgress > 0 && projectDataFlags.followUpProjectId) {
+          const followUpItem = (await fromUuid(
+            projectDataFlags.followUpProjectId as `Item.${string}`,
+          )) as unknown as Item | null;
+          if (followUpItem) {
+            const escapedItemName = FoundryUtils.escapeHTML(item.name || "");
+            const escapedFollowUpName = FoundryUtils.escapeHTML(followUpItem.name || "");
 
-          const proceed = await foundry.applications.api.DialogV2.confirm({
-            window: { title: "Learning Progress Exceeded" },
-            content: `<p>You generated <strong>${excessProgress}</strong> more progress than needed to complete <strong>${escapedItemName}</strong>.</p>
-                      <p>Would you like to immediately apply it towards the follow-up project: <strong>${escapedFollowUpName}</strong>?</p>`,
-            rejectClose: false,
-          });
+            const proceed = await foundry.applications.api.DialogV2.confirm({
+              window: { title: "Learning Progress Exceeded" },
+              content: `<p>You generated <strong>${excessProgress}</strong> more progress than needed to complete <strong>${escapedItemName}</strong>.</p>
+                        <p>Would you like to immediately apply it towards the follow-up project: <strong>${escapedFollowUpName}</strong>?</p>`,
+              rejectClose: false,
+            });
 
-          if (proceed) {
-            const followUpFlags = followUpItem.getFlag("thefehrs-learning-manager", "projectData");
-            const reqs = followUpFlags?.requirements || [];
-            const { eligible, reason: reqReason } = TabLogic.meetsRequirements(actor, reqs);
-
-            if (!eligible) {
-              getUI()?.notifications?.warn(
-                `Could not start follow-up project: Requirements not met for ${escapedFollowUpName}: ${reqReason}`,
+            if (proceed) {
+              const followUpFlags = followUpItem.getFlag(
+                "thefehrs-learning-manager",
+                "projectData",
               );
-            } else {
-              const newItem = await this.initiateProjectFromItem(actor, followUpItem);
-              if (newItem) {
-                const newFlags = FoundryUtils.deepClone(
-                  (newItem as unknown as ProjectItem).getFlag(
-                    "thefehrs-learning-manager",
-                    "projectData",
-                  ),
+              const reqs = followUpFlags?.requirements || [];
+              const { eligible, reason: reqReason } = TabLogic.meetsRequirements(actor, reqs);
+
+              if (!eligible) {
+                getUI()?.notifications?.warn(
+                  `Could not start follow-up project: Requirements not met for ${escapedFollowUpName}: ${reqReason}`,
                 );
-                if (newFlags) {
-                  newFlags.progress = Math.min(
-                    excessProgress,
-                    (newFlags.target || 0) > 0 ? newFlags.target! : excessProgress,
+              } else {
+                const newItem = await this.initiateProjectFromItem(actor, followUpItem);
+                if (newItem) {
+                  const newFlags = FoundryUtils.deepClone(
+                    (newItem as unknown as ProjectItem).getFlag(
+                      "thefehrs-learning-manager",
+                      "projectData",
+                    ),
                   );
-                  await this.updateItemWithProgress(newItem, newFlags);
-                  getUI()?.notifications?.info(
-                    `Started follow-up project: ${FoundryUtils.escapeHTML(followUpItem.name || "")} with ${
-                      newFlags.progress
-                    } initial progress.`,
-                  );
+                  if (newFlags) {
+                    newFlags.progress = Math.min(
+                      excessProgress,
+                      (newFlags.target || 0) > 0 ? newFlags.target! : excessProgress,
+                    );
+                    try {
+                      await this.updateItemWithProgress(newItem, newFlags);
+                      getUI()?.notifications?.info(
+                        `Started follow-up project: ${FoundryUtils.escapeHTML(followUpItem.name || "")} with ${
+                          newFlags.progress
+                        } initial progress.`,
+                      );
+                    } catch (err) {
+                      Logger.error("Failed to update follow-up project progress:", true, err);
+                      getUI()?.notifications?.error(
+                        `Failed to update progress on follow-up project "${followUpItem.name}".`,
+                      );
+                    }
+                  }
                 }
               }
             }
           }
         }
+      } else {
+        await this.updateItemWithProgress(
+          item as unknown as Item5e,
+          projectDataFlags,
+          instructorName,
+        );
+
+        // Ensure we have the latest document instance before displaying the card
+        const freshItem = actor.items.get(item.id!) as Item5e | undefined;
+        if (freshItem && typeof (freshItem as any).displayCard === "function") {
+          await (freshItem as any).displayCard({ rollMode: rules.rollMode });
+        }
       }
-    } else {
-      await this.updateItemWithProgress(
-        item as unknown as Item5e,
-        projectDataFlags,
-        instructorName,
+    } catch (err) {
+      Logger.error("Process training failed during item update:", true, err);
+      getUI()?.notifications?.error(
+        `Failed to update project "${item.name}". Deducted currency and time will be restored.`,
       );
 
-      // Ensure we have the latest document instance before displaying the card
-      const freshItem = actor.items.get(item.id!) as Item5e | undefined;
-      if (freshItem && typeof (freshItem as any).displayCard === "function") {
-        await (freshItem as any).displayCard({ rollMode: rules.rollMode });
+      // Rollback time
+      await proxy.setBank({ total: bank.total });
+
+      // Rollback currency
+      if (costCp > 0) {
+        await TabLogic.addCurrency(actor, costCp);
       }
+
+      return false;
     }
 
     if (isSeparate && tu.ratio > ProjectEngine.BATCH_THRESHOLD) {

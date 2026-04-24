@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { ItemConfigLogic } from "../../src/logic/item-config-logic";
-import { getModuleAPI } from "../../src/types";
+import { getModuleAPI } from "@/types";
 
 vi.mock("@/types", async (importActual) => {
   const actual = await importActual<any>();

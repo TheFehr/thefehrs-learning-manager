@@ -79,7 +79,7 @@ export async function migrateToV2() {
 
           if (success) {
             migratedCount++;
-            if (notificationId) {
+            if (notificationId !== undefined) {
               getUI()?.notifications?.update(notificationId, {
                 message: `Migrating projects: ${migratedCount}/${totalProjects}`,
                 pct: migratedCount / totalProjects,
@@ -134,7 +134,7 @@ export async function migrateToV2() {
       getUI()?.notifications?.info(`Successfully migrated to v2.0.0!`);
     } else {
       getUI()?.notifications?.warn(
-        "Downtime Engine | Migration to native Items partially failed. Some projects were preserved in legacy flags and will be retried later.",
+        "Migration to native Items partially failed. Some projects were preserved in legacy flags and will be retried later.",
       );
     }
   } catch (error) {

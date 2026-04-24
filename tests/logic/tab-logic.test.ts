@@ -87,7 +87,7 @@ describe("TabLogic", () => {
 
       const result = await TabLogic.computeProgress(actor, bulkRules, tutelageMod, bulkTu as any);
       // Complex formula 3d20kh1 triggers hasUnsupportedKeepDrop fallback logic.
-      expect(result.progressGained).toBe(11);
+      expect(result.progressGained).toBe(10);
     });
 
     it("should allow 'roll' method for bulk units", async () => {
