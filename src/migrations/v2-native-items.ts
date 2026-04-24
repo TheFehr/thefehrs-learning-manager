@@ -81,7 +81,7 @@ export async function migrateToV2() {
             migratedCount++;
             if (notificationId) {
               getUI()?.notifications?.update(notificationId, {
-                content: `Migrating projects: ${migratedCount}/${totalProjects}`,
+                message: `Migrating projects: ${migratedCount}/${totalProjects}`,
                 pct: migratedCount / totalProjects,
               });
             }
