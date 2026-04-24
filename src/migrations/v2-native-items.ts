@@ -78,7 +78,7 @@ export async function migrateToV2() {
 
           if (success) {
             migratedCount++;
-            notification?.update({
+            (notification as any)?.update?.({
               message: `Migrating projects: ${migratedCount}/${totalProjects}`,
               progress: migratedCount / totalProjects,
             });
