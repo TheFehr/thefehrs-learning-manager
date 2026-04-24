@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { ProjectLifecycle } from "@/logic/project-lifecycle";
 import { Settings } from "@/core/settings";
 import { ActivityManager } from "@/core/activity-manager";
@@ -26,6 +26,9 @@ describe("ProjectLifecycle", () => {
   let mockActor: any;
   let mockItem: any;
   let createdItems: any[] = [];
+  const _origActor = globalThis.Actor;
+  const _origItem = globalThis.Item;
+  const _origFromUuid = globalThis.fromUuid;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -39,7 +42,14 @@ describe("ProjectLifecycle", () => {
       constructor(data: any) {
         Object.assign(this, data);
       }
-      getFlag = vi.fn();
+      getFlag = vi.fn().mockImplementation((scope, key) => {
+        if (scope !== Settings.ID) return undefined;
+        if (key === "isLearningProject") return (this as any)._isLearningProject;
+        if (key === "projectData") return (this as any)._projectData;
+        if (key === "projectData.stashedSourceUuid")
+          return (this as any)._projectData?.stashedSourceUuid;
+        return (this as any)._flags?.[key];
+      });
       setFlag = vi.fn();
       update = vi.fn().mockResolvedValue(this);
       delete = vi.fn().mockResolvedValue(true);
@@ -61,7 +71,7 @@ describe("ProjectLifecycle", () => {
       },
     });
 
-    mockItem.getFlag.mockReturnValue({ target: 10 });
+    mockItem._projectData = { target: 10 };
     mockItem.toObject.mockReturnValue({
       name: "Source Item",
       type: "feat",
@@ -78,6 +88,12 @@ describe("ProjectLifecycle", () => {
       }),
     };
     (globalThis as any).fromUuid = vi.fn();
+  });
+
+  afterEach(() => {
+    globalThis.Actor = _origActor;
+    globalThis.Item = _origItem;
+    globalThis.fromUuid = _origFromUuid;
   });
 
   describe("initiateProjectFromItem", () => {
@@ -103,7 +119,7 @@ describe("ProjectLifecycle", () => {
     });
 
     it("should return null if target is invalid", async () => {
-      mockItem.getFlag.mockReturnValue({ target: 0 });
+      mockItem._projectData = { target: 0 };
       const result = await ProjectLifecycle.initiateProjectFromItem(mockActor, mockItem);
 
       expect(result).toBeNull();
@@ -121,11 +137,12 @@ describe("ProjectLifecycle", () => {
 
   describe("completeProject", () => {
     it("should restore from source if available", async () => {
-      mockItem.getFlag.mockReturnValue({
+      mockItem._isLearningProject = true;
+      mockItem._projectData = {
         stashedSourceUuid: "Item.Source",
-        isLearningProject: true,
-        projectData: { target: 10, progress: 10, stashedSourceUuid: "Item.Source" },
-      });
+        target: 10,
+        progress: 10,
+      };
       const mockSourceItem = new (globalThis as any).Item({ name: "Source" });
       mockSourceItem.toObject = vi.fn().mockReturnValue({ name: "Source" });
       (globalThis as any).fromUuid.mockResolvedValue(mockSourceItem);

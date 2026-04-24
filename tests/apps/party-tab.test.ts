@@ -10,9 +10,6 @@ describe("PartyTab", () => {
       if (key === "timeUnits") {
         return [{ id: "hour", name: "Hour", short: "h", isBulk: false, ratio: 1 }];
       }
-      if (key === "guidanceTiers") {
-        return [{ id: "tier1", name: "Tier 1", modifier: 2, costs: {}, progress: {} }];
-      }
       return null;
     });
 

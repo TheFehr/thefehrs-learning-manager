@@ -85,7 +85,7 @@ export class ProjectEngine {
     item: Item5e,
     projectData: ProjectFlagData,
     instructorName: string = "Self-Study",
-  ): Promise<boolean> {
+  ): Promise<void> {
     return ProjectLifecycle.updateItemWithProgress(item, projectData, instructorName);
   }
 
@@ -505,15 +505,11 @@ export class ProjectEngine {
 
     if (completedNow) {
       // Ensure latest instructor/remembered data is saved before completion
-      try {
-        await this.updateItemWithProgress(
-          item as unknown as Item5e,
-          projectDataFlags,
-          instructorName,
-        );
-      } catch (err) {
-        Logger.error(`Failed to update item with progress before completion:`, false, err);
-      }
+      await this.updateItemWithProgress(
+        item as unknown as Item5e,
+        projectDataFlags,
+        instructorName,
+      );
       await this.completeProject(item as unknown as Item5e);
 
       if (excessProgress > 0 && projectDataFlags.followUpProjectId) {
@@ -554,15 +550,7 @@ export class ProjectEngine {
                     excessProgress,
                     (newFlags.target || 0) > 0 ? newFlags.target! : excessProgress,
                   );
-                  try {
-                    await this.updateItemWithProgress(newItem, newFlags);
-                  } catch (err) {
-                    Logger.error(
-                      `Failed to update follow-up item with initial progress:`,
-                      false,
-                      err,
-                    );
-                  }
+                  await this.updateItemWithProgress(newItem, newFlags);
                   getUI()?.notifications?.info(
                     `Started follow-up project: ${FoundryUtils.escapeHTML(followUpItem.name || "")} with ${
                       newFlags.progress
@@ -575,15 +563,11 @@ export class ProjectEngine {
         }
       }
     } else {
-      try {
-        await this.updateItemWithProgress(
-          item as unknown as Item5e,
-          projectDataFlags,
-          instructorName,
-        );
-      } catch (err) {
-        Logger.error(`Failed to update item with progress:`, false, err);
-      }
+      await this.updateItemWithProgress(
+        item as unknown as Item5e,
+        projectDataFlags,
+        instructorName,
+      );
 
       // Ensure we have the latest document instance before displaying the card
       const freshItem = actor.items.get(item.id!) as Item5e | undefined;

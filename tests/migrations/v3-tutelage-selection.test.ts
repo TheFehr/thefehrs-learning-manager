@@ -3,15 +3,64 @@ import { migrateToV3 } from "../../src/migrations/v3-tutelage-selection";
 import { MODULE_ID } from "../../src/global";
 
 describe("v3-tutelage-selection migration", () => {
+  let packs: any[];
+
+  function makePack(id: string, index: any[] = []) {
+    const existing = packs.find(
+      (p) => p.metadata?.id === id || p.collection === id || p.metadata?.name === id,
+    );
+    if (existing) {
+      existing.getIndex.mockResolvedValue(index);
+      return existing;
+    }
+    const p = {
+      metadata: {
+        id,
+        collection: id.split(".")[1] || id,
+        name: id.split(".")[1] || id,
+        type: "Actor",
+      },
+      collection: id.split(".")[1] || id,
+      getIndex: vi.fn().mockResolvedValue(index),
+      importDocument: vi.fn().mockImplementation(async (doc) => doc),
+    };
+    packs.push(p);
+    return p;
+  }
+
+  function makeItem(name: string, flags: Record<string, any> = {}, effects: any[] = []) {
+    const item = new (globalThis as any).Item() as any;
+    item.name = name;
+    item.effects = effects;
+    item.getFlag.mockImplementation((_scope: string, key: string) => {
+      if (key === "isLearningProject") return flags.isLearningProject;
+      if (key === "projectData") return flags.projectData;
+      return null;
+    });
+    return item;
+  }
+
+  function makeActor(items: any[] = []) {
+    const actor = new (globalThis as any).Actor() as any;
+    actor.items = items;
+    (game.actors.contents as any[]).push(actor);
+    return actor;
+  }
+
   beforeEach(() => {
     vi.clearAllMocks();
-    const packs: any[] = [];
+    packs = [];
     (packs as any).get = vi
       .fn()
       .mockImplementation((id: string) =>
-        packs.find((p) => p.metadata?.id === id || p.collection === id),
+        packs.find((p) => p.metadata?.id === id || p.collection === id || p.metadata?.name === id),
       );
-    (packs as any).find = vi.fn().mockImplementation((fn: any) => packs.find(fn));
+    (packs as any).find = vi
+      .fn()
+      .mockImplementation((fn: any) => Array.prototype.find.call(packs, fn));
+
+    makePack("legacy-tutelage-instructors");
+    makePack("legacy-tutelage-books");
 
     (globalThis as any).game = {
       user: { isGM: true },
@@ -50,7 +99,11 @@ describe("v3-tutelage-selection migration", () => {
 
     (globalThis as any).fromUuid = vi.fn();
     (globalThis as any).ui = { notifications: { info: vi.fn(), error: vi.fn(), warn: vi.fn() } };
-    (globalThis as any).CompendiumCollection = { createCompendium: vi.fn() };
+    (globalThis as any).CompendiumCollection = {
+      createCompendium: vi.fn().mockImplementation(async (data: any) => {
+        return makePack(data.name || data.label);
+      }),
+    };
 
     (globalThis as any).foundry = {
       applications: {
@@ -77,25 +130,12 @@ describe("v3-tutelage-selection migration", () => {
       return null;
     });
 
-    const project = new Item() as any;
-    project.name = "Charisma Project";
-    project.effects = [{ changes: [{ key: "system.abilities.cha.mod", value: "1" }] }];
-    project.getFlag.mockImplementation((_scope: string, key: string) => {
-      if (key === "isLearningProject") return true;
-      if (key === "projectData") return { tutelageId: "t1" };
-      return null;
-    });
-
-    const actor = new Actor() as any;
-    actor.items = [project];
-    (game.actors.contents as any[]).push(actor);
-
-    const pack = {
-      metadata: { id: "pack.id", collection: "pack" },
-      collection: "pack",
-      getIndex: vi.fn().mockResolvedValue([]),
-    };
-    vi.mocked(game.packs.find).mockReturnValue(pack);
+    const project = makeItem(
+      "Charisma Project",
+      { isLearningProject: true, projectData: { tutelageId: "t1" } },
+      [{ changes: [{ key: "system.abilities.cha.mod", value: "1" }] }],
+    );
+    makeActor([project]);
 
     await migrateToV3();
 
@@ -119,25 +159,13 @@ describe("v3-tutelage-selection migration", () => {
       return null;
     });
 
-    const project = new Item() as any;
-    project.name = "Skill Project";
-    project.effects = [{ changes: [{ key: "system.skills.arc.mod", value: "1" }] }];
-    project.getFlag.mockImplementation((_scope: string, key: string) => {
-      if (key === "isLearningProject") return true;
-      if (key === "projectData") return { tutelageId: "t1" };
-      return null;
-    });
-
-    const actor = new Actor() as any;
-    actor.items = [project];
-    (game.actors.contents as any[]).push(actor);
-
-    const pack = {
-      metadata: { id: "pack.id", collection: "pack" },
-      collection: "pack",
-      getIndex: vi.fn().mockResolvedValue([]),
-    };
-    vi.mocked(game.packs.find).mockReturnValue(pack);
+    const project = makeItem(
+      "Skill Project",
+      { isLearningProject: true, projectData: { tutelageId: "t1" } },
+      [{ changes: [{ key: "system.skills.arc.mod", value: "1" }] }],
+    );
+    makeActor([project]);
+    makePack("pack.id");
 
     await migrateToV3();
 
@@ -159,26 +187,13 @@ describe("v3-tutelage-selection migration", () => {
       return null;
     });
 
-    const project = new Item() as any;
-    project.name = "Arcana Project";
-    project.getFlag.mockImplementation((_scope: string, key: string) => {
-      if (key === "isLearningProject") return true;
-      if (key === "projectData") return { tutelageId: "tBook" };
-      return null;
+    const project = makeItem("Arcana Project", {
+      isLearningProject: true,
+      projectData: { tutelageId: "tBook" },
     });
+    const actor = makeActor([project]);
+    makePack("pack.id");
 
-    const actor = new Actor() as any;
-    actor.items = [project];
-    (game.actors.contents as any[]).push(actor);
-
-    const pack = {
-      metadata: { id: "pack.id", collection: "pack" },
-      collection: "pack",
-      getIndex: vi.fn().mockResolvedValue([]),
-    };
-    vi.mocked(game.packs.find).mockReturnValue(pack);
-
-    // Mock fromUuid to return the created book
     const createdBook = new Item() as any;
     createdBook.uuid = "Item.Book1";
     createdBook.getFlag.mockReturnValue({ modifier: 2 });
@@ -186,8 +201,6 @@ describe("v3-tutelage-selection migration", () => {
       flags: { [MODULE_ID]: { learningBookBonus: { modifier: 2 } } },
     });
     vi.mocked(fromUuid).mockResolvedValue(createdBook);
-
-    // Mock Actor.createDocuments for books
     vi.mocked(Item.createDocuments).mockResolvedValue([createdBook]);
 
     await migrateToV3();
@@ -216,23 +229,9 @@ describe("v3-tutelage-selection migration", () => {
       return [];
     });
 
-    const project = new Item() as any;
-    project.getFlag.mockImplementation((_scope: string, key: string) => {
-      if (key === "isLearningProject") return true;
-      if (key === "projectData") return { tutelageId: "t1" };
-      return null;
-    });
-
-    const actor = new Actor() as any;
-    actor.items = [project];
-    (game.actors.contents as any[]).push(actor);
-
-    const pack = {
-      metadata: { id: "pack.id", collection: "pack" },
-      collection: "pack",
-      getIndex: vi.fn().mockResolvedValue([]),
-    };
-    vi.mocked(game.packs.find).mockReturnValue(pack);
+    const project = makeItem("T", { isLearningProject: true, projectData: { tutelageId: "t1" } });
+    makeActor([project]);
+    makePack("pack.id");
 
     vi.mocked(foundry.applications.api.DialogV2.confirm).mockResolvedValue(false);
 
@@ -248,24 +247,14 @@ describe("v3-tutelage-selection migration", () => {
       return [];
     });
 
-    game.actors = { contents: [] };
-
     await migrateToV3();
 
     expect(game.settings.set).toHaveBeenCalledWith(MODULE_ID, "migrationVersion", "3.0.0");
   });
 
   it("should handle error when getting guidance tiers by not advancing version if projects exist", async () => {
-    // Add project that uses a tier
-    const project = new Item() as any;
-    project.getFlag.mockImplementation((_scope: string, key: string) => {
-      if (key === "isLearningProject") return true;
-      if (key === "projectData") return { tutelageId: "t1" };
-      return null;
-    });
-    const actor = new Actor() as any;
-    actor.items = [project];
-    (game.actors.contents as any[]).push(actor);
+    const project = makeItem("T", { isLearningProject: true, projectData: { tutelageId: "t1" } });
+    makeActor([project]);
 
     vi.mocked(game.settings.get).mockImplementation((_scope, key) => {
       if (key === "guidanceTiers") throw new Error("Not found");
@@ -278,16 +267,8 @@ describe("v3-tutelage-selection migration", () => {
   });
 
   it("should skip and retry if rawTiers is empty but projects exist", async () => {
-    // Add project that uses a tier
-    const project = new Item() as any;
-    project.getFlag.mockImplementation((_scope: string, key: string) => {
-      if (key === "isLearningProject") return true;
-      if (key === "projectData") return { tutelageId: "t1" };
-      return null;
-    });
-    const actor = new Actor() as any;
-    actor.items = [project];
-    (game.actors.contents as any[]).push(actor);
+    const project = makeItem("T", { isLearningProject: true, projectData: { tutelageId: "t1" } });
+    makeActor([project]);
 
     vi.mocked(game.settings.get).mockImplementation((_scope, key) => {
       if (key === "guidanceTiers") return [];
@@ -300,7 +281,6 @@ describe("v3-tutelage-selection migration", () => {
   });
 
   it("should mark as complete if no projects are found using tiers", async () => {
-    // No actors/projects in game.actors.contents
     await migrateToV3();
     expect(game.settings.set).toHaveBeenCalledWith(MODULE_ID, "migrationVersion", "3.0.0");
   });
@@ -312,18 +292,9 @@ describe("v3-tutelage-selection migration", () => {
       return null;
     });
 
-    const project = new Item() as any;
-    project.getFlag.mockImplementation((_scope: string, key: string) => {
-      if (key === "isLearningProject") return true;
-      if (key === "projectData") return { tutelageId: "t1" };
-      return null;
-    });
-    const actor = new Actor() as any;
-    actor.items = [project];
-    (game.actors.contents as any[]).push(actor);
+    const project = makeItem("T", { isLearningProject: true, projectData: { tutelageId: "t1" } });
+    makeActor([project]);
 
-    // Mock pack find to return null to trigger getOrCreateCompendium creation failure
-    vi.mocked(game.packs.find).mockReturnValue(undefined);
     vi.mocked(CompendiumCollection.createCompendium).mockRejectedValue(new Error("Failed"));
 
     await migrateToV3();
@@ -340,24 +311,20 @@ describe("v3-tutelage-selection migration", () => {
       return null;
     });
 
-    const project = new Item() as any;
-    project.getFlag.mockImplementation((_scope: string, key: string) => {
-      if (key === "isLearningProject") return true;
-      if (key === "projectData") return { tutelageId: "t1" };
-      return null;
-    });
-    const actor = new Actor() as any;
-    actor.items = [project];
-    (game.actors.contents as any[]).push(actor);
-
-    const pack = {
-      metadata: { id: "pack.id", collection: "pack" },
-      collection: "pack",
-      getIndex: vi
-        .fn()
-        .mockResolvedValue([{ _id: "existingId", flags: { [MODULE_ID]: { legacyTierId: "t1" } } }]),
-    };
-    vi.mocked(game.packs.find).mockReturnValue(pack);
+    const project = makeItem("T", { isLearningProject: true, projectData: { tutelageId: "t1" } });
+    makeActor([project]);
+    makePack("legacy-tutelage-instructors", [
+      {
+        _id: "existingId",
+        flags: {
+          [MODULE_ID]: {
+            legacyTierId: "t1",
+            teacherOfferings: [{ modifier: 5 }],
+          },
+        },
+      },
+    ]);
+    makePack("legacy-tutelage-books");
 
     await migrateToV3();
 
@@ -366,7 +333,7 @@ describe("v3-tutelage-selection migration", () => {
       MODULE_ID,
       "projectData",
       expect.objectContaining({
-        lastInstructorUuid: "Compendium.pack.id.existingId",
+        lastInstructorUuid: "Compendium.legacy-tutelage-instructors.existingId",
       }),
     );
   });
@@ -380,22 +347,9 @@ describe("v3-tutelage-selection migration", () => {
       return null;
     });
 
-    const project = new Item() as any;
-    project.getFlag.mockImplementation((_scope: string, key: string) => {
-      if (key === "isLearningProject") return true;
-      if (key === "projectData") return { tutelageId: "t1" };
-      return null;
-    });
-    const actor = new Actor() as any;
-    actor.items = [project];
-    (game.actors.contents as any[]).push(actor);
-
-    const pack = {
-      metadata: { id: "pack.id", collection: "pack" },
-      collection: "pack",
-      getIndex: vi.fn().mockResolvedValue([]),
-    };
-    vi.mocked(game.packs.find).mockReturnValue(pack);
+    const project = makeItem("T", { isLearningProject: true, projectData: { tutelageId: "t1" } });
+    makeActor([project]);
+    makePack("pack.id");
     vi.mocked(Actor.createDocuments).mockRejectedValue(new Error("Creation failed"));
 
     await migrateToV3();
@@ -414,23 +368,10 @@ describe("v3-tutelage-selection migration", () => {
       return null;
     });
 
-    const project = new Item() as any;
-    project.getFlag.mockImplementation((_scope: string, key: string) => {
-      if (key === "isLearningProject") return true;
-      if (key === "projectData") return { tutelageId: "t1" };
-      return null;
-    });
-    const actor = new Actor() as any;
-    actor.items = [project];
-    (game.actors.contents as any[]).push(actor);
-
-    const pack = {
-      metadata: { id: "pack.id", collection: "pack" },
-      collection: "pack",
-      getIndex: vi.fn().mockResolvedValue([]),
-    };
-    vi.mocked(game.packs.find).mockReturnValue(pack);
-    vi.mocked(Actor.createDocuments).mockResolvedValue([]); // Empty result
+    const project = makeItem("T", { isLearningProject: true, projectData: { tutelageId: "t1" } });
+    makeActor([project]);
+    makePack("pack.id");
+    vi.mocked(Actor.createDocuments).mockResolvedValue([]);
 
     await migrateToV3();
 
@@ -448,25 +389,13 @@ describe("v3-tutelage-selection migration", () => {
       return null;
     });
 
-    const project = new Item() as any;
-    project.name = "Arcana Project";
-    project.getFlag.mockImplementation((_scope: string, key: string) => {
-      if (key === "isLearningProject") return true;
-      if (key === "projectData") return { tutelageId: "tBook" };
-      return null;
+    const project = makeItem("Arcana Project", {
+      isLearningProject: true,
+      projectData: { tutelageId: "tBook" },
     });
-
-    const actor = new Actor() as any;
-    actor.items = [project];
-    (game.actors.contents as any[]).push(actor);
-
-    const pack = {
-      metadata: { id: "pack.id", collection: "pack" },
-      collection: "pack",
-      getIndex: vi.fn().mockResolvedValue([]),
-    };
-    vi.mocked(game.packs.find).mockReturnValue(pack);
-    vi.mocked(Item.createDocuments).mockResolvedValue([]); // Empty result
+    makeActor([project]);
+    makePack("pack.id");
+    vi.mocked(Item.createDocuments).mockResolvedValue([]);
 
     await migrateToV3();
 
@@ -482,22 +411,12 @@ describe("v3-tutelage-selection migration", () => {
       return [];
     });
 
-    const project = new Item() as any;
-    project.getFlag.mockImplementation((_scope: string, key: string) => {
-      if (key === "isLearningProject") return true;
-      if (key === "projectData") return { tutelageId: "orphaned" };
-      return null;
+    const project = makeItem("T", {
+      isLearningProject: true,
+      projectData: { tutelageId: "orphaned" },
     });
-    const actor = new Actor() as any;
-    actor.items = [project];
-    (game.actors.contents as any[]).push(actor);
-
-    const pack = {
-      metadata: { id: "pack.id", collection: "pack" },
-      collection: "pack",
-      getIndex: vi.fn().mockResolvedValue([]),
-    };
-    vi.mocked(game.packs.find).mockReturnValue(pack);
+    makeActor([project]);
+    makePack("pack.id");
 
     await migrateToV3();
 
@@ -517,37 +436,21 @@ describe("v3-tutelage-selection migration", () => {
       return null;
     });
 
-    const project = new (Item as any)() as any;
-    project.name = "Failed Project";
-    project.id = "proj-failed";
-    project.getFlag.mockImplementation((_scope: string, key: string) => {
-      if (key === "isLearningProject") return true;
-      if (key === "projectData") return { tutelageId: "failed-tier" };
-      return null;
+    const project = makeItem("Failed Project", {
+      isLearningProject: true,
+      projectData: { tutelageId: "failed-tier" },
     });
-    const actor = new (Actor as any)() as any;
-    actor.name = "Test Actor";
-    actor.items = [project];
-    (game.actors.contents as any[]).push(actor);
+    makeActor([project]);
+    makePack("pack.id");
 
-    const pack = {
-      metadata: { id: "pack.id", collection: "pack" },
-      collection: "pack",
-      getIndex: vi.fn().mockResolvedValue([]),
-    };
-    vi.mocked(game.packs.find).mockReturnValue(pack);
-
-    // Simulate creation failure
     vi.mocked(Actor.createDocuments).mockResolvedValue([]);
 
     await migrateToV3();
 
-    // project.setFlag should NOT have been called with projectData update because we preserved the ID and continued
     expect(project.setFlag).not.toHaveBeenCalledWith(MODULE_ID, "projectData", expect.anything());
     expect(ui.notifications.warn).toHaveBeenCalledWith(
       expect.stringContaining("partially completed with 2 project failures"),
     );
-    // 2 failures: 1 during conversion, 1 during project update (because of missing mapping)
   });
 
   it("should treat +0 as orphaned even if not in rawTiers", async () => {
@@ -557,22 +460,9 @@ describe("v3-tutelage-selection migration", () => {
       return [];
     });
 
-    const project = new (Item as any)() as any;
-    project.getFlag.mockImplementation((_scope: string, key: string) => {
-      if (key === "isLearningProject") return true;
-      if (key === "projectData") return { tutelageId: "+0" };
-      return null;
-    });
-    const actor = new (Actor as any)() as any;
-    actor.items = [project];
-    (game.actors.contents as any[]).push(actor);
-
-    const pack = {
-      metadata: { id: "pack.id", collection: "pack" },
-      collection: "pack",
-      getIndex: vi.fn().mockResolvedValue([]),
-    };
-    vi.mocked(game.packs.find).mockReturnValue(pack);
+    const project = makeItem("T", { isLearningProject: true, projectData: { tutelageId: "+0" } });
+    makeActor([project]);
+    makePack("pack.id");
 
     await migrateToV3();
 
@@ -592,24 +482,12 @@ describe("v3-tutelage-selection migration", () => {
       return null;
     });
 
-    const project = new Item() as any;
-    project.name = "Self Project";
-    project.getFlag.mockImplementation((_scope: string, key: string) => {
-      if (key === "isLearningProject") return true;
-      if (key === "projectData") return { tutelageId: "tSelf" };
-      return null;
+    const project = makeItem("Self Project", {
+      isLearningProject: true,
+      projectData: { tutelageId: "tSelf" },
     });
-
-    const actor = new Actor() as any;
-    actor.items = [project];
-    (game.actors.contents as any[]).push(actor);
-
-    const pack = {
-      metadata: { id: "pack.id", collection: "pack" },
-      collection: "pack",
-      getIndex: vi.fn().mockResolvedValue([]),
-    };
-    vi.mocked(game.packs.find).mockReturnValue(pack);
+    makeActor([project]);
+    makePack("pack.id");
 
     await migrateToV3();
 

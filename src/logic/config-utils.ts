@@ -38,11 +38,16 @@ export async function searchWithOmnisearchOrQuickInsert(
           restrictTypes,
           onSubmit: async (item: { uuid: string }) => {
             clearTimeout(timeoutId);
-            const doc = await fromUuid(item.uuid as any);
-            if (!doc || (restrictTypes.length > 0 && !restrictTypes.includes(doc.documentName))) {
+            try {
+              const doc = await fromUuid(item.uuid as any);
+              if (!doc || (restrictTypes.length > 0 && !restrictTypes.includes(doc.documentName))) {
+                resolve(null);
+              } else {
+                resolve(item.uuid);
+              }
+            } catch (err) {
+              Logger.error("Quick Insert resolution failed:", false, err);
               resolve(null);
-            } else {
-              resolve(item.uuid);
             }
           },
           onClose: () => {

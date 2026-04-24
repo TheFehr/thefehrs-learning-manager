@@ -7,6 +7,8 @@
   import CategorySelector from "@/apps/components/CategorySelector.svelte";
   import AutoSaveBanner from "@/apps/components/AutoSaveBanner.svelte";
 
+  import { MODULE_ID } from "@/global.js";
+
   let { item } = $props<{ item: Item5e }>();
 
   let targetValue = $state(0);
@@ -17,6 +19,7 @@
   let bookCategories = $state<string[]>([]);
   let learningModeEnabled = $state(false);
   let isSaving = $state(false);
+  let hasSaved = $state(false);
   let saveError = $state<string | null>(null);
   let initialized = $state(false);
   let initialSnapshot = $state<string>("");
@@ -34,8 +37,8 @@
   const isProjectCompendium = $derived(packId ? Settings.get("allowedCompendiums").includes(packId) : false);
   const isBookCompendium = $derived(packId ? Settings.get("bookCompendiums").includes(packId) : false);
 
-  const isAlreadyProject = $derived(!!item.getFlag("thefehrs-learning-manager", "isLearningProject"));
-  const isLearnedReward = $derived(!!item.getFlag("thefehrs-learning-manager", "isLearnedReward"));
+  const isAlreadyProject = $derived(!!item.getFlag(MODULE_ID, "isLearningProject"));
+  const isLearnedReward = $derived(!!item.getFlag(MODULE_ID, "isLearnedReward"));
   const isLearningType = $derived(item.type === "feat" && (item.system as any).type?.value === LearningFeatType);
   const isActuallyProject = $derived(isAlreadyProject || isLearningType || isLearnedReward);
 
@@ -55,17 +58,17 @@
   // Initialize from item flags once
   $effect(() => {
     if (untrack(() => initialized)) return;
-    const data = item.getFlag("thefehrs-learning-manager", "projectData");
+    const data = item.getFlag(MODULE_ID, "projectData");
     targetValue = data?.target ?? 0;
     followUpProjectId = data?.followUpProjectId ?? "";
     requirements = data?.requirements ? structuredClone(data.requirements) : [];
     categories = data?.categories ? [...data.categories] : [];
 
-    const bookData = item.getFlag("thefehrs-learning-manager", "learningBookBonus");
+    const bookData = item.getFlag(MODULE_ID, "learningBookBonus");
     bookModifier = bookData?.modifier ?? 0;
     bookCategories = bookData?.categories ? [...bookData.categories] : [];
 
-    learningModeEnabled = (item.getFlag("thefehrs-learning-manager", "learningModeEnabled") as boolean) 
+    learningModeEnabled = (item.getFlag(MODULE_ID, "learningModeEnabled") as boolean) 
       ?? (isActuallyProject || !!bookData || !!data);
     
     // Deterministic property order for snapshot comparison
@@ -158,6 +161,7 @@
             bookModifier: book?.modifier ?? 0, 
             bookCategories: book?.categories ?? []
           });
+          hasSaved = true;
         }
       }
     } catch (err) {
@@ -199,8 +203,8 @@
   }
 </script>
 
-<div class="thefehrs-item-target-config">
-  <AutoSaveBanner {isSaving} {saveError} />
+<div class="thefehrs-item-learning-config">
+  <AutoSaveBanner {isSaving} {saveError} {hasSaved} />
 
   <div class="learning-mode-toggle">
     <div class="form-group" style="margin: 0; padding: 0; background: none; border: none; flex-direction: row; flex-wrap: nowrap; align-items: center; justify-content: space-between;">

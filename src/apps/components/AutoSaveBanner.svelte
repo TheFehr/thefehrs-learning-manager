@@ -1,5 +1,5 @@
 <script lang="ts">
-  let { isSaving, saveError } = $props<{ isSaving: boolean, saveError: string | null }>();
+  let { isSaving, saveError, hasSaved } = $props<{ isSaving: boolean, saveError: string | null, hasSaved: boolean }>();
 </script>
 
 <div class="auto-save-banner {saveError ? 'error' : ''}" role="status" aria-live="polite">
@@ -7,8 +7,10 @@
     <span class="saving-indicator"><i class="fas fa-spinner fa-spin"></i> Saving...</span>
   {:else if saveError}
     <span class="error-indicator"><i class="fas fa-exclamation-triangle"></i> {saveError}</span>
-  {:else}
+  {:else if hasSaved}
     <span class="saved-indicator"><i class="fas fa-check"></i> All changes saved</span>
+  {:else}
+    <span class="ready-indicator"><i class="fas fa-info-circle"></i> Ready</span>
   {/if}
 </div>
 
@@ -41,6 +43,7 @@
     .saving-indicator { color: var(--t5e-primary-accent-color); }
     .saved-indicator { color: var(--t5e-success-color); }
     .error-indicator { color: var(--t5e-danger-color); }
+    .ready-indicator { color: var(--t5e-secondary-color, var(--t5e-faint-color)); }
 
     i {
         margin-right: 0.5rem;

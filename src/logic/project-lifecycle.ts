@@ -415,7 +415,7 @@ export class ProjectLifecycle {
     item: Item,
     projectData: ProjectFlagData,
     instructorName: string = "Self-Study",
-  ): Promise<boolean> {
+  ): Promise<void> {
     const progress = projectData.progress ?? 0;
     const target = projectData.target ?? 0;
 
@@ -431,11 +431,9 @@ export class ProjectLifecycle {
     } as Record<string, any>);
 
     if (!success) {
-      Logger.error(`Failed to update item "${item.name}" (${item.id}) with new progress.`, false, {
-        projectData,
-      });
+      const errorMsg = `Failed to update item "${item.name}" (${item.id}) with new progress.`;
+      Logger.error(errorMsg, false);
+      throw new Error(errorMsg);
     }
-
-    return success;
   }
 }

@@ -112,6 +112,7 @@ describe("WorldSettingsConfig.svelte", () => {
     let mockInput: HTMLInputElement;
     let mockReader: any;
     let createElementSpy: any;
+    const originalFileReader = (globalThis as any).FileReader;
 
     beforeEach(() => {
       mockReader = {
@@ -136,6 +137,11 @@ describe("WorldSettingsConfig.svelte", () => {
       (globalThis as any).FileReader = vi.fn().mockImplementation(function (this: any) {
         return mockReader;
       });
+    });
+
+    afterEach(() => {
+      (globalThis as any).FileReader = originalFileReader;
+      createElementSpy?.mockRestore();
     });
 
     it("should trigger file input on import click", async () => {

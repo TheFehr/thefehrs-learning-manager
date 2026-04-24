@@ -12,6 +12,7 @@
   let offerings = $state<TeacherOffering[]>([]);
   let learningModeEnabled = $state(false);
   let isSaving = $state(false);
+  let hasSaved = $state(false);
   let saveError = $state<string | null>(null);
   let initialized = $state(false);
   let initialSnapshot = $state<string>("");
@@ -77,6 +78,7 @@
           saveError = "Failed to save configuration. Please try again.";
         } else {
           initialSnapshot = JSON.stringify({ offerings: data, learningModeEnabled: enabled });
+          hasSaved = true;
         }
       }
     } catch (err) {
@@ -110,7 +112,7 @@
 </script>
 
 <div class="thefehrs-actor-tutelage-config">
-  <AutoSaveBanner {isSaving} {saveError} />
+  <AutoSaveBanner {isSaving} {saveError} {hasSaved} />
 
   <div class="learning-mode-toggle">
     <div class="form-group" style="margin: 0; padding: 0; background: none; border: none; flex-direction: row; flex-wrap: nowrap; align-items: center; justify-content: space-between;">

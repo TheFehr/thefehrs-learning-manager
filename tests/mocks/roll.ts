@@ -26,7 +26,7 @@ function evaluateFormula(formula: string, data: any) {
       },
     ];
     val = 15;
-  } else if (formula.includes("1d20") || formula.includes("d20")) {
+  } else if (/\b1?d20\b/i.test(formula)) {
     dice = [
       {
         faces: 20,

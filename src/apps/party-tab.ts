@@ -90,8 +90,6 @@ export class PartyTab {
       })
       .filter((p): p is ProjectMappedData => p !== null);
 
-    const allProjects = itemProjects;
-
     return {
       id: proxy.id,
       name: proxy.name,
@@ -99,7 +97,7 @@ export class PartyTab {
       tokenImg: proxy.tokenImg,
       currency: proxy.currency,
       formattedBank: TabLogic.formatTimeBank(bank.total, timeUnits),
-      projects: allProjects.filter((p) => !p.isCompleted),
+      projects: itemProjects.filter((p) => !p.isCompleted),
     };
   }
 

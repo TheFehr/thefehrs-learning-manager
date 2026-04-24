@@ -89,6 +89,8 @@ export class DocumentUtils {
       return false;
     }
 
+    if (Object.keys(data || {}).length === 0) return true;
+
     try {
       await doc.update(data, { render: false });
       return true;

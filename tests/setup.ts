@@ -98,10 +98,30 @@ globalThis.foundry = {
   },
 } as any;
 
-globalThis.fromUuid = vi.fn().mockResolvedValue({
-  documentName: "Item",
-  uuid: "mock-uuid",
-  name: "Mock Document",
+globalThis.fromUuid = vi.fn().mockImplementation(async (uuid: string) => {
+  if (!uuid) return null;
+  const parts = uuid.split(".");
+  const documentName = parts[0] === "Compendium" ? parts[2] : parts[0];
+  return {
+    documentName: documentName || "Item",
+    uuid,
+    name: `Mock ${documentName || "Document"}`,
+    id: parts[parts.length - 1],
+    type: "feat",
+    system: { description: { value: "" } },
+    getFlag: vi.fn(),
+    setFlag: vi.fn(),
+    update: vi.fn().mockResolvedValue(true),
+    delete: vi.fn().mockResolvedValue(true),
+    toObject: vi.fn().mockImplementation(function (this: any) {
+      return {
+        name: this.name,
+        type: this.type,
+        system: this.system,
+        flags: {},
+      };
+    }),
+  };
 });
 
 globalThis.Roll = class {

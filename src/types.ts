@@ -330,13 +330,13 @@ export function getModuleAPI<T extends string & keyof ModuleAPIs>(
     return undefined;
   }
   if (!game || !game.modules) return undefined;
-  const module = game.modules.get(id);
-  if (!module) {
+  const mod = game.modules.get(id);
+  if (!mod) {
     Logger.debug(`getModuleAPI | module ${id} not found`);
     return undefined;
   }
 
-  const api = (module as any).api;
+  const api = (mod as any).api;
   if (!api || typeof api !== "object") {
     Logger.debug(`getModuleAPI | module ${id} has no api`);
     return undefined;

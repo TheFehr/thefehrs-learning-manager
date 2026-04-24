@@ -94,7 +94,7 @@ export class TabLogic {
           // We can't easily calculate a deterministic expectation for these in a single pass.
           const hasUnsupportedKeepDrop =
             /\b\d*d\d+([khdl][hl]?\d+)\b/i.test(rules.checkFormula) &&
-            !/\b2d20[khdl][hl]?1\b/i.test(rules.checkFormula);
+            !/\b2d20(kh|kl|dh|dl)1\b/i.test(rules.checkFormula);
 
           const modFormula = hasUnsupportedKeepDrop
             ? rules.checkFormula
@@ -135,7 +135,7 @@ export class TabLogic {
       // P(Success) = (21 - (DC - mod)) / 20, clamped between 1/20 and 1.
       // We multiply by @hours to get total expected progress.
       const bulkFormula =
-        rules.bulkExpectedFormula || "round(@hours * (22 - max(1, @dc - @mod)) / 20)";
+        rules.bulkExpectedFormula || "round(@hours * (21 - max(1, @dc - @mod)) / 20)";
 
       const formulaData = {
         ...actor.getRollData(),
@@ -221,7 +221,7 @@ export class TabLogic {
           const i = idx + 1;
           const formula = baseFormula.replace("Outcome", String(i));
           const testRoll = new Roll(formula, rollData) as TrainingRoll;
-          return testRoll.evaluate() as Promise<TrainingRoll>;
+          return testRoll.evaluate();
         }),
       );
       return { rolls, isDeterministic: false };

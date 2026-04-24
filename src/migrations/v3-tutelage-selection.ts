@@ -75,13 +75,19 @@ export async function migrateToV3() {
   // 2. Read legacy guidance tiers
   let rawTiers: GuidanceTier[];
   try {
-    rawTiers = game.settings.get(MODULE_ID, "guidanceTiers") as unknown as GuidanceTier[];
+    const stored = game.settings.get(MODULE_ID, "guidanceTiers");
+    if (!Array.isArray(stored)) {
+      Logger.warn(`Migration v3 | ${MODULE_ID}.guidanceTiers is not an array.`, false, stored);
+      rawTiers = [];
+    } else {
+      rawTiers = stored as GuidanceTier[];
+    }
   } catch (err) {
     Logger.error(`Migration v3 | Failed to read ${MODULE_ID}.guidanceTiers:`, false, err);
     return;
   }
 
-  if (!rawTiers || rawTiers.length === 0) {
+  if (rawTiers.length === 0) {
     Logger.debug(
       `Migration v3 | No legacy guidance tiers found for ${MODULE_ID}, but projects use them. Skipping for now (will retry).`,
     );
@@ -513,8 +519,8 @@ async function getOrCreateCompendium(type: "Actor" | "Item", label: string) {
       });
     } catch (e: any) {
       // Final fallback: if creation fails because it already exists, try one last find by name only
-      const isExistsError =
-        e.message?.toLowerCase().includes("already exists") || e.code === "EEXIST";
+      const safeMessage = typeof e.message === "string" ? e.message.toLowerCase() : "";
+      const isExistsError = safeMessage.includes("already exists") || e.code === "EEXIST";
       if (isExistsError) {
         pack = game.packs!.find(
           (p: any) =>
