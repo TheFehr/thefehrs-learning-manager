@@ -76,21 +76,21 @@ describe("TabLogic", () => {
       expect(result.progressGained).toBe(9);
     });
 
-    it("should handle unsupported keep/drop in mathematical method", async () => {
+    it("should handle unsupported modifiers in mathematical method", async () => {
       const bulkRules = {
         ...rules,
         bulkMethod: "mathematical",
         checkDC: 12,
-        checkFormula: "3d20kh1 + 5",
+        checkFormula: "3d20r1 + 5",
       };
       const bulkTu = { id: "day", isBulk: true, ratio: 10 };
 
       const warnSpy = vi.spyOn(Logger, "warn").mockImplementation(() => {});
 
       const result = await TabLogic.computeProgress(actor, bulkRules, tutelageMod, bulkTu as any);
-      // Complex formula 3d20kh1 triggers hasUnsupportedKeepDrop fallback logic.
-      expect(result.progressGained).toBe(10);
-      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("Unsupported keep/drop"));
+      // Unsupported formula 3d20r1 triggers hasUnsupportedModifiers fallback logic.
+      expect(result.progressGained).toBe(11);
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("Unsupported dice modifier"));
       warnSpy.mockRestore();
     });
 

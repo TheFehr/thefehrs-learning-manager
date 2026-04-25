@@ -24,6 +24,7 @@ export async function migrateToV2() {
     const actors = (game.actors?.contents || []) as Actor[];
 
     let migratedCount = 0;
+    let processedCount = 0;
     let totalProjects = 0;
     let allSuccessful = true;
 
@@ -47,6 +48,7 @@ export async function migrateToV2() {
       if (projects.length > 0) {
         const remainingProjects: LegacyProject[] = [];
         for (const p of projects) {
+          processedCount++;
           const tpl = templates.find((t: any) => t.id === p.templateId);
           let success = false;
           if (tpl) {
@@ -78,12 +80,6 @@ export async function migrateToV2() {
 
           if (success) {
             migratedCount++;
-            if (notification) {
-              getUI()?.notifications?.update(notification, {
-                message: `Migrating projects: ${migratedCount}/${totalProjects}`,
-                pct: migratedCount / totalProjects,
-              });
-            }
           } else {
             Logger.warn(
               `Migration: Failed to migrate project ${p.name || p.id} for actor ${actor.name}. Template found: ${!!tpl}. Project preserved.`,
@@ -91,6 +87,13 @@ export async function migrateToV2() {
             );
             remainingProjects.push(p);
             allSuccessful = false;
+          }
+
+          if (notification) {
+            getUI()?.notifications?.update(notification, {
+              message: `Migrating projects: ${processedCount}/${totalProjects}`,
+              pct: processedCount / totalProjects,
+            });
           }
         }
         await actor.setFlag(MODULE_ID, "projects" as any, remainingProjects);
@@ -126,6 +129,13 @@ export async function migrateToV2() {
           await item5e.update(updates);
         }
       }
+    }
+
+    if (notification) {
+      getUI()?.notifications?.update(notification, {
+        message: `Migration loop complete. ${migratedCount} projects successfully migrated.`,
+        pct: 1,
+      });
     }
 
     if (allSuccessful) {

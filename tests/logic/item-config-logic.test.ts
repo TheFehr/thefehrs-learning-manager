@@ -105,6 +105,7 @@ describe("ItemConfigLogic", () => {
       const result = await ItemConfigLogic.searchFollowUp();
       expect(result).toBe("spotlight-uuid");
       expect((globalThis as any).CONFIG.SpotlightOmnisearch.prompt).toHaveBeenCalled();
+      expect(globalThis.fromUuid).toHaveBeenCalledWith("spotlight-uuid");
     });
 
     it("should use QuickInsert if Spotlight is unavailable", async () => {
@@ -119,6 +120,7 @@ describe("ItemConfigLogic", () => {
       const result = await ItemConfigLogic.searchFollowUp();
       expect(result).toBe("quick-uuid");
       expect(mockQuickInsert.open).toHaveBeenCalled();
+      expect(globalThis.fromUuid).toHaveBeenCalledWith("quick-uuid");
     });
 
     it("should notify and return null if no modules found", async () => {
@@ -158,6 +160,8 @@ describe("ItemConfigLogic", () => {
 
       const result = ItemConfigLogic.handleDrop(mockEvent);
       expect(result).toBeNull();
+      expect(mockEvent.preventDefault).toHaveBeenCalled();
+      expect(mockEvent.stopPropagation).toHaveBeenCalled();
     });
 
     it("should return null if data is missing or malformed", () => {
@@ -170,6 +174,8 @@ describe("ItemConfigLogic", () => {
       } as any;
 
       expect(ItemConfigLogic.handleDrop(mockEvent)).toBeNull();
+      expect(mockEvent.preventDefault).toHaveBeenCalled();
+      expect(mockEvent.stopPropagation).toHaveBeenCalled();
     });
 
     it("should safely handle null dataTransfer", () => {

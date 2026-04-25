@@ -210,7 +210,7 @@ export async function migrateToV3() {
       if (existing) {
         tierToDocMap.set(tier.id, {
           type: "instructor",
-          uuid: `Compendium.${instructorPackId}.${existing._id}`,
+          uuid: `Compendium.${instructorPackId}.Actor.${existing._id}`,
           offeringName: offering.name,
         });
         continue;
@@ -240,7 +240,6 @@ export async function migrateToV3() {
             true,
             result,
           );
-          projectFailures++;
         }
       } catch (err) {
         Logger.error(
@@ -248,7 +247,6 @@ export async function migrateToV3() {
           true,
           err,
         );
-        projectFailures++;
       }
 
       if (created) {
@@ -274,7 +272,7 @@ export async function migrateToV3() {
       if (existing) {
         tierToDocMap.set(tier.id, {
           type: "book",
-          uuid: `Compendium.${bookPackId}.${existing._id}`,
+          uuid: `Compendium.${bookPackId}.Item.${existing._id}`,
           offeringName: "",
         });
         continue;
@@ -304,11 +302,9 @@ export async function migrateToV3() {
             true,
             result,
           );
-          projectFailures++;
         }
       } catch (err) {
         Logger.error(`Migration v3 | Failed to create legacy book for tier ${tier.id}:`, true, err);
-        projectFailures++;
       }
 
       if (created) {

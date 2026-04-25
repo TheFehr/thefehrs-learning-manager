@@ -336,7 +336,7 @@ describe("v3-tutelage-selection migration", () => {
       MODULE_ID,
       "projectData",
       expect.objectContaining({
-        lastInstructorUuid: "Compendium.legacy-tutelage-instructors.existingId",
+        lastInstructorUuid: "Compendium.legacy-tutelage-instructors.Actor.existingId",
       }),
     );
   });
@@ -452,7 +452,7 @@ describe("v3-tutelage-selection migration", () => {
 
     expect(project.setFlag).not.toHaveBeenCalledWith(MODULE_ID, "projectData", expect.anything());
     expect(ui.notifications.warn).toHaveBeenCalledWith(
-      expect.stringContaining("partially completed with 2 project failures"),
+      expect.stringContaining("partially completed with 1 project failures"),
     );
   });
 

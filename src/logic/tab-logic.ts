@@ -92,13 +92,13 @@ export class TabLogic {
         try {
           // Check for unsupported keep/drop dice expressions (e.g., 4d6kh3) that aren't the common 2d20kh1/kl1.
           // We can't easily calculate a deterministic expectation for these in a single pass.
-          const hasUnsupportedKeepDrop =
-            /\b\d*d\d+([khdl][hl]?\d+)\b/i.test(rules.checkFormula) &&
-            !/\b2d20(kh|kl|dh|dl)1\b/i.test(rules.checkFormula);
+          const hasUnsupportedModifiers = /\b\d*d\d+[^+\-*/\s]*([rex]|ms|min|max)\d*\b/i.test(
+            rules.checkFormula,
+          );
 
-          if (hasUnsupportedKeepDrop) {
+          if (hasUnsupportedModifiers) {
             Logger.warn(
-              `Mathematical progress: Unsupported keep/drop dice expression in formula "${rules.checkFormula}". Falling back to average expectation.`,
+              `Mathematical progress: Unsupported dice modifier (explode/reroll) in formula "${rules.checkFormula}". Falling back to average expectation.`,
             );
           }
 
@@ -106,7 +106,7 @@ export class TabLogic {
             // Replace d20-based dice with their relative modifier to a flat d20 roll (E - 10.5).
             // This allows us to extract the "bonus" part of the formula for use in the bulk calculation.
             .replace(
-              /\b(\d*)d20(?:([khdl][hl]?)(\d+)?)?\b/gi,
+              /\b(\d*)d20(?:([a-z]+)(\d+)?)?\b/gi,
               (match, countStr, modType, modValueStr) => {
                 const count = countStr ? parseInt(countStr) : 1;
                 const modValue = modValueStr ? parseInt(modValueStr) : undefined;
@@ -116,7 +116,7 @@ export class TabLogic {
             )
             // Replace all other dice with their average/expected value to make the formula deterministic.
             .replace(
-              /\b(\d*)d(\d+)(?:([khdl][hl]?)(\d+)?)?\b/gi,
+              /\b(\d*)d(\d+)(?:([a-z]+)(\d+)?)?\b/gi,
               (match, countStr, facesStr, modType, modValueStr) => {
                 const count = countStr ? parseInt(countStr) : 1;
                 const faces = parseInt(facesStr);
