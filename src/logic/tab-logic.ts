@@ -31,7 +31,7 @@ export class TabLogic {
     let reason: string | undefined = undefined;
 
     const effectiveMethod = tu.isBulk ? rules.bulkMethod : rules.nonBulkMethod;
-    const dc = rules.checkDC ?? DEFAULT_DC;
+    const dc = Number(rules.checkDC ?? DEFAULT_DC);
 
     if (effectiveMethod === "direct") {
       progressGained = tu.ratio;
@@ -136,10 +136,10 @@ export class TabLogic {
         }
       }
       // The default bulk formula calculates progress based on success probability:
-      // P(Success) = (21 - (DC - mod)) / 20, clamped between 1/20 and 1.
+      // P(Success) = (22 - (DC - mod)) / 20, clamped between 1/20 and 1.
       // We multiply by @hours to get total expected progress.
       const bulkFormula =
-        rules.bulkExpectedFormula || "round(@hours * (21 - max(1, @dc - @mod)) / 20)";
+        rules.bulkExpectedFormula || "round(@hours * (22 - max(1, @dc - @mod)) / 20)";
 
       const formulaData = {
         ...actor.getRollData(),
@@ -250,7 +250,7 @@ export class TabLogic {
     const { rolls, isDeterministic } = res;
     const strategy = rules.critDoubleStrategy ?? "never";
     const threshold = Number(rules.critThreshold) || 20;
-    const dc = rules.checkDC ?? DEFAULT_DC;
+    const dc = Number(rules.checkDC ?? DEFAULT_DC);
 
     let totalProgress = 0;
     rolls.forEach((r, idx) => {
@@ -280,7 +280,7 @@ export class TabLogic {
   ): Promise<number | null> {
     const res = await this._getOutcomes(actor, rules, tutelageMod);
     if (!res) return null;
-    const dc = rules.checkDC ?? DEFAULT_DC;
+    const dc = Number(rules.checkDC ?? DEFAULT_DC);
     const successCount = res.rolls.filter((r) => (r.total || 0) >= dc).length;
     return successCount / 20;
   }
@@ -298,25 +298,60 @@ export class TabLogic {
       return false;
     }
     const proxy = ActorProxy.forActor(actor);
-    const cur = proxy.currency;
-    const totalCp = cur.pp * 1000 + cur.gp * 100 + cur.ep * 50 + cur.sp * 10 + cur.cp;
+    const cur = { ...proxy.currency };
+    const totalCp =
+      (cur.pp || 0) * 1000 +
+      (cur.gp || 0) * 100 +
+      (cur.ep || 0) * 50 +
+      (cur.sp || 0) * 10 +
+      (cur.cp || 0);
 
     if (totalCp < costCp) {
       getUI()?.notifications?.warn("Downtime Engine | Insufficient currency!");
       return false;
     }
 
-    let remaining = totalCp - costCp;
-    const newPp = Math.floor(remaining / 1000);
-    remaining %= 1000;
-    const newGp = Math.floor(remaining / 100);
-    remaining %= 100;
-    const newEp = Math.floor(remaining / 50);
-    remaining %= 50;
-    const newSp = Math.floor(remaining / 10);
-    const newCp = remaining % 10;
+    let remaining = costCp;
+    const denoms = [
+      { id: "pp", value: 1000 },
+      { id: "gp", value: 100 },
+      { id: "ep", value: 50 },
+      { id: "sp", value: 10 },
+      { id: "cp", value: 1 },
+    ] as const;
 
-    await proxy.updateCurrency({ pp: newPp, gp: newGp, ep: newEp, sp: newSp, cp: newCp });
+    // 1. Drain from existing denominations, largest to smallest
+    for (const d of denoms) {
+      const available = cur[d.id] || 0;
+      if (available > 0) {
+        const canTake = Math.min(available, Math.floor(remaining / d.value));
+        cur[d.id] = available - canTake;
+        remaining -= canTake * d.value;
+      }
+    }
+
+    // 2. If still remaining, we need to borrow/make change
+    if (remaining > 0) {
+      const canCover = denoms.filter((d) => (cur[d.id] || 0) > 0 && d.value > remaining).reverse();
+
+      if (canCover.length > 0) {
+        const d = canCover[0];
+        cur[d.id] = (cur[d.id] || 0) - 1;
+        let changeCp = d.value - remaining;
+        remaining = 0;
+
+        for (const cd of denoms) {
+          if ((cd.id === "pp" || cd.id === "ep") && (proxy.currency[cd.id] || 0) === 0) continue;
+          const toAdd = Math.floor(changeCp / cd.value);
+          if (toAdd > 0) {
+            cur[cd.id] = (cur[cd.id] || 0) + toAdd;
+            changeCp %= cd.value;
+          }
+        }
+      }
+    }
+
+    await proxy.updateCurrency(cur);
     return true;
   }
 
@@ -333,20 +368,26 @@ export class TabLogic {
       return false;
     }
     const proxy = ActorProxy.forActor(actor);
-    const cur = proxy.currency;
-    const totalCp = cur.pp * 1000 + cur.gp * 100 + cur.ep * 50 + cur.sp * 10 + cur.cp;
+    const cur = { ...proxy.currency };
+    let remaining = amountCp;
+    const denoms = [
+      { id: "pp", value: 1000 },
+      { id: "gp", value: 100 },
+      { id: "ep", value: 50 },
+      { id: "sp", value: 10 },
+      { id: "cp", value: 1 },
+    ] as const;
 
-    let remaining = totalCp + amountCp;
-    const newPp = Math.floor(remaining / 1000);
-    remaining %= 1000;
-    const newGp = Math.floor(remaining / 100);
-    remaining %= 100;
-    const newEp = Math.floor(remaining / 50);
-    remaining %= 50;
-    const newSp = Math.floor(remaining / 10);
-    const newCp = remaining % 10;
+    for (const d of denoms) {
+      if ((d.id === "pp" || d.id === "ep") && (cur[d.id] || 0) === 0) continue;
+      const toAdd = Math.floor(remaining / d.value);
+      if (toAdd > 0) {
+        cur[d.id] = (cur[d.id] || 0) + toAdd;
+        remaining %= d.value;
+      }
+    }
 
-    await proxy.updateCurrency({ pp: newPp, gp: newGp, ep: newEp, sp: newSp, cp: newCp });
+    await proxy.updateCurrency(cur);
     return true;
   }
 

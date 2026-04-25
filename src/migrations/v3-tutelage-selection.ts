@@ -41,6 +41,8 @@ declare module "fvtt-types/configuration" {
   }
 }
 
+const LEGACY_SELF_STUDY_TIER_ID = "+0";
+
 export async function migrateToV3() {
   registerMigrationSettings();
   const game = getGame();
@@ -337,7 +339,8 @@ export async function migrateToV3() {
         const mapping = tierToDocMap.get(projectData.tutelageId);
         if (!mapping) {
           const isTrulyOrphaned =
-            orphanedSet.has(projectData.tutelageId) || projectData.tutelageId === "+0";
+            orphanedSet.has(projectData.tutelageId) ||
+            projectData.tutelageId === LEGACY_SELF_STUDY_TIER_ID;
           if (isTrulyOrphaned) {
             // Orphaned or explicit self-study, reset
             projectData.tutelageId = "";
@@ -385,13 +388,13 @@ export async function migrateToV3() {
           }
 
           const existingBook = (actor.items as any).find((i: any) => {
-            const b = i.getFlag(MODULE_ID, "learningBookBonus") as LearningBookBonus;
-            if (!b || b.modifier !== bookBonus.modifier) return false;
-            const aCats = b.categories || [];
-            const bCats = detectedCats || [];
-            if (aCats.length !== bCats.length) return false;
-            const sortedA = [...aCats].sort();
-            const sortedB = [...bCats].sort();
+            const existingBonus = i.getFlag(MODULE_ID, "learningBookBonus") as LearningBookBonus;
+            if (!existingBonus || existingBonus.modifier !== bookBonus.modifier) return false;
+            const existingCats = existingBonus.categories || [];
+            const newCats = detectedCats || [];
+            if (existingCats.length !== newCats.length) return false;
+            const sortedA = [...existingCats].sort();
+            const sortedB = [...newCats].sort();
             return sortedA.every((v, idx) => v === sortedB[idx]);
           });
 
@@ -411,7 +414,7 @@ export async function migrateToV3() {
               };
             }
 
-            // Set sourceId so the resolver recognizes it if compendium filtering is on
+            // Ensure both _stats.compendiumSource (primary v13 field) and flags.core.sourceId (legacy compatibility) are set
             bookData._stats = bookData._stats || {};
             bookData._stats.compendiumSource = bookDoc.uuid;
             bookData.flags.core = bookData.flags.core || {};

@@ -289,6 +289,7 @@ export class ProjectEngine {
               dialogInstance = null;
             }
             if (shouldCloseDialog === true) dialog.close();
+            resolve(null);
           };
 
           const dialog = new (foundry.applications.api.DialogV2 as any)({
@@ -350,6 +351,7 @@ export class ProjectEngine {
                 err,
                 dialog.element,
               );
+              resolve(null);
               cleanup(true);
             });
         });
@@ -500,10 +502,10 @@ export class ProjectEngine {
       completedNow = true;
     }
 
-    // Deduct time from bank
-    await proxy.setBank({ total: bank.total - tu.ratio });
-
     try {
+      // Deduct time from bank
+      await proxy.setBank({ total: bank.total - tu.ratio });
+
       if (completedNow) {
         // Ensure latest instructor/remembered data is saved before completion
         await this.updateItemWithProgress(

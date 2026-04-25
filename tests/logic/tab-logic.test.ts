@@ -85,9 +85,13 @@ describe("TabLogic", () => {
       };
       const bulkTu = { id: "day", isBulk: true, ratio: 10 };
 
+      const warnSpy = vi.spyOn(Logger, "warn").mockImplementation(() => {});
+
       const result = await TabLogic.computeProgress(actor, bulkRules, tutelageMod, bulkTu as any);
       // Complex formula 3d20kh1 triggers hasUnsupportedKeepDrop fallback logic.
       expect(result.progressGained).toBe(10);
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("Unsupported keep/drop"));
+      warnSpy.mockRestore();
     });
 
     it("should allow 'roll' method for bulk units", async () => {
@@ -325,7 +329,7 @@ describe("TabLogic", () => {
 
       const success = await TabLogic.deductCurrency(actor, 50); // deduct 50cp from 100cp
       expect(success).toBe(true);
-      expect(mockProxy.updateCurrency).toHaveBeenCalledWith({ pp: 0, gp: 0, ep: 1, sp: 0, cp: 0 });
+      expect(mockProxy.updateCurrency).toHaveBeenCalledWith({ pp: 0, gp: 0, ep: 0, sp: 5, cp: 0 });
       spy.mockRestore();
     });
 

@@ -39,7 +39,6 @@ export async function migrateToV2() {
             progress: true,
           })
         : null;
-    const notificationId = (notification as any)?.id;
 
     for (const actor of actors) {
       // Step 1: Migrate legacy actor projects to Items
@@ -79,8 +78,8 @@ export async function migrateToV2() {
 
           if (success) {
             migratedCount++;
-            if (notificationId !== undefined) {
-              getUI()?.notifications?.update(notificationId, {
+            if (notification) {
+              getUI()?.notifications?.update(notification, {
                 message: `Migrating projects: ${migratedCount}/${totalProjects}`,
                 pct: migratedCount / totalProjects,
               });
@@ -138,7 +137,7 @@ export async function migrateToV2() {
       );
     }
   } catch (error) {
-    Logger.error("migration to v2.0.0 failed:", false, error);
+    Logger.error("Migration to v2.0.0 failed:", false, error);
     getUI()?.notifications?.error(
       "Migration to v2.0.0 failed. Please check the console for details.",
     );

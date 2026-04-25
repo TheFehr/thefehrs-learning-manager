@@ -127,7 +127,9 @@ describe("ItemConfigLogic", () => {
 
       const result = await ItemConfigLogic.searchFollowUp();
       expect(result).toBeNull();
-      expect(ui.notifications.info).toHaveBeenCalledWith(expect.stringContaining("not found"));
+      expect((globalThis as any).ui.notifications.info).toHaveBeenCalledWith(
+        expect.stringContaining("not found"),
+      );
     });
   });
 
@@ -178,6 +180,8 @@ describe("ItemConfigLogic", () => {
       } as any;
 
       expect(ItemConfigLogic.handleDrop(mockEvent)).toBeNull();
+      expect(mockEvent.preventDefault).toHaveBeenCalled();
+      expect(mockEvent.stopPropagation).toHaveBeenCalled();
     });
   });
 });
