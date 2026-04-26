@@ -135,17 +135,16 @@ export async function migrateToV2() {
       }
     }
 
-    if (notification) {
-      getUI()?.notifications?.update(notification, {
-        message: `Migration loop complete. ${migratedCount} projects successfully migrated.`,
-        pct: 1,
-      });
-    }
-
     if (allSuccessful) {
       await game.settings.set(MODULE_ID, "migrationVersion", "2.0.0");
       getUI()?.notifications?.info(`Successfully migrated to v2.0.0!`);
     } else {
+      if (notification) {
+        getUI()?.notifications?.update(notification, {
+          message: `Migration loop complete. ${migratedCount} projects successfully migrated.`,
+          pct: 1,
+        });
+      }
       getUI()?.notifications?.warn(
         "Migration to native Items partially failed. Some projects were preserved in legacy flags and will be retried later.",
       );

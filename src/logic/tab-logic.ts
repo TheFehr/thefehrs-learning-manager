@@ -133,6 +133,10 @@ export class TabLogic {
           mod = evaluatedMod.total || 0;
         } catch (err) {
           Logger.error("Failed to calculate mod for mathematical progress:", true, err);
+          return {
+            progressGained: 0,
+            reason: `Invalid check formula: ${err instanceof Error ? err.message : String(err)}`,
+          };
         }
       }
       // The default bulk formula calculates progress based on success probability:
