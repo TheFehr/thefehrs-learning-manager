@@ -6,6 +6,17 @@ import { Logger } from "../../src/core/logger";
 describe("TabLogic", () => {
   let originalRoll: any;
 
+  function createMockRollOverride({ total, dice }: { total: number; dice: any[] }) {
+    return class extends MockRoll {
+      evaluate() {
+        this.total = total;
+        this.dice = dice;
+        this._evaluated = true;
+        return this;
+      }
+    } as any;
+  }
+
   beforeEach(() => {
     vi.clearAllMocks();
     originalRoll = globalThis.Roll;
@@ -47,14 +58,10 @@ describe("TabLogic", () => {
     });
 
     it("should return 0 progress on failed non-bulk roll", async () => {
-      globalThis.Roll = class extends (globalThis.Roll as any) {
-        evaluate() {
-          this.total = 10;
-          this.dice = [{ faces: 20, results: [{ result: 10, active: true }] }];
-          this._evaluated = true;
-          return this;
-        }
-      } as any;
+      globalThis.Roll = createMockRollOverride({
+        total: 10,
+        dice: [{ faces: 20, results: [{ result: 10, active: true }] }],
+      });
 
       const result = await TabLogic.computeProgress(actor, rules, tutelageMod, tu);
       expect(result.progressGained).toBe(0);
@@ -89,6 +96,8 @@ describe("TabLogic", () => {
 
       const result = await TabLogic.computeProgress(actor, bulkRules, tutelageMod, bulkTu as any);
       // Unsupported formula 3d20r1 triggers hasUnsupportedModifiers fallback logic.
+      // Calculation: checkFormula "3d20r1 + 5" with tutelageMod = 2, dc = 12, ratio = 10
+      // leads to the fallback where progressGained = 11.
       expect(result.progressGained).toBe(11);
       expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("Unsupported dice modifier"));
       warnSpy.mockRestore();
@@ -108,14 +117,10 @@ describe("TabLogic", () => {
         critDoubleStrategy: "any",
         critThreshold: 20,
       };
-      globalThis.Roll = class extends (globalThis.Roll as any) {
-        evaluate() {
-          this.total = 20;
-          this.dice = [{ faces: 20, results: [{ result: 20, active: true }] }];
-          this._evaluated = true;
-          return this;
-        }
-      } as any;
+      globalThis.Roll = createMockRollOverride({
+        total: 20,
+        dice: [{ faces: 20, results: [{ result: 20, active: true }] }],
+      });
 
       const result = await TabLogic.computeProgress(actor, critRules, tutelageMod, tu);
       expect(result.progressGained).toBe(2);
@@ -127,22 +132,18 @@ describe("TabLogic", () => {
         critDoubleStrategy: "all",
         critThreshold: 18,
       };
-      globalThis.Roll = class extends (globalThis.Roll as any) {
-        evaluate() {
-          this.total = 20;
-          this.dice = [
-            {
-              faces: 20,
-              results: [
-                { result: 19, active: true },
-                { result: 18, active: true },
-              ],
-            },
-          ];
-          this._evaluated = true;
-          return this;
-        }
-      } as any;
+      globalThis.Roll = createMockRollOverride({
+        total: 20,
+        dice: [
+          {
+            faces: 20,
+            results: [
+              { result: 19, active: true },
+              { result: 18, active: true },
+            ],
+          },
+        ],
+      });
 
       const result = await TabLogic.computeProgress(actor, critRules, tutelageMod, tu);
       expect(result.progressGained).toBe(2);

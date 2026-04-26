@@ -87,6 +87,8 @@ export async function migrateToV3() {
           t &&
           typeof t === "object" &&
           typeof t.id === "string" &&
+          typeof t.name === "string" &&
+          t.name.trim().length > 0 &&
           typeof t.modifier === "number" &&
           t.costs &&
           typeof t.costs === "object";

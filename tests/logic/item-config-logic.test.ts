@@ -147,6 +147,8 @@ describe("ItemConfigLogic", () => {
 
       const result = ItemConfigLogic.handleDrop(mockEvent);
       expect(result).toBe("dropped-uuid");
+      expect(mockEvent.preventDefault).toHaveBeenCalled();
+      expect(mockEvent.stopPropagation).toHaveBeenCalled();
     });
 
     it("should return null for non-Item drops", () => {
