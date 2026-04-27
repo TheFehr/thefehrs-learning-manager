@@ -1,5 +1,124 @@
-import { ProjectEngine } from "../logic/project-engine.js";
-import type { Actor5e, Item5e } from "../types.js";
+import { MODULE_ID } from "@/global.js";
+import { Logger } from "@/core/logger.js";
+import { FoundryUtils } from "@/core/foundry-utils.js";
+import { getGame } from "@/core/foundry.js";
+
+interface Actor5e {
+  name: string;
+  getFlag(scope: string, key: string): any;
+  setFlag(scope: string, key: string, value: any): Promise<any>;
+  items: any;
+  createEmbeddedDocuments(type: string, data: any[]): Promise<any[]>;
+}
+
+interface Item5e {
+  name: string;
+  uuid: string;
+  toObject(): any;
+  getFlag(scope: string, key: string): any;
+  update(data: any): Promise<any>;
+}
+
+/**
+ * NOTE: This file is a self-contained utility for migrations.
+ * It contains simplified versions of production logic to ensure migrations
+ * remain stable even if production code changes.
+ */
+
+function generateProgressHtml(progress: number, target: number, tutelageName: string): string {
+  const p = Number.isFinite(progress) ? Math.max(0, progress) : 0;
+  const t = Number.isFinite(target) ? Math.max(0, target) : 0;
+  const escapedTutelageName = FoundryUtils.escapeHTML(tutelageName);
+  const percentage = t > 0 ? Math.min(100, Math.max(0, (p / t) * 100)) : 0;
+  return `<!-- learning-manager:progress-start -->
+<div class="learning-manager-progress-container" style="margin: 0.5rem 0 1rem 0; padding: 0.5rem; border: 1px solid var(--t5e-faint-color); border-radius: 4px; background: var(--t5e-background); font-family: var(--t5e-font-family);">
+  <div style="display: flex; justify-content: space-between; font-weight: bold; margin-bottom: 4px; font-size: 0.75rem; color: var(--t5e-secondary-color);">
+    <span>Training Progress (${escapedTutelageName})</span>
+    <span>${p} / ${t}</span>
+  </div>
+  <div style="width: 100%; height: 12px; background: rgba(0,0,0,0.1); border-radius: 6px; overflow: hidden; position: relative;">
+    <div style="width: ${percentage}%; height: 100%; background: var(--t5e-hp-bar-color, #4caf50); transition: width 0.4s ease-in-out;"></div>
+  </div>
+</div>
+<!-- learning-manager:progress-end -->`;
+}
+
+function createBaseActivityTemplate(): any {
+  return {
+    override: false,
+    concentration: false,
+    prompt: false,
+    type: "utility",
+    activation: { type: "special", override: false, condition: "", value: 1 },
+    consumption: {
+      value: "1",
+      scaling: { allowed: false, max: "" },
+      spellSlot: false,
+      targets: [],
+    },
+    description: { chatFlavor: "" },
+    duration: { value: "1", units: "perm", concentration: false, override: false, special: "" },
+    effects: [],
+    flags: {},
+    range: { value: "0", units: "self", override: false, special: "" },
+    target: {
+      template: {
+        count: "1",
+        size: "0",
+        width: "0",
+        height: "0",
+        contiguous: false,
+        units: "ft",
+        type: "",
+      },
+      affects: { count: "1", choice: false, type: "", special: "" },
+      override: false,
+      prompt: false,
+    },
+    uses: { spent: 0, recovery: [], max: "" },
+    visibility: {
+      identifier: "",
+      level: { min: null, max: null },
+      requireAttunement: false,
+      requireIdentification: false,
+      requireMagic: false,
+    },
+  };
+}
+
+async function injectActivities(item: Item5e, target: number) {
+  if (target <= 0) return;
+
+  const rawTimeUnits = (getGame().settings.get(MODULE_ID, "timeUnits") as unknown as any[]) || [];
+  const timeUnits = rawTimeUnits.filter((tu) => tu && tu.id && tu.name);
+
+  const activities: any[] = timeUnits.map((tu) => ({
+    ...createBaseActivityTemplate(),
+    _id: FoundryUtils.randomID(),
+    img: "icons/svg/book.svg",
+    sort: 0,
+    description: { chatFlavor: `Training for ${tu.name}` },
+    flags: { [MODULE_ID]: { isLearningActivity: true, timeUnitId: tu.id } },
+    name: `Train ${tu.name}`,
+  }));
+
+  activities.push({
+    ...createBaseActivityTemplate(),
+    _id: FoundryUtils.randomID(),
+    img: "icons/svg/coins.svg",
+    sort: 100,
+    description: { chatFlavor: "Spending all available training time" },
+    flags: { [MODULE_ID]: { isLearningActivity: true, isSpendAll: true } },
+    name: "Spend all time",
+  });
+
+  const activityUpdates: Record<string, any> = {};
+  for (const activity of activities) {
+    activityUpdates[activity._id] = activity;
+  }
+
+  await item.update({ "system.activities": activityUpdates } as any);
+}
 
 /**
  * NOTE: This file is allowed to call "production" code (like ProjectEngine).
@@ -34,7 +153,7 @@ export async function createProjectItemFromTemplate(
   try {
     rewardDoc = await fromUuid(rewardUuid as any);
   } catch (e) {
-    console.warn(`Downtime Engine | fromUuid failed for ${rewardUuid}:`, e);
+    Logger.warn(`fromUuid failed for ${rewardUuid}:`, true, e);
   }
 
   let itemData: any;
@@ -63,8 +182,8 @@ export async function createProjectItemFromTemplate(
   // Fallback: Placeholder for missing/invalid link
   else {
     const missingName = projectData.name || "Unknown Project";
-    console.warn(
-      `Downtime Engine | Migration: Could not resolve reward Item or Effect for project ${missingName} (UUID: ${rewardUuid}). Creating placeholder to preserve progress.`,
+    Logger.warn(
+      `Migration: Could not resolve reward Item or Effect for project ${missingName} (UUID: ${rewardUuid}). Creating placeholder to preserve progress.`,
     );
     itemData = {
       name: "[MISSING REWARD] " + missingName,
@@ -110,10 +229,11 @@ export async function createProjectItemFromTemplate(
   };
 
   const progressHtml = !projectData.isCompleted
-    ? ProjectEngine.generateProgressHtml(
+    ? generateProgressHtml(
         projectData.progress || 0,
         projectDataWithTarget.target,
-        "None",
+        // Legacy/migrated projects may lack tutelage info so "None" is intentionally used as a placeholder
+        "Self-Study",
       )
     : "";
 
@@ -145,22 +265,17 @@ export async function createProjectItemFromTemplate(
   };
 
   if (typeof (actor as any).createEmbeddedDocuments !== "function") {
-    console.error(
-      `Downtime Engine | Actor ${actor.name} is missing createEmbeddedDocuments method.`,
-    );
+    Logger.error(`Actor ${actor.name} is missing createEmbeddedDocuments method.`, true);
     return null;
   }
 
-  const [created] = await (actor as unknown as Actor).createEmbeddedDocuments("Item", [updateData]);
+  const [created] = await (actor as any).createEmbeddedDocuments("Item", [updateData]);
   if (!created) return null;
 
-  const createdItem = created as unknown as Item;
+  const createdItem = created as any;
   if (!projectData.isCompleted) {
-    console.debug(`Downtime Engine | Migration: Injecting activities for ${createdItem.name}`);
-    await ProjectEngine.injectActivities(
-      createdItem as unknown as Item5e,
-      projectDataWithTarget.target,
-    );
+    Logger.debug(`Migration: Injecting activities for ${createdItem.name}`);
+    await injectActivities(createdItem as any, projectDataWithTarget.target);
   }
 
   return createdItem;

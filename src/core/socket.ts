@@ -1,5 +1,7 @@
 import { Settings } from "./settings.js";
+import { Logger } from "./logger.js";
 import type { LearningModuleMessage } from "./socket-types.js";
+import { getSocket } from "./foundry.js";
 
 export class Socket {
   static get identifier() {
@@ -22,29 +24,37 @@ export class Socket {
   static listen(
     handler: (msg: LearningModuleMessage) => Promise<void>,
   ): ((...args: any[]) => void) | undefined {
-    if (!game.socket) {
-      console.warn("Downtime Engine | Socket: game.socket is not available.");
+    const socket = getSocket();
+    if (!socket) {
+      Logger.warn("Socket: game.socket is not available.");
       return undefined;
     }
 
     const id = this.identifier;
-    console.debug(`Downtime Engine | Socket: Listening on "${id}"`);
+    Logger.debug(`Socket: Listening on "${id}"`);
 
     const wrapper = (...args: any[]) => {
-      console.debug(`Downtime Engine | Socket: Received data on "${id}":`, args);
-
       const message = args[0];
-      if (!this.isLearningModuleMessage(message)) {
-        console.warn("Downtime Engine | Socket: Received invalid message payload:", args);
+      const isValid = this.isLearningModuleMessage(message);
+      const summary = {
+        type: isValid ? message.type : (message as any)?.type || "unknown",
+        valid: isValid,
+        argsCount: args.length,
+      };
+
+      if (!isValid) {
+        Logger.warn("Socket: Received invalid message payload.", true, summary);
         return;
       }
 
+      Logger.debug(`Socket: Received message on "${id}":`, summary);
+
       handler(message).catch((err) => {
-        console.error("Downtime Engine | Socket: Error in handler:", err);
+        Logger.error("Socket: Error in handler:", true, err);
       });
     };
 
-    game.socket.on(id, wrapper);
+    socket.on(id, wrapper);
     return wrapper;
   }
 
@@ -52,8 +62,9 @@ export class Socket {
    * Unregisters a previously registered listener.
    */
   static off(handler: (...args: any[]) => void) {
-    if (!game.socket) return;
-    game.socket.off(this.identifier, handler);
+    const socket = getSocket();
+    if (!socket) return;
+    socket.off(this.identifier, handler);
   }
 
   /**
@@ -61,16 +72,17 @@ export class Socket {
    * Note: This will not trigger the local listener.
    */
   static emitSignal(type: LearningModuleMessage["type"]) {
-    if (!game.socket) {
-      console.warn("Downtime Engine | Socket: game.socket is not available.");
+    const socket = getSocket();
+    if (!socket) {
+      Logger.warn("Socket: game.socket is not available.");
       return;
     }
 
     const id = this.identifier;
     const message: LearningModuleMessage = { type, data: null };
 
-    console.debug(`Downtime Engine | Socket: Emitting signal "${type}" to "${id}"`, message);
+    Logger.debug(`Socket: Emitting signal "${type}" to "${id}"`, message);
 
-    game.socket.emit(id, message);
+    socket.emit(id, message);
   }
 }

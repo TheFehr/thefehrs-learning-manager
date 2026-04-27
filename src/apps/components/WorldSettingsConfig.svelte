@@ -1,36 +1,38 @@
 <script lang="ts">
-  import type { SystemRules, TimeUnit, GuidanceTier } from "../../types.js";
+  import type { SystemRules, TimeUnit } from "@/types.js";
   import RulesConfig from "./RulesConfig.svelte";
   import CompendiumConfig from "./CompendiumConfig.svelte";
   import TimeUnitsConfig from "./TimeUnitsConfig.svelte";
-  import GuidanceConfig from "./GuidanceConfig.svelte";
-  import { validateSettings } from "../../logic/settings-logic.js";
-
-  interface Pack {
-    id: string;
-    label: string;
-    [key: string]: any;
-  }
+  import { validateSettings, type PackInfo } from "@/logic/settings-logic.js";
+  import { TutelageResolverService } from "@/logic/tutelage-resolver.js";
+  import { Logger } from "@/core/logger.js";
 
   let {
     rules = $bindable(),
     timeUnits = $bindable(),
-    guidanceTiers = $bindable(),
+    teacherCompendiums = $bindable(),
+    bookCompendiums = $bindable(),
     allowedCompendiums = $bindable(),
-    availablePacks = [],
+    availableItemPacks = [],
+    instructorPacks = [],
+    bookPacks = [],
   } = $props<{
     rules: SystemRules;
     timeUnits: TimeUnit[];
-    guidanceTiers: GuidanceTier[];
+    teacherCompendiums: string[];
+    bookCompendiums: string[];
     allowedCompendiums: string[];
-    availablePacks: Pack[];
+    availableItemPacks: PackInfo[];
+    instructorPacks: PackInfo[];
+    bookPacks: PackInfo[];
   }>();
 
   function exportSettings() {
     const data = {
       rules,
       timeUnits,
-      guidanceTiers,
+      teacherCompendiums,
+      bookCompendiums,
       allowedCompendiums,
     };
     foundry.utils.saveDataToFile(
@@ -89,7 +91,7 @@
 
         reader.onerror = () => {
           ui.notifications?.error("Downtime Engine | Failed to read settings file.");
-          console.error("Downtime Engine | FileReader error:", reader.error);
+          Logger.error("FileReader error:", false, reader.error);
           readerCleanup();
         };
         reader.onabort = () => {
@@ -104,7 +106,10 @@
 
             if (validated.rules !== undefined) rules = validated.rules;
             if (validated.timeUnits !== undefined) timeUnits = validated.timeUnits;
-            if (validated.guidanceTiers !== undefined) guidanceTiers = validated.guidanceTiers;
+            if (validated.teacherCompendiums !== undefined)
+              teacherCompendiums = validated.teacherCompendiums;
+            if (validated.bookCompendiums !== undefined)
+              bookCompendiums = validated.bookCompendiums;
             if (validated.allowedCompendiums !== undefined)
               allowedCompendiums = validated.allowedCompendiums;
 
@@ -118,7 +123,7 @@
               const msg = err instanceof Error ? err.message : String(err);
               ui.notifications?.error(`Downtime Engine | Failed to import settings: ${msg}`);
             }
-            console.error("Downtime Engine | Import error:", err);
+            Logger.error("Import error:", false, err);
           } finally {
             readerCleanup();
           }
@@ -128,15 +133,20 @@
           reader.readAsText(file);
         } catch (err) {
           ui.notifications?.error("Downtime Engine | Failed to start reading settings file.");
-          console.error("Downtime Engine | FileReader sync error:", err);
+          Logger.error("FileReader sync error:", false, err);
           readerCleanup();
         }
       };
       input.click();
     } catch (err) {
-      console.error("Downtime Engine | Failed to initialize settings import:", err);
+      Logger.error("Failed to initialize settings import:", true, err);
       if (input.parentNode) input.remove();
     }
+  }
+
+  function clearCache() {
+    TutelageResolverService.clearCache();
+    ui.notifications?.info("Downtime Engine | Tutelage cache cleared.");
   }
 </script>
 
@@ -158,15 +168,36 @@
     >
       <i class="fas fa-file-import"></i> Import
     </button>
+    <button
+      type="button"
+      class="tidy-button"
+      onclick={clearCache}
+      title="Clear Tutelage Cache"
+    >
+      <i class="fas fa-sync"></i> Clear Cache
+    </button>
   </div>
 
   <RulesConfig bind:rules />
   <hr />
-  <CompendiumConfig bind:allowedCompendiums {availablePacks} />
+  <h3>Template Compendiums (Items)</h3>
+  <CompendiumConfig bind:allowedCompendiums availablePacks={availableItemPacks} />
+  <hr />
+  <h3>Instructor Compendiums (Actors)</h3>
+  <CompendiumConfig 
+    bind:allowedCompendiums={teacherCompendiums} 
+    availablePacks={instructorPacks} 
+    notes="Compendiums containing actors with Teacher Offerings."
+  />
+  <hr />
+  <h3>Book Compendiums (Items)</h3>
+  <CompendiumConfig 
+    bind:allowedCompendiums={bookCompendiums} 
+    availablePacks={bookPacks} 
+    notes="Compendiums containing items with Learning Book bonuses."
+  />
   <hr />
   <TimeUnitsConfig bind:timeUnits />
-  <hr />
-  <GuidanceConfig bind:guidanceTiers {timeUnits} {rules} />
 </div>
 
 <style lang="scss">

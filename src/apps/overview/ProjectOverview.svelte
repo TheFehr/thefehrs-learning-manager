@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { getInvalidProjects, type InvalidProjectReason } from "../overview-logic.js";
+  import { getInvalidProjects, type InvalidProjectReason } from "@/apps/overview-logic.js";
+  import { Logger } from "@/core/logger.js";
 
   let invalidProjects = $state<InvalidProjectReason[]>([]);
   let isLoading = $state(true);
@@ -12,7 +13,7 @@
       errorMessage = null;
       invalidProjects = await getInvalidProjects();
     } catch (error) {
-      console.error("Downtime Engine | Error fetching invalid projects:", error);
+      Logger.error("Error fetching invalid projects:", true, error);
       errorMessage = "Failed to load invalid projects. Check console for details.";
     }
   }
@@ -31,7 +32,7 @@
 
   function openItemSheet(item: any) {
     if (!item?.sheet) {
-      console.warn("Downtime Engine | Cannot open sheet: item or sheet is undefined");
+      Logger.warn("Cannot open sheet: item or sheet is undefined");
       return;
     }
     item.sheet.render(true);
@@ -70,12 +71,13 @@
         <div class="invalid-project-card">
           <div class="project-info">
             <div
-              class="project-name"
-              onclick={() => openItemSheet(item)}
+              class="project-name {item.sheet ? 'clickable' : 'disabled'}"
+              onclick={() => item.sheet && openItemSheet(item)}
               role="button"
-              tabindex="0"
+              tabindex={item.sheet ? 0 : -1}
+              aria-disabled={!item.sheet}
               onkeydown={(e) => {
-                if (e.key === "Enter" || e.key === " ") {
+                if (item.sheet && (e.key === "Enter" || e.key === " ")) {
                   e.preventDefault();
                   openItemSheet(item);
                 }
@@ -97,7 +99,8 @@
               type="button"
               class="fix-button tidy-button"
               onclick={() => openItemSheet(item)}
-              title="Open Item Sheet"
+              title={item.sheet ? "Open Item Sheet" : "Sheet not available"}
+              disabled={!item.sheet}
             >
               <i class="fas fa-edit"></i> Fix Project
             </button>
@@ -133,6 +136,7 @@
     font-size: 1.1rem;
     border: none;
   }
+
   .loading-state,
   .no-invalid-projects,
   .error-state {
@@ -175,17 +179,24 @@
 
   .project-name {
     margin: 0;
-    cursor: pointer;
     color: var(--t5e-primary-accent-color, #ff6400);
     font-size: 1rem;
     font-weight: bold;
+
+    &.clickable {
+      cursor: pointer;
+      &:hover {
+        text-decoration: underline;
+      }
+    }
+
+    &.disabled {
+      cursor: default;
+      opacity: 0.6;
+    }
   }
 
-  .project-name:hover {
-    text-decoration: underline;
-  }
-
-  .project-name:focus-visible {
+  .project-name:focus-visible:not(.disabled) {
     outline: 2px solid var(--t5e-primary-accent-color, #ff6400);
     outline-offset: 2px;
     border-radius: 2px;

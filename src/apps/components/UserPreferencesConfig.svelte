@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type {TimeUnit} from "../../types.js";
+  import type {TimeUnit} from "@/types.js";
 
   let {
     autoSpend = $bindable(false),
@@ -32,28 +32,29 @@
     </div>
   </div>
 
-  <div class="form-group">
-    <span class="form-label">Allowed Units</span>
-    <div class="form-fields">
-      <div class="checkbox-group" class:disabled={!autoSpend}>
-        {#each timeUnits as unit}
-          <label class="checkbox-label" class:disabled={!autoSpend}>
-            <input
-              type="checkbox"
-              data-unit-id={unit.id}
-              checked={autoSpendUnits.includes(unit.id)}
-              onchange={() => toggleUnit(unit.id)}
-              disabled={!autoSpend}
-            />
-            {unit.name} ({unit.short})
-          </label>
-        {:else}
-          <p class="notes">No time units available.</p>
-        {/each}
+  {#if autoSpend}
+    <div class="form-group">
+      <span class="form-label">Allowed Units</span>
+      <div class="form-fields">
+        <div class="checkbox-group">
+          {#each timeUnits as unit}
+            <label class="checkbox-label">
+              <input
+                type="checkbox"
+                data-unit-id={unit.id}
+                checked={autoSpendUnits.includes(unit.id)}
+                onchange={() => toggleUnit(unit.id)}
+              />
+              {unit.name} ({unit.short})
+            </label>
+          {:else}
+            <p class="notes">No time units available.</p>
+          {/each}
+        </div>
+        <p class="notes">Select which time units should be automatically spent.</p>
       </div>
-      <p class="notes">Select which time units should be automatically spent.</p>
     </div>
-  </div>
+  {/if}
 </section>
 
 <style lang="scss">
@@ -103,10 +104,6 @@
     display: flex;
     flex-wrap: wrap;
     gap: 0.5rem;
-
-    &.disabled {
-      opacity: 0.5;
-    }
   }
 
   .checkbox-label {
@@ -120,11 +117,7 @@
     border-radius: 4px;
     border: 1px solid transparent;
 
-    &.disabled {
-      cursor: not-allowed;
-    }
-
-    &:hover:not(.disabled) {
+    &:hover {
       background: var(--t5e-tertiary-color);
     }
 

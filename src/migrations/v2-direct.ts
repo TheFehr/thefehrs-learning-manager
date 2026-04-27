@@ -1,14 +1,8 @@
 import { createProjectItemFromTemplate, type LegacyProject } from "./migration-utils.js";
-import { MODULE_ID } from "../global";
-
-interface ProjectTemplateLegacy {
-  id: string;
-  name: string;
-  target: number;
-  rewardUuid: string;
-  rewardType: string;
-  requirements: unknown[];
-}
+import { MODULE_ID } from "@/global.js";
+import { Logger } from "@/core/logger.js";
+import { FoundryUtils } from "@/core/foundry-utils.js";
+import { getGame, getUI } from "@/core/foundry.js";
 
 interface GuidanceTier {
   id: string;
@@ -20,10 +14,26 @@ interface GuidanceTier {
   _migratedToV2?: boolean;
 }
 
+declare module "fvtt-types/configuration" {
+  interface SettingConfig {
+    "thefehrs-learning-manager.guidanceTiers": any[];
+  }
+}
+
+interface ProjectTemplateLegacy {
+  id: string;
+  name: string;
+  target: number;
+  rewardUuid: string;
+  rewardType: string;
+  requirements: unknown[];
+}
+
 export async function migrateToV2Direct() {
-  ui.notifications?.info("Downtime Engine: Performing direct migration to v2.0.0...");
+  getUI()?.notifications?.info("Downtime Engine: Performing direct migration to v2.0.0...");
 
   try {
+    const game = getGame();
     // 1. Rules Migration (v3 equivalent)
     const rules = game.settings.get(MODULE_ID, "rules") as any;
     if (rules) {
@@ -32,10 +42,12 @@ export async function migrateToV2Direct() {
       };
       let rulesUpdated = false;
 
-      if (
-        typeof updatedRules.critThreshold !== "number" ||
-        !Number.isFinite(updatedRules.critThreshold)
-      ) {
+      const rawThreshold = updatedRules.critThreshold;
+      const parsedThreshold = Number(rawThreshold);
+      if (typeof rawThreshold !== "number") {
+        updatedRules.critThreshold = Number.isFinite(parsedThreshold) ? parsedThreshold : 20;
+        rulesUpdated = true;
+      } else if (!Number.isFinite(rawThreshold)) {
         updatedRules.critThreshold = 20;
         rulesUpdated = true;
       }
@@ -55,7 +67,7 @@ export async function migrateToV2Direct() {
     let tiersUpdated = false;
     if (tiers && Array.isArray(tiers)) {
       for (const tier of tiers) {
-        if (!tier._migratedToV2 && tier.costs) {
+        if (!tier._migratedToV2 && !tier._migratedGpToCp && tier.costs) {
           for (const key of Object.keys(tier.costs)) {
             tier.costs[key] = Math.round(tier.costs[key] * 100);
           }
@@ -69,10 +81,9 @@ export async function migrateToV2Direct() {
     }
 
     // 3. Library and Item Migration (v1 + v4 + v5 equivalent)
-    let library = game.settings.get(
-      MODULE_ID,
-      "projectTemplates",
-    ) as unknown as ProjectTemplateLegacy[];
+    let library =
+      (game.settings.get(MODULE_ID, "projectTemplates") as unknown as ProjectTemplateLegacy[]) ||
+      [];
     let libraryUpdated = false;
     if (!Array.isArray(library)) {
       library = [];
@@ -83,7 +94,7 @@ export async function migrateToV2Direct() {
 
     let allSuccessful = true;
     for (const actor of actors) {
-      const projects = (actor.getFlag(MODULE_ID, "projects") || []) as LegacyProject[];
+      const projects = (actor.getFlag(MODULE_ID, "projects" as any) || []) as LegacyProject[];
       if (projects.length === 0) continue;
 
       const remainingProjects: LegacyProject[] = [];
@@ -100,7 +111,7 @@ export async function migrateToV2Direct() {
 
         if (!tpl) {
           tpl = {
-            id: (foundry.utils as unknown as { randomID: () => string }).randomID(),
+            id: FoundryUtils.randomID(),
             name: p.name || "Unknown Project",
             target: p.maxProgress ?? 100,
             rewardUuid: p.rewardUuid || "",
@@ -129,8 +140,8 @@ export async function migrateToV2Direct() {
           tpl.target,
         );
         if (!created) {
-          console.warn(
-            `Downtime Engine | Migration: Failed to migrate project ${p.name || p.id} for actor ${actor.name}. Project will be preserved in legacy flags.`,
+          Logger.warn(
+            `Migration: Failed to migrate project ${p.name || p.id} for actor ${actor.name}. Project will be preserved in legacy flags.`,
           );
           remainingProjects.push(p);
           allSuccessful = false;
@@ -138,7 +149,7 @@ export async function migrateToV2Direct() {
       }
 
       // Update legacy projects flag with only those that failed to migrate
-      await actor.setFlag(MODULE_ID, "projects", remainingProjects);
+      await actor.setFlag(MODULE_ID, "projects" as any, remainingProjects);
     }
 
     if (libraryUpdated) {
@@ -147,15 +158,15 @@ export async function migrateToV2Direct() {
 
     if (allSuccessful) {
       await game.settings.set(MODULE_ID, "migrationVersion", "2.0.0");
-      ui?.notifications?.info("Downtime Engine direct migration to v2.0.0 successful!");
+      getUI()?.notifications?.info("Downtime Engine direct migration to v2.0.0 successful!");
     } else {
-      ui?.notifications?.warn(
+      getUI()?.notifications?.warn(
         "Downtime Engine | Direct migration partially failed. Some projects were preserved in legacy flags and will be retried later.",
       );
     }
   } catch (error) {
-    console.error("Downtime Engine direct migration failed:", error);
-    ui?.notifications?.error(
+    Logger.error("direct migration failed:", true, error);
+    getUI()?.notifications?.error(
       "Downtime Engine direct migration failed. Please check the console for details.",
     );
     throw error;

@@ -1,21 +1,30 @@
-import { DEFAULT_DC } from "../global.js";
-import { Settings } from "../core/settings.js";
+import { DEFAULT_DC } from "@/global.js";
+import { Settings } from "@/core/settings.js";
+import { Logger } from "@/core/logger.js";
+import { FoundryUtils } from "@/core/foundry-utils.js";
 import { ActorProxy } from "./actor-proxy.js";
-import { ActivityManager } from "../core/activity-manager.js";
+import { ActivityManager } from "@/core/activity-manager.js";
 import { ProjectLifecycle } from "./project-lifecycle.js";
 import { LearningActivityData, ProjectFlagData, ProjectItem } from "./project-item.js";
-import { isActor5e } from "../types.js";
-import type {
-  Item5e,
-  Actor5e,
-  LearningActor,
-  TimeUnit,
-  SystemRules,
-  TrainingRoll,
-} from "../types.js";
-import { Socket } from "../core/socket.js";
+import { isActor5e } from "@/types.js";
+import type { Item5e, TimeUnit, SystemRules, TrainingRoll } from "@/types.js";
+import { Socket } from "@/core/socket.js";
+import { mount, unmount } from "svelte";
+import { TutelageResolverService } from "./tutelage-resolver.js";
+import InstructorSelectionDialog from "@/apps/dialogs/InstructorSelectionDialog.svelte";
 
-import { ProjectUI } from "../core/project-ui.js";
+import { ProjectUI } from "@/core/project-ui.js";
+import { getGame, getUI } from "@/core/foundry.js";
+
+export interface InstructorDialogResult {
+  instructor: {
+    actorUuid: string;
+    offering: {
+      name: string;
+    };
+  } | null;
+  remember: boolean;
+}
 
 export class ProjectEngine {
   static readonly BATCH_THRESHOLD = 12;
@@ -58,12 +67,8 @@ export class ProjectEngine {
   /**
    * Forwards call to ProjectLifecycle
    */
-  static async initiateProjectFromItem(
-    actor: Actor,
-    rewardDoc: Item,
-    tutelageId: string = "",
-  ): Promise<Item5e | null> {
-    return await ProjectLifecycle.initiateProjectFromItem(actor, rewardDoc, tutelageId);
+  static async initiateProjectFromItem(actor: Actor, rewardDoc: Item): Promise<Item5e | null> {
+    return await ProjectLifecycle.initiateProjectFromItem(actor, rewardDoc);
   }
 
   /**
@@ -76,8 +81,12 @@ export class ProjectEngine {
   /**
    * Forwards call to ProjectLifecycle
    */
-  static async updateItemWithProgress(item: Item5e, projectData: ProjectFlagData) {
-    return ProjectLifecycle.updateItemWithProgress(item, projectData);
+  static async updateItemWithProgress(
+    item: Item5e,
+    projectData: ProjectFlagData,
+    instructorName: string = "Self-Study",
+  ): Promise<void> {
+    return ProjectLifecycle.updateItemWithProgress(item, projectData, instructorName);
   }
 
   static _tabLogicModule: any = null;
@@ -99,9 +108,9 @@ export class ProjectEngine {
     const bank = proxy.bank;
     if (!bank.total || bank.total <= 0) {
       if (!allowedUnitIds) {
-        ui.notifications?.warn("No training time in your bank!");
+        Logger.warn("No training time in your bank!");
       } else {
-        console.debug("Downtime Engine | No training time in bank, skipping auto-spend.");
+        Logger.debug("No training time in bank, skipping auto-spend.");
       }
       return false;
     }
@@ -133,16 +142,16 @@ export class ProjectEngine {
 
     if (activities.length === 0) {
       if (!allowedUnitIds)
-        ui.notifications?.warn("No valid training activities found for this project.");
+        getUI()?.notifications?.warn("No valid training activities found for this project.");
       return false;
     }
 
     // If manual (no allowedUnitIds), ask for confirmation
     if (!allowedUnitIds) {
       const { TabLogic } = await this.importTabLogic();
-      const formattedTime = TabLogic.formatTimeBank(bank.total, Settings.get("timeUnits"));
-      const safeFormattedTime = foundry.utils.escapeHTML(formattedTime);
-      const safeItemName = foundry.utils.escapeHTML(item.name);
+      const formattedTime = TabLogic.formatTimeBank(bank.total || 0, Settings.get("timeUnits"));
+      const safeFormattedTime = FoundryUtils.escapeHTML(formattedTime);
+      const safeItemName = FoundryUtils.escapeHTML(item.name || "Unknown");
 
       const confirmed = await foundry.applications.api.DialogV2.confirm({
         window: { title: "Confirm Spend All Time" },
@@ -167,14 +176,13 @@ export class ProjectEngine {
 
       const result = await this.processTraining(fitting.activity, { skipPrompt: true });
       if (!result) {
-        console.warn(
-          `Downtime Engine | Failed to process training for "${fitting.name}" unit in Spend All loop. Skipping...`,
+        Logger.warn(
+          `Failed to process training for "${fitting.name}" unit in Spend All loop. Skipping...`,
         );
         consecutiveFailures++;
         if (consecutiveFailures >= maxConsecutiveFailures) {
           const msg = `Spend All loop aborted after ${consecutiveFailures} consecutive failures.`;
-          console.error(`Downtime Engine | ${msg}`);
-          ui.notifications?.error(`Downtime Engine | ${msg}`);
+          Logger.error(msg, true);
           break;
         }
         iterations++;
@@ -185,15 +193,14 @@ export class ProjectEngine {
       const newBank = proxy.bank.total || 0;
       if (newBank >= currentBank) {
         const msg = `Spend All loop detected no decrease in bank total after successful training for "${fitting.name}". Aborting to prevent infinite loop.`;
-        console.error(`Downtime Engine | ${msg}`);
-        ui.notifications?.error(`Downtime Engine | ${msg}`);
+        Logger.error(msg, true);
         break;
       }
 
       anySuccess = true;
       consecutiveFailures = 0;
 
-      const updatedProject = actor.items.get(item.id) as unknown as ProjectItem | undefined;
+      const updatedProject = actor.items.get(item.id!) as unknown as ProjectItem | undefined;
       if (!updatedProject || !updatedProject.system?.activities) break;
 
       const isCompleted = updatedProject.getFlag(Settings.ID, "projectData")?.isCompleted;
@@ -203,9 +210,8 @@ export class ProjectEngine {
     }
 
     if (iterations >= maxIterations) {
-      const msg = `processSpendAll reached maximum iterations (${maxIterations}) for project "${item.name}". Possible infinite loop logic or extremely large bank.`;
-      console.warn(`Downtime Engine | ${msg}`);
-      ui.notifications?.warn(`Downtime Engine | ${msg}`);
+      const msg = `processSpendAll reached maximum iterations (${maxIterations}) for project "${item.name || "Unknown"}". Possible infinite loop logic or extremely large bank.`;
+      Logger.warn(msg);
     }
 
     return anySuccess;
@@ -228,12 +234,14 @@ export class ProjectEngine {
 
     // Handle "Spend all" activity
     if (learningActivity.flags?.[Settings.ID]?.isSpendAll) {
-      return await this.processSpendAll(item as Item5e);
+      return await this.processSpendAll(item as unknown as Item5e);
     }
 
-    const projectDataFlags = item.getFlag("thefehrs-learning-manager", "projectData");
+    const projectDataFlags = FoundryUtils.deepClone(
+      (item.getFlag("thefehrs-learning-manager", "projectData") as ProjectFlagData) || {},
+    );
     if (!projectDataFlags || !projectDataFlags.target || projectDataFlags.target <= 0) {
-      ui.notifications?.warn("This project is awaiting a GM-defined target progress.");
+      getUI()?.notifications?.warn("This project is awaiting a GM-defined target progress.");
       return false;
     }
 
@@ -245,35 +253,138 @@ export class ProjectEngine {
 
     const proxy = ActorProxy.forActor(actor);
     const bank = proxy.bank;
-    if (bank.total < tu.ratio) {
-      ui.notifications?.warn(`Not enough time!`);
+    if ((bank.total || 0) < tu.ratio) {
+      getUI()?.notifications?.warn(`Not enough time!`);
       return false;
     }
 
-    const guidanceTiers = Settings.get("guidanceTiers");
-    const tier = guidanceTiers.find((t) => t.id === projectDataFlags.tutelageId);
-    if (!tier) {
-      ui.notifications?.warn("Please select a tutelage tier for this project.");
-      return false;
-    }
+    const instructors = await TutelageResolverService.getAvailableInstructors(item as any);
+    const books = TutelageResolverService.getAvailableBooks(actor, item as any);
+    const bestBookMod = books.reduce((max, b) => Math.max(max, b.modifier), 0);
+    const bestBooks = books.filter((b) => b.modifier === bestBookMod && bestBookMod > 0);
+    const bestBookNames = bestBooks.map((b) => b.name).join(", ");
 
-    // If it's a bulk unit, ensure the tier actually provides progress for it
-    if (tu.isBulk && Settings.get("rules").bulkMethod === "direct") {
-      const bulkProgress = tier.progress?.[tu.id] || 0;
-      if (bulkProgress <= 0) {
-        ui.notifications?.warn(
-          `The "${tier.name}" tier provides no progress for ${tu.name} sessions.`,
-        );
-        return false;
+    let selectedInstructor = null;
+    let rememberChoice = false;
+
+    if (instructors.length > 0 || bestBookMod > 0) {
+      const rememberedId = projectDataFlags.rememberedInstructorUuid;
+      const rememberedName = projectDataFlags.rememberedInstructorName;
+
+      const remembered = instructors.find(
+        (i) => i.actorUuid === rememberedId && i.offering.name === rememberedName,
+      );
+
+      const lastId = projectDataFlags.lastInstructorUuid;
+      const lastName = projectDataFlags.lastInstructorName;
+
+      if (options.skipPrompt && remembered) {
+        selectedInstructor = remembered;
+      } else if (!options.skipPrompt) {
+        let dialogInstance: any;
+        const choice = await new Promise<InstructorDialogResult | "cancel" | null>((resolve) => {
+          const cleanup = (shouldCloseDialog = false) => {
+            if (dialogInstance) {
+              unmount(dialogInstance);
+              dialogInstance = null;
+            }
+            if (shouldCloseDialog === true) dialog.close();
+            resolve(null);
+          };
+
+          const dialog = new (foundry.applications.api.DialogV2 as any)({
+            window: {
+              title: `Select Instructor: ${item.name}`,
+              contentClasses: ["thefehrs-learning-manager-dialog"],
+            },
+            content: '<div class="ude-instructor-dialog-root"></div>',
+            buttons: [
+              {
+                action: "confirm",
+                label: "Confirm",
+                default: true,
+                callback: (_event: any, _button: any, _dialog: any) => {
+                  resolve(dialogInstance?.getResult());
+                },
+              },
+              {
+                action: "cancel",
+                label: "Cancel",
+                callback: () => resolve("cancel"),
+              },
+            ],
+            close: () => cleanup(),
+            modal: true,
+            rejectClose: false,
+          });
+
+          dialog
+            .render({ force: true })
+            .then(() => {
+              const root = dialog.element.querySelector(".ude-instructor-dialog-root");
+              if (root) {
+                Logger.debug("ProjectEngine | Mounting InstructorSelectionDialog to dialog root.");
+                dialogInstance = mount(InstructorSelectionDialog, {
+                  target: root,
+                  props: {
+                    instructors,
+                    bestBookMod,
+                    bestBookNames,
+                    timeUnit: tu,
+                    lastInstructorUuid: lastId,
+                    lastInstructorName: lastName,
+                  },
+                });
+              } else {
+                Logger.error(
+                  "ProjectEngine | Could not find ude-instructor-dialog-root in dialog element!",
+                  true,
+                  dialog.element,
+                );
+                cleanup(true);
+              }
+            })
+            .catch((err: any) => {
+              Logger.error(
+                "ProjectEngine | Error rendering instructor selection dialog:",
+                true,
+                err,
+                dialog.element,
+              );
+              resolve(null);
+              cleanup(true);
+            });
+        });
+
+        if (!choice || choice === "cancel") return false;
+        selectedInstructor = choice.instructor;
+        rememberChoice = choice.remember;
       }
     }
 
-    const costCp = tier.costs?.[tu.id] || 0;
+    const resolution = await TutelageResolverService.resolveTutelage(
+      actor,
+      item as any,
+      selectedInstructor?.actorUuid,
+      selectedInstructor?.offering.name,
+    );
+    const tutelageMod = resolution.modifier;
+    const costCp = resolution.costs[tu.id] || 0;
+    const instructorName = resolution.instructorName;
+
+    projectDataFlags.lastInstructorUuid = selectedInstructor?.actorUuid ?? "";
+    projectDataFlags.lastInstructorName = resolution.instructorName ?? "Self-Study";
+
+    if (rememberChoice) {
+      projectDataFlags.rememberedInstructorUuid = selectedInstructor?.actorUuid;
+      projectDataFlags.rememberedInstructorName = selectedInstructor?.offering.name;
+    }
+
     const cur = proxy.currency;
-    const totalCp = cur.gp * 100 + cur.sp * 10 + cur.cp;
+    const totalCp = cur.pp * 1000 + cur.gp * 100 + cur.ep * 50 + cur.sp * 10 + cur.cp;
 
     if (totalCp < costCp) {
-      ui.notifications?.warn(`Need ${costCp}cp!`);
+      getUI()?.notifications?.warn(`Need ${costCp}cp!`);
       return false;
     }
 
@@ -285,39 +396,39 @@ export class ProjectEngine {
     const isBulkRoll = rules.bulkMethod === "roll";
     const isSeparateRoll = rules.nonBulkMethod === "roll";
 
-    if (!options.skipPrompt && tu.isBulk && (isSeparateRoll || isBulkRoll)) {
-      const bulkResult = await TabLogic.computeProgress(actor, rules, tier, tu, {
-        preview: true,
-      });
+    if (
+      !options.skipPrompt &&
+      tu.isBulk &&
+      (rules.nonBulkMethod === "roll" || rules.bulkMethod === "roll")
+    ) {
+      const prob = await TabLogic.calculateSuccessProbability(actor, rules, tutelageMod);
+      const chancePercent = prob === null ? "unavailable" : Math.round(prob * 100);
 
-      let chancePercent: string | number = "unavailable";
-      let separateValue: string | number = "unavailable";
-      let expectedPerRoll: number = NaN;
+      const expectedPerRoll = await TabLogic.calculateExpectedProgress(actor, rules, tutelageMod);
 
-      expectedPerRoll = await TabLogic.calculateExpectedProgress(actor, rules, tier);
-
-      if (isSeparateRoll) {
-        const prob = await TabLogic.calculateSuccessProbability(actor, rules, tier);
-        chancePercent = prob === null ? "unavailable" : Math.round(prob * 100);
-        separateValue = isNaN(expectedPerRoll)
-          ? "unavailable"
-          : (tu.ratio * expectedPerRoll).toFixed(1);
+      // Bulk Value
+      let bulkValue: string | number;
+      if (isBulkRoll) {
+        bulkValue = isNaN(expectedPerRoll) ? "unavailable" : expectedPerRoll.toFixed(1);
       } else {
-        const sepResult = await TabLogic.computeProgress(
-          actor,
-          rules,
-          tier,
-          { ...tu, isBulk: false, ratio: 1 },
-          { preview: true },
-        );
-        separateValue = tu.ratio * (sepResult.progressGained || 0);
+        const bulkRes = await TabLogic.computeProgress(actor, rules, tutelageMod, tu);
+        bulkValue = bulkRes.progressGained;
       }
 
-      const bulkValue = isBulkRoll
-        ? isNaN(expectedPerRoll)
+      // Separate Value
+      let separateValue: string | number;
+      if (isSeparateRoll) {
+        separateValue = isNaN(expectedPerRoll)
           ? "unavailable"
-          : expectedPerRoll.toFixed(2)
-        : bulkResult.progressGained;
+          : (expectedPerRoll * tu.ratio).toFixed(1);
+      } else {
+        const sepRes = await TabLogic.computeProgress(actor, rules, tutelageMod, {
+          ...tu,
+          isBulk: false,
+          ratio: 1,
+        });
+        separateValue = (sepRes.progressGained * tu.ratio).toFixed(1);
+      }
 
       const choice = await foundry.applications.api.DialogV2.wait({
         window: { title: `Training Resolution: ${tu.name}` },
@@ -348,27 +459,15 @@ export class ProjectEngine {
       if (!choice) return false;
 
       if (choice === "bulk" && bulkValue === "unavailable") {
-        ui.notifications?.warn(`The chosen bulk training path is unavailable.`);
+        getUI()?.notifications?.warn(`The chosen bulk training path is unavailable.`);
         return false;
       }
       if (choice === "separate" && separateValue === "unavailable") {
-        ui.notifications?.warn(`The chosen separate training path is unavailable.`);
+        getUI()?.notifications?.warn(`The chosen separate training path is unavailable.`);
         return false;
       }
 
       isSeparate = choice === "separate";
-    }
-
-    // Confirmation before spending currency
-    if (costCp > 0) {
-      const formattedCost = TabLogic.formatCurrency(costCp);
-      const confirmed = await foundry.applications.api.DialogV2.confirm({
-        window: { title: "Confirm Tutelage Cost" },
-        content: `<p>This training session requires <b>${formattedCost}</b> in tutelage fees. Spend currency and proceed?</p>`,
-        rejectClose: false,
-        modal: true,
-      });
-      if (!confirmed) return false;
     }
 
     // Transactions - Deduct currency first
@@ -385,103 +484,140 @@ export class ProjectEngine {
     const baseTu = isSeparate ? { ...tu, isBulk: false, ratio: 1 } : tu;
 
     for (let i = 0; i < iterations; i++) {
-      const result = await TabLogic.computeProgress(actor, rules, tier, baseTu);
+      const result = await TabLogic.computeProgress(actor, rules, tutelageMod, baseTu);
       totalProgressGained += result.progressGained;
       if (result.roll) rolls.push(result.roll);
       if (result.reason) reasons.push(result.reason);
     }
 
     // Calculate raw progress and excess
-    const rawProgress = projectDataFlags.progress + totalProgressGained;
-    const excessProgress = Math.max(0, rawProgress - projectDataFlags.target);
+    const rawProgress = (projectDataFlags.progress || 0) + totalProgressGained;
+    const excessProgress = Math.max(0, rawProgress - (projectDataFlags.target || 0));
 
     // Update state
-    projectDataFlags.progress = Math.min(rawProgress, projectDataFlags.target);
+    projectDataFlags.progress = Math.min(rawProgress, projectDataFlags.target || 0);
     let completedNow = false;
     if (projectDataFlags.progress >= projectDataFlags.target && !projectDataFlags.isCompleted) {
       projectDataFlags.isCompleted = true;
       completedNow = true;
     }
 
-    // Deduct time from bank
-    await proxy.setBank({ total: bank.total - tu.ratio });
+    try {
+      // Deduct time from bank
+      await proxy.setBank({ total: bank.total - tu.ratio });
 
-    if (completedNow) {
-      await this.completeProject(item as Item5e);
+      if (completedNow) {
+        // Ensure latest instructor/remembered data is saved before completion
+        await this.updateItemWithProgress(
+          item as unknown as Item5e,
+          projectDataFlags,
+          instructorName,
+        );
+        await this.completeProject(item as unknown as Item5e);
 
-      if (excessProgress > 0 && projectDataFlags.followUpProjectId) {
-        const doc = await fromUuid(projectDataFlags.followUpProjectId as `Item.${string}`);
-        const followUpItem = doc instanceof Item ? doc : null;
-        if (followUpItem) {
-          const escapedItemName = foundry.utils.escapeHTML(item.name || "");
-          const escapedFollowUpName = foundry.utils.escapeHTML(followUpItem.name || "");
+        if (excessProgress > 0 && projectDataFlags.followUpProjectId) {
+          const followUpItem = (await fromUuid(
+            projectDataFlags.followUpProjectId as `Item.${string}`,
+          )) as unknown as Item | null;
+          if (followUpItem) {
+            const escapedItemName = FoundryUtils.escapeHTML(item.name || "");
+            const escapedFollowUpName = FoundryUtils.escapeHTML(followUpItem.name || "");
 
-          const proceed = await foundry.applications.api.DialogV2.confirm({
-            window: { title: "Learning Progress Exceeded" },
-            content: `<p>You generated <strong>${excessProgress}</strong> more progress than needed to complete <strong>${escapedItemName}</strong>.</p>
-                      <p>Would you like to immediately apply it towards the follow-up project: <strong>${escapedFollowUpName}</strong>?</p>`,
-            rejectClose: false,
-          });
+            const proceed = await foundry.applications.api.DialogV2.confirm({
+              window: { title: "Learning Progress Exceeded" },
+              content: `<p>You generated <strong>${excessProgress}</strong> more progress than needed to complete <strong>${escapedItemName}</strong>.</p>
+                        <p>Would you like to immediately apply it towards the follow-up project: <strong>${escapedFollowUpName}</strong>?</p>`,
+              rejectClose: false,
+            });
 
-          if (proceed) {
-            const followUpFlags = followUpItem.getFlag("thefehrs-learning-manager", "projectData");
-            const reqs = followUpFlags?.requirements || [];
-            const { eligible, reason: reqReason } = TabLogic.meetsRequirements(actor, reqs);
-
-            if (!eligible) {
-              ui.notifications?.warn(
-                `Could not start follow-up project: Requirements not met for ${escapedFollowUpName}: ${reqReason}`,
+            if (proceed) {
+              const followUpFlags = followUpItem.getFlag(
+                "thefehrs-learning-manager",
+                "projectData",
               );
-            } else {
-              const newItem = await this.initiateProjectFromItem(
-                actor,
-                followUpItem,
-                projectDataFlags.tutelageId,
-              );
-              if (newItem) {
-                const newFlags = (newItem as unknown as ProjectItem).getFlag(
-                  "thefehrs-learning-manager",
-                  "projectData",
+              const reqs = followUpFlags?.requirements || [];
+              const { eligible, reason: reqReason } = TabLogic.meetsRequirements(actor, reqs);
+
+              if (!eligible) {
+                getUI()?.notifications?.warn(
+                  `Could not start follow-up project: Requirements not met for ${escapedFollowUpName}: ${reqReason}`,
                 );
-                if (newFlags) {
-                  newFlags.progress = Math.min(
-                    excessProgress,
-                    newFlags.target > 0 ? newFlags.target : excessProgress,
+              } else {
+                const newItem = await this.initiateProjectFromItem(actor, followUpItem);
+                if (newItem) {
+                  const newFlags = FoundryUtils.deepClone(
+                    (newItem as unknown as ProjectItem).getFlag(
+                      "thefehrs-learning-manager",
+                      "projectData",
+                    ),
                   );
-                  await this.updateItemWithProgress(newItem, newFlags);
-                  ui.notifications?.info(
-                    `Started follow-up project: ${foundry.utils.escapeHTML(followUpItem.name)} with ${
-                      newFlags.progress
-                    } initial progress.`,
-                  );
+                  if (newFlags) {
+                    newFlags.progress = Math.min(
+                      excessProgress,
+                      (newFlags.target || 0) > 0 ? newFlags.target! : excessProgress,
+                    );
+                    try {
+                      await this.updateItemWithProgress(newItem, newFlags);
+                      getUI()?.notifications?.info(
+                        `Started follow-up project: ${FoundryUtils.escapeHTML(followUpItem.name || "")} with ${
+                          newFlags.progress
+                        } initial progress.`,
+                      );
+                    } catch (err) {
+                      Logger.error("Failed to update follow-up project progress:", true, err);
+                      getUI()?.notifications?.error(
+                        `Failed to update progress on follow-up project "${followUpItem.name}".`,
+                      );
+                    }
+                  }
                 }
               }
             }
           }
         }
-      }
-    } else {
-      await this.updateItemWithProgress(item as Item5e, projectDataFlags);
+      } else {
+        await this.updateItemWithProgress(
+          item as unknown as Item5e,
+          projectDataFlags,
+          instructorName,
+        );
 
-      // Ensure we have the latest document instance before displaying the card
-      const freshItem = actor.items.get(item.id) as Item5e | undefined;
-      if (freshItem && typeof freshItem.displayCard === "function") {
-        await freshItem.displayCard({ rollMode: rules.rollMode });
+        // Ensure we have the latest document instance before displaying the card
+        const freshItem = actor.items.get(item.id!) as Item5e | undefined;
+        if (freshItem && typeof (freshItem as any).displayCard === "function") {
+          await (freshItem as any).displayCard({ rollMode: rules.rollMode });
+        }
       }
+    } catch (err) {
+      Logger.error("Process training failed during item update:", true, err);
+      getUI()?.notifications?.error(
+        `Failed to update project "${item.name}". Deducted currency and time will be restored.`,
+      );
+
+      // Rollback time
+      await proxy.setBank({ total: bank.total });
+
+      // Rollback currency
+      if (costCp > 0) {
+        await TabLogic.addCurrency(actor, costCp);
+      }
+
+      return false;
     }
 
     if (isSeparate && tu.ratio > ProjectEngine.BATCH_THRESHOLD) {
       const successCount = rolls.filter(
-        (r) => r.total >= Number(rules.checkDC ?? DEFAULT_DC),
+        (r) => (r.total || 0) >= Number(rules.checkDC ?? DEFAULT_DC),
       ).length;
-      ui.notifications?.info(
+      getUI()?.notifications?.info(
         `Training complete: Gained ${totalProgressGained} progress from ${tu.ratio} separate rolls (${successCount} successes).`,
       );
     } else {
       for (const r of rolls) {
         await r.toMessage(
           {
-            flavor: `${actor.name} tries to learn ${item.name} (DC ${Number(rules.checkDC ?? DEFAULT_DC)})`,
+            speaker: ChatMessage.getSpeaker({ actor: actor as any }),
+            flavor: `${actor.name} tries to learn ${item.name || "Unknown Item"} (DC ${Number(rules.checkDC ?? DEFAULT_DC)})`,
           },
           { rollMode: (rules.rollMode || "gmroll") as foundry.dice.RollMode },
         );
@@ -493,9 +629,9 @@ export class ProjectEngine {
         reasons.length > 0
           ? `Training unsuccessful: ${reasons[0]}`
           : "Training unsuccessful - no progress gained.";
-      ui.notifications?.info(msg);
+      getUI()?.notifications?.info(msg);
     } else if (isSeparate && tu.ratio <= ProjectEngine.BATCH_THRESHOLD) {
-      ui.notifications?.info(
+      getUI()?.notifications?.info(
         `Training complete: Gained ${totalProgressGained} progress from ${tu.ratio} separate rolls.`,
       );
     }
@@ -510,18 +646,20 @@ export class ProjectEngine {
     const autoSpendEnabled = Settings.get("autoSpend");
     const autoSpendUnits = Settings.get("autoSpendUnits");
 
-    if (!autoSpendEnabled || game.user?.isGM) return;
+    if (!autoSpendEnabled || getGame().user?.isGM) return;
 
-    const actor = game.user.character;
+    const actor = (getGame().user as any).character;
     if (!actor) return;
 
-    const projects = actor.items.filter((i) => i.getFlag(Settings.ID, "isLearningProject"));
+    const projects = (actor.items as unknown as Item5e[]).filter((i: Item5e) =>
+      i.getFlag(Settings.ID, "isLearningProject"),
+    );
 
     if (projects.length === 1) {
       const project = projects[0];
       await this.processSpendAll(project as Item5e, autoSpendUnits);
     } else if (projects.length > 1) {
-      ui.notifications?.warn(
+      getUI()?.notifications?.warn(
         "Downtime Engine | You have auto-spending enabled, but more than one active project. Please open your character sheet and spend the time yourself.",
       );
     }
@@ -543,10 +681,10 @@ export class ProjectEngine {
     isBulkRoll: boolean = false,
     isSeparateRoll: boolean = true,
   ): string {
-    const safeTuName = foundry.utils.escapeHTML(tu.name);
-    const safeBulkValue = foundry.utils.escapeHTML(String(bulkValue));
-    const safeChancePercent = foundry.utils.escapeHTML(String(chancePercent));
-    const safeSeparateValue = foundry.utils.escapeHTML(String(separateValue));
+    const safeTuName = FoundryUtils.escapeHTML(tu.name);
+    const safeBulkValue = FoundryUtils.escapeHTML(String(bulkValue));
+    const safeChancePercent = FoundryUtils.escapeHTML(String(chancePercent));
+    const safeSeparateValue = FoundryUtils.escapeHTML(String(separateValue));
 
     const bulkMethodLabel = isBulkRoll ? "Expected progress" : "Gaining";
     const bulkMethodValue = isBulkRoll

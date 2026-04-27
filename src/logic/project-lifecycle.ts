@@ -1,54 +1,53 @@
-import { Settings } from "../core/settings.js";
-import { ProjectUI } from "../core/project-ui.js";
-import { ActivityManager } from "../core/activity-manager.js";
-import { LearningFeatType, ProjectFlagData, ProjectItem } from "./project-item.js";
-import type { Actor5e, Item5e } from "../types.js";
+import { Settings } from "@/core/settings.js";
+import { Logger } from "@/core/logger.js";
+import { FoundryUtils } from "@/core/foundry-utils.js";
+import { ProjectUI } from "@/core/project-ui.js";
+import { ActivityManager } from "@/core/activity-manager.js";
+import { LearningFeatType, ProjectFlagData } from "./project-item.js";
+import type { Item5e } from "@/types.js";
+import { DocumentUtils } from "@/core/document-utils.js";
+import { getUI } from "@/core/foundry.js";
 
 export class ProjectLifecycle {
   /**
    * Stashes an item as a learning project.
    * Wipes Active Effects and Activities, then appends the isLearningProject flag.
    */
-  static async initiateProjectFromItem(
-    actor: Actor,
-    rewardDoc: Item,
-    tutelageId: string = "",
-  ): Promise<Item5e | null> {
+  static async initiateProjectFromItem(actor: Actor, rewardDoc: Item): Promise<Item5e | null> {
     const itemData = rewardDoc.toObject();
     const stashedEffects = itemData.effects || [];
-    const stashedActivities = foundry.utils.deepClone(itemData.system.activities || {});
+    const stashedActivities = FoundryUtils.deepClone(itemData.system.activities || {});
     const stashedType = itemData.type || "";
     const stashedName = itemData.name || "";
     const stashedDescription = itemData.system.description?.value || "";
-    const stashedSystem = foundry.utils.deepClone(itemData.system || {});
+    const stashedSystem = FoundryUtils.deepClone(itemData.system || {});
     const stashedSourceUuid = rewardDoc.uuid || "";
 
     const target = rewardDoc.getFlag(Settings.ID, "projectData")?.target ?? 0;
 
     if (target <= 0) {
-      console.error(
-        `Downtime Engine | Cannot create project for "${rewardDoc.name}": Invalid target value (${target}). Target must be a positive number.`,
-      );
-      ui.notifications?.error(
-        `Downtime Engine | Failed to create project: Invalid target value for "${rewardDoc.name}".`,
+      Logger.error(
+        `Cannot create project for "${rewardDoc.name}": Invalid target value (${target}). Target must be a positive number.`,
       );
       return null;
     }
 
     const stashedRequirements = rewardDoc.getFlag(Settings.ID, "projectData")?.requirements ?? [];
+    const stashedCategories = rewardDoc.getFlag(Settings.ID, "projectData")?.categories ?? [];
+    const stashedFollowUp = rewardDoc.getFlag(Settings.ID, "projectData")?.followUpProjectId ?? "";
 
-    const guidanceTiers = Settings.get("guidanceTiers");
-    const tier = guidanceTiers.find((t) => t.id === tutelageId);
-    const tutelageName = tier?.name ?? "None";
+    const tutelageName = "Self-Study";
 
     // Prepare item data for stashing
     const projectData: ProjectFlagData = {
       progress: 0,
       target: target,
-      tutelageId: tutelageId,
+      tutelageId: "",
       isLearnedReward: false,
       isLearningProject: true,
       requirements: stashedRequirements,
+      categories: stashedCategories,
+      followUpProjectId: stashedFollowUp,
       stashedEffects,
       stashedActivities,
       stashedType,
@@ -65,7 +64,7 @@ export class ProjectLifecycle {
       name: `${stashedName} (0/${target})`,
       type: "feat",
       effects: [],
-      system: foundry.utils.mergeObject(itemData.system || {}, {
+      system: FoundryUtils.mergeObject(itemData.system || {}, {
         activities: {},
         type: {
           value: LearningFeatType,
@@ -74,7 +73,7 @@ export class ProjectLifecycle {
           value: progressHtml + stashedDescription,
         },
       }),
-      flags: foundry.utils.mergeObject(itemData.flags || {}, {
+      flags: FoundryUtils.mergeObject(itemData.flags || {}, {
         [Settings.ID]: {
           projectData: projectData,
           isLearningProject: true,
@@ -86,17 +85,21 @@ export class ProjectLifecycle {
       }),
     };
 
-    const [created] = await actor.createEmbeddedDocuments("Item", [updateData] as any[]);
-    if (!created) {
-      console.error(
-        `Downtime Engine | Failed to create embedded item "${rewardDoc.name}" on actor ${actor.name}`,
-      );
+    const items = await DocumentUtils.safeCreateEmbeddedDocuments<Item5e>(
+      actor,
+      "Item",
+      [updateData] as any[],
+      rewardDoc.name ?? "Unknown Reward",
+    );
+    if (!items || items.length === 0) {
       return null;
     }
 
+    const created = items[0];
+
     const createdItem = created as Item5e;
-    console.debug(
-      `Downtime Engine | Created embedded item "${(created as unknown as Item).name}" (ID: ${createdItem.id}). Injecting activities...`,
+    Logger.debug(
+      `Created embedded item "${(created as unknown as Item).name}" (ID: ${createdItem.id}). Injecting activities...`,
     );
     try {
       const injected = await ActivityManager.injectActivities(createdItem, projectData.target);
@@ -104,18 +107,17 @@ export class ProjectLifecycle {
         throw new Error("No learning activities were injected for the created project item.");
       }
     } catch (err) {
-      console.error(
-        `Downtime Engine | Failed to inject activities for item "${createdItem.name}". Cleaning up...`,
+      Logger.error(
+        `Failed to inject activities for item "${createdItem.name}". Project creation aborted.`,
+        true,
         err,
-      );
-      ui.notifications?.error(
-        `Downtime Engine | Failed to inject activities for item "${createdItem.name}". Project creation aborted.`,
       );
       try {
         await createdItem.delete();
       } catch (deleteErr) {
-        console.error(
-          `Downtime Engine | Secondary failure: Failed to delete orphaned item "${createdItem.name}" (ID: ${createdItem.id}) during project creation rollback:`,
+        Logger.error(
+          `Secondary failure: Failed to delete orphaned item "${createdItem.name}" (ID: ${createdItem.id}) during project creation rollback:`,
+          true,
           deleteErr,
         );
       }
@@ -132,8 +134,8 @@ export class ProjectLifecycle {
     if (!isProject) return;
     const actor = item.actor;
     if (!actor) {
-      console.warn(
-        `Downtime Engine | Cannot complete project "${item.name}" (ID: ${item.id}) - missing parent actor.`,
+      Logger.warn(
+        `Cannot complete project "${item.name}" (ID: ${item.id}) - missing parent actor.`,
       );
       return;
     }
@@ -148,7 +150,7 @@ export class ProjectLifecycle {
         const doc = await fromUuid(stashedSourceUuid as `Item.${string}`);
         sourceItem = doc instanceof Item ? (doc as Item) : null;
       } catch (e) {
-        console.warn(`Downtime Engine | Could not find source item ${stashedSourceUuid}:`, e);
+        Logger.warn(`Could not find source item ${stashedSourceUuid}:`, true, e);
       }
     }
 
@@ -180,7 +182,7 @@ export class ProjectLifecycle {
     }
 
     // Fallback Restoration: Restore in-place (or recreate if type differs)
-    console.warn(`Downtime Engine | Falling back to in-place restoration for ${item.name}`);
+    Logger.warn(`Falling back to in-place restoration for ${item.name}`);
 
     const stashedType = projectDataFlags.stashedType || item.type;
     const needsTypeChange = stashedType !== item.type;
@@ -195,8 +197,8 @@ export class ProjectLifecycle {
       );
       // If type change failed, we should NOT fall back to updateInPlace as it would use the wrong type
       if (!success) {
-        console.error(
-          `Downtime Engine | Type change recreation failed for ${
+        Logger.error(
+          `Type change recreation failed for ${
             projectDataFlags.stashedName || item.name
           }. Completion aborted.`,
         );
@@ -206,7 +208,10 @@ export class ProjectLifecycle {
     }
 
     // Standard in-place update if no type change needed
-    await this.updateInPlace(item, stashedType, projectDataFlags, completedFlags);
+    const success = await this.updateInPlace(item, stashedType, projectDataFlags, completedFlags);
+    if (!success) {
+      Logger.error(`In-place update failed for project "${item.name}".`);
+    }
   }
 
   private static async restoreFromSource(
@@ -223,15 +228,21 @@ export class ProjectLifecycle {
       const createData = {
         ...sourceData,
         flags: {
-          ...(sourceData.flags || {}),
+          ...sourceData.flags,
           ...completedFlags,
         },
       };
 
-      const [created] = await actor.createEmbeddedDocuments("Item", [createData]);
+      const createdDocs = await DocumentUtils.safeCreateEmbeddedDocuments<Item>(
+        actor,
+        "Item",
+        [createData],
+        sourceItem.name ?? "Unknown Item",
+      );
+      const created = createdDocs?.[0];
 
       if (created) {
-        return this.handlePostCreationCleanup(
+        return await this.handlePostCreationCleanup(
           actor,
           item,
           created as Item,
@@ -239,10 +250,8 @@ export class ProjectLifecycle {
         );
       }
     } else {
-      console.warn(
-        `Downtime Engine | sourceItem is not a valid Item. documentName: ${
-          (sourceItem as any)?.documentName
-        }`,
+      Logger.warn(
+        `sourceItem is not a valid Item. documentName: ${(sourceItem as any)?.documentName}`,
       );
     }
     return false;
@@ -262,19 +271,17 @@ export class ProjectLifecycle {
     try {
       await oldItem.delete();
     } catch (err) {
-      console.error(
-        `Downtime Engine | Failed to delete original project item after restoration. New item created: ${createdItem.name} (${createdItem.id})`,
+      Logger.error(
+        `Failed to delete original project item after restoration. New item created: ${createdItem.name} (${createdItem.id})`,
+        true,
         err,
       );
-      ui.notifications?.error(
-        `Downtime Engine | Failed to remove the in-progress project item. You may have a duplicate item: "${createdItem.name}" (ID: ${createdItem.id}). Please remove the old one manually.`,
+      getUI()?.notifications?.warn(
+        `Restored item "${createdItem.name}" but could not delete the original project item. You may have a duplicate.`,
       );
-      // We return true here because the new item WAS successfully created.
-      // Returning false would trigger redundant fallback restoration paths in completeProject,
-      // potentially creating even more duplicate items.
       return true;
     }
-    ui.notifications?.info(`Learning Complete: ${createdItem.name} is now fully available!`);
+    getUI()?.notifications?.info(`Learning Complete: ${createdItem.name} is now fully available!`);
     if (typeof (createdItem as Item5e).displayCard === "function") {
       await (createdItem as Item5e).displayCard({ rollMode });
     }
@@ -294,31 +301,36 @@ export class ProjectLifecycle {
 
     // Update flags and basic info in the clone
     clonedData.name = projectDataFlags.stashedName || item.name;
-    clonedData.effects = (projectDataFlags.stashedEffects || []) as unknown[];
+    clonedData.effects = (projectDataFlags.stashedEffects || []) as any[];
 
     // Replace system data with deep clone of stashed system to prevent artifact survival
     if (projectDataFlags.stashedSystem) {
-      clonedData.system = foundry.utils.deepClone(
+      clonedData.system = FoundryUtils.deepClone(
         projectDataFlags.stashedSystem as unknown as object,
       );
     }
 
     clonedData.flags = {
-      ...((clonedData.flags as object) || {}),
+      ...(clonedData.flags as object),
       ...completedFlags,
     };
 
-    // Restore stashed activities in the clone using deep clone
     if (projectDataFlags.stashedActivities) {
-      (clonedData.system as Record<string, unknown>).activities = foundry.utils.deepClone(
+      (clonedData.system as any).activities = FoundryUtils.deepClone(
         projectDataFlags.stashedActivities as object,
       );
     }
 
-    const [created] = await actor.createEmbeddedDocuments("Item", [clonedData] as any[]);
+    const createdDocs = await DocumentUtils.safeCreateEmbeddedDocuments<Item>(
+      actor,
+      "Item",
+      [clonedData] as any[],
+      item.name ?? "Unknown Item",
+    );
+    const created = createdDocs?.[0];
 
     if (created) {
-      return this.handlePostCreationCleanup(
+      return await this.handlePostCreationCleanup(
         actor,
         item,
         created as unknown as Item,
@@ -340,19 +352,16 @@ export class ProjectLifecycle {
     }
 
     // Identify learning activities to explicitly remove via dot-path
-    const existingActivities = (item.system as Record<string, unknown>).activities;
+    const existingActivities = (item.system as any).activities;
     if (existingActivities) {
       const activityList =
-        typeof (existingActivities as { values: () => unknown }).values === "function"
-          ? Array.from((existingActivities as { values: () => Iterable<unknown> }).values())
+        typeof (existingActivities as any).values === "function"
+          ? Array.from((existingActivities as any).values())
           : Array.isArray(existingActivities)
             ? existingActivities
             : Object.values(existingActivities);
 
-      for (const activity of activityList as Array<{
-        id: string;
-        flags?: Record<string, any>;
-      }>) {
+      for (const activity of activityList as Array<any>) {
         if (activity?.id && activity.flags?.[Settings.ID]?.isLearningActivity) {
           dotFlags[`system.activities.-=${activity.id}`] = null;
         }
@@ -364,17 +373,16 @@ export class ProjectLifecycle {
       (projectDataFlags.stashedSystem as unknown as { activities: unknown }) || {};
 
     // Merge stashed activities (non-learning ones)
-    const systemToUpdate: Record<string, unknown> = {
-      ...(sanitizedSystem as Record<string, unknown>),
-    };
+    const systemToUpdate: Record<string, unknown> = { ...(sanitizedSystem as any) };
     if (projectDataFlags.stashedActivities) {
+      const baseActivities = systemToUpdate.activities as Record<string, unknown>;
       systemToUpdate.activities = {
-        ...((systemToUpdate.activities as Record<string, unknown>) || {}),
+        ...baseActivities,
         ...projectDataFlags.stashedActivities,
       };
     }
 
-    const primaryUpdate = {
+    const primaryUpdate: any = {
       name: projectDataFlags.stashedName || item.name,
       effects: projectDataFlags.stashedEffects || [],
       system: systemToUpdate,
@@ -385,16 +393,14 @@ export class ProjectLifecycle {
       // 1. Update basic data, nested system, flags and activity removals atomically
       await item.update(primaryUpdate);
     } catch (err) {
-      console.error(`Downtime Engine | Failed to update item in-place:`, err);
-      ui.notifications?.error(
-        `Downtime Engine | Failed to complete project in-place for ${
-          item.name
-        }. See console for details.`,
+      Logger.error(`Failed to update item in-place:`, true, err);
+      getUI()?.notifications?.error(
+        `Failed to complete project in-place for ${item.name}. See console for details.`,
       );
       return false;
     }
 
-    ui.notifications?.info(`Learning Complete: ${item.name} is now fully available!`);
+    getUI()?.notifications?.info(`Learning Complete: ${item.name} is now fully available!`);
     if (typeof (item as Item5e).displayCard === "function") {
       await (item as Item5e).displayCard({ rollMode: Settings.get("rules").rollMode });
     }
@@ -405,23 +411,29 @@ export class ProjectLifecycle {
    * Updates an item's name and description based on current progress.
    * Uses stashed values as the base to avoid duplication bugs.
    */
-  static async updateItemWithProgress(item: Item, projectData: ProjectFlagData) {
-    const guidanceTiers = Settings.get("guidanceTiers");
-    const tier = guidanceTiers.find((t) => t.id === projectData.tutelageId);
-    const tutelageName = tier?.name ?? "None";
-    const progressHtml = ProjectUI.generateProgressHtml(
-      projectData.progress ?? 0,
-      projectData.target ?? 0,
-      tutelageName,
-    );
+  static async updateItemWithProgress(
+    item: Item,
+    projectData: ProjectFlagData,
+    instructorName: string = "Self-Study",
+  ): Promise<void> {
+    const progress = projectData.progress ?? 0;
+    const target = projectData.target ?? 0;
+
+    const progressHtml = ProjectUI.generateProgressHtml(progress, target, instructorName);
 
     const stashedName = projectData.stashedName || item.name;
     const stashedDescription = projectData.stashedDescription || "";
 
-    await item.update({
-      name: `${stashedName} (${projectData.progress}/${projectData.target})`,
-      "system.description.value": progressHtml + stashedDescription,
+    const success = await DocumentUtils.updateSilently(item, {
+      name: `${stashedName} (${progress}/${target})`,
+      ["system.description.value"]: progressHtml + stashedDescription,
       [`flags.${Settings.ID}.projectData`]: projectData,
     } as Record<string, any>);
+
+    if (!success) {
+      const errorMsg = `Failed to update item "${item.name}" (${item.id}) with new progress.`;
+      Logger.error(errorMsg, false);
+      throw new Error(errorMsg);
+    }
   }
 }

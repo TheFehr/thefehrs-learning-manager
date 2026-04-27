@@ -1,13 +1,15 @@
-import { Settings } from "../core/settings.js";
+import { Settings } from "@/core/settings.js";
+import { Logger } from "@/core/logger.js";
 import { ActorProxy } from "./actor-proxy.js";
 import { TabLogic } from "./tab-logic.js";
 import { ProjectEngine } from "./project-engine.js";
 import type { ProjectItem, ProjectFlagData } from "./project-item.js";
-import type { MemberMappedData, ProjectMappedData } from "../apps/party-tab.js";
-import { isActor5e, type Item5e, type Actor5e } from "../types.js";
-import AbortProjectDialog from "../apps/dialogs/AbortProjectDialog.svelte";
-import GrantTimeDialog from "../apps/dialogs/GrantTimeDialog.svelte";
+import type { MemberMappedData, ProjectMappedData } from "@/apps/party-tab.js";
+import { isActor5e, type Item5e, type Actor5e } from "@/types.js";
+import AbortProjectDialog from "@/apps/dialogs/AbortProjectDialog.svelte";
+import GrantTimeDialog from "@/apps/dialogs/GrantTimeDialog.svelte";
 import { mount, unmount } from "svelte";
+import { getGame, getUI } from "@/core/foundry.js";
 
 /**
  * Logic for the Party Tab component.
@@ -26,16 +28,25 @@ export class PartyTabLogic {
   /**
    * Processes the distribution of training time to multiple actors.
    */
-  static async processGrantTime(timeValues: Record<string, number>, selectedIds: string[]) {
+  static async processGrantTime(
+    timeValues: Record<string, number>,
+    selectedIds: string[],
+  ): Promise<boolean> {
     const timeUnits = Settings.get("timeUnits");
     const totalBase = TabLogic.calculateTotalBaseTime(timeValues, timeUnits);
 
-    if (totalBase === 0) return ui.notifications?.warn("No time entered.");
-    if (selectedIds.length === 0) return ui.notifications?.warn("No recipients selected.");
+    if (totalBase === 0) {
+      getUI()?.notifications?.warn("No time entered.");
+      return false;
+    }
+    if (selectedIds.length === 0) {
+      getUI()?.notifications?.warn("No recipients selected.");
+      return false;
+    }
 
     let successCount = 0;
     for (const id of selectedIds) {
-      const actor = game.actors.get(id);
+      const actor = getGame().actors?.get(id);
       if (!actor || !isActor5e(actor)) continue;
       try {
         const proxy = ActorProxy.forActor(actor);
@@ -43,9 +54,11 @@ export class PartyTabLogic {
         await proxy.setBank({ total: (bank.total || 0) + totalBase });
         successCount++;
       } catch (err) {
-        console.error(`Failed to update bank for actor ${id}:`, err);
+        Logger.error(`Failed to update bank for actor ${id}:`, true, err);
       }
     }
+
+    if (successCount === 0) return false;
 
     const actionWord = totalBase > 0 ? "Granted" : "Deducted";
     const preposition = totalBase > 0 ? "to" : "from";
@@ -59,6 +72,7 @@ export class PartyTabLogic {
       content: `${actionWord} <strong>${formattedTime}</strong> ${preposition} ${successCount} characters.`,
     });
     ProjectEngine.signalTimeDistribution();
+    return true;
   }
 
   /**
@@ -72,6 +86,7 @@ export class PartyTabLogic {
       submit: () => void;
     }
     let svelteInstance: GrantTimeInstance | undefined;
+    let settled = false;
 
     const dialog = new foundry.applications.api.DialogV2({
       window: {
@@ -86,6 +101,7 @@ export class PartyTabLogic {
           icon: "fas fa-check",
           default: true,
           callback: async (_event, _button, _dialog) => {
+            if (settled) return;
             if (svelteInstance) await svelteInstance.submit();
           },
         },
@@ -94,7 +110,11 @@ export class PartyTabLogic {
         width: 400,
       },
       close: () => {
-        if (svelteInstance) unmount(svelteInstance);
+        if (svelteInstance) {
+          unmount(svelteInstance);
+          svelteInstance = undefined;
+        }
+        settled = true;
       },
     });
 
@@ -108,36 +128,23 @@ export class PartyTabLogic {
           timeUnits,
           isParty,
           members,
-          onsubmit: (timeValues, selectedIds) => {
-            this.processGrantTime(timeValues, selectedIds);
-            dialog.close();
+          onsubmit: async (timeValues: Record<string, number>, selectedIds: string[]) => {
+            if (settled) return;
+            settled = true;
+            try {
+              const success = await this.processGrantTime(timeValues, selectedIds);
+              if (success) {
+                dialog.close();
+              } else {
+                settled = false;
+              }
+            } catch (err) {
+              settled = false;
+              throw err;
+            }
           },
-        },
-      });
-    }
-  }
-
-  /**
-   * Updates the tutelage tier for a project.
-   */
-  static async updateGuidance(
-    actorId: string,
-    project: ProjectMappedData,
-    tierId: string,
-    isGM: boolean,
-  ) {
-    if (!isGM) return;
-    const targetActor = game.actors.get(actorId) as Actor5e;
-    if (!targetActor) return;
-
-    const tiers = Settings.get("guidanceTiers");
-    const tier = tiers.find((tier) => tier.id === tierId);
-
-    const item = targetActor.items.get(project.id);
-    if (item) {
-      await item.update({
-        ["flags.thefehrs-learning-manager.projectData.tutelageId"]: tier?.id ?? "",
-      } as Record<string, unknown>);
+        } as any,
+      }) as unknown as GrantTimeInstance;
     }
   }
 
@@ -151,25 +158,30 @@ export class PartyTabLogic {
     isGM: boolean,
   ) {
     if (!isGM) return;
-    const targetActor = game.actors.get(actorId) as Actor5e;
+    const targetActor = getGame().actors?.get(actorId) as Actor5e | undefined;
     if (!targetActor) return;
 
     const item = targetActor.items.get(project.id);
     if (item) {
-      const proxyItem = item as unknown as ProjectItem;
-      const projectData = proxyItem.getFlag("thefehrs-learning-manager", "projectData");
-      if (!projectData) return;
+      try {
+        const proxyItem = item as unknown as ProjectItem;
+        const projectData = proxyItem.getFlag("thefehrs-learning-manager", "projectData");
+        if (!projectData) return;
 
-      projectData.progress = Math.max(0, Math.min(newProgress, projectData.target || 0));
-      if (
-        projectData.target &&
-        projectData.target > 0 &&
-        projectData.progress >= projectData.target &&
-        !projectData.isCompleted
-      ) {
-        await ProjectEngine.completeProject(item as unknown as Item5e);
-      } else {
-        await ProjectEngine.updateItemWithProgress(item as unknown as Item5e, projectData);
+        projectData.progress = Math.max(0, Math.min(newProgress, projectData.target || 0));
+        if (
+          projectData.target &&
+          projectData.target > 0 &&
+          projectData.progress >= projectData.target &&
+          !projectData.isCompleted
+        ) {
+          await ProjectEngine.updateItemWithProgress(item as unknown as Item5e, projectData);
+          await ProjectEngine.completeProject(item as unknown as Item5e);
+        } else {
+          await ProjectEngine.updateItemWithProgress(item as unknown as Item5e, projectData);
+        }
+      } catch (err) {
+        Logger.error(`Failed to manually update progress for "${item.name}":`, true, err);
       }
     }
   }
@@ -184,98 +196,141 @@ export class PartyTabLogic {
     isGM: boolean,
   ) {
     if (!isGM) return;
-    const targetActor = game.actors.get(actorId) as Actor5e;
+    const targetActor = getGame().actors?.get(actorId) as Actor5e | undefined;
     if (!targetActor) return;
 
     const item = targetActor.items.get(project.id);
     if (item) {
-      const projectData = (item.getFlag(
-        "thefehrs-learning-manager",
-        "projectData",
-      ) as ProjectFlagData) || { progress: 0, target: 0 };
-      const oldTarget = projectData.target;
-      projectData.target = Math.max(0, newTarget);
-      console.debug(
-        `Downtime Engine | updateTarget: Setting target to ${projectData.target} for ${item.name}`,
-      );
+      try {
+        const projectData = (item.getFlag(
+          "thefehrs-learning-manager",
+          "projectData",
+        ) as ProjectFlagData) || { progress: 0, target: 0 };
+        const oldTarget = projectData.target;
+        projectData.target = Math.max(0, newTarget);
+        Logger.debug(`updateTarget: Setting target to ${projectData.target} for ${item.name}`);
 
-      if (oldTarget !== projectData.target) {
-        if (
-          projectData.target &&
-          projectData.target > 0 &&
-          projectData.progress !== undefined &&
-          projectData.progress >= projectData.target
-        ) {
-          await ProjectEngine.updateItemWithProgress(item as unknown as Item5e, projectData);
-          await ProjectEngine.completeProject(item as unknown as Item5e);
-          return;
+        if (oldTarget !== projectData.target) {
+          if (
+            projectData.target &&
+            projectData.target > 0 &&
+            projectData.progress !== undefined &&
+            projectData.progress >= projectData.target
+          ) {
+            await ProjectEngine.updateItemWithProgress(item as unknown as Item5e, projectData);
+            await ProjectEngine.completeProject(item as unknown as Item5e);
+            return;
+          }
+
+          Logger.debug(
+            `target changed from ${oldTarget} to ${projectData.target}. Syncing activities...`,
+          );
+          await ProjectEngine.injectActivities(item as unknown as Item5e, projectData.target);
         }
 
-        console.debug(
-          `Downtime Engine | target changed from ${oldTarget} to ${projectData.target}. Syncing activities...`,
-        );
-        await ProjectEngine.injectActivities(item as unknown as Item5e, projectData.target);
+        await ProjectEngine.updateItemWithProgress(item as unknown as Item5e, projectData);
+      } catch (err) {
+        Logger.error(`Failed to manually update target for "${item.name}":`, true, err);
       }
-
-      await ProjectEngine.updateItemWithProgress(item as unknown as Item5e, projectData);
     }
   }
 
   /**
    * Orchestrates project deletion/abortion.
    */
-  static async deleteProject(actorId: string, project: ProjectMappedData, isGM: boolean) {
-    const targetActor = game.actors.get(actorId) as Actor5e;
-    if (!targetActor || !targetActor.isOwner) {
-      ui.notifications?.warn("You do not have permission to modify this actor's projects.");
-      return;
+  static async deleteProject(
+    actorId: string,
+    project: ProjectMappedData,
+    confirmFn?: () => Promise<boolean>,
+    isGM?: boolean,
+  ) {
+    try {
+      const targetActor = getGame().actors?.get(actorId) as Actor5e | undefined;
+      if (!targetActor || !targetActor.isOwner) {
+        getUI()?.notifications?.warn("You do not have permission to modify this actor's projects.");
+        return;
+      }
+
+      if ((project.progress || 0) > 0 && !isGM) {
+        getUI()?.notifications?.warn("You cannot abort an in-progress project.");
+        return;
+      }
+
+      const projectName = project.name || "Unknown Project";
+
+      const confirmed = confirmFn
+        ? await confirmFn()
+        : await this.showDeleteConfirm(projectName, targetActor.name || "Unknown Actor");
+
+      if (confirmed) {
+        const item = targetActor.items.get(project.id);
+        if (item) await item.delete();
+      }
+    } catch (err) {
+      Logger.error(`Failed to delete project:`, true, err);
     }
+  }
 
-    if (project.progress > 0 && !isGM) {
-      ui.notifications?.warn("You cannot abort an in-progress project.");
-      return;
-    }
+  /**
+   * Internal helper to show deletion confirmation dialog.
+   */
+  private static async showDeleteConfirm(projectName: string, actorName: string): Promise<boolean> {
+    return new Promise<boolean>((resolve) => {
+      let settled = false;
+      const container = document.createElement("div");
+      let svelteInstance: any = mount(AbortProjectDialog, {
+        target: container,
+        props: {
+          projectName,
+          actorName,
+        },
+      });
 
-    const projectName = project.name || "Unknown Project";
-
-    const container = document.createElement("div");
-    const svelteInstance = mount(AbortProjectDialog, {
-      target: container,
-      props: {
-        projectName,
-        actorName: targetActor.name || "Unknown Actor",
-      },
-    });
-
-    new foundry.applications.api.DialogV2({
-      window: {
-        title: "Abort Project",
-        contentClasses: ["thefehrs-learning-manager-dialog"],
-      },
-      content: container,
-      buttons: [
-        {
-          action: "yes",
-          icon: "fas fa-check",
-          label: "Yes",
-          default: true,
-          callback: async () => {
-            const item = targetActor.items.get(project.id);
-            if (item) await item.delete();
+      const dialog = new foundry.applications.api.DialogV2({
+        window: {
+          title: "Abort Project",
+          contentClasses: ["thefehrs-learning-manager-dialog"],
+        },
+        content: container,
+        buttons: [
+          {
+            action: "yes",
+            icon: "fas fa-check",
+            label: "Yes",
+            default: true,
+            callback: () => {
+              if (settled) return;
+              settled = true;
+              resolve(true);
+            },
           },
+          {
+            action: "no",
+            icon: "fas fa-times",
+            label: "No",
+            callback: () => {
+              if (settled) return;
+              settled = true;
+              resolve(false);
+            },
+          },
+        ],
+        position: {
+          width: 400,
         },
-        {
-          action: "no",
-          icon: "fas fa-times",
-          label: "No",
+        close: () => {
+          if (svelteInstance) {
+            unmount(svelteInstance);
+            svelteInstance = null;
+          }
+          if (!settled) {
+            settled = true;
+            resolve(false);
+          }
         },
-      ],
-      position: {
-        width: 400,
-      },
-      close: () => {
-        unmount(svelteInstance);
-      },
-    }).render({ force: true });
+      });
+
+      dialog.render({ force: true });
+    });
   }
 }

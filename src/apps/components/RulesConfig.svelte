@@ -1,6 +1,7 @@
 <script lang="ts">
-  import type { SystemRules } from "../../types";
+  import type { SystemRules } from "@/types";
   import { onMount } from "svelte";
+  import { Logger } from "@/core/logger.js";
 
   let { rules = $bindable({
     nonBulkMethod: 'roll',
@@ -40,7 +41,7 @@
         if (typeof value === "string" || (typeof value === "object" && value !== null && "label" in value)) {
           updatedModes[key] = value;
         } else {
-          console.warn(`Downtime Engine | RulesConfig: Received invalid roll mode config for key "${key}":`, value);
+          Logger.warn(`RulesConfig: Received invalid roll mode config for key "${key}":`, true, value);
         }
       }
       rollModes = updatedModes;
@@ -80,6 +81,17 @@
       {#each Object.entries(rollModes) as [key, value]}
         <option value={key}>{game?.i18n?.localize(getRollModeLabel(value)) || getRollModeLabel(value)}</option>
       {/each}
+    </select>
+  </div>
+
+  <div class="form-group">
+    <label for="rule-notification-level">Log Level</label>
+    <select id="rule-notification-level" bind:value={rules.notificationLevel}>
+      <option value="none">None</option>
+      <option value="error">Error</option>
+      <option value="warn">Warn</option>
+      <option value="info">Info</option>
+      <option value="debug">Debug</option>
     </select>
   </div>
 

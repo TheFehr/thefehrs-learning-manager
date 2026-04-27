@@ -1,10 +1,12 @@
-import { MODULE_ID } from "../global.js";
-import { Settings } from "../core/settings.js";
-import type { Item5e } from "../types.js";
-import type { ProjectFlagData } from "../logic/project-item.js";
+import { MODULE_ID } from "@/global.js";
+import { Settings } from "@/core/settings.js";
+import { Logger } from "@/core/logger.js";
+import type { Item5e } from "@/types.js";
+import type { ProjectFlagData } from "@/logic/project-item.js";
+import { getGame } from "@/core/foundry.js";
 
 export interface InvalidProjectReason {
-  item: { name: string; sheet?: { render: (force: boolean) => void } };
+  item: { name: string; sheet?: { render: (force: boolean) => void } | null };
   packName: string;
   reasons: string[];
 }
@@ -41,7 +43,6 @@ function validateProjectData(data: ValidationData): string[] {
   // Criteria 2: Missing activities or effects
   const activities = data.system?.activities || {};
   const effects = data.effects || [];
-
   let hasActivities = false;
   if (Array.isArray(activities)) {
     hasActivities = activities.length > 0;
@@ -86,9 +87,9 @@ export async function getInvalidProjects(): Promise<InvalidProjectReason[]> {
   const invalidProjects: InvalidProjectReason[] = [];
 
   for (const packId of allowedCompendiums) {
-    const pack = game.packs.get(packId);
+    const pack = getGame().packs?.get(packId);
     if (!pack) {
-      console.warn(`Downtime Engine | Configured compendium "${packId}" not found.`);
+      Logger.warn(`Configured compendium "${packId}" not found.`);
       continue;
     }
 
@@ -111,42 +112,49 @@ export async function getInvalidProjects(): Promise<InvalidProjectReason[]> {
         force: true,
       } as any)) as unknown as (ValidationData & { _id: string })[];
     } catch (error) {
-      console.error(
-        `Downtime Engine | Failed to read index for compendium "${packId}": ${
+      Logger.error(
+        `Failed to read index for compendium "${packId}": ${
           error instanceof Error ? error.message : error
         }`,
+        true,
       );
       continue;
     }
 
-    for (const indexEntry of index) {
-      const initialReasons = validateProjectData(indexEntry);
+    const tasks = index
+      .map((indexEntry) => ({ indexEntry, initialReasons: validateProjectData(indexEntry) }))
+      .filter((task) => task.initialReasons.length > 0);
 
-      if (initialReasons.length > 0) {
-        try {
-          const item = (await pack.getDocument(indexEntry._id)) as Item5e;
-          // Re-validate against the full item data to ensure the index wasn't stale
-          const finalReasons = validateProjectData(item as unknown as ValidationData);
+    const results = await Promise.allSettled(
+      tasks.map((task) => pack.getDocument(task.indexEntry._id)),
+    );
 
-          if (finalReasons.length > 0) {
-            invalidProjects.push({
-              item,
-              packName: pack.metadata.label,
-              reasons: finalReasons,
-            });
-          }
-        } catch (error) {
-          console.warn(
-            `Downtime Engine | Failed to load document "${indexEntry._id}" from "${packId}":`,
-            error,
-          );
-          // Use index data as fallback for display
+    for (let i = 0; i < tasks.length; i++) {
+      const task = tasks[i];
+      const result = results[i];
+      if (result.status === "fulfilled") {
+        const item = result.value as Item5e;
+        // Re-validate against the full item data to ensure the index wasn't stale
+        const finalReasons = validateProjectData(item as unknown as ValidationData);
+
+        if (finalReasons.length > 0) {
           invalidProjects.push({
-            item: { name: indexEntry.name || "Unknown Item" },
+            item,
             packName: pack.metadata.label,
-            reasons: [...initialReasons, "Failed to load full item data."],
+            reasons: finalReasons,
           });
         }
+      } else {
+        Logger.warn(
+          `Failed to load document "${task.indexEntry._id}" from "${packId}":`,
+          result.reason,
+        );
+        // Use index data as fallback for display
+        invalidProjects.push({
+          item: { name: task.indexEntry.name || "Unknown Item" },
+          packName: pack.metadata.label,
+          reasons: [...task.initialReasons, "Failed to load full item data."],
+        });
       }
     }
   }

@@ -4,13 +4,14 @@
     "module": "ESNext",
     "moduleResolution": "Bundler",
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
-    "strict": false,
+    "strict": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
     "noEmit": true,
     "types": ["@league-of-foundry-developers/foundry-vtt-types", "vite/client"],
     "baseUrl": ".",
     "paths": {
+      "@/*": ["./src/*"],
       "fvtt-types/configuration": [
         "./node_modules/@league-of-foundry-developers/foundry-vtt-types/src/configuration/index.d.mts"
       ],

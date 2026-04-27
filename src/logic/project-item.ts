@@ -1,5 +1,5 @@
 import type { FeatItemSystemData } from "@dnd5e/data/item/_types.mjs";
-import type { LearningActor, Item5e, ActivityData5e } from "../types.js";
+import type { LearningActor, Item5e, ActivityData5e, DisplayCardOptions } from "@/types.js";
 
 export const LearningFeatType = "learning-project" as const;
 
@@ -10,20 +10,26 @@ export const LearningFeatType = "learning-project" as const;
  */
 export type ComparisonOperator = "==" | "!=" | ">" | ">=" | "<" | "<=" | "includes";
 
-export interface ProjectRequirement {
+export type ProjectRequirement = {
   id: string;
   attribute: string;
   operator: ComparisonOperator;
   value: string;
-}
+};
 
 export type ProjectFlagData = {
   isLearningProject?: boolean;
   isLearnedReward?: boolean;
   isCompleted?: boolean;
   tutelageId?: string;
+  lastInstructorUuid?: string;
+  lastInstructorName?: string;
+  rememberedInstructorUuid?: string;
+  rememberedInstructorName?: string;
   progress?: number;
   target?: number;
+  progressPercentage?: number;
+  categories?: string[];
   followUpProjectId?: string;
   requirements?: ProjectRequirement[];
   stashedType?: string;
@@ -55,13 +61,14 @@ export interface LearningFeatItemData extends Omit<FeatItemSystemData, "activiti
   activities: Record<string, LearningActivityData>;
 }
 
-export type ProjectItem = Item5e & {
+export interface ProjectItem extends Omit<Item5e, "system"> {
   system: LearningFeatItemData;
   actor: LearningActor | null;
 
   getFlag(scope: "thefehrs-learning-manager", key: "projectData"): ProjectFlagData | undefined;
   getFlag<T>(scope: string, key: string): T;
-};
+  displayCard(options?: DisplayCardOptions): Promise<ChatMessage | void>;
+}
 
 export function projectData(item: Item5e): ProjectFlagData | undefined {
   return item.getFlag("thefehrs-learning-manager", "projectData");

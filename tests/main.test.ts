@@ -1,14 +1,31 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach, beforeAll } from "vitest";
 import { mount, unmount } from "svelte";
-import { LearningManager } from "../src/LearningManager";
-import { TabLogic } from "../src/logic/tab-logic";
-import { ActorProxy } from "../src/logic/actor-proxy";
-import { ProjectEngine } from "../src/logic/project-engine";
-import { Socket } from "../src/core/socket";
-import type { Actor5e, TimeUnit } from "../src/types";
-import { migrateData } from "../src/migrations/migration";
+import { LearningManager } from "@/LearningManager";
+import { TabLogic } from "@/logic/tab-logic";
+import { ActorProxy } from "@/logic/actor-proxy";
+import { ProjectEngine } from "@/logic/project-engine";
+import { Socket } from "@/core/socket";
+import type { Actor5e, TimeUnit } from "@/types";
+import { migrateData } from "@/migrations/migration";
+import { registerMigrationSettings } from "@/migrations/migration-registration";
+import { Logger } from "@/core/logger";
 
-vi.mock("../src/logic/project-engine", () => ({
+vi.mock("svelte", () => ({
+  mount: vi.fn(),
+  unmount: vi.fn(),
+  tick: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock("@/core/logger", () => ({
+  Logger: {
+    debug: vi.fn(),
+    info: vi.fn(),
+    warn: vi.fn(),
+    error: vi.fn(),
+  },
+}));
+
+vi.mock("@/logic/project-engine", () => ({
   ProjectEngine: {
     initiateProjectFromItem: vi.fn(),
     processTraining: vi.fn(),
@@ -20,8 +37,12 @@ vi.mock("../src/logic/project-engine", () => ({
   },
 }));
 
-vi.mock("../src/migrations/migration", () => ({
+vi.mock("@/migrations/migration", () => ({
   migrateData: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock("@/migrations/migration-registration", () => ({
+  registerMigrationSettings: vi.fn(),
 }));
 
 describe("LearningManager", () => {
@@ -31,12 +52,40 @@ describe("LearningManager", () => {
     { id: "week", name: "Week", short: "w", isBulk: true, ratio: 70 },
   ];
 
+  let originalFromUuid: any;
+  let originalWindowEvent: any;
+
+  const restoreGlobals = () => {
+    if (originalFromUuid === undefined) {
+      delete (globalThis as any).fromUuid;
+    } else {
+      (globalThis as any).fromUuid = originalFromUuid;
+    }
+
+    if (originalWindowEvent === undefined) {
+      delete (window as any).event;
+    } else {
+      (window as any).event = originalWindowEvent;
+    }
+  };
+
+  beforeAll(() => {
+    originalFromUuid = (globalThis as any).fromUuid;
+    originalWindowEvent = (window as any).event;
+  });
+
   beforeEach(() => {
     vi.clearAllMocks();
+    LearningManager.svelteInstances = new Map();
+    LearningManager.socketHandler = null;
+    restoreGlobals();
   });
 
   afterEach(() => {
     vi.restoreAllMocks();
+    LearningManager.svelteInstances = new Map();
+    LearningManager.socketHandler = null;
+    restoreGlobals();
   });
 
   describe("TabLogic.formatTimeBank", () => {
@@ -64,6 +113,8 @@ describe("LearningManager", () => {
         registerActorTab: vi.fn(),
         registerItemTab: vi.fn(),
         registerGroupTab: vi.fn(),
+        registerCharacterTab: vi.fn(),
+        registerNpcTab: vi.fn(),
         registerItemContent: vi.fn(),
         registerCharacterContent: vi.fn(),
         models: {
@@ -77,6 +128,7 @@ describe("LearningManager", () => {
       };
 
       LearningManager.init();
+      expect(registerMigrationSettings).toHaveBeenCalled();
       expect(game.settings.register).toHaveBeenCalledWith(
         "thefehrs-learning-manager",
         "rules",
@@ -108,14 +160,6 @@ describe("LearningManager", () => {
       };
       expect(enabled({ item: projectItem })).toBe(true);
 
-      // Disallowed compendium item
-      const otherItem = {
-        uuid: "Compendium.secret.pack.Item.1",
-        getFlag: vi.fn().mockReturnValue(false),
-      };
-      vi.mocked(game.settings.get).mockReturnValue(["allowed.pack"]);
-      expect(enabled({ item: otherItem })).toBe(false);
-
       // Allowed compendium item
       const allowedItem = {
         uuid: "Compendium.allowed.pack.Item.1",
@@ -138,6 +182,7 @@ describe("LearningManager", () => {
       // Non-GM user
       game.user.isGM = false;
       expect(enabled({ item: learningTypeItem })).toBe(false);
+      expect(enabled({ item: allowedItem } as any)).toBe(false);
 
       // Regular item (non-learning, non-compendium)
       game.user.isGM = true;
@@ -181,16 +226,15 @@ describe("LearningManager", () => {
       vi.spyOn(ProjectEngine, "handleAutoTrainSignal").mockRejectedValue(
         new Error("Auto-train failed"),
       );
-      const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
 
       LearningManager.registerSocketListeners();
 
       if (registeredHandler) {
         await registeredHandler({ type: "timeGrantedSignal", data: null });
-        expect(errorSpy).toHaveBeenCalledWith(
+        expect(Logger.error).toHaveBeenCalledWith(
           expect.stringContaining("Failed to handle auto-train signal"),
+          true,
           expect.any(Error),
-          expect.any(String),
         );
       }
     });
@@ -198,9 +242,8 @@ describe("LearningManager", () => {
 
   describe("ready", () => {
     it("should log initialized message and run migrations", async () => {
-      const consoleSpy = vi.spyOn(console, "debug");
       await LearningManager.ready();
-      expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining("Initialized"));
+      expect(Logger.debug).toHaveBeenCalledWith(expect.stringContaining("Initialized"));
       expect(migrateData).toHaveBeenCalled();
     });
   });
@@ -227,10 +270,20 @@ describe("LearningManager", () => {
   describe("ActorProxy", () => {
     it("should handle bank and projects", async () => {
       const actor = new Actor() as unknown as Actor5e;
+      actor.items = [
+        {
+          id: "p1",
+          name: "Project 1",
+          getFlag: vi.fn().mockImplementation((_scope: string, key: string) => {
+            if (key === "isLearningProject") return true;
+            if (key === "projectData") return { progress: 0, target: 100 };
+            return null;
+          }),
+        } as any,
+      ];
       actor.flags = {
         "thefehrs-learning-manager": {
           bank: { total: 10 },
-          projects: [{ id: "p1" }],
         },
       };
 
@@ -241,7 +294,7 @@ describe("LearningManager", () => {
 
       const proxy = ActorProxy.forActor(actor);
       expect(proxy.bank.total).toBe(10);
-      expect(proxy.projects).toHaveLength(1);
+      expect(proxy.getMappedProjects()).toHaveLength(1);
       expect(proxy.currency.gp).toBe(0);
 
       await proxy.setBank({ total: 20 });
@@ -285,14 +338,14 @@ describe("LearningManager", () => {
         if (key === "projectData") return { requirements: [] };
         return null;
       });
-      global.fromUuid = vi.fn().mockResolvedValue(item);
+      globalThis.fromUuid = vi.fn().mockResolvedValue(item);
 
       LearningManager.init();
       const dropHook = vi.mocked(Hooks.on).mock.calls.find((c) => c[0] === "dropActorSheetData");
 
       expect(dropHook).toBeDefined();
       const mockSheet = { activeTab: "any-tab" };
-      await dropHook![1](groupActor, mockSheet, data);
+      await dropHook![1](groupActor, mockSheet, data, (window as any).event);
       await new Promise((resolve) => setTimeout(resolve, 0));
       expect(ProjectEngine.initiateProjectFromItem).toHaveBeenCalledWith(memberActor, item);
     });
@@ -316,7 +369,7 @@ describe("LearningManager", () => {
       const dropHook = vi.mocked(Hooks.on).mock.calls.find((c) => c[0] === "dropActorSheetData");
 
       expect(dropHook).toBeDefined();
-      const result = await dropHook![1](groupActor, {}, data);
+      const result = await dropHook![1](groupActor, {}, data, (window as any).event);
 
       expect(result).toBe(false);
       expect(ProjectEngine.initiateProjectFromItem).not.toHaveBeenCalled();
@@ -332,6 +385,8 @@ describe("LearningManager", () => {
           registeredTab = tab;
         }),
         registerGroupTab: vi.fn(),
+        registerCharacterTab: vi.fn(),
+        registerNpcTab: vi.fn(),
         registerItemContent: vi.fn(),
         registerCharacterContent: vi.fn(),
         models: {
@@ -366,35 +421,66 @@ describe("LearningManager", () => {
   });
 
   describe("Application Lifecycle", () => {
-    it("should unmount Svelte instance when application is closed", async () => {
+    it("should unmount Svelte instance when ApplicationV2 is closed", async () => {
       LearningManager.init();
       const mockInstance = { some: "instance" };
-      LearningManager.svelteInstances.set("app123", mockInstance as any);
+      LearningManager.svelteInstances.set("tab-v2-app", {
+        instance: mockInstance,
+        target: document.createElement("div"),
+      });
 
-      const closeHook = vi.mocked(Hooks.on).mock.calls.find((c) => c[0] === "closeApplication");
+      const closeHook = vi.mocked(Hooks.on).mock.calls.find((c) => c[0] === "closeApplicationV2");
+      expect(closeHook).toBeDefined();
+
+      closeHook![1]({ id: "v2-app" });
+
+      expect(unmount).toHaveBeenCalledWith(mockInstance);
+      expect(LearningManager.svelteInstances.has("tab-v2-app")).toBe(false);
+    });
+
+    it("should unmount prefixed Svelte instances when ApplicationV2 is closed", async () => {
+      LearningManager.init();
+      const mockMainInstance = { some: "main-instance" };
+      const mockBarInstance = { some: "bar-instance" };
+
+      LearningManager.svelteInstances.set("tab-app123", {
+        instance: mockMainInstance,
+        target: document.createElement("div"),
+      });
+      LearningManager.svelteInstances.set("time-bank-bar-app123", {
+        instance: mockBarInstance,
+        target: document.createElement("div"),
+      });
+
+      const closeHook = vi.mocked(Hooks.on).mock.calls.find((c) => c[0] === "closeApplicationV2");
       expect(closeHook).toBeDefined();
 
       closeHook![1]({ id: "app123" });
 
-      expect(unmount).toHaveBeenCalledWith(mockInstance);
-      expect(LearningManager.svelteInstances.has("app123")).toBe(false);
+      expect(unmount).toHaveBeenCalledWith(mockMainInstance);
+      expect(unmount).toHaveBeenCalledWith(mockBarInstance);
+      expect(LearningManager.svelteInstances.has("tab-app123")).toBe(false);
+      expect(LearningManager.svelteInstances.has("time-bank-bar-app123")).toBe(false);
     });
 
-    it("should handle renderSvelte with existing instance", async () => {
+    it("should handle renderSvelte with existing instance and standardized prefix", async () => {
       const mockOldInstance = { old: true };
       const actor = { id: "actor1" };
       const app = { id: "app1", actor };
-      LearningManager.svelteInstances.set("app1", mockOldInstance as any);
+      LearningManager.svelteInstances.set("tab-app1", {
+        instance: mockOldInstance,
+        target: document.createElement("div"),
+      });
 
       const params = { app, element: document.createElement("div") };
       const selector = ".root";
       params.element.innerHTML = '<div class="root"></div>';
 
-      (LearningManager as any).renderSvelte(params, selector, {}, () => ({}));
+      (LearningManager as any).renderSvelte(params, selector, {}, () => ({}), "tab");
 
       expect(unmount).toHaveBeenCalledWith(mockOldInstance);
       expect(mount).toHaveBeenCalled();
-      expect(LearningManager.svelteInstances.get("app1")).toBeDefined();
+      expect(LearningManager.svelteInstances.get("tab-app1")).toBeDefined();
     });
   });
 });

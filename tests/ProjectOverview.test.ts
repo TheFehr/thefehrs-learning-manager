@@ -1,26 +1,27 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import ProjectOverview from "../src/apps/overview/ProjectOverview.svelte";
+import ProjectOverview from "@/apps/overview/ProjectOverview.svelte";
 import { mount, unmount, tick } from "svelte";
-import * as overviewLogic from "../src/apps/overview-logic.js";
+import * as overviewLogic from "@/apps/overview-logic.js";
+
+vi.mock("@/apps/overview-logic.js", () => ({
+  getInvalidProjects: vi.fn(),
+}));
 
 vi.unmock("svelte");
 
 async function waitForIdle(target: HTMLElement) {
-  for (let i = 0; i < 20; i++) {
-    await tick();
-    const isLoading = target.querySelector(".loading-state") !== null;
-    const isRefreshing = (target.querySelector("button.refresh-button") as HTMLButtonElement)
-      ?.disabled;
-    if (!isLoading && !isRefreshing) {
-      return;
-    }
-    await new Promise((resolve) => setTimeout(resolve, 10));
-  }
-  throw new Error("Timed out waiting for idle state");
+  await vi.waitFor(
+    () => {
+      const isLoading = target.querySelector(".loading-state") !== null;
+      const isRefreshing = (target.querySelector("button.refresh-button") as HTMLButtonElement)
+        ?.disabled;
+      if (isLoading || isRefreshing) {
+        throw new Error("Still loading or refreshing");
+      }
+    },
+    { timeout: 2000, interval: 50 },
+  );
 }
-vi.mock("../src/apps/overview-logic.js", () => ({
-  getInvalidProjects: vi.fn(),
-}));
 
 describe("ProjectOverview.svelte", () => {
   let instance: any;
@@ -95,6 +96,7 @@ describe("ProjectOverview.svelte", () => {
     await waitForIdle(target);
 
     const projectName = target.querySelector(".project-name") as HTMLElement;
+    expect(projectName).not.toBeNull();
 
     // Enter
     projectName.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
@@ -158,6 +160,7 @@ describe("ProjectOverview.svelte", () => {
     refreshButton.click();
 
     await waitForIdle(target);
+    await tick();
 
     expect(target.innerHTML).toContain("Broken Project 2");
   });

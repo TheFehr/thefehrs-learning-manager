@@ -1,13 +1,11 @@
-import { MODULE_ID } from "../global";
+import { MODULE_ID } from "@/global.js";
+import { Logger } from "@/core/logger.js";
+import { getGame } from "@/core/foundry.js";
 
-interface GuidanceTier {
-  id: string;
-  name: string;
-  modifier: number;
-  costs: Record<string, number>;
-  progress: Record<string, number>;
-  _migratedGpToCp?: boolean;
-  _migratedToV2?: boolean;
+declare module "fvtt-types/configuration" {
+  interface SettingConfig {
+    "thefehrs-learning-manager.guidanceTiers": any[];
+  }
 }
 
 /**
@@ -15,6 +13,7 @@ interface GuidanceTier {
  */
 export async function migrateV1_1GpToCp() {
   try {
+    const game = getGame();
     let tiers = (game.settings.get(MODULE_ID, "guidanceTiers") as unknown as any[]) || [];
     if (!Array.isArray(tiers)) {
       tiers = [];
@@ -36,7 +35,7 @@ export async function migrateV1_1GpToCp() {
       await game.settings.set(MODULE_ID, "guidanceTiers", tiers);
     }
   } catch (error) {
-    console.error("Downtime Engine v1.1 migration failed:", error);
+    Logger.error("v1.1 migration failed:", true, error);
     throw error;
   }
 }

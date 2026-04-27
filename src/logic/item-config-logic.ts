@@ -1,4 +1,7 @@
-import { getModuleAPI, type Item5e, type ProjectRequirement } from "../types.js";
+import { MODULE_ID } from "@/global.js";
+import { DocumentUtils } from "@/core/document-utils.js";
+import type { Item5e, ProjectRequirement } from "@/types.js";
+import { extractItemUuidFromDrop, searchWithOmnisearchOrQuickInsert } from "./config-utils.js";
 
 /**
  * Logic for the Item Target Config component.
@@ -9,51 +12,47 @@ export class ItemConfigLogic {
    */
   static async saveConfig(
     item: Item5e,
-    target: number,
-    followUpProjectId: string,
-    requirements: ProjectRequirement[],
+    enabled: boolean,
+    project?: {
+      target: number;
+      followUpProjectId: string;
+      requirements: ProjectRequirement[];
+      categories: string[];
+    },
+    book?: {
+      modifier: number;
+      categories: string[];
+    },
   ) {
-    try {
-      await item.setFlag("thefehrs-learning-manager", "projectData", {
-        target,
-        followUpProjectId,
-        requirements,
-      });
-      return true;
-    } catch (err) {
-      console.error("Downtime Engine | Failed to save item configuration:", err);
-      const msg = err instanceof Error ? err.message : String(err);
-      ui.notifications?.error("Downtime Engine | Failed to save configuration: " + msg);
-      throw err;
+    const updateData: Record<string, unknown> = {
+      [`flags.${MODULE_ID}.learningModeEnabled`]: enabled,
+    };
+
+    if (enabled) {
+      if (project) {
+        updateData[`flags.${MODULE_ID}.projectData`] = project;
+      } else {
+        updateData[`flags.${MODULE_ID}.-=projectData`] = null;
+      }
+
+      if (book) {
+        updateData[`flags.${MODULE_ID}.learningBookBonus`] = book;
+      } else {
+        updateData[`flags.${MODULE_ID}.-=learningBookBonus`] = null;
+      }
+    } else {
+      updateData[`flags.${MODULE_ID}.-=projectData`] = null;
+      updateData[`flags.${MODULE_ID}.-=learningBookBonus`] = null;
     }
+
+    return await DocumentUtils.updateSilently(item, updateData);
   }
 
   /**
    * Orchestrates the search for a follow-up project using available modules.
    */
   static async searchFollowUp(): Promise<string | null> {
-    const omnisearch = CONFIG.SpotlightOmnisearch;
-    if (omnisearch?.prompt) {
-      const result = await omnisearch.prompt({ query: "!item " });
-      return result?.data?.uuid || null;
-    }
-
-    const quickInsert = getModuleAPI("quick-insert");
-    if (quickInsert?.open) {
-      return new Promise((resolve) => {
-        quickInsert.open({
-          mode: 1, // Insert mode
-          restrictTypes: ["Item"],
-          onSubmit: (item: { uuid: string }) => resolve(item.uuid),
-          onClose: () => resolve(null),
-        });
-      });
-    }
-
-    ui.notifications?.info(
-      "Spotlight Omnisearch or Quick Insert not found. You can drag and drop an item into the input field.",
-    );
-    return null;
+    return searchWithOmnisearchOrQuickInsert("!item ", ["Item"]);
   }
 
   /**
@@ -62,16 +61,6 @@ export class ItemConfigLogic {
   static handleDrop(e: DragEvent): string | null {
     e.preventDefault();
     e.stopPropagation();
-    try {
-      const dataStr = e.dataTransfer?.getData("text/plain");
-      if (!dataStr) return null;
-      const data = JSON.parse(dataStr);
-      if (data && data.uuid && data.type === "Item") {
-        return data.uuid;
-      }
-    } catch (err) {
-      console.error("Downtime Engine | Failed to parse drop data:", err);
-    }
-    return null;
+    return extractItemUuidFromDrop(e);
   }
 }

@@ -1,4 +1,5 @@
-import type { TimeUnit, Actor5e } from "../types.js";
+import { Logger } from "@/core/logger.js";
+import type { TimeUnit } from "@/types.js";
 import type { ActorProxy } from "./actor-proxy.js";
 
 /**
@@ -51,9 +52,9 @@ export class TimeBankLogic {
         await proxy.setBank({ total: newTotal });
       }
     } catch (err) {
-      console.error("Downtime Engine | Failed to update time bank:", err);
+      Logger.error("Failed to update time bank:", true, err);
       ui.notifications?.error(
-        "Downtime Engine | Failed to update time bank. See console for details.",
+        "Downtime Engine | Failed to update time bank. See application logs for details.",
       );
     }
   }

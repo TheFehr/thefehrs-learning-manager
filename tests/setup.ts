@@ -1,5 +1,5 @@
 import { vi } from "vitest";
-import { MODULE_ID } from "../src/global";
+import { MODULE_ID } from "@/global";
 
 globalThis.foundry = {
   appv1: {
@@ -79,6 +79,7 @@ globalThis.foundry = {
         .replace(/"/g, "&quot;")
         .replace(/'/g, "&#39;");
     }),
+    saveDataToFile: vi.fn(),
   },
   dice: {
     terms: {
@@ -97,6 +98,32 @@ globalThis.foundry = {
   },
 } as any;
 
+globalThis.fromUuid = vi.fn().mockImplementation(async (uuid: string) => {
+  if (!uuid) return null;
+  const parts = uuid.split(".");
+  const documentName = parts[0] === "Compendium" ? parts[2] : parts[0];
+  return {
+    documentName: documentName || "Item",
+    uuid,
+    name: `Mock ${documentName || "Document"}`,
+    id: parts[parts.length - 1],
+    type: "feat",
+    system: { description: { value: "" } },
+    getFlag: vi.fn(),
+    setFlag: vi.fn(),
+    update: vi.fn().mockResolvedValue(true),
+    delete: vi.fn().mockResolvedValue(true),
+    toObject: vi.fn().mockImplementation(function (this: any) {
+      return {
+        name: this.name,
+        type: this.type,
+        system: this.system,
+        flags: {},
+      };
+    }),
+  };
+});
+
 globalThis.Roll = class {
   constructor(
     public formula: string,
@@ -106,7 +133,7 @@ globalThis.Roll = class {
   terms: any[] = [];
   total = 0;
   _evaluated = false;
-  async evaluate() {
+  evaluate() {
     if (this._evaluated) return this;
 
     const tokens = this.formula.split(/([+\-*/])/);
@@ -197,6 +224,9 @@ globalThis.Roll = class {
 } as any;
 
 export class ActorsCollection extends Array<any> {
+  get contents() {
+    return this;
+  }
   get = vi.fn((id: string) => this.find((a) => a.id === id));
 }
 
@@ -210,6 +240,7 @@ globalThis.game = {
     registerMenu: vi.fn(),
     get: vi.fn(),
     set: vi.fn(),
+    settings: new Map(),
   },
   i18n: {
     localize: vi.fn((key: string) => key),
@@ -223,6 +254,9 @@ globalThis.game = {
   actors: new ActorsCollection(),
   packs: {
     contents: [],
+    get: vi.fn(),
+  },
+  modules: {
     get: vi.fn(),
   },
   ID: MODULE_ID,
@@ -244,7 +278,12 @@ class MockActor {
   id = "mock-id";
   name = "Mock Actor";
   flags: any = {};
-  system: any = {};
+  system: any = {
+    type: "character",
+    currency: { cp: 0, sp: 0, ep: 0, gp: 0, pp: 0 },
+    abilities: {},
+    attributes: {},
+  };
   items = new EmbeddedCollection();
 
   getFlag = vi.fn((scope: string, key: string) => {
@@ -345,8 +384,8 @@ globalThis.Dialog = class {
 } as any;
 globalThis.ChatMessage = {
   create: vi.fn(),
+  getSpeaker: vi.fn().mockReturnValue({ actor: "mock-actor-id" }),
 } as any;
-globalThis.fromUuid = vi.fn();
 globalThis.CompendiumCollection = {
   createCompendium: vi.fn(),
 } as any;

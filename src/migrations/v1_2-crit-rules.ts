@@ -1,4 +1,6 @@
-import { MODULE_ID } from "../global";
+import { MODULE_ID } from "@/global.js";
+import { Logger } from "@/core/logger.js";
+import { getGame, getUI } from "@/core/foundry.js";
 
 type V1_2SystemRules = {
   method?: string;
@@ -7,9 +9,10 @@ type V1_2SystemRules = {
 };
 
 export async function migrateToV1_2() {
-  ui.notifications?.info("Downtime Engine: Performing v1.2.0 migration (Critical Rules)...");
+  getUI()?.notifications?.info("Downtime Engine: Performing v1.2.0 migration (Critical Rules)...");
 
   try {
+    const game = getGame();
     const rules = (game.settings.get(MODULE_ID, "rules") as unknown as V1_2SystemRules) || {
       method: "roll",
     };
@@ -26,12 +29,12 @@ export async function migrateToV1_2() {
     }
 
     if (changed) {
+      // Cast to any is necessary because the settings API expects the shape registered at runtime.
       await game.settings.set(MODULE_ID, "rules", updatedRules as any);
-      ui.notifications?.info("Critical hit rules migrated successfully!");
+      getUI()?.notifications?.info("Critical hit rules migrated successfully!");
     }
   } catch (error) {
-    console.error("Downtime Engine migration to v1.2.0 failed:", error);
-    ui?.notifications?.error("Migration to v1.2.0 failed. Please check the console for details.");
+    Logger.error("migration to v1.2.0 failed:", true, error);
     throw error;
   }
 }

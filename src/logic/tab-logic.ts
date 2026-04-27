@@ -1,16 +1,19 @@
-import { DEFAULT_DC } from "../global.js";
+import { getDieExpectation } from "./math-utils.js";
+import { DEFAULT_DC } from "@/global.js";
 import { ActorProxy } from "./actor-proxy.js";
-import { isActor5e } from "../types.js";
+import { Logger } from "@/core/logger.js";
+import { FoundryUtils } from "@/core/foundry-utils.js";
+import { isActor5e } from "@/types.js";
 import type {
   LearningActor,
   TimeUnit,
   ProjectRequirement,
   ComparisonOperator,
   SystemRules,
-  GuidanceTier,
-  Actor5e,
   TrainingRoll,
-} from "../types.js";
+} from "@/types.js";
+
+import { getUI } from "@/core/foundry.js";
 
 /**
  * Utility class for downtime resolution logic.
@@ -20,86 +23,134 @@ export class TabLogic {
   static async computeProgress(
     actor: LearningActor,
     rules: SystemRules,
-    tier: GuidanceTier | undefined,
+    tutelageMod: number,
     tu: TimeUnit,
-    options: { preview?: boolean } = {},
   ): Promise<{ progressGained: number; roll?: TrainingRoll; reason?: string }> {
     let progressGained = 0;
     let roll: TrainingRoll | undefined = undefined;
     let reason: string | undefined = undefined;
 
     const effectiveMethod = tu.isBulk ? rules.bulkMethod : rules.nonBulkMethod;
+    const dc = Number(rules.checkDC ?? DEFAULT_DC);
 
     if (effectiveMethod === "direct") {
-      if (tu.isBulk) {
-        progressGained = tier?.progress?.[tu.id] || 0;
-        if (progressGained === 0) {
-          reason = `Tutelage tier "${tier?.name || "None"}" provides no progress for ${tu.name}s.`;
-        }
-      } else {
-        progressGained = 1;
-      }
+      progressGained = tu.ratio;
     } else if (effectiveMethod === "roll") {
       if (!rules.checkFormula) {
         return { progressGained: 0, reason: "No check formula defined in rules." };
       }
 
-      if (options.preview) {
-        progressGained = await this.calculateExpectedProgress(actor, rules, tier);
+      try {
+        roll = await new Roll(
+          rules.checkFormula,
+          {
+            ...actor.getRollData(),
+            tutelage: tutelageMod,
+          },
+          // @ts-expect-error - Foundry Roll constructor accepts target in options
+          { target: dc },
+        ).evaluate();
+      } catch (err) {
+        return {
+          progressGained: 0,
+          reason: `Invalid check formula: ${err instanceof Error ? err.message : String(err)}`,
+        };
+      }
+
+      let multiplier = 1;
+      const strategy = rules.critDoubleStrategy ?? "never";
+      const threshold = Number(rules.critThreshold) || 20;
+
+      if (strategy !== "never") {
+        const d20s = (roll.dice ?? []).filter((die) => die.faces === 20);
+        if (d20s.length > 0) {
+          if (strategy === "any") {
+            if (d20s.some((die) => die.results?.some((r) => r.active && r.result >= threshold)))
+              multiplier = 2;
+          } else if (strategy === "all") {
+            if (
+              d20s.every((die) => {
+                const active = die.results?.filter((r) => r.active) ?? [];
+                return active.length > 0 && active.every((r) => r.result >= threshold);
+              })
+            )
+              multiplier = 2;
+          }
+        }
+      }
+
+      if ((roll.total || 0) >= dc) {
+        progressGained = 1 * multiplier;
       } else {
+        reason = `Roll total ${roll.total} failed to meet DC ${dc}.`;
+      }
+    } else if (effectiveMethod === "mathematical") {
+      const hours = tu.ratio;
+
+      let mod = 0;
+      if (rules.checkFormula) {
         try {
-          roll = await new Roll(
+          // Check for unsupported keep/drop dice expressions (e.g., 4d6kh3) that aren't the common 2d20kh1/kl1.
+          // We can't easily calculate a deterministic expectation for these in a single pass.
+          const hasUnsupportedModifiers = /\b\d*d\d+[^+\-*/\s]*([rex]|ms|min|max)\d*\b/i.test(
             rules.checkFormula,
-            {
-              ...actor.getRollData(),
-              tutelage: tier?.modifier || 0,
-            },
-            // @ts-expect-error - Foundry Roll constructor accepts target in options
-            { target: rules.checkDC },
-          ).evaluate();
+          );
+
+          if (hasUnsupportedModifiers) {
+            Logger.warn(
+              `Mathematical progress: Unsupported dice modifier (explode/reroll) in formula "${rules.checkFormula}". Falling back to average expectation.`,
+            );
+          }
+
+          const modFormula = rules.checkFormula
+            // Replace d20-based dice with their relative modifier to a flat d20 roll (E - 10.5).
+            // This allows us to extract the "bonus" part of the formula for use in the bulk calculation.
+            .replace(
+              /\b(\d*)d20(?:([a-z]+)(\d+)?)?\b/gi,
+              (match, countStr, modType, modValueStr) => {
+                const count = countStr ? parseInt(countStr) : 1;
+                const modValue = modValueStr ? parseInt(modValueStr) : undefined;
+                const expectation = getDieExpectation(count, 20, modType, modValue);
+                return (expectation - 10.5).toString();
+              },
+            )
+            // Replace all other dice with their average/expected value to make the formula deterministic.
+            .replace(
+              /\b(\d*)d(\d+)(?:([a-z]+)(\d+)?)?\b/gi,
+              (match, countStr, facesStr, modType, modValueStr) => {
+                const count = countStr ? parseInt(countStr) : 1;
+                const faces = parseInt(facesStr);
+                const modValue = modValueStr ? parseInt(modValueStr) : undefined;
+                const expectation = getDieExpectation(count, faces, modType, modValue);
+                return expectation.toString();
+              },
+            );
+          const modRoll = new Roll(modFormula, {
+            ...actor.getRollData(),
+            tutelage: tutelageMod,
+          });
+          const evaluatedMod = await modRoll.evaluate();
+          mod = evaluatedMod.total || 0;
         } catch (err) {
+          Logger.error("Failed to calculate mod for mathematical progress:", true, err);
           return {
             progressGained: 0,
             reason: `Invalid check formula: ${err instanceof Error ? err.message : String(err)}`,
           };
         }
-
-        let multiplier = 1;
-        const strategy = rules.critDoubleStrategy ?? "never";
-        const threshold = Number(rules.critThreshold ?? 20);
-
-        if (strategy !== "never") {
-          const d20s = (roll.dice ?? []).filter((die) => die.faces === 20);
-          if (d20s.length > 0) {
-            if (strategy === "any") {
-              if (d20s.some((die) => die.results?.some((r) => r.active && r.result >= threshold)))
-                multiplier = 2;
-            } else if (strategy === "all") {
-              if (d20s.every((die) => die.results?.every((r) => r.active && r.result >= threshold)))
-                multiplier = 2;
-            }
-          }
-        }
-
-        if (roll.total >= Number(rules.checkDC ?? DEFAULT_DC)) {
-          progressGained = multiplier;
-        } else {
-          reason = `Roll total ${roll.total} failed to meet DC ${Number(rules.checkDC ?? DEFAULT_DC)}.`;
-        }
       }
-    } else if (effectiveMethod === "mathematical") {
-      const hours = tu.ratio;
-      const tutelageMod = tier?.modifier || 0;
-      const dc = Number(rules.checkDC ?? DEFAULT_DC);
+      // The default bulk formula calculates progress based on success probability:
+      // P(Success) = (22 - (DC - mod)) / 20, clamped between 1/20 and 1.
+      // We multiply by @hours to get total expected progress.
       const bulkFormula =
-        rules.bulkExpectedFormula ||
-        "round(@hours * (22 - max(1, @dc - (@abilities.int.mod + @tutelage))) / 20)";
+        rules.bulkExpectedFormula || "round(@hours * (22 - max(1, @dc - @mod)) / 20)";
 
       const formulaData = {
         ...actor.getRollData(),
         tutelage: tutelageMod,
         hours: hours,
         dc: dc,
+        mod: mod,
       };
 
       try {
@@ -107,7 +158,7 @@ export class TabLogic {
         const total = expectedRoll.total;
 
         if (!Number.isFinite(total)) {
-          console.warn("Downtime Engine | Bulk mathematical formula produced non-finite result:", {
+          Logger.warn("Bulk mathematical formula produced non-finite result:", true, {
             bulkFormula,
             formulaData,
             total,
@@ -118,14 +169,14 @@ export class TabLogic {
           progressGained = Math.max(0, total);
         }
 
-        console.debug("Downtime Engine | Bulk Expected Progress calculation details:", {
+        Logger.debug("Bulk Expected Progress calculation details:", {
           bulkFormula,
           formulaData,
           result: total,
           progressGained,
         });
       } catch (err) {
-        console.error("Downtime Engine | Failed to evaluate bulk mathematical formula:", {
+        Logger.error("Failed to evaluate bulk mathematical formula:", true, {
           bulkFormula,
           formulaData,
           error: err,
@@ -144,14 +195,14 @@ export class TabLogic {
   private static async _getOutcomes(
     actor: LearningActor,
     rules: SystemRules,
-    tier: GuidanceTier | undefined,
+    tutelageMod: number,
   ): Promise<{ rolls: TrainingRoll[]; isDeterministic: boolean } | null> {
     if (!rules.checkFormula) return null;
 
     try {
       const rollData = {
         ...actor.getRollData(),
-        tutelage: tier?.modifier || 0,
+        tutelage: tutelageMod,
       };
 
       const roll = new Roll(rules.checkFormula, rollData) as TrainingRoll;
@@ -165,26 +216,25 @@ export class TabLogic {
         };
       }
 
+      const d20Regex = /\b1?d20\b/gi;
+      const baseFormula = rules.checkFormula.replace(d20Regex, "Outcome");
+      const matchCount = (rules.checkFormula.match(d20Regex) || []).length;
       const isSimpleD20 =
-        dice.length === 1 &&
-        dice[0].faces === 20 &&
-        dice[0].number === 1 &&
-        (dice[0].modifiers?.length || 0) === 0;
+        dice.length === 1 && dice[0].faces === 20 && dice[0].number === 1 && matchCount === 1;
 
       if (!isSimpleD20) return null;
 
-      const baseFormula = rules.checkFormula.replace(/\b1?d20\b/i, "Outcome");
       const rolls = await Promise.all(
         Array.from({ length: 20 }, (_, idx) => {
           const i = idx + 1;
           const formula = baseFormula.replace("Outcome", String(i));
           const testRoll = new Roll(formula, rollData) as TrainingRoll;
-          return testRoll.evaluate() as Promise<TrainingRoll>;
+          return testRoll.evaluate();
         }),
       );
       return { rolls, isDeterministic: false };
     } catch (err) {
-      console.error("Downtime Engine | Failed to calculate outcomes:", err);
+      Logger.error("Failed to calculate outcomes:", true, err);
       return null;
     }
   }
@@ -196,19 +246,19 @@ export class TabLogic {
   static async calculateExpectedProgress(
     actor: LearningActor,
     rules: SystemRules,
-    tier: GuidanceTier | undefined,
+    tutelageMod: number,
   ): Promise<number> {
-    const res = await this._getOutcomes(actor, rules, tier);
+    const res = await this._getOutcomes(actor, rules, tutelageMod);
     if (!res) return NaN;
 
     const { rolls, isDeterministic } = res;
     const strategy = rules.critDoubleStrategy ?? "never";
-    const threshold = Number(rules.critThreshold ?? 20);
+    const threshold = Number(rules.critThreshold) || 20;
     const dc = Number(rules.checkDC ?? DEFAULT_DC);
 
     let totalProgress = 0;
     rolls.forEach((r, idx) => {
-      if (r.total >= dc) {
+      if ((r.total || 0) >= dc) {
         let multiplier = 1;
         if (!isDeterministic && strategy !== "never") {
           const rollValue = idx + 1;
@@ -230,12 +280,12 @@ export class TabLogic {
   static async calculateSuccessProbability(
     actor: LearningActor,
     rules: SystemRules,
-    tier: GuidanceTier | undefined,
+    tutelageMod: number,
   ): Promise<number | null> {
-    const res = await this._getOutcomes(actor, rules, tier);
+    const res = await this._getOutcomes(actor, rules, tutelageMod);
     if (!res) return null;
     const dc = Number(rules.checkDC ?? DEFAULT_DC);
-    const successCount = res.rolls.filter((r) => r.total >= dc).length;
+    const successCount = res.rolls.filter((r) => (r.total || 0) >= dc).length;
     return successCount / 20;
   }
 
@@ -244,31 +294,117 @@ export class TabLogic {
    */
   static async deductCurrency(actor: Actor, costCp: number): Promise<boolean> {
     if (isNaN(costCp) || costCp < 0) {
-      console.warn(
-        `Downtime Engine | Invalid currency cost: ${costCp}. Must be a non-negative number.`,
-      );
+      Logger.warn(`Invalid currency cost: ${costCp}. Must be a non-negative number.`);
       return false;
     }
+    if (!Number.isInteger(costCp)) {
+      Logger.warn(
+        `Currency cost ${costCp} is not an integer (source: resolution.costs). Coercing with Math.floor.`,
+      );
+      costCp = Math.floor(costCp);
+    }
     if (!isActor5e(actor)) {
-      console.warn("Downtime Engine | Cannot deduct currency from non-dnd5e actor.");
+      Logger.warn("Cannot deduct currency from non-dnd5e actor.");
       return false;
     }
     const proxy = ActorProxy.forActor(actor);
-    const cur = proxy.currency;
-    const totalCp = cur.gp * 100 + cur.sp * 10 + cur.cp;
+    const cur = { ...proxy.currency };
+    const totalCp =
+      (cur.pp || 0) * 1000 +
+      (cur.gp || 0) * 100 +
+      (cur.ep || 0) * 50 +
+      (cur.sp || 0) * 10 +
+      (cur.cp || 0);
 
     if (totalCp < costCp) {
-      ui.notifications?.warn("Downtime Engine | Insufficient currency!");
+      getUI()?.notifications?.warn("Downtime Engine | Insufficient currency!");
       return false;
     }
 
-    let remaining = totalCp - costCp;
-    const newGp = Math.floor(remaining / 100);
-    remaining %= 100;
-    const newSp = Math.floor(remaining / 10);
-    const newCp = remaining % 10;
+    let remaining = costCp;
+    const denoms = [
+      { id: "pp", value: 1000 },
+      { id: "gp", value: 100 },
+      { id: "ep", value: 50 },
+      { id: "sp", value: 10 },
+      { id: "cp", value: 1 },
+    ] as const;
 
-    await proxy.updateCurrency({ gp: newGp, sp: newSp, cp: newCp });
+    // 1. Drain from existing denominations, largest to smallest
+    for (const d of denoms) {
+      const available = cur[d.id] || 0;
+      if (available > 0) {
+        const canTake = Math.min(available, Math.floor(remaining / d.value));
+        cur[d.id] = available - canTake;
+        remaining -= canTake * d.value;
+      }
+    }
+
+    // 2. If still remaining, we need to borrow/make change
+    if (remaining > 0) {
+      const smallestCovering = [...denoms]
+        .reverse()
+        .find((d) => (cur[d.id] || 0) > 0 && d.value >= remaining);
+
+      if (smallestCovering) {
+        cur[smallestCovering.id] = (cur[smallestCovering.id] || 0) - 1;
+        let changeCp = smallestCovering.value - remaining;
+        remaining = 0;
+
+        for (const cd of denoms) {
+          if ((cd.id === "pp" || cd.id === "ep") && (proxy.currency[cd.id] || 0) === 0) continue;
+          const toAdd = Math.floor(changeCp / cd.value);
+          if (toAdd > 0) {
+            cur[cd.id] = (cur[cd.id] || 0) + toAdd;
+            changeCp %= cd.value;
+          }
+        }
+      }
+    }
+
+    await proxy.updateCurrency(cur);
+    return true;
+  }
+
+  /**
+   * Adds currency to an actor.
+   */
+  static async addCurrency(actor: Actor, amountCp: number): Promise<boolean> {
+    if (isNaN(amountCp) || amountCp < 0) {
+      Logger.warn(`Invalid currency amount: ${amountCp}. Must be a non-negative number.`);
+      return false;
+    }
+    if (!Number.isInteger(amountCp)) {
+      Logger.warn(
+        `Currency amount ${amountCp} is not an integer (source: resolution.costs). Coercing with Math.floor.`,
+      );
+      amountCp = Math.floor(amountCp);
+    }
+    if (!isActor5e(actor)) {
+      Logger.warn("Cannot add currency to non-dnd5e actor.");
+      return false;
+    }
+    const proxy = ActorProxy.forActor(actor);
+    const cur = { ...proxy.currency };
+    let remaining = amountCp;
+    const denoms = [
+      { id: "pp", value: 1000 },
+      { id: "gp", value: 100 },
+      { id: "ep", value: 50 },
+      { id: "sp", value: 10 },
+      { id: "cp", value: 1 },
+    ] as const;
+
+    for (const d of denoms) {
+      if ((d.id === "pp" || d.id === "ep") && (cur[d.id] || 0) === 0) continue;
+      const toAdd = Math.floor(remaining / d.value);
+      if (toAdd > 0) {
+        cur[d.id] = (cur[d.id] || 0) + toAdd;
+        remaining %= d.value;
+      }
+    }
+
+    await proxy.updateCurrency(cur);
     return true;
   }
 
@@ -340,7 +476,7 @@ export class TabLogic {
     requirements: ProjectRequirement[],
   ): { eligible: boolean; reason: string } {
     for (const req of requirements) {
-      const actorValue = foundry.utils.getProperty(actor, req.attribute);
+      const actorValue = FoundryUtils.getProperty(actor, req.attribute);
       const targetValue = req.value;
       const op: ComparisonOperator = req.operator;
 
@@ -384,8 +520,9 @@ export class TabLogic {
         else if (op === "<=")
           met = isNumeric ? aNum <= tNum : String(actorValue) <= String(targetValue);
         else {
-          console.warn(
-            `Downtime Engine | Unknown operator "${op}" in requirement for attribute "${req.attribute}".`,
+          Logger.warn(
+            `Unknown operator "${op}" in requirement for attribute "${req.attribute}".`,
+            true,
             {
               req,
               actorValue,

@@ -3,37 +3,35 @@ import type {
   DowntimeGroupActor,
   OnRenderTabParams,
   OnRenderParams,
-  Actor5e,
   Item5e,
-  FeatItemSystemData,
 } from "./types.js";
 import { ProjectEngine } from "./logic/project-engine.js";
-import { Logger } from "./core/notifications.js";
+import { TutelageResolverService } from "./logic/tutelage-resolver.js";
 import { Settings, SettingsManager } from "./core/settings.js";
 import { LearningConfigApp } from "./apps/settings-app.js";
 import { ProjectOverviewApp } from "./apps/overview-app.js";
 import { TabLogic } from "./logic/tab-logic.js";
-import {
-  ProjectItem,
-  projectData,
-  LearningFeatType,
-  LearningActivityData,
-} from "./logic/project-item.js";
+import { projectData, LearningFeatType, LearningActivityData } from "./logic/project-item.js";
 import { mount, unmount } from "svelte";
 import PartyTab from "./apps/tabs/PartyTab.svelte";
 import { PartyTab as PartyTabLogic } from "./apps/party-tab.js";
-import ItemTargetConfig from "./apps/tabs/ItemTargetConfig.svelte";
+import ItemLearningConfig from "./apps/tabs/ItemLearningConfig.svelte";
+import ActorTutelageConfig from "./apps/tabs/ActorTutelageConfig.svelte";
 import TimeBankBar from "./apps/components/TimeBankBar.svelte";
-import { Socket } from "./core/socket";
-import { migrateData } from "./migrations/migration";
+import { Socket } from "./core/socket.js";
+import { migrateData } from "./migrations/migration.js";
+import { registerMigrationSettings } from "./migrations/migration-registration.js";
 import { initDebugHelpers } from "./core/debug.js";
+import { Logger } from "./core/logger.js";
+import { getGame, getUI } from "./core/foundry.js";
 
 export class LearningManager {
   static ID = "thefehrs-learning-manager" as const;
-  static svelteInstances = new Map<string | number, Record<string, unknown>>();
+  static svelteInstances = new Map<string | number, { instance: any; target: HTMLElement }>();
   static socketHandler: ((...args: any[]) => void) | null = null;
 
   static init() {
+    registerMigrationSettings();
     this.registerSettings();
     this.registerConfigExpansions();
     this.registerHooks();
@@ -61,7 +59,7 @@ export class LearningManager {
 
   static registerSocketListeners() {
     if (this.socketHandler) {
-      console.debug("Downtime Engine | Unregistering existing socket handler.");
+      Logger.debug("Unregistering existing socket handler.");
       Socket.off(this.socketHandler);
     }
 
@@ -71,22 +69,18 @@ export class LearningManager {
           try {
             await ProjectEngine.handleAutoTrainSignal();
           } catch (err) {
-            console.error(
-              "Downtime Engine | Failed to handle auto-train signal:",
-              err,
-              JSON.stringify(message),
-            );
+            Logger.error("Failed to handle auto-train signal:", true, err);
           }
         }
       }) || null;
   }
 
   static async ready() {
-    console.debug("Downtime Engine | Initialized");
+    Logger.debug("Initialized");
     try {
       await migrateData();
     } catch (err) {
-      console.error("Downtime Engine | Migration failed:", err);
+      Logger.error("Migration failed:", true, err);
     }
   }
 
@@ -97,12 +91,15 @@ export class LearningManager {
           try {
             await ProjectEngine.syncAllProjectActivities();
           } catch (err) {
-            console.error(
-              "Downtime Engine | Failed to sync activities after time unit change:",
-              err,
-            );
+            Logger.error("Failed to sync activities after time unit change:", true, err);
           }
         },
+      },
+      teacherCompendiums: {
+        onChange: () => TutelageResolverService.clearCache(),
+      },
+      bookCompendiums: {
+        onChange: () => TutelageResolverService.clearCache(),
       },
     });
   }
@@ -129,7 +126,7 @@ export class LearningManager {
       if (activity.flags?.[LearningManager.ID]?.isLearningActivity) {
         // We handle the training async but must return false synchronously to stop dnd5e's default use flow
         ProjectEngine.processTraining(activity).catch((err) => {
-          console.error("Downtime Engine | Training failed:", err);
+          Logger.error("Training failed:", true, err);
         });
         return false; // stop standard execution
       }
@@ -137,13 +134,14 @@ export class LearningManager {
 
     Hooks.on(
       "dropActorSheetData",
-      (actor: Actor, _sheet: unknown, data: { type: string; uuid: string }) => {
-        if (data.type !== "Item" || !data.uuid) return true;
+      (actor: Actor, _sheet: unknown, data: any, _event?: DragEvent) => {
+        if (!data || data.type !== "Item" || !data.uuid) return true;
 
-        const isCompendium = data.uuid.startsWith("Compendium.");
+        const uuid = data.uuid as string;
+        const isCompendium = uuid.startsWith("Compendium.");
         if (!isCompendium) return true;
 
-        const parts = data.uuid.split(".");
+        const parts = uuid.split(".");
         const packId = `${parts[1]}.${parts[2]}`;
         const allowed = Settings.get("allowedCompendiums");
 
@@ -152,9 +150,13 @@ export class LearningManager {
         let targetActor = actor;
 
         if ((targetActor.type as string) === "group") {
-          // Find the actual drag event from the global window object (legacy but often necessary in Foundry hooks)
-          const event = (window as unknown as { event: DragEvent }).event;
-          const target = event?.target as HTMLElement | undefined;
+          // Use the event from the hook if provided.
+          const dragEvent = _event;
+          if (!dragEvent) {
+            Logger.warn("dropActorSheetData | Missing drag event. Aborting drop handling.");
+            return true;
+          }
+          const target = dragEvent.target as HTMLElement | undefined;
 
           const actorRow = target?.closest('[data-tidy-section-key^="actor-"]') as
             | HTMLElement
@@ -166,8 +168,9 @@ export class LearningManager {
             sidebarEntry?.dataset.actorId;
 
           if (actorId) {
-            const member = game.actors.get(actorId);
-            if (member) targetActor = member;
+            const member = getGame().actors?.get(actorId);
+            if (!member) return false;
+            targetActor = member;
           } else {
             // If we can't find a specific member via the event target,
             // we might be dropping on the general sheet or we can't resolve the target.
@@ -184,28 +187,23 @@ export class LearningManager {
 
             const item5e = item as Item5e;
             const projectFlagData = projectData(item5e);
-            if (!projectFlagData) {
-              Logger.warn(
-                `The compendium item ${item5e.name} lacks learning-project metadata. Skipping initiation.`,
-              );
-              return;
-            }
-            const requirements = projectFlagData.requirements || [];
+            const requirements = projectFlagData?.requirements || [];
             const { eligible, reason } = TabLogic.meetsRequirements(targetActor, requirements);
 
             if (!eligible) {
-              ui.notifications?.warn(`Requirements not met for ${item5e.name}: ${reason}`);
+              getUI()?.notifications?.warn(`Requirements not met for ${item5e.name}: ${reason}`);
               return;
             }
 
             await ProjectEngine.initiateProjectFromItem(targetActor, item5e);
           })
           .catch((err) => {
-            console.error(
-              `Downtime Engine | Failed to initiate project for item ${data.uuid} on actor ${targetActor.name}:`,
+            Logger.error(
+              `Failed to initiate project for item ${data.uuid} on actor ${targetActor.name}:`,
+              true,
               err,
             );
-            ui.notifications?.error(
+            getUI()?.notifications?.error(
               `Downtime Engine | Failed to initiate project: ${err instanceof Error ? err.message : String(err)}`,
             );
           });
@@ -217,12 +215,17 @@ export class LearningManager {
       this.registerTidyTabs(api);
     });
 
-    Hooks.on("closeApplication", (app: { id: string }) => {
-      if (this.svelteInstances.has(app.id)) {
-        unmount(this.svelteInstances.get(app.id)!);
-        this.svelteInstances.delete(app.id);
+    const cleanupApps = (app: { id: string | number }) => {
+      const suffix = `-${app.id}`;
+      for (const [key, value] of this.svelteInstances.entries()) {
+        if (String(key).endsWith(suffix)) {
+          unmount(value.instance);
+          this.svelteInstances.delete(key);
+        }
       }
-    });
+    };
+
+    Hooks.on("closeApplicationV2", cleanupApps);
   }
 
   private static registerTidyTabs(api: Tidy5eApi) {
@@ -241,6 +244,7 @@ export class LearningManager {
               const partyData = PartyTabLogic.getData(actor);
               return { ...partyData, actor };
             },
+            "tab",
           );
         },
       }),
@@ -254,23 +258,23 @@ export class LearningManager {
         tabId: `${this.ID}-item-target-config`,
         html: '<div class="downtime-engine-svelte-root" style="height: 100%;"></div>',
         enabled: (context: { item?: Item; document?: Item }) => {
-          if (!game.user?.isGM) return false;
+          const user = getGame().user;
           const item = context?.item || context?.document;
-          if (!item) return false;
+          if (!user || !item) return false;
 
-          const item5e = item as Item5e;
+          const isGM = user.isGM;
+
           const isLearningType =
-            String(item5e.type) === "feat" &&
-            (item5e.system as FeatItemSystemData).type?.value === LearningFeatType;
-          const isProject = item5e.getFlag(LearningManager.ID, "isLearningProject");
+            (item.type as string) === "feat" &&
+            (item.system as any).type?.value === LearningFeatType;
+          const isProject = item.getFlag("thefehrs-learning-manager", "isLearningProject");
+          const hasBookBonus = !!item.getFlag("thefehrs-learning-manager", "learningBookBonus");
 
-          if (isLearningType || isProject) return true;
+          if (isLearningType || isProject || hasBookBonus) return isGM;
 
-          const uuid = item5e.uuid || "";
+          const uuid = (item as any).uuid || "";
           if (uuid.startsWith("Compendium.")) {
-            const parts = uuid.split(".");
-            const packId = `${parts[1]}.${parts[2]}`;
-            return Settings.get("allowedCompendiums").includes(packId);
+            return isGM;
           }
 
           return false;
@@ -279,12 +283,52 @@ export class LearningManager {
           this.renderSvelte(
             params,
             ".downtime-engine-svelte-root",
-            ItemTargetConfig,
+            ItemLearningConfig,
             (item: Item) => ({ item }),
+            "tab",
           );
         },
       }),
     );
+
+    const instructorTab = new api.models.HtmlTab({
+      title: "Tutelage",
+      iconClass: "fa-solid fa-chalkboard-user",
+      tabId: `${this.ID}-actor-tutelage-config`,
+      html: '<div class="downtime-engine-svelte-root" style="height: 100%;"></div>',
+      enabled: (context: { actor?: Actor; document?: Actor }) => {
+        const user = getGame().user;
+        const actor = context?.actor || context?.document;
+        if (!user || !actor) return false;
+
+        if (!user.isGM) return false;
+
+        const hasOfferings = !!actor.getFlag(this.ID, "teacherOfferings");
+        if (hasOfferings) return true;
+
+        const uuid = (actor as any).uuid || "";
+        if (uuid.startsWith("Compendium.")) {
+          const parts = uuid.split(".");
+          const packId = `${parts[1]}.${parts[2]}`;
+          const isTeacherPack = Settings.get("teacherCompendiums").includes(packId);
+          return isTeacherPack;
+        }
+
+        return false;
+      },
+      onRender: (params: OnRenderTabParams) => {
+        this.renderSvelte(
+          params,
+          ".downtime-engine-svelte-root",
+          ActorTutelageConfig,
+          (actor: Actor) => ({ actor }),
+          "tab",
+        );
+      },
+    });
+
+    api.registerCharacterTab(instructorTab);
+    api.registerNpcTab(instructorTab);
 
     api.registerCharacterContent(
       new api.models.HtmlContent({
@@ -295,7 +339,7 @@ export class LearningManager {
         },
         enabled: (data: { document?: Actor; actor?: Actor }) => {
           const actor = data.document || data.actor;
-          return String(actor?.type) === "character";
+          return (actor?.type as string) === "character";
         },
         onRender: (params: OnRenderParams) => {
           this.renderSvelte(
@@ -303,7 +347,7 @@ export class LearningManager {
             ".downtime-engine-time-bank-bar-root",
             TimeBankBar,
             (actor: Actor) => ({ actor }),
-            `time-bank-bar-${params.app.id}`,
+            "time-bank-bar",
           );
         },
       }),
@@ -319,14 +363,17 @@ export class LearningManager {
     selector: string,
     Component: Parameters<typeof mount>[0],
     getProps: (doc: DocType) => Record<string, unknown>,
-    customAppId?: string,
+    prefix: string,
   ) {
-    const appId = customAppId || params.app.id;
-    const target = (params.tabContentsElement || params.element)?.querySelector(selector);
+    const appId = `${prefix}-${params.app.id}`;
+    const target = (params.tabContentsElement || params.element)?.querySelector(
+      selector,
+    ) as HTMLElement;
     if (!target) return;
 
-    if (this.svelteInstances.has(appId)) {
-      unmount(this.svelteInstances.get(appId)!);
+    const existing = this.svelteInstances.get(appId);
+    if (existing) {
+      unmount(existing.instance);
       this.svelteInstances.delete(appId);
     }
 
@@ -334,10 +381,10 @@ export class LearningManager {
     if (!doc) return;
 
     const instance = mount(Component, {
-      target: target as HTMLElement,
+      target,
       props: getProps(doc),
     });
 
-    this.svelteInstances.set(appId, instance);
+    this.svelteInstances.set(appId, { instance, target });
   }
 }

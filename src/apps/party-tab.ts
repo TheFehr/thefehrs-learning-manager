@@ -1,22 +1,23 @@
-import { Settings } from "../core/settings.js";
-import { ActorProxy } from "../logic/actor-proxy.js";
-import { TabLogic } from "../logic/tab-logic.js";
+import { Settings } from "@/core/settings.js";
+import { ActorProxy } from "@/logic/actor-proxy.js";
+import { TabLogic } from "@/logic/tab-logic.js";
 import {
   isActor5e,
   type DowntimeGroupActor,
   type TimeUnit,
-  type Actor5e,
   type Item5e,
   type ProjectFlagData,
-} from "../types.js";
+} from "@/types.js";
 import type { PartyMemberData } from "@dnd5e/data/actor/_types.mjs";
-import { MODULE_ID } from "../global";
+import { MODULE_ID } from "@/global.js";
+import { getGame } from "@/core/foundry.js";
 
 export type ProjectMappedData = ProjectFlagData & {
   id: string;
   name: string;
   maxProgress: number;
   guidanceType: string;
+  isSelfStudy: boolean;
   progressPercentage: number;
   canAbort: boolean;
   isItemBased: boolean;
@@ -27,7 +28,7 @@ export interface MemberMappedData {
   name: string;
   img: string | null;
   tokenImg: string | null;
-  currency: { gp: number; sp: number; cp: number };
+  currency: { cp: number; sp: number; ep: number; gp: number; pp: number };
   formattedBank: string;
   projects: ProjectMappedData[];
 }
@@ -37,26 +38,17 @@ export class PartyTab {
     if (!partyActor?.system) {
       return {
         members: [],
-        tierOptions: {},
-        isGM: game.user?.isGM,
+        isGM: !!getGame().user?.isGM,
       };
     }
     const rawMembers = (partyActor.system.members || []) as PartyMemberData[];
     const timeUnits = Settings.get("timeUnits");
-    const tiers = Settings.get("guidanceTiers");
-
-    const tierOptions = tiers.reduce((acc: Record<string, string>, t) => {
-      const sign = t.modifier > 0 ? "+" : "";
-      acc[t.id] = `${t.name} (${sign}${t.modifier})`;
-      return acc;
-    }, {});
 
     return {
       members: rawMembers
         .map((m) => this.mapMemberData(m, timeUnits))
         .filter((m): m is MemberMappedData => !!m),
-      tierOptions,
-      isGM: game.user?.isGM,
+      isGM: !!getGame().user?.isGM,
     };
   }
 
@@ -64,9 +56,8 @@ export class PartyTab {
     member: PartyMemberData,
     timeUnits: TimeUnit[],
   ): MemberMappedData | null {
-    const actualActor =
-      member.actor ||
-      (this.getMemberId(member) ? (game.actors as any)?.get(this.getMemberId(member)!) : null);
+    const memberId = this.getMemberId(member);
+    const actualActor = member.actor || (memberId ? getGame().actors?.get(memberId) : null);
 
     if (!isActor5e(actualActor)) return null;
     const proxy = ActorProxy.forActor(actualActor);
@@ -83,26 +74,23 @@ export class PartyTab {
 
         const isLearnedReward = i.getFlag(MODULE_ID, "isLearnedReward");
 
-        const guidanceTiers = Settings.get("guidanceTiers");
-        const tier = guidanceTiers.find((t) => t.id === projectData.tutelageId);
-
-        const progress = projectData.progress || 0;
-        const target = projectData.target || 0;
-
         return {
           ...projectData,
           id: i.id!,
           name: i.name!,
-          maxProgress: target,
-          guidanceType: tier ? tier.name : "None",
-          progressPercentage: target > 0 ? Math.min(100, Math.round((progress / target) * 100)) : 0,
-          canAbort: (progress === 0 && !isLearnedReward) || game.user?.isGM || false,
+          maxProgress: projectData.target || 0,
+          guidanceType: projectData.lastInstructorName || "Self-Study",
+          isSelfStudy: !projectData.lastInstructorName,
+          progressPercentage:
+            projectData.target && projectData.target > 0
+              ? Math.min(100, Math.round(((projectData.progress || 0) / projectData.target) * 100))
+              : 0,
+          canAbort:
+            ((projectData.progress || 0) === 0 && !isLearnedReward) || !!getGame().user?.isGM,
           isItemBased: true,
         };
       })
       .filter((p): p is ProjectMappedData => p !== null);
-
-    const allProjects = [...itemProjects];
 
     return {
       id: proxy.id,
@@ -111,7 +99,7 @@ export class PartyTab {
       tokenImg: proxy.tokenImg,
       currency: proxy.currency,
       formattedBank: TabLogic.formatTimeBank(bank.total, timeUnits),
-      projects: allProjects.filter((p) => !p.isCompleted),
+      projects: itemProjects.filter((p) => !p.isCompleted),
     };
   }
 

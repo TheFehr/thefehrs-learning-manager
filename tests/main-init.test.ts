@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Mock migrateData to avoid running actual migrations
-vi.mock("../src/migrations/migration.js", () => ({
+vi.mock("@/migrations/migration.js", () => ({
   migrateData: vi.fn().mockResolvedValue(undefined),
 }));
 
@@ -13,14 +13,14 @@ describe("main.ts side effects", () => {
 
   it("should register init and ready hooks", async () => {
     // Re-import LearningManager after resetModules to get the fresh reference
-    const { LearningManager } = await import("../src/LearningManager");
+    const { LearningManager } = await import("@/LearningManager");
 
     // Spy on LearningManager methods
     const initSpy = vi.spyOn(LearningManager, "init").mockImplementation(() => {});
     const readySpy = vi.spyOn(LearningManager, "ready").mockResolvedValue(undefined);
 
     // Import main.ts to trigger its side effects
-    await import("../src/main");
+    await import("@/main");
 
     // Check Hooks.once calls
     expect(Hooks.once).toHaveBeenCalledWith("init", expect.any(Function));

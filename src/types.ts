@@ -1,15 +1,24 @@
 import type {} from "@league-of-foundry-developers/foundry-vtt-types";
+import { getGame } from "@/core/foundry.js";
 
 declare global {
   interface LenientGlobalVariableTypes {
     game: Game;
     canvas: Canvas;
     ui: {
-      notifications: Notifications;
-      [key: string]: any;
-    };
-    socket: io.Socket;
+      notifications?: Notifications;
+    } & Record<string, any>;
+    socket: FoundrySocket | null;
   }
+}
+
+/**
+ * Basic interface for Foundry's socket implementation.
+ */
+export interface FoundrySocket {
+  on(event: string, callback: (...args: any[]) => void): void;
+  off(event: string, callback: (...args: any[]) => void): void;
+  emit(event: string, ...args: any[]): void;
 }
 import type {
   CharacterActorSystemData,
@@ -39,10 +48,12 @@ import type {
 } from "@dnd5e/data/shared/_types.mjs";
 import type { ActivityData } from "@dnd5e/data/activity/_types.mjs";
 import type { Tidy5eSheetsApi } from "@tidy5e/api/Tidy5eSheetsApi.js";
+import { Logger } from "./core/logger.js";
 import type {
   ProjectFlagData,
   ProjectRequirement,
   ComparisonOperator,
+  ProjectItem,
 } from "./logic/project-item.js";
 
 // --- Project Configuration Types ---
@@ -55,7 +66,7 @@ export interface TimeUnit {
   ratio: number;
 }
 
-export type NotificationLevel = "none" | "error" | "info" | "debug";
+export type NotificationLevel = "none" | "error" | "warn" | "info" | "debug";
 
 export interface SystemRules {
   nonBulkMethod: "direct" | "roll";
@@ -67,6 +78,18 @@ export interface SystemRules {
   critThreshold?: number;
   bulkExpectedFormula?: string;
   notificationLevel?: NotificationLevel;
+}
+
+export interface TeacherOffering {
+  name: string;
+  modifier: number;
+  costs: Record<string, number>;
+  categories: string[];
+}
+
+export interface LearningBookBonus {
+  modifier: number;
+  categories: string[];
 }
 
 export interface GuidanceTier {
@@ -107,6 +130,7 @@ export type {
   FacilityItemSystemData,
   ContainerItemSystemData,
 };
+
 export type ItemSystem5e = (
   | FeatItemSystemData
   | SpellItemSystemData
@@ -135,19 +159,22 @@ declare module "fvtt-types/configuration" {
   interface SettingConfig {
     "thefehrs-learning-manager.rules": SystemRules;
     "thefehrs-learning-manager.timeUnits": TimeUnit[];
-    "thefehrs-learning-manager.guidanceTiers": GuidanceTier[];
+    "thefehrs-learning-manager.teacherCompendiums": string[];
+    "thefehrs-learning-manager.bookCompendiums": string[];
     "thefehrs-learning-manager.allowedCompendiums": string[];
     "thefehrs-learning-manager.projectTemplates": unknown[];
     "thefehrs-learning-manager.migrationVersion": string;
     "thefehrs-learning-manager.autoSpend": boolean;
     "thefehrs-learning-manager.autoSpendUnits": string[];
+    "thefehrs-learning-manager.categories": string[];
   }
 
   interface FlagConfig {
     Actor: {
       "thefehrs-learning-manager": {
-        projects?: ProjectFlagData[];
         bank?: TimeBank;
+        teacherOfferings?: TeacherOffering[];
+        learningModeEnabled?: boolean;
       };
     };
     Item: {
@@ -158,6 +185,8 @@ declare module "fvtt-types/configuration" {
         stashedType?: string;
         stashedEffects?: unknown[];
         stashedActivities?: object;
+        learningBookBonus?: LearningBookBonus;
+        learningModeEnabled?: boolean;
       };
       "tidy5e-sheet": {
         section?: string;
@@ -204,36 +233,45 @@ declare global {
  * Augmented Actor type that bypasses the library's strict SubType mapping
  * while providing our system and flag types.
  */
-export type Actor5e = Actor<any> & {
-  system: ActorSystem5e;
-  getRollData(): any;
+export type Actor5e<TSystem = ActorSystem5e> = Actor<any> & {
+  system: TSystem;
+  getRollData(): Record<string, unknown>;
 };
 
 /**
- * Type guard to check if an actor is a valid dnd5e actor with required properties.
+ * Type guard for Actor5e.
+ * Verifies the document has dnd5e-specific runtime properties.
  */
-export function isActor5e(actor: unknown): actor is Actor5e {
+export function isActor5e(actor: any): actor is Actor5e {
   return (
-    !!actor &&
-    typeof actor === "object" &&
-    "system" in actor &&
-    typeof (actor as { getFlag?: unknown }).getFlag === "function" &&
-    typeof (actor as { setFlag?: unknown }).setFlag === "function" &&
-    typeof (actor as { getRollData?: unknown }).getRollData === "function"
+    actor &&
+    typeof actor.getFlag === "function" &&
+    (actor as any).system !== undefined &&
+    typeof (actor as any).system === "object" &&
+    (actor as any).system !== null &&
+    ((actor as any).system.abilities !== undefined ||
+      (actor as any).system.attributes !== undefined) &&
+    typeof (actor as any).getRollData === "function"
   );
+}
+
+export interface DisplayCardOptions {
+  rollMode?: string | null;
+  createMessage?: boolean;
+  [key: string]: unknown;
 }
 
 /**
  * Augmented Item type.
  */
-export type Item5e = Item<any> & {
-  system: ItemSystem5e;
-  displayCard(options?: object): Promise<unknown>;
+export type Item5e<TSystem = ItemSystem5e> = Item<any> & {
+  system: TSystem;
+  displayCard(options?: DisplayCardOptions): Promise<ChatMessage | void>;
 };
 
 export type LearningActor = Actor5e & {
   system: CharacterActorSystemData & {
-    currency: { gp: number; sp: number; cp: number };
+    currency: { cp: number; sp: number; ep: number; gp: number; pp: number };
   };
 };
 
@@ -241,15 +279,12 @@ export type DowntimeGroupActor = Actor5e & {
   system: GroupActorSystemData;
 };
 
-export type LearningProject = ProjectFlagData;
-
 /**
  * Specialized Roll type for training checks.
  * We use a dedicated type here to avoid Roll<EmptyObject> defaults from the library
  * when we inject custom 'tutelage' data into the roll, which causes assignment errors.
  */
 export type TrainingRoll = Roll<{ tutelage: number } & Record<string, unknown>>;
-
 // --- Module Integration APIs ---
 
 export interface SearchItem {
@@ -287,12 +322,25 @@ export interface ModuleAPIs {
 export function getModuleAPI<T extends string & keyof ModuleAPIs>(
   id: T,
 ): ModuleAPIs[T] | undefined {
-  if (typeof game === "undefined" || !game.modules) return undefined;
-  const module = game.modules.get(id);
-  if (!module) return undefined;
+  let game: any;
+  try {
+    game = getGame();
+  } catch (err) {
+    Logger.error("getModuleAPI | getGame failed:", true, err);
+    return undefined;
+  }
+  if (!game || !game.modules) return undefined;
+  const mod = game.modules.get(id);
+  if (!mod) {
+    Logger.debug(`getModuleAPI | module ${id} not found`);
+    return undefined;
+  }
 
-  const api = (module as any).api;
-  if (!api || typeof api !== "object") return undefined;
+  const api = (mod as any).api;
+  if (!api || typeof api !== "object") {
+    Logger.debug(`getModuleAPI | module ${id} has no api`);
+    return undefined;
+  }
 
   const validators: Partial<Record<keyof ModuleAPIs, (api: any) => boolean>> = {
     "quick-insert": (api) => typeof api.search === "function" && typeof api.open === "function",
@@ -300,7 +348,7 @@ export function getModuleAPI<T extends string & keyof ModuleAPIs>(
 
   const validator = validators[id];
   if (validator && !validator(api)) {
-    console.warn(`Downtime Engine | Module API shape mismatch for ${id}. Disabling integration.`);
+    Logger.warn(`Module API shape mismatch for ${id}. Disabling integration.`);
     return undefined;
   }
 
@@ -309,8 +357,7 @@ export function getModuleAPI<T extends string & keyof ModuleAPIs>(
 
 // --- Shared Data Types ---
 
-export type { ProjectRequirement, ComparisonOperator, ProjectFlagData };
-
+export type { ProjectRequirement, ComparisonOperator, ProjectFlagData, ProjectItem };
 // --- Tidy 5e Sheets API Types ---
 
 export type { Tidy5eSheetsApi as Tidy5eApi };

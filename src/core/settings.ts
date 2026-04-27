@@ -1,5 +1,8 @@
-import type { GuidanceTier, ProjectRequirement, SystemRules, TimeUnit } from "../types.js";
-import { DEFAULT_DC, MODULE_ID } from "../global.js";
+import { Logger } from "./logger.js";
+import { FoundryUtils } from "./foundry-utils.js";
+import type { ProjectRequirement, SystemRules, TimeUnit } from "@/types.js";
+import { DEFAULT_DC, DEFAULT_CATEGORIES, MODULE_ID } from "@/global.js";
+import { getGame } from "./foundry.js";
 
 export interface ProjectTemplate {
   id: string;
@@ -14,12 +17,14 @@ export interface ProjectTemplate {
 export interface SettingsSchema {
   rules: SystemRules;
   timeUnits: TimeUnit[];
-  guidanceTiers: GuidanceTier[];
+  teacherCompendiums: string[];
+  bookCompendiums: string[];
   allowedCompendiums: string[];
   projectTemplates: ProjectTemplate[];
   migrationVersion: string;
   autoSpend: boolean;
   autoSpendUnits: string[];
+  categories: string[];
 }
 
 const WORLD_SCOPE = "world" as const;
@@ -59,17 +64,13 @@ export const SETTINGS_DEFINITIONS: {
       { id: "week", name: "Week", short: "w", isBulk: true, ratio: 70 },
     ],
   },
-  guidanceTiers: {
+  teacherCompendiums: {
     scope: WORLD_SCOPE,
-    default: [
-      {
-        id: "example_tier",
-        name: "Example Tier",
-        modifier: 2,
-        costs: { hour: 0, day: 0, week: 0 },
-        progress: { day: 1, week: 7 },
-      },
-    ],
+    default: [],
+  },
+  bookCompendiums: {
+    scope: WORLD_SCOPE,
+    default: [],
   },
   allowedCompendiums: {
     scope: WORLD_SCOPE,
@@ -81,7 +82,7 @@ export const SETTINGS_DEFINITIONS: {
   },
   migrationVersion: {
     scope: WORLD_SCOPE,
-    default: "2.1.1",
+    default: "3.0.0",
   },
   autoSpend: {
     scope: USER_SCOPE,
@@ -90,6 +91,10 @@ export const SETTINGS_DEFINITIONS: {
   autoSpendUnits: {
     scope: USER_SCOPE,
     default: [],
+  },
+  categories: {
+    scope: WORLD_SCOPE,
+    default: [...DEFAULT_CATEGORIES],
   },
 };
 
@@ -130,7 +135,7 @@ export class SettingsManager {
    * Generic setter for a setting.
    */
   async set<K extends keyof SettingsSchema>(key: K, value: SettingsSchema[K]): Promise<void> {
-    await game.settings.set(SettingsManager.ID, key as any, value);
+    await getGame().settings.set(SettingsManager.ID, key as any, value);
   }
 
   /**
@@ -176,7 +181,7 @@ export class SettingsManager {
         ...safeOverrides,
       };
 
-      game.settings.register(SettingsManager.ID, key as any, config as any);
+      getGame().settings.register(SettingsManager.ID, key as any, config as any);
     }
   }
 
@@ -189,11 +194,14 @@ export class SettingsManager {
     key: K,
     fallback: SettingsSchema[K],
   ): SettingsSchema[K] {
-    const val = game.settings.get(SettingsManager.ID, key as any) as unknown as SettingsSchema[K];
+    const val = getGame().settings.get(
+      SettingsManager.ID,
+      key as any,
+    ) as unknown as SettingsSchema[K];
     if (val === undefined || val === null) {
       const keyStr = key as string;
       if (!this.seenMissing.has(keyStr)) {
-        console.debug(`Downtime Engine | Setting '${keyStr}' is uninitialized or null.`);
+        Logger.debug(`Setting '${keyStr}' is uninitialized or null.`);
         this.seenMissing.add(keyStr);
       }
       return fallback;
@@ -208,7 +216,7 @@ export class SettingsManager {
       fallback !== null &&
       !Array.isArray(fallback)
     ) {
-      return foundry.utils.mergeObject(fallback, val, {
+      return FoundryUtils.mergeObject(fallback, val, {
         inplace: false,
       }) as SettingsSchema[K];
     }
@@ -217,7 +225,7 @@ export class SettingsManager {
   }
 
   registerMenu(key: string, data: SettingMenuConfig): void {
-    game.settings.registerMenu(SettingsManager.ID, key as any, data as any);
+    getGame().settings.registerMenu(SettingsManager.ID, key as any, data as any);
   }
 }
 

@@ -1,11 +1,10 @@
 <script lang="ts">
-  import {Settings} from "../../core/settings.js";
-  import type {MemberMappedData, ProjectMappedData} from "../party-tab.js";
-  import {PartyTabLogic} from "../../logic/party-tab-logic.js";
+  import {Settings} from "@/core/settings.js";
+  import type {MemberMappedData, ProjectMappedData} from "@/apps/party-tab.js";
+  import {PartyTabLogic} from "@/logic/party-tab-logic.js";
 
-  let {members, tierOptions, isGM, actor} = $props<{
+  let {members, isGM, actor} = $props<{
     members: MemberMappedData[];
-    tierOptions: Record<string, string>;
     isGM: boolean;
     actor: Actor;
   }>();
@@ -20,9 +19,6 @@
     PartyTabLogic.grantTime(members, actor);
   }
 
-  function updateGuidance(actorId: string, project: ProjectMappedData, tierId: string) {
-    PartyTabLogic.updateGuidance(actorId, project, tierId, isGM);
-  }
 
   function updateProgress(actorId: string, project: ProjectMappedData, newProgress: number) {
     PartyTabLogic.updateProgress(actorId, project, newProgress, isGM);
@@ -33,7 +29,7 @@
   }
 
   function deleteProject(actorId: string, project: ProjectMappedData) {
-    PartyTabLogic.deleteProject(actorId, project, isGM);
+    PartyTabLogic.deleteProject(actorId, project, undefined, isGM);
   }
 </script>
 
@@ -111,16 +107,9 @@
                     <div
                             class="tidy-table-header-cell"
                             data-tidy-sheet-part="table-header-cell"
-                            style="--tidy-table-column-width: min(30%, 250px);"
+                            style="--tidy-table-column-width: min(70%, 550px);"
                     >
                         Progress
-                    </div>
-                    <div
-                            class="tidy-table-header-cell"
-                            data-tidy-sheet-part="table-header-cell"
-                            style="--tidy-table-column-width: min(40%, 300px);"
-                    >
-                        Tutor/Guidance
                     </div>
                     <div
                             class="tidy-table-header-cell"
@@ -135,12 +124,15 @@
                             <div class="tidy-table-row project-row">
                                 <div class="tidy-table-cell text-cell primary item-label flexcol">
                                     <span class="font-label-medium color-text-default">{project.name}</span>
+                                    <span class="font-body-small color-text-lightest">
+                                        {project.isSelfStudy ? 'Self-Study' : `Tutor: ${project.guidanceType}`}
+                                    </span>
                                 </div>
 
                                 <div
                                         class="tidy-table-cell"
                                         data-tidy-sheet-part="table-cell"
-                                        style="--tidy-table-column-width: min(30%, 250px);"
+                                        style="--tidy-table-column-width: min(70%, 550px);"
                                 >
                                     {#if project.maxProgress <= 0 && !(isGM && isEditMode)}
                                         <div class="awaiting-target-badge font-label-medium">
@@ -193,25 +185,6 @@
                                             </div>
                                         </div>
                                     {/if}
-                                </div>
-
-                                <div
-                                        class="tidy-table-cell"
-                                        data-tidy-sheet-part="table-cell"
-                                        style="--tidy-table-column-width: min(40%, 300px);"
-                                >
-                                    <select
-                                            class="update-project font-label-medium"
-                                            value={project.tutelageId}
-                                            disabled={!isGM}
-                                            onchange={(e) => updateGuidance(member.id, project, e.currentTarget.value)}
-                                            style="width: 100%; height: 2rem;"
-                                    >
-                                        <option value="">-- No Tutor --</option>
-                                        {#each Object.entries(tierOptions) as [id, label]}
-                                            <option value={id}>{label}</option>
-                                        {/each}
-                                    </select>
                                 </div>
 
                                 <div

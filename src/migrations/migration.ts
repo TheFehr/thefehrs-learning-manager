@@ -4,9 +4,14 @@ import { migrateToV1_2 } from "./v1_2-crit-rules.js";
 import { migrateToV2 } from "./v2-native-items.js";
 import { migrateToV2Direct } from "./v2-direct.js";
 import { migrateToV2_1, migrateToV2_1_1 } from "./v2_1-flexible-methods.js";
-import { MODULE_ID } from "../global";
+import { migrateToV3 } from "./v3-tutelage-selection.js";
+import { MODULE_ID } from "@/global.js";
+import { Logger } from "@/core/logger.js";
+import { FoundryUtils } from "@/core/foundry-utils.js";
+import { getGame } from "@/core/foundry.js";
 
 export async function migrateData() {
+  const game = getGame();
   if (!game.user?.isGM) return;
 
   try {
@@ -54,14 +59,17 @@ export async function migrateData() {
     if (isNewerVersion("2.1.1", currentVersion)) {
       await migrateToV2_1_1();
     }
+
+    if (isNewerVersion("3.0.0", currentVersion)) {
+      await migrateToV3();
+    }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error("Downtime Engine | Migration failed:", err);
-    ui.notifications?.error(`Downtime Engine | Migration failed: ${msg}. See console for details.`);
+    Logger.error(`Migration failed: ${msg}`, true, err);
     throw err;
   }
 }
 
 function isNewerVersion(newer: string, current: string): boolean {
-  return (foundry.utils as any).isNewerVersion(newer, current);
+  return FoundryUtils.isNewerVersion(newer, current);
 }
