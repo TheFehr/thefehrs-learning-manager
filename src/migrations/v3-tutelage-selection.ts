@@ -498,8 +498,15 @@ function detectCategories(item: any): string[] {
     for (const change of effect.changes || []) {
       const key = change.key || "";
       const segments = key.split(".");
-      if (segments.length >= 2) {
-        const prefix = `${segments[0]}.${segments[1]}`;
+
+      let prefix = "";
+      if (segments[0] === "system" && segments.length >= 3) {
+        prefix = `${segments[1]}.${segments[2]}`;
+      } else if (segments.length >= 2) {
+        prefix = `${segments[0]}.${segments[1]}`;
+      }
+
+      if (prefix) {
         if (ABILITY_MAP[prefix]) categories.push(ABILITY_MAP[prefix]);
         if (SKILL_MAP[prefix]) categories.push(SKILL_MAP[prefix]);
       }
