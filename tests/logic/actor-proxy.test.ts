@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ActorProxy } from "../../src/logic/actor-proxy";
+import { MODULE_ID } from "../../src/global";
 
 describe("ActorProxy", () => {
   beforeEach(() => {
@@ -232,7 +233,7 @@ describe("ActorProxy", () => {
     it("should set bank", async () => {
       const newBank = { total: 100 };
       await proxy.setBank(newBank);
-      expect(mockActor.setFlag).toHaveBeenCalledWith("thefehrs-learning-manager", "bank", newBank);
+      expect(mockActor.setFlag).toHaveBeenCalledWith(MODULE_ID, "bank", newBank);
     });
 
     it("should set bank silently", async () => {

@@ -43,6 +43,7 @@ export class ActorProxy {
       .filter((i: Item5e) => i.getFlag(MODULE_ID, "isLearningProject"))
       .map((i: Item5e) => {
         const projectData = i.getFlag(MODULE_ID, "projectData") as ProjectFlagData | undefined;
+        const hasInstructor = !!projectData?.lastInstructorName?.trim();
         return {
           id: i.id,
           name: i.name,
@@ -53,8 +54,8 @@ export class ActorProxy {
             projectData && projectData.target && projectData.target > 0
               ? Math.min(100, Math.round(((projectData.progress ?? 0) / projectData.target) * 100))
               : 0,
-          tutelageName: projectData?.lastInstructorName ?? "Self-Study",
-          isSelfStudy: !projectData?.lastInstructorName,
+          tutelageName: hasInstructor ? projectData!.lastInstructorName : "Self-Study",
+          isSelfStudy: !hasInstructor,
         };
       });
   }

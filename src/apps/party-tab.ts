@@ -28,7 +28,7 @@ export interface MemberMappedData {
   name: string;
   img: string | null;
   tokenImg: string | null;
-  currency: { gp: number; sp: number; cp: number };
+  currency: { cp: number; sp: number; ep: number; gp: number; pp: number };
   formattedBank: string;
   projects: ProjectMappedData[];
 }

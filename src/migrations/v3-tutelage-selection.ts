@@ -159,25 +159,8 @@ export async function migrateToV3() {
     return;
   }
 
-  const teacherPacksSetting = game.settings.get(MODULE_ID, "teacherCompendiums");
-  const currentPacks = Array.isArray(teacherPacksSetting) ? (teacherPacksSetting as string[]) : [];
-
-  if (!currentPacks.includes(instructorPack.metadata.id)) {
-    await game.settings.set(MODULE_ID, "teacherCompendiums", [
-      ...currentPacks,
-      instructorPack.metadata.id,
-    ]);
-  }
-
-  const bookPacksSetting = game.settings.get(MODULE_ID, "bookCompendiums");
-  const currentBookPacks = Array.isArray(bookPacksSetting) ? (bookPacksSetting as string[]) : [];
-
-  if (!currentBookPacks.includes(bookPack.metadata.id)) {
-    await game.settings.set(MODULE_ID, "bookCompendiums", [
-      ...currentBookPacks,
-      bookPack.metadata.id,
-    ]);
-  }
+  await appendCompendiumIdToSetting("teacherCompendiums", instructorPack.metadata.id);
+  await appendCompendiumIdToSetting("bookCompendiums", bookPack.metadata.id);
 
   const tierToDocMap = new Map<
     string,
@@ -324,6 +307,22 @@ export async function migrateToV3() {
     }
   }
 
+  // Pre-resolve and cache book documents to avoid redundant fromUuid calls
+  const bookCache = new Map<string, Item | null>();
+  for (const mapping of tierToDocMap.values()) {
+    if (mapping.type === "book" && mapping.uuid) {
+      const bookDoc = await fromUuid(mapping.uuid);
+      if (bookDoc instanceof Item) {
+        bookCache.set(mapping.uuid, bookDoc);
+      } else {
+        Logger.error(
+          `Migration v3 | Legacy book document could not be resolved during pre-cache: ${mapping.uuid}`,
+          true,
+        );
+      }
+    }
+  }
+
   // 6. Update world items and distribute books
   for (const actor of actorsWithProjects) {
     const projects = (actor.items as any).filter((i: any) =>
@@ -352,7 +351,7 @@ export async function migrateToV3() {
           } else {
             // Not a known orphan, preserve ID for manual review/retry
             Logger.warn(
-              `Migration v3 | Project ${project.name} (${project.id}) on actor ${actor.name} has missing mapping for tutelageId "${projectData.tutelageId}", but it is not a known orphan. Preserving ID.`,
+              `Migration v3 | Project ${project.name} (${project.id}) on actor ${actor.name} has missing mapping for tutelageId "${projectData.tutelageId}". This likely means the compendium document creation for this tier failed earlier (check previous Logger.error entries). Preserving ID.`,
               true,
             );
             projectFailures++;
@@ -371,12 +370,8 @@ export async function migrateToV3() {
           await project.setFlag(MODULE_ID, "projectData", projectData);
         } else if (mapping.type === "book") {
           // Distribute book to actor if they don't have it
-          const bookDoc = await fromUuid(mapping.uuid as any);
-          if (!(bookDoc instanceof Item)) {
-            Logger.error(
-              `Migration v3 | Legacy book document could not be resolved: ${mapping.uuid}`,
-              true,
-            );
+          const bookDoc = bookCache.get(mapping.uuid);
+          if (!bookDoc) {
             projectFailures++;
             continue;
           }
@@ -499,11 +494,11 @@ function detectCategories(item: any): string[] {
   for (const effect of effects) {
     for (const change of effect.changes || []) {
       const key = change.key || "";
-      for (const [prefix, cat] of Object.entries(ABILITY_MAP)) {
-        if (key.includes(prefix)) categories.push(cat);
-      }
-      for (const [prefix, cat] of Object.entries(SKILL_MAP)) {
-        if (key.includes(prefix)) categories.push(cat);
+      const segments = key.split(".");
+      if (segments.length >= 2) {
+        const prefix = `${segments[0]}.${segments[1]}`;
+        if (ABILITY_MAP[prefix]) categories.push(ABILITY_MAP[prefix]);
+        if (SKILL_MAP[prefix]) categories.push(SKILL_MAP[prefix]);
       }
     }
   }
@@ -558,4 +553,13 @@ async function getOrCreateCompendium(type: "Actor" | "Item", label: string) {
     }
   }
   return pack;
+}
+
+async function appendCompendiumIdToSetting(key: string, packId: string) {
+  const game = getGame();
+  const currentSetting = game.settings.get(MODULE_ID, key);
+  const current = Array.isArray(currentSetting) ? (currentSetting as string[]) : [];
+  if (!current.includes(packId)) {
+    await game.settings.set(MODULE_ID, key, [...current, packId]);
+  }
 }
