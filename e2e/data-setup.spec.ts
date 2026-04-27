@@ -47,7 +47,7 @@ test.describe("Data Setup", () => {
             "thefehrs-learning-manager": {
               isLearningProject: true,
               projectData: {
-                totalProgress: 100,
+                target: 100,
                 requirements: [],
               },
             },
@@ -147,6 +147,11 @@ test.describe("Data Setup", () => {
             name: name,
             type: "character",
             img: "icons/svg/mystery-man.svg",
+            flags: {
+              core: {
+                sheetClass: "dnd5e.Tidy5eCharacterSheet",
+              },
+            },
           };
           // @ts-ignore
           await Actor.create(pcData);
@@ -188,11 +193,25 @@ test.describe("Data Setup", () => {
           name: "Test Group",
           type: "group",
           img: "icons/svg/group.svg",
+          flags: {
+            core: {
+              sheetClass: "dnd5e.Tidy5eGroupSheetQuadrone",
+            },
+          },
         };
         // @ts-ignore
         await Actor.create(groupData);
         console.log("Created Test Group");
       }
+
+      // 8. Configure Module Settings
+      const moduleId = "thefehrs-learning-manager";
+      await (game as any).settings.set(moduleId, "allowedCompendiums", [
+        "world.test-learning-feats",
+      ]);
+      await (game as any).settings.set(moduleId, "teacherCompendiums", ["world.test-teachers"]);
+      await (game as any).settings.set(moduleId, "bookCompendiums", ["world.test-learning-books"]);
+      console.log("Configured module settings");
     });
 
     // Simple verification

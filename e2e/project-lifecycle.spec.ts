@@ -20,8 +20,15 @@ test.describe("Project Lifecycle (Happy Path)", () => {
       actor.sheet.render(true);
     }, actorName);
 
-    const actorSheet = page.locator(".window-app.sheet.actor").filter({ hasText: actorName });
+    // Tidy5e might not use standard heading roles for the actor name in the header
+    const actorSheet = page.locator(".window-app, .application").filter({ hasText: actorName });
     await expect(actorSheet).toBeVisible({ timeout: 15000 });
+
+    // Switch to Features tab to ensure we can see the project
+    const featuresTab = actorSheet.getByRole("tab", { name: /Features/i });
+    if (await featuresTab.isVisible()) {
+      await featuresTab.click();
+    }
 
     // 3. Start a project by "dropping" an item from a compendium onto the actor
     // We simulate the drop event to avoid flakiness with real drag-and-drop in Foundry
@@ -50,7 +57,9 @@ test.describe("Project Lifecycle (Happy Path)", () => {
         event.dataTransfer?.setData("text/plain", JSON.stringify(data));
 
         // Dispatch to the window content
-        const target = document.querySelector(`.window-app[id="${sheet.id}"] .window-content`);
+        const target =
+          document.querySelector(`.window-app[id="${sheet.id}"] .window-content`) ||
+          document.getElementById(sheet.id)?.querySelector(".window-content");
         target?.dispatchEvent(event);
       },
       { packId, projectName, actorName },
@@ -58,8 +67,9 @@ test.describe("Project Lifecycle (Happy Path)", () => {
 
     // 4. Verify the project appeared on the actor sheet
     const projectRow = actorSheet
-      .locator(".project-row, .item-row")
-      .filter({ hasText: projectName });
+      .locator(".project-row, .item-row, .item-table-row")
+      .filter({ hasText: projectName })
+      .first();
     await expect(projectRow).toBeVisible({ timeout: 15000 });
 
     // 5. Open the Party Tab to grant time
@@ -72,7 +82,7 @@ test.describe("Project Lifecycle (Happy Path)", () => {
       groupActor.sheet.render(true);
     });
 
-    const groupSheet = page.locator(".window-app.sheet.actor.group");
+    const groupSheet = page.locator(".window-app, .application").filter({ hasText: "Test Group" });
     await expect(groupSheet).toBeVisible({ timeout: 15000 });
 
     // Switch to the "Group Learning" tab in Tidy5e
@@ -86,7 +96,9 @@ test.describe("Project Lifecycle (Happy Path)", () => {
 
     // 7. Fill the Grant Time dialog
     // The dialog title is "Modify Training Time" per PartyTabLogic.ts
-    const grantDialog = page.locator(".window-app").filter({ hasText: "Modify Training Time" });
+    const grantDialog = page
+      .locator(".window-app, .application")
+      .filter({ hasText: "Modify Training Time" });
     await expect(grantDialog).toBeVisible({ timeout: 15000 });
 
     // Set 8 hours

@@ -8,10 +8,30 @@ export async function switchTab(page: Page, tabName: string) {
 
 export async function disableTour(page: Page) {
   await page.addInitScript(() => {
-    window.localStorage.setItem(
-      "core.tourProgress",
-      JSON.stringify({ core: { backupsOverview: 0 } }),
-    );
+    // Disable core tours in localStorage
+    const tourProgress = {
+      core: {
+        backupsOverview: 1,
+        welcome: 1,
+        setup: 1,
+      },
+    };
+    window.localStorage.setItem("core.tourProgress", JSON.stringify(tourProgress));
+
+    // Forcefully hide any tour overlays via CSS
+    const style = document.createElement("style");
+    style.id = "gemini-disable-tour-style";
+    style.innerHTML = `
+      .tour-overlay, 
+      #tour-overlay, 
+      .joyride-overlay, 
+      .foundry-tour-overlay { 
+        display: none !important; 
+        pointer-events: none !important; 
+        visibility: hidden !important;
+      }
+    `;
+    document.head.appendChild(style);
   });
 }
 
@@ -37,11 +57,14 @@ export async function deleteWorldIfExists(page: Page, worldId: string) {
     await deleteOption.click();
 
     // Handle the confirmation dialog with the random code
-    const dialog = page.locator("dialog.dialog").filter({ hasText: `Delete World: ${worldId}` });
+    const dialog = page
+      .locator("dialog,div,section,form")
+      .filter({ has: page.getByRole("heading", { name: `Delete World: ${worldId}` }) })
+      .last();
     await expect(dialog).toBeVisible();
 
-    const confirmCode = await dialog.locator("#confirm-code .reference").innerText();
-    await dialog.locator("#delete-confirm").fill(confirmCode);
+    const confirmCode = await dialog.locator(".reference").innerText();
+    await dialog.getByRole("textbox").fill(confirmCode);
 
     // Click "Yes" to confirm
     await dialog.getByRole("button", { name: "Yes" }).click();

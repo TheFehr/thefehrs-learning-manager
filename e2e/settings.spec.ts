@@ -48,25 +48,47 @@ test.describe("Settings UI", () => {
     await expect(settingsDialog).toBeVisible({ timeout: 15000 });
 
     // 4. Select compendiums in the UI
-    const packsToSelect = [
-      "world.test-learning-feats",
-      "world.test-teachers",
-      "world.test-learning-books",
+    const selections = [
+      { section: "Template Compendiums", packId: "world.test-learning-feats" },
+      { section: "Instructor Compendiums", packId: "world.test-teachers" },
+      { section: "Book Compendiums", packId: "world.test-learning-books" },
     ];
 
-    for (const packId of packsToSelect) {
-      const checkbox = page.locator(`input[data-pack-id="${packId}"]`);
-      await expect(checkbox).toBeVisible({ timeout: 10000 });
+    for (const { section, packId } of selections) {
+      const sectionLocator = page
+        .locator(".world-settings section, .world-settings")
+        .filter({ has: page.getByRole("heading", { name: section }) });
+      // If the above doesn't work well, we can try finding the heading and then the next CompendiumConfig
+      // But let's try a simpler approach: find the checkbox that is descendant of a container with the heading
+      const checkbox = page
+        .locator("h3")
+        .filter({ hasText: section })
+        .locator("xpath=following-sibling::div[1]//input[@data-pack-id='" + packId + "']")
+        .first();
 
-      const isChecked = await checkbox.isChecked();
+      // Actually, a cleaner way with Playwright:
+      const group = page
+        .locator("div.world-settings > h3")
+        .filter({ hasText: section })
+        .locator("xpath=following-sibling::section[1]");
+      const cb = group.locator(`input[data-pack-id="${packId}"]`);
+
+      await expect(cb).toBeVisible({ timeout: 10000 });
+
+      const isChecked = await cb.isChecked();
       if (!isChecked) {
-        await checkbox.check();
+        await cb.check();
       }
     }
 
-    // 5. Change a rule in the UI (Notification Level)
-    const notificationSelect = page.locator("select").filter({ hasText: /Info|Debug|Warn|Error/ });
+    // 5. Change a rule in the UI (Log Level / Notification Level)
+    const notificationSelect = page.locator("select#rule-notification-level");
+    await expect(notificationSelect).toBeVisible({ timeout: 10000 });
     await notificationSelect.selectOption("debug");
+    await expect(notificationSelect).toHaveValue("debug");
+
+    // Give Svelte a moment to sync state (especially important with Svelte 5 $effect)
+    await page.waitForTimeout(1000);
 
     // 6. Click Save
     await page.getByRole("button", { name: "Save Settings" }).click();

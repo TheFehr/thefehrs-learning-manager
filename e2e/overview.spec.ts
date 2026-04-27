@@ -11,11 +11,20 @@ test.describe("Project Overview UI", () => {
     });
 
     // 1. Open the Overview app via the registered menu API
-    await page.evaluate(() => {
+    await page.evaluate(async () => {
       const moduleId = "thefehrs-learning-manager";
-      // @ts-ignore
-      const menu = game.settings.menus.get(`${moduleId}.overviewMenu`);
-      if (!menu) throw new Error("Overview menu not found");
+      const menuKey = `${moduleId}.overviewMenu`;
+
+      // Poll for menu registration
+      let menu = null;
+      for (let i = 0; i < 20; i++) {
+        // @ts-ignore
+        menu = game.settings.menus.get(menuKey);
+        if (menu) break;
+        await new Promise((r) => setTimeout(r, 500));
+      }
+
+      if (!menu) throw new Error(`Overview menu "${menuKey}" not found after polling`);
       const app = new menu.type();
       app.render(true);
     });
@@ -29,7 +38,7 @@ test.describe("Project Overview UI", () => {
     // It takes time to scan compendiums
     const invalidItemRow = page
       .locator(".invalid-project-card")
-      .filter({ hasText: "Invalid Project" });
+      .filter({ has: page.locator(".project-name").filter({ hasText: "Invalid Project" }) });
     await expect(invalidItemRow).toBeVisible({ timeout: 15000 });
 
     // 5. Verify the reasons for invalidity are shown
