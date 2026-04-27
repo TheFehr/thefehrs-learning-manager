@@ -344,6 +344,10 @@ export async function migrateToV3() {
           if (isTrulyOrphaned) {
             // Orphaned or explicit self-study, reset
             projectData.tutelageId = "";
+
+            // Detect categories from effects
+            mergeCategories(projectData, detectedCats);
+
             await project.setFlag(MODULE_ID, "projectData", projectData);
           } else {
             // Not a known orphan, preserve ID for manual review/retry

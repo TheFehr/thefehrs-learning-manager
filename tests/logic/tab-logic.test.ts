@@ -97,10 +97,10 @@ describe("TabLogic", () => {
       const result = await TabLogic.computeProgress(actor, bulkRules, tutelageMod, bulkTu as any);
       // "3d20r1 + 5" contains unsupported reroll "r1", so it falls back to simple average:
       // 1. Die expectation for 3d20 is (3 * (20 + 1)) / 2 = 31.5.
-      // 2. Total modifier = 31.5 + 5 (constant) = 36.5.
-      // 3. tutelageMod = 2 is incidental as @tutelage is missing from formula.
+      // 2. computeProgress rewrites the dice term using getDieExpectation: (31.5 - 10.5) => 21.
+      // 3. modFormula becomes "21 + 5" and mod = 26.
       // 4. Progress gained = round(ratio * (22 - max(1, dc - mod)) / 20)
-      //    = round(10 * (22 - max(1, 12 - 36.5)) / 20)
+      //    = round(10 * (22 - max(1, 12 - 26)) / 20)
       //    = round(10 * (22 - 1) / 20) = round(10.5) = 11.
       expect(result.progressGained).toBe(11);
       expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("Unsupported dice modifier"));
@@ -120,7 +120,6 @@ describe("TabLogic", () => {
 
     it("should handle roll.evaluate() failure", async () => {
       const invalidRules = { ...rules, checkFormula: "1d20" };
-      const originalRoll = globalThis.Roll;
       globalThis.Roll = class {
         data: any;
         constructor(formula: string, data: any) {
@@ -134,7 +133,6 @@ describe("TabLogic", () => {
       const result = await TabLogic.computeProgress(actor, invalidRules, tutelageMod, tu);
       expect(result.progressGained).toBe(0);
       expect(result.reason).toContain("Invalid check formula");
-      globalThis.Roll = originalRoll;
     });
 
     it("should allow 'roll' method for bulk units", async () => {

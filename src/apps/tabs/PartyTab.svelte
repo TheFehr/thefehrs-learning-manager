@@ -125,7 +125,7 @@
                                 <div class="tidy-table-cell text-cell primary item-label flexcol">
                                     <span class="font-label-medium color-text-default">{project.name}</span>
                                     <span class="font-body-small color-text-lightest">
-                                        {project.isSelfStudy ? project.guidanceType : `Tutor: ${project.guidanceType}`}
+                                        {project.isSelfStudy ? 'Self-Study' : `Tutor: ${project.guidanceType}`}
                                     </span>
                                 </div>
 

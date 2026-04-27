@@ -40,6 +40,7 @@ describe("ActorProxy", () => {
       target: 100,
       percentage: 10,
       tutelageName: "Tier 1",
+      isSelfStudy: false,
     });
   });
 

@@ -4,7 +4,7 @@ import { createProjectItemFromTemplate, type LegacyProject } from "./migration-u
 import { getGame, getUI } from "@/core/foundry.js";
 
 export async function migrateToV2() {
-  let game;
+  let game: ReturnType<typeof getGame>;
   try {
     game = getGame();
   } catch (err) {

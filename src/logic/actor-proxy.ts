@@ -35,7 +35,6 @@ export class ActorProxy {
       ...p,
       progressPercentage: p.progressPercentage ?? p.percentage,
       guidanceType: p.tutelageName,
-      isSelfStudy: p.tutelageName === "Self-Study",
     }));
   }
 
@@ -55,6 +54,7 @@ export class ActorProxy {
               ? Math.min(100, Math.round(((projectData.progress ?? 0) / projectData.target) * 100))
               : 0,
           tutelageName: projectData?.lastInstructorName ?? "Self-Study",
+          isSelfStudy: !projectData?.lastInstructorName,
         };
       });
   }
