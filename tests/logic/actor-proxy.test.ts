@@ -72,6 +72,7 @@ describe("ActorProxy", () => {
       tutelageName: "Tier 1",
       guidanceType: "Tier 1",
       progressPercentage: 10,
+      isSelfStudy: false,
     });
   });
 
@@ -109,6 +110,7 @@ describe("ActorProxy", () => {
       tutelageName: "Tier 1",
       guidanceType: "Tier 1",
       progressPercentage: 42,
+      isSelfStudy: false,
     });
   });
 
@@ -140,6 +142,7 @@ describe("ActorProxy", () => {
       tutelageName: "Self-Study",
       guidanceType: "Self-Study",
       progressPercentage: 50,
+      isSelfStudy: true,
     });
   });
 

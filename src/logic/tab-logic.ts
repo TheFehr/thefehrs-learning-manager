@@ -297,6 +297,12 @@ export class TabLogic {
       Logger.warn(`Invalid currency cost: ${costCp}. Must be a non-negative number.`);
       return false;
     }
+    if (!Number.isInteger(costCp)) {
+      Logger.warn(
+        `Currency cost ${costCp} is not an integer (source: resolution.costs). Coercing with Math.floor.`,
+      );
+      costCp = Math.floor(costCp);
+    }
     if (!isActor5e(actor)) {
       Logger.warn("Cannot deduct currency from non-dnd5e actor.");
       return false;
@@ -336,12 +342,13 @@ export class TabLogic {
 
     // 2. If still remaining, we need to borrow/make change
     if (remaining > 0) {
-      const canCover = denoms.filter((d) => (cur[d.id] || 0) > 0 && d.value > remaining).reverse();
+      const smallestCovering = [...denoms]
+        .reverse()
+        .find((d) => (cur[d.id] || 0) > 0 && d.value >= remaining);
 
-      if (canCover.length > 0) {
-        const d = canCover[0];
-        cur[d.id] = (cur[d.id] || 0) - 1;
-        let changeCp = d.value - remaining;
+      if (smallestCovering) {
+        cur[smallestCovering.id] = (cur[smallestCovering.id] || 0) - 1;
+        let changeCp = smallestCovering.value - remaining;
         remaining = 0;
 
         for (const cd of denoms) {
@@ -366,6 +373,12 @@ export class TabLogic {
     if (isNaN(amountCp) || amountCp < 0) {
       Logger.warn(`Invalid currency amount: ${amountCp}. Must be a non-negative number.`);
       return false;
+    }
+    if (!Number.isInteger(amountCp)) {
+      Logger.warn(
+        `Currency amount ${amountCp} is not an integer (source: resolution.costs). Coercing with Math.floor.`,
+      );
+      amountCp = Math.floor(amountCp);
     }
     if (!isActor5e(actor)) {
       Logger.warn("Cannot add currency to non-dnd5e actor.");

@@ -35,6 +35,7 @@ export class ActorProxy {
       ...p,
       progressPercentage: p.progressPercentage ?? p.percentage,
       guidanceType: p.tutelageName,
+      isSelfStudy: p.tutelageName === "Self-Study",
     }));
   }
 

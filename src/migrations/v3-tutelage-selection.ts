@@ -127,7 +127,7 @@ export async function migrateToV3() {
             <li><strong>Orphaned Tier IDs found:</strong> ${orphanedIds.length} (will be reset to Self-Study)</li>
             <li><strong>Actors affected:</strong> ${actorsWithProjects.length}</li>
         </ul>
-        <p>A recovery compendium will be created for converted Instructors and Books.</p>
+        <p>Recovery compendiums will be created for converted Instructors and Books.</p>
         <p>Proceed with migration?</p>`;
 
   const confirmed = await foundry.applications.api.DialogV2.confirm({
@@ -159,8 +159,9 @@ export async function migrateToV3() {
     return;
   }
 
-  const currentPacks =
-    (game.settings.get(MODULE_ID, "teacherCompendiums") as unknown as string[]) || [];
+  const teacherPacksSetting = game.settings.get(MODULE_ID, "teacherCompendiums");
+  const currentPacks = Array.isArray(teacherPacksSetting) ? (teacherPacksSetting as string[]) : [];
+
   if (!currentPacks.includes(instructorPack.metadata.id)) {
     await game.settings.set(MODULE_ID, "teacherCompendiums", [
       ...currentPacks,
@@ -168,8 +169,9 @@ export async function migrateToV3() {
     ]);
   }
 
-  const currentBookPacks =
-    (game.settings.get(MODULE_ID, "bookCompendiums") as unknown as string[]) || [];
+  const bookPacksSetting = game.settings.get(MODULE_ID, "bookCompendiums");
+  const currentBookPacks = Array.isArray(bookPacksSetting) ? (bookPacksSetting as string[]) : [];
+
   if (!currentBookPacks.includes(bookPack.metadata.id)) {
     await game.settings.set(MODULE_ID, "bookCompendiums", [
       ...currentBookPacks,

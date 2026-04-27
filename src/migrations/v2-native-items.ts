@@ -4,13 +4,16 @@ import { createProjectItemFromTemplate, type LegacyProject } from "./migration-u
 import { getGame, getUI } from "@/core/foundry.js";
 
 export async function migrateToV2() {
+  let game;
+  try {
+    game = getGame();
+  } catch (err) {
+    Logger.error("Migration v2 | Foundry not ready (game is undefined).");
+    return;
+  }
+
   getUI()?.notifications?.info("Migrating Downtime Engine projects to native Items (v2.0.0)...");
   try {
-    const game = getGame();
-    if (!game) {
-      Logger.error("Migration v2 | Foundry not ready (game is undefined).");
-      return;
-    }
     const compendiumLabel = "UDE Migration";
     const compendiumName = "ude-migration";
     const compendiumKey = `world.${compendiumName}`;

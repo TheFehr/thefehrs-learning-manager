@@ -95,12 +95,46 @@ describe("TabLogic", () => {
       const warnSpy = vi.spyOn(Logger, "warn").mockImplementation(() => {});
 
       const result = await TabLogic.computeProgress(actor, bulkRules, tutelageMod, bulkTu as any);
-      // Unsupported formula 3d20r1 triggers hasUnsupportedModifiers fallback logic.
-      // Calculation: checkFormula "3d20r1 + 5" with tutelageMod = 2, dc = 12, ratio = 10
-      // leads to the fallback where progressGained = 11.
+      // "3d20r1 + 5" contains unsupported reroll "r1", so it falls back to simple average:
+      // 1. Die expectation for 3d20 is (3 * (20 + 1)) / 2 = 31.5.
+      // 2. Total modifier = 31.5 + 5 (constant) = 36.5.
+      // 3. tutelageMod = 2 is incidental as @tutelage is missing from formula.
+      // 4. Progress gained = round(ratio * (22 - max(1, dc - mod)) / 20)
+      //    = round(10 * (22 - max(1, 12 - 36.5)) / 20)
+      //    = round(10 * (22 - 1) / 20) = round(10.5) = 11.
       expect(result.progressGained).toBe(11);
       expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("Unsupported dice modifier"));
       warnSpy.mockRestore();
+    });
+
+    it("should return 1 for deterministic success", async () => {
+      const deterministicRules = {
+        ...rules,
+        nonBulkMethod: "roll",
+        checkFormula: "20",
+        checkDC: 15,
+      };
+      const result = await TabLogic.computeProgress(actor, deterministicRules, tutelageMod, tu);
+      expect(result.progressGained).toBe(1);
+    });
+
+    it("should handle roll.evaluate() failure", async () => {
+      const invalidRules = { ...rules, checkFormula: "1d20" };
+      const originalRoll = globalThis.Roll;
+      globalThis.Roll = class {
+        data: any;
+        constructor(formula: string, data: any) {
+          this.data = data;
+        }
+        async evaluate() {
+          throw new Error("Roll failed");
+        }
+      } as any;
+
+      const result = await TabLogic.computeProgress(actor, invalidRules, tutelageMod, tu);
+      expect(result.progressGained).toBe(0);
+      expect(result.reason).toContain("Invalid check formula");
+      globalThis.Roll = originalRoll;
     });
 
     it("should allow 'roll' method for bulk units", async () => {
@@ -355,6 +389,98 @@ describe("TabLogic", () => {
 
       expect(await TabLogic.deductCurrency(actor, -10)).toBe(false);
       expect(await TabLogic.deductCurrency(actor, NaN)).toBe(false);
+    });
+
+    it("should coerce fractional cost and log warning", async () => {
+      const actor = new Actor() as any;
+      const mockProxy = {
+        currency: { gp: 1, sp: 0, cp: 0, ep: 0, pp: 0 },
+        updateCurrency: vi.fn().mockResolvedValue(true),
+      };
+      const { ActorProxy } = await import("../../src/logic/actor-proxy");
+      const spy = vi.spyOn(ActorProxy, "forActor").mockReturnValue(mockProxy as any);
+      const warnSpy = vi.spyOn(Logger, "warn").mockImplementation(() => {});
+
+      const success = await TabLogic.deductCurrency(actor, 50.5);
+      expect(success).toBe(true);
+      expect(mockProxy.updateCurrency).toHaveBeenCalledWith({ pp: 0, gp: 0, ep: 0, sp: 5, cp: 0 });
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("not an integer"));
+
+      spy.mockRestore();
+      warnSpy.mockRestore();
+    });
+  });
+
+  describe("addCurrency", () => {
+    it("should add currency correctly", async () => {
+      const actor = new Actor() as any;
+      const mockProxy = {
+        currency: { gp: 0, sp: 0, cp: 0, ep: 0, pp: 0 },
+        updateCurrency: vi.fn().mockResolvedValue(true),
+      };
+      const { ActorProxy } = await import("../../src/logic/actor-proxy");
+      const spy = vi.spyOn(ActorProxy, "forActor").mockReturnValue(mockProxy as any);
+
+      const success = await TabLogic.addCurrency(actor, 150); // add 1gp, 5sp
+      expect(success).toBe(true);
+      expect(mockProxy.updateCurrency).toHaveBeenCalledWith({ pp: 0, gp: 1, ep: 0, sp: 5, cp: 0 });
+      spy.mockRestore();
+    });
+
+    it("should skip pp and ep if current balance is zero", async () => {
+      const actor = new Actor() as any;
+      const mockProxy = {
+        currency: { gp: 0, sp: 0, cp: 0, ep: 0, pp: 0 },
+        updateCurrency: vi.fn().mockResolvedValue(true),
+      };
+      const { ActorProxy } = await import("../../src/logic/actor-proxy");
+      const spy = vi.spyOn(ActorProxy, "forActor").mockReturnValue(mockProxy as any);
+
+      const success = await TabLogic.addCurrency(actor, 1050); // 1pp + 5sp OR 10gp + 5sp
+      expect(success).toBe(true);
+      // Should be 10gp, 5sp because pp is skipped
+      expect(mockProxy.updateCurrency).toHaveBeenCalledWith({ pp: 0, gp: 10, ep: 0, sp: 5, cp: 0 });
+      spy.mockRestore();
+    });
+
+    it("should NOT skip pp and ep if current balance is non-zero", async () => {
+      const actor = new Actor() as any;
+      const mockProxy = {
+        currency: { gp: 0, sp: 0, cp: 0, ep: 1, pp: 1 },
+        updateCurrency: vi.fn().mockResolvedValue(true),
+      };
+      const { ActorProxy } = await import("../../src/logic/actor-proxy");
+      const spy = vi.spyOn(ActorProxy, "forActor").mockReturnValue(mockProxy as any);
+
+      const success = await TabLogic.addCurrency(actor, 1050);
+      expect(success).toBe(true);
+      expect(mockProxy.updateCurrency).toHaveBeenCalledWith({ pp: 2, gp: 0, ep: 2, sp: 0, cp: 0 });
+      spy.mockRestore();
+    });
+
+    it("should return false if amount is negative or NaN", async () => {
+      const actor = new Actor() as any;
+      expect(await TabLogic.addCurrency(actor, -10)).toBe(false);
+      expect(await TabLogic.addCurrency(actor, NaN)).toBe(false);
+    });
+
+    it("should coerce fractional amount and log warning", async () => {
+      const actor = new Actor() as any;
+      const mockProxy = {
+        currency: { gp: 0, sp: 0, cp: 0, ep: 0, pp: 0 },
+        updateCurrency: vi.fn().mockResolvedValue(true),
+      };
+      const { ActorProxy } = await import("../../src/logic/actor-proxy");
+      const spy = vi.spyOn(ActorProxy, "forActor").mockReturnValue(mockProxy as any);
+      const warnSpy = vi.spyOn(Logger, "warn").mockImplementation(() => {});
+
+      const success = await TabLogic.addCurrency(actor, 10.5);
+      expect(success).toBe(true);
+      expect(mockProxy.updateCurrency).toHaveBeenCalledWith({ pp: 0, gp: 0, ep: 0, sp: 1, cp: 0 });
+      expect(warnSpy).toHaveBeenCalledWith(expect.stringContaining("not an integer"));
+
+      spy.mockRestore();
+      warnSpy.mockRestore();
     });
   });
 });

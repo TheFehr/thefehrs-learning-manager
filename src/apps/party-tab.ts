@@ -17,6 +17,7 @@ export type ProjectMappedData = ProjectFlagData & {
   name: string;
   maxProgress: number;
   guidanceType: string;
+  isSelfStudy: boolean;
   progressPercentage: number;
   canAbort: boolean;
   isItemBased: boolean;
@@ -79,6 +80,8 @@ export class PartyTab {
           name: i.name!,
           maxProgress: projectData.target || 0,
           guidanceType: projectData.lastInstructorName || "Self-Study",
+          isSelfStudy:
+            !projectData.lastInstructorName || projectData.lastInstructorName === "Self-Study",
           progressPercentage:
             projectData.target && projectData.target > 0
               ? Math.min(100, Math.round(((projectData.progress || 0) / projectData.target) * 100))
