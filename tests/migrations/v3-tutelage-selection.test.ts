@@ -14,14 +14,15 @@ describe("v3-tutelage-selection migration", () => {
       existing.metadata.type = type;
       return existing;
     }
+    const collection = id.includes(".") ? id.split(".")[1] : id;
     const p = {
       metadata: {
-        id,
-        collection: id.split(".")[1] || id,
-        name: id.split(".")[1] || id,
+        id: id.includes(".") ? id : `world.${id}`,
+        collection: collection,
+        name: collection,
         type: type,
       },
-      collection: id.split(".")[1] || id,
+      collection: id.includes(".") ? id : `world.${id}`,
       getIndex: vi.fn().mockResolvedValue(index),
       importDocument: vi.fn().mockImplementation(async (doc) => doc),
     };
@@ -267,7 +268,7 @@ describe("v3-tutelage-selection migration", () => {
     expect(game.settings.set).not.toHaveBeenCalledWith(MODULE_ID, "migrationVersion", "3.0.0");
   });
 
-  it("should skip and retry if rawTiers is empty but projects exist", async () => {
+  it("should complete and clear references if rawTiers is empty but projects exist", async () => {
     const project = makeItem("T", { isLearningProject: true, projectData: { tutelageId: "t1" } });
     makeActor([project]);
 
@@ -278,7 +279,12 @@ describe("v3-tutelage-selection migration", () => {
 
     await migrateToV3();
 
-    expect(game.settings.set).not.toHaveBeenCalledWith(MODULE_ID, "migrationVersion", "3.0.0");
+    expect(game.settings.set).toHaveBeenCalledWith(MODULE_ID, "migrationVersion", "3.0.0");
+    expect(project.setFlag).toHaveBeenCalledWith(
+      MODULE_ID,
+      "projectData",
+      expect.objectContaining({ tutelageId: "" }),
+    );
   });
 
   it("should mark as complete if no projects are found using tiers", async () => {
@@ -327,7 +333,7 @@ describe("v3-tutelage-selection migration", () => {
         },
       },
     ]);
-    makePack("legacy-tutelage-books");
+    makePack("legacy-tutelage-books", [], "Item");
 
     await migrateToV3();
 
@@ -336,7 +342,7 @@ describe("v3-tutelage-selection migration", () => {
       MODULE_ID,
       "projectData",
       expect.objectContaining({
-        lastInstructorUuid: "Compendium.legacy-tutelage-instructors.Actor.existingId",
+        lastInstructorUuid: "Compendium.world.legacy-tutelage-instructors.Actor.existingId",
       }),
     );
   });

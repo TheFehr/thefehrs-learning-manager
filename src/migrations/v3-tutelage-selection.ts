@@ -94,7 +94,8 @@ export async function migrateToV3() {
           t.name.trim().length > 0 &&
           typeof t.modifier === "number" &&
           t.costs &&
-          typeof t.costs === "object";
+          typeof t.costs === "object" &&
+          Object.values(t.costs).every((c) => typeof c === "number" && Number.isFinite(c));
 
         if (!isValid) {
           Logger.warn(
@@ -110,9 +111,26 @@ export async function migrateToV3() {
   }
 
   if (rawTiers.length === 0) {
-    Logger.debug(
-      `Migration v3 | No legacy guidance tiers found for ${MODULE_ID}, but projects use them. Skipping for now (will retry).`,
+    Logger.warn(
+      `Migration v3 | No valid legacy guidance tiers found for ${MODULE_ID}, but ${usedTierIds.size} projects reference them. Clearing legacy tutelage references.`,
     );
+
+    for (const actor of actorsWithProjects) {
+      const projects = (actor.items as any).filter((i: any) =>
+        i.getFlag(MODULE_ID, "isLearningProject"),
+      );
+      for (const project of projects) {
+        const projectData = project.getFlag(MODULE_ID, "projectData") as ProjectFlagData;
+        if (projectData && projectData.tutelageId) {
+          projectData.tutelageId = "";
+          mergeCategories(projectData, detectCategories(project));
+          await project.setFlag(MODULE_ID, "projectData", projectData);
+        }
+      }
+    }
+
+    await game.settings.set(MODULE_ID, "migrationVersion", "3.0.0");
+    Logger.info("Migration to 3.0.0 applied (legacy tiers missing/invalid, projects reset).");
     return;
   }
 
@@ -171,8 +189,17 @@ export async function migrateToV3() {
   >();
 
   // 5. Convert used tiers to documents
-  const instructorPackId = (instructorPack as any).metadata.id;
-  const bookPackId = (bookPack as any).metadata.id;
+  const instructorPackId =
+    instructorPack.metadata.type === "Actor" ? (instructorPack as any).metadata.id : undefined;
+  const bookPackId = bookPack.metadata.type === "Item" ? (bookPack as any).metadata.id : undefined;
+
+  if (!instructorPackId || !bookPackId) {
+    Logger.error(
+      "Migration failed: Recovery compendiums have incorrect metadata type for operations.",
+      true,
+    );
+    return;
+  }
 
   const [instructorIndex, bookIndex] = await Promise.all([
     (instructorPack as any).getIndex({ fields: [`flags.${MODULE_ID}.legacyTierId`] }),
@@ -526,6 +553,10 @@ async function getOrCreateCompendium(type: "Actor" | "Item", label: string) {
     game.packs!.get(`world.${rawPackName}`) ||
     game.packs!.get(`${MODULE_ID}.${packName}`) ||
     game.packs!.get(`${MODULE_ID}.${rawPackName}`);
+
+  if (pack && pack.metadata.type !== type) {
+    pack = undefined;
+  }
 
   if (!pack) {
     pack = game.packs!.find(

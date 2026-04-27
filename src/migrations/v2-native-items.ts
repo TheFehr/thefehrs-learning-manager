@@ -7,7 +7,7 @@ export async function migrateToV2() {
   let game: ReturnType<typeof getGame>;
   try {
     game = getGame();
-  } catch (err) {
+  } catch {
     Logger.error("Migration v2 | Foundry not ready (game is undefined).");
     return;
   }
