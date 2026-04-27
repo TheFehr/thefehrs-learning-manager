@@ -38,6 +38,9 @@ function mergeCategories(projectData: ProjectFlagData, detectedCats: string[]) {
 declare module "fvtt-types/configuration" {
   interface SettingConfig {
     "thefehrs-learning-manager.guidanceTiers": any[];
+    "thefehrs-learning-manager.teacherCompendiums": string[];
+    "thefehrs-learning-manager.bookCompendiums": string[];
+    "thefehrs-learning-manager.migrationVersion": string;
   }
 }
 
@@ -311,7 +314,7 @@ export async function migrateToV3() {
   const bookCache = new Map<string, Item | null>();
   for (const mapping of tierToDocMap.values()) {
     if (mapping.type === "book" && mapping.uuid) {
-      const bookDoc = await fromUuid(mapping.uuid);
+      const bookDoc = await fromUuid(mapping.uuid as `Item.${string}`);
       if (bookDoc instanceof Item) {
         bookCache.set(mapping.uuid, bookDoc);
       } else {
@@ -555,7 +558,10 @@ async function getOrCreateCompendium(type: "Actor" | "Item", label: string) {
   return pack;
 }
 
-async function appendCompendiumIdToSetting(key: string, packId: string) {
+async function appendCompendiumIdToSetting(
+  key: "teacherCompendiums" | "bookCompendiums",
+  packId: string,
+) {
   const game = getGame();
   const currentSetting = game.settings.get(MODULE_ID, key);
   const current = Array.isArray(currentSetting) ? (currentSetting as string[]) : [];
