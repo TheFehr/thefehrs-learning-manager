@@ -11,108 +11,61 @@ export class ActorProxy {
   }
 
   get id(): string {
-    return this.actor.id ?? "";
+    return this.actor.id;
   }
 
   get name(): string {
-    return this.actor.name ?? "";
-  }
-
-  get img(): string | null {
-    return (this.actor as any).img ?? null;
-  }
-
-  get tokenImg(): string | null {
-    return (this.actor as any).prototypeToken?.texture?.src ?? (this.actor as any).img ?? null;
-  }
-
-  get uuid(): string {
-    return this.actor.uuid;
-  }
-
-  get projects() {
-    return this.getMappedProjects().map((p: any) => ({
-      ...p,
-      progressPercentage: p.progressPercentage ?? p.percentage,
-      guidanceType: p.tutelageName,
-    }));
-  }
-
-  getMappedProjects() {
-    return (this.actor.items as unknown as Item5e[])
-      .filter((i: Item5e) => i.getFlag(MODULE_ID, "isLearningProject"))
-      .map((i: Item5e) => {
-        const projectData = i.getFlag(MODULE_ID, "projectData") as ProjectFlagData | undefined;
-        const hasInstructor = !!projectData?.lastInstructorName?.trim();
-        return {
-          id: i.id,
-          name: i.name,
-          progress: projectData?.progress ?? 0,
-          target: projectData?.target ?? 0,
-          progressPercentage: projectData?.progressPercentage,
-          percentage:
-            projectData && projectData.target && projectData.target > 0
-              ? Math.min(100, Math.round(((projectData.progress ?? 0) / projectData.target) * 100))
-              : 0,
-          tutelageName: hasInstructor ? projectData!.lastInstructorName : "Self-Study",
-          isSelfStudy: !hasInstructor,
-        };
-      });
+    return this.actor.name || "Unknown";
   }
 
   get bank(): TimeBank {
-    return this.actor.getFlag(MODULE_ID, "bank") || { total: 0 };
-  }
-
-  // When options.render === false, we use DocumentUtils.setFlagsSilently to bypass
-  // Foundry's normal document rendering cycle. This is useful for batch updates
-  // or to avoid unnecessary UI flicker. The method still returns the actor.
-  async setBank(bank: TimeBank, options: { render?: boolean } = {}): Promise<Actor5e> {
-    if (options.render === false) {
-      const success = await DocumentUtils.setFlagsSilently(this.actor, { bank });
-      if (!success) {
-        throw new Error("Downtime Engine | Failed to set bank silently");
+    return (
+      (this.actor.getFlag(MODULE_ID, "bank") as TimeBank) || {
+        total: 0,
       }
-      return this.actor;
-    }
-    return (await (this.actor as any).setFlag(MODULE_ID, "bank", bank)) as Actor5e;
-  }
-
-  async update(data: object, options: { render?: boolean } = {}): Promise<Actor5e> {
-    return (await (this.actor as any).update(data, options)) as Actor5e;
-  }
-
-  async createEmbeddedDocuments(type: "Item" | "ActiveEffect", data: object[]): Promise<any[]> {
-    return (await (this.actor as any).createEmbeddedDocuments(type, data as any[])) || [];
-  }
-
-  async deleteEmbeddedDocuments(type: "Item" | "ActiveEffect", ids: string[]): Promise<any[]> {
-    return await this.actor.deleteEmbeddedDocuments(type, ids);
+    );
   }
 
   get currency(): { cp: number; sp: number; ep: number; gp: number; pp: number } {
-    const currency = (this.actor as LearningActor).system?.currency;
-    return {
-      cp: currency?.cp ?? 0,
-      sp: currency?.sp ?? 0,
-      ep: currency?.ep ?? 0,
-      gp: currency?.gp ?? 0,
-      pp: currency?.pp ?? 0,
-    };
+    return (this.actor as any).system.currency || { cp: 0, sp: 0, ep: 0, gp: 0, pp: 0 };
+  }
+
+  get projects(): Item5e[] {
+    return (this.actor as any).items.filter((i: Item5e) =>
+      i.getFlag(MODULE_ID, "isLearningProject"),
+    );
+  }
+
+  async setBank(bank: TimeBank): Promise<LearningActor> {
+    return (await this.actor.setFlag(MODULE_ID, "bank", bank)) as LearningActor;
+  }
+
+  async updateProject(
+    itemId: string,
+    projectData: Partial<ProjectFlagData>,
+  ): Promise<Item5e | null> {
+    const item = (this.actor as any).items.get(itemId);
+    if (!item) return null;
+
+    const currentData = (item.getFlag(MODULE_ID, "projectData") as ProjectFlagData) || {};
+    const updatedData = DocumentUtils.mergeObject(currentData, projectData);
+
+    return (await item.setFlag(MODULE_ID, "projectData", updatedData)) as Item5e;
   }
 
   async updateCurrency(
     currency: { cp: number; sp: number; ep: number; gp: number; pp: number },
     options: { render?: boolean } = {},
   ): Promise<Actor5e> {
-    return (await (this.actor as any).update(
-      {
-        system: {
-          currency,
-        },
-      },
-      options,
-    )) as Actor5e;
+    const updateData = {
+      "system.currency.cp": Number(currency.cp || 0),
+      "system.currency.sp": Number(currency.sp || 0),
+      "system.currency.ep": Number(currency.ep || 0),
+      "system.currency.gp": Number(currency.gp || 0),
+      "system.currency.pp": Number(currency.pp || 0),
+    };
+
+    return (await (this.actor as any).update(updateData, options)) as Actor5e;
   }
 
   static forActor(actor: Actor5e): ActorProxy {

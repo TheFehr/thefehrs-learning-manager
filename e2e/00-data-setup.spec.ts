@@ -145,7 +145,7 @@ test.describe("Data Setup", () => {
                   {
                     name: "Expert Tutelage",
                     modifier: 5,
-                    costs: { gp: 10 },
+                    costs: { hour: 1000 }, // 10 GP
                     categories: ["General"],
                   },
                 ],
@@ -165,7 +165,7 @@ test.describe("Data Setup", () => {
                   {
                     name: "Combat Training",
                     modifier: 5,
-                    costs: { gp: 20 },
+                    costs: { hour: 2000 }, // 20 GP
                     categories: ["Combat"],
                   },
                 ],
@@ -185,7 +185,7 @@ test.describe("Data Setup", () => {
                   {
                     name: "History Lessons",
                     modifier: 2,
-                    costs: { gp: 5 },
+                    costs: { hour: 500 }, // 5 GP
                     categories: ["History"],
                   },
                 ],
@@ -207,6 +207,11 @@ test.describe("Data Setup", () => {
             name: name,
             type: "character",
             img: "icons/svg/mystery-man.svg",
+            system: {
+              currency: {
+                gp: 100,
+              },
+            },
             flags: {
               core: {
                 sheetClass: "dnd5e.Tidy5eCharacterSheet",
@@ -242,6 +247,43 @@ test.describe("Data Setup", () => {
           };
           await pc1.createEmbeddedDocuments("Item", [incompleteData]);
           console.log("Added Incomplete Project to PC 1");
+        }
+
+        // Combat Training Project for Step 2
+        const combatProjectName = "Combat Training";
+        const existingCombat = pc1.items.find((i) => i.name === combatProjectName);
+        if (!existingCombat) {
+          const projectData = {
+            name: combatProjectName,
+            type: "feat",
+            img: "icons/skills/melee/strike-greataxe-orange.webp",
+            system: {
+              type: { value: "learning-project" },
+              description: { value: "<p>Learning combat techniques.</p>" },
+            },
+            flags: {
+              "thefehrs-learning-manager": {
+                isLearningProject: true,
+                projectData: {
+                  progress: 0,
+                  target: 100,
+                  stashedName: combatProjectName,
+                  stashedType: "feat",
+                  stashedSystem: {
+                    type: { value: "feat" },
+                    description: { value: "Learned combat techniques." },
+                  },
+                  requirements: [],
+                  categories: ["Combat"],
+                },
+              },
+              "tidy5e-sheet": {
+                section: "In-Progress Learning",
+              },
+            },
+          };
+          await pc1.createEmbeddedDocuments("Item", [projectData]);
+          console.log("Added Combat Training Project to PC 1");
         }
 
         // Project near completion for Test 1
@@ -359,6 +401,11 @@ test.describe("Data Setup", () => {
       await (game as any).settings.set(moduleId, "teacherCompendiums", ["world.test-teachers"]);
       await (game as any).settings.set(moduleId, "bookCompendiums", ["world.test-learning-books"]);
       console.log("Configured module settings");
+
+      // Sync activities for all created projects
+      // @ts-ignore
+      await game.modules.get(moduleId).api.ProjectEngine.syncAllProjectActivities();
+      console.log("Synced all project activities");
     });
 
     // Simple verification

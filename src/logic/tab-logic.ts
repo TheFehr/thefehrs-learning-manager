@@ -310,11 +310,11 @@ export class TabLogic {
     const proxy = ActorProxy.forActor(actor);
     const cur = { ...proxy.currency };
     const totalCp =
-      (cur.pp || 0) * 1000 +
-      (cur.gp || 0) * 100 +
-      (cur.ep || 0) * 50 +
-      (cur.sp || 0) * 10 +
-      (cur.cp || 0);
+      (Number(cur.pp) || 0) * 1000 +
+      (Number(cur.gp) || 0) * 100 +
+      (Number(cur.ep) || 0) * 50 +
+      (Number(cur.sp) || 0) * 10 +
+      (Number(cur.cp) || 0);
 
     if (totalCp < costCp) {
       getUI()?.notifications?.warn("Downtime Engine | Insufficient currency!");
@@ -332,7 +332,7 @@ export class TabLogic {
 
     // 1. Drain from existing denominations, largest to smallest
     for (const d of denoms) {
-      const available = cur[d.id] || 0;
+      const available = Number(cur[d.id] || 0);
       if (available > 0) {
         const canTake = Math.min(available, Math.floor(remaining / d.value));
         cur[d.id] = available - canTake;
@@ -344,25 +344,30 @@ export class TabLogic {
     if (remaining > 0) {
       const smallestCovering = [...denoms]
         .reverse()
-        .find((d) => (cur[d.id] || 0) > 0 && d.value >= remaining);
+        .find((d) => Number(cur[d.id] || 0) > 0 && d.value >= remaining);
 
       if (smallestCovering) {
-        cur[smallestCovering.id] = (cur[smallestCovering.id] || 0) - 1;
+        cur[smallestCovering.id] = Number(cur[smallestCovering.id] || 0) - 1;
         let changeCp = smallestCovering.value - remaining;
         remaining = 0;
 
         for (const cd of denoms) {
-          if ((cd.id === "pp" || cd.id === "ep") && (proxy.currency[cd.id] || 0) === 0) continue;
           const toAdd = Math.floor(changeCp / cd.value);
           if (toAdd > 0) {
-            cur[cd.id] = (cur[cd.id] || 0) + toAdd;
+            cur[cd.id] = Number(cur[cd.id] || 0) + toAdd;
             changeCp %= cd.value;
           }
         }
       }
     }
 
-    await proxy.updateCurrency(cur);
+    await proxy.updateCurrency({
+      pp: Number(cur.pp || 0),
+      gp: Number(cur.gp || 0),
+      ep: Number(cur.ep || 0),
+      sp: Number(cur.sp || 0),
+      cp: Number(cur.cp || 0),
+    });
     return true;
   }
 
