@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 
 test.describe("Data Setup", () => {
   test("setup test data", async ({ page }) => {
@@ -21,7 +21,7 @@ test.describe("Data Setup", () => {
         let pack = (game as any).packs.get(`world.${c.name}`);
         if (!pack) {
           // @ts-ignore
-          await CompendiumCollection.createCompendium({
+          await foundry.documents.collections.CompendiumCollection.createCompendium({
             type: c.type,
             label: c.label,
             name: c.name,

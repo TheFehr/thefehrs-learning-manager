@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 
 test.describe("Foundry VTT Interface", () => {
   test("should load the game canvas and sidebar", async ({ page }) => {

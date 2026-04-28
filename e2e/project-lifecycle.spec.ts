@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 
 test.describe("Project Lifecycle (Happy Path)", () => {
   test("should start and progress a project on an actor", async ({ page }) => {

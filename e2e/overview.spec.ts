@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 
 test.describe("Project Overview UI", () => {
   test("verify invalid projects are listed", async ({ page }) => {

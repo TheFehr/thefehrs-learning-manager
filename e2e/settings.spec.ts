@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 
 test.describe("Settings UI", () => {
   test("configure compendiums via UI and verify save", async ({ page }) => {

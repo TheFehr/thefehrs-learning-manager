@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 
 test.describe("Instructor and Tutelage System", () => {
   test("verify instructors and books filters and modifiers", async ({ page }) => {
@@ -39,9 +39,6 @@ test.describe("Instructor and Tutelage System", () => {
         const bookItem = await fromUuid(bookUuid);
         const bookData = bookItem.toObject();
         bookData.flags = bookData.flags || {};
-        bookData.flags.core = bookData.flags.core || {};
-        bookData.flags.core.sourceId = bookUuid;
-
         bookData._stats = bookData._stats || {};
         bookData._stats.compendiumSource = bookUuid;
 

@@ -1,4 +1,4 @@
-import { test as setup, expect } from "@playwright/test";
+import { test as setup, expect } from "./fixtures";
 import dotenv from "dotenv";
 
 // Explicitly load .env at the start and override any existing env vars

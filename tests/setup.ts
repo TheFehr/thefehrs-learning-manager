@@ -2,6 +2,13 @@ import { vi } from "vitest";
 import { MODULE_ID } from "@/global";
 
 globalThis.foundry = {
+  documents: {
+    collections: {
+      CompendiumCollection: {
+        createCompendium: vi.fn(),
+      },
+    },
+  },
   appv1: {
     api: {
       Dialog: class {
@@ -386,9 +393,7 @@ globalThis.ChatMessage = {
   create: vi.fn(),
   getSpeaker: vi.fn().mockReturnValue({ actor: "mock-actor-id" }),
 } as any;
-globalThis.CompendiumCollection = {
-  createCompendium: vi.fn(),
-} as any;
+globalThis.CompendiumCollection = globalThis.foundry.documents.collections.CompendiumCollection;
 
 globalThis.CONFIG = {
   DND5E: {

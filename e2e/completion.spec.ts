@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect } from "./fixtures";
 
 test.describe("Project Completion and Reward Restoration", () => {
   test("should complete a project and restore the original item state", async ({ page }) => {
