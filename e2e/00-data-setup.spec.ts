@@ -42,6 +42,7 @@ test.describe("Data Setup", () => {
           system: {
             description: { value: "A test feat for learning." },
             type: { value: "feat" },
+            activities: {},
           },
           flags: {
             "thefehrs-learning-manager": {
@@ -67,6 +68,8 @@ test.describe("Data Setup", () => {
           img: "icons/skills/trades/smithing-anvil-silver.webp",
           system: {
             description: { value: "" }, // Empty description
+            type: { value: "feat" },
+            activities: {},
           },
           flags: {
             "thefehrs-learning-manager": {
@@ -199,7 +202,7 @@ test.describe("Data Setup", () => {
       }
 
       // 5. Create PC Actors
-      const pcNames = ["PC 1", "PC 2"];
+      const pcNames = ["PC 1", "PC 2", "PC 3", "PC 4"];
       for (const name of pcNames) {
         let actor = (game as any).actors.getName(name);
         if (!actor) {
@@ -224,7 +227,7 @@ test.describe("Data Setup", () => {
         }
       }
 
-      // 6. Add Projects to PC 1
+      // 6. Add Projects to PCs
       const pc1 = (game as any).actors.getName("PC 1");
       if (pc1) {
         // Incomplete Project
@@ -234,6 +237,10 @@ test.describe("Data Setup", () => {
             name: "Incomplete Project",
             type: "feat",
             img: "icons/skills/trades/smithing-anvil-silver.webp",
+            system: {
+              type: { value: "feat" },
+              activities: {},
+            },
             flags: {
               "thefehrs-learning-manager": {
                 isLearningProject: true,
@@ -260,6 +267,7 @@ test.describe("Data Setup", () => {
             system: {
               type: { value: "learning-project" },
               description: { value: "<p>Learning combat techniques.</p>" },
+              activities: {},
             },
             flags: {
               "thefehrs-learning-manager": {
@@ -297,6 +305,7 @@ test.describe("Data Setup", () => {
             system: {
               type: { value: "learning-project" },
               description: { value: "<p>A test feat for learning.</p>" },
+              activities: {},
             },
             flags: {
               "thefehrs-learning-manager": {
@@ -346,6 +355,93 @@ test.describe("Data Setup", () => {
         }
       }
 
+      const pc2 = (game as any).actors.getName("PC 2");
+      if (pc2) {
+        const projectName = "Bulk Training Project";
+        const existing = pc2.items.find((i) => i.name === projectName);
+        if (!existing) {
+          const projectData = {
+            name: projectName,
+            type: "feat",
+            img: "icons/skills/trades/smithing-anvil-silver.webp",
+            system: {
+              type: { value: "feat" },
+              activities: {},
+            },
+            flags: {
+              "thefehrs-learning-manager": {
+                isLearningProject: true,
+                projectData: {
+                  progress: 0,
+                  target: 100,
+                  requirements: [],
+                },
+              },
+            },
+          };
+          await pc2.createEmbeddedDocuments("Item", [projectData]);
+          console.log("Added Bulk Training Project to PC 2");
+        }
+      }
+
+      const pc3 = (game as any).actors.getName("PC 3");
+      if (pc3) {
+        const projectName = "Time Bank Project";
+        const existing = pc3.items.find((i) => i.name === projectName);
+        if (!existing) {
+          const projectData = {
+            name: projectName,
+            type: "feat",
+            img: "icons/skills/trades/smithing-anvil-silver.webp",
+            system: {
+              type: { value: "feat" },
+              activities: {},
+            },
+            flags: {
+              "thefehrs-learning-manager": {
+                isLearningProject: true,
+                projectData: {
+                  progress: 0,
+                  target: 100,
+                  requirements: [],
+                },
+              },
+            },
+          };
+          await pc3.createEmbeddedDocuments("Item", [projectData]);
+          console.log("Added Time Bank Project to PC 3");
+        }
+      }
+
+      const pc4 = (game as any).actors.getName("PC 4");
+      if (pc4) {
+        const projectName = "GM Override Project";
+        const existing = pc4.items.find((i) => i.name === projectName);
+        if (!existing) {
+          const projectData = {
+            name: projectName,
+            type: "feat",
+            img: "icons/skills/trades/smithing-anvil-silver.webp",
+            system: {
+              type: { value: "feat" },
+              activities: {},
+            },
+            flags: {
+              "thefehrs-learning-manager": {
+                isLearningProject: true,
+                projectData: {
+                  progress: 50,
+                  target: 100,
+                  requirements: [],
+                },
+              },
+            },
+          };
+          await pc4.createEmbeddedDocuments("Item", [projectData]);
+          console.log("Added GM Override Project to PC 4");
+        }
+      }
+
       // 7. Create Group Actor
       let groupActor = (game as any).actors.find(
         (a) => a.name === "Test Group" && a.type === "group",
@@ -366,9 +462,8 @@ test.describe("Data Setup", () => {
         console.log("Created Test Group");
       }
 
-      // Add PC 1 and PC 2 to group members if not already there
-      const pc1Actor = (game as any).actors.getName("PC 1");
-      const pc2Actor = (game as any).actors.getName("PC 2");
+      // Add all PCs to group members if not already there
+      const actorsToGroup = ["PC 1", "PC 2", "PC 3", "PC 4"];
 
       const addMember = async (group, actor) => {
         if (!actor) return;
@@ -389,8 +484,10 @@ test.describe("Data Setup", () => {
       };
 
       if (groupActor) {
-        await addMember(groupActor, pc1Actor);
-        await addMember(groupActor, pc2Actor);
+        for (const name of actorsToGroup) {
+          const actor = (game as any).actors.getName(name);
+          await addMember(groupActor, actor);
+        }
       }
 
       // 8. Configure Module Settings
@@ -400,6 +497,15 @@ test.describe("Data Setup", () => {
       ]);
       await (game as any).settings.set(moduleId, "teacherCompendiums", ["world.test-teachers"]);
       await (game as any).settings.set(moduleId, "bookCompendiums", ["world.test-learning-books"]);
+
+      // Set time units including "Work Week"
+      await (game as any).settings.set(moduleId, "timeUnits", [
+        { id: "hour", name: "Hour", short: "h", isBulk: false, ratio: 1 },
+        { id: "day", name: "Day", short: "d", isBulk: true, ratio: 10 },
+        { id: "workweek", name: "Work Week", short: "ww", isBulk: true, ratio: 40 },
+        { id: "week", name: "Week", short: "w", isBulk: true, ratio: 70 },
+      ]);
+
       console.log("Configured module settings");
 
       // Sync activities for all created projects
@@ -410,6 +516,6 @@ test.describe("Data Setup", () => {
 
     // Simple verification
     const actorsCount = await page.evaluate(() => (game as any).actors.size);
-    expect(actorsCount).toBeGreaterThanOrEqual(3); // PC 1, PC 2, Test Group
+    expect(actorsCount).toBeGreaterThanOrEqual(5); // PC 1, 2, 3, 4, Test Group
   });
 });

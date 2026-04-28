@@ -2,28 +2,14 @@ import { Settings } from "./settings.js";
 import { Logger } from "./logger.js";
 import { FoundryUtils } from "./foundry-utils.js";
 import { createBaseActivityTemplate } from "./constants.js";
-import type { Actor5e, Item5e, ActivityData5e } from "@/types.js";
-import type { ProjectItem } from "@/logic/project-item.js";
+import type { Actor5e, Item5e, ActivityData5e, TimeUnit } from "@/types.js";
 import { getGame, getUI } from "./foundry.js";
 
 export class ActivityManager {
-  /**
-   * Configurable delay between actor updates in batch operations to avoid overwhelming systems.
-   * Default is 50ms. Set to 0 to disable throttling.
-   */
-  static actorUpdateDelayMs = 50;
-
-  /**
-   * Generates training activities data based on world settings.
-   */
   static getActivitiesData(target: number): ActivityData5e[] {
     if (target <= 0) return [];
 
     const timeUnits = Settings.get("timeUnits");
-    if (!Array.isArray(timeUnits) || timeUnits.length === 0) {
-      return [];
-    }
-
     const activities: ActivityData5e[] = timeUnits.map((tu) => ({
       ...createBaseActivityTemplate(),
       _id: FoundryUtils.randomID(),
@@ -31,6 +17,7 @@ export class ActivityManager {
       sort: 0,
       description: {
         chatFlavor: `Training for ${tu.name}`,
+        value: "",
       },
       flags: {
         "thefehrs-learning-manager": {
@@ -41,7 +28,6 @@ export class ActivityManager {
       name: `Train ${tu.name}`,
     }));
 
-    // Add "Spend all" activity
     activities.push({
       ...createBaseActivityTemplate(),
       _id: FoundryUtils.randomID(),
@@ -49,6 +35,7 @@ export class ActivityManager {
       sort: 100,
       description: {
         chatFlavor: "Spending all available training time",
+        value: "",
       },
       flags: {
         "thefehrs-learning-manager": {
@@ -62,103 +49,106 @@ export class ActivityManager {
     return activities;
   }
 
-  /**
-   * Injects training activities into a project item based on world settings.
-   */
   static async injectActivities(item: Item5e, forceTarget?: number) {
-    const itemProxy = item as unknown as ProjectItem;
-    const projectData = itemProxy.getFlag("thefehrs-learning-manager", "projectData");
+    const isProject = item.getFlag(Settings.ID, "isLearningProject");
+    if (!isProject) return false;
 
+    const projectData = item.getFlag(Settings.ID, "projectData") as any;
     const target = forceTarget ?? projectData?.target ?? 0;
 
-    if (!projectData && forceTarget === undefined) {
-      Logger.warn(
-        `Cannot inject activities for "${(item as unknown as Item).name}" - missing projectData flag.`,
-      );
+    if (target <= 0) {
+      Logger.debug(`Target for project "${item.name}" is 0 or less. Not injecting activities.`);
       return false;
     }
 
     const activitiesData = this.getActivitiesData(target);
-
     const activityUpdates: Record<string, any> = {};
 
-    // 1. Identify and mark for removal any existing learning activities
-    const existingActivities = item.system.activities as any;
-    if (existingActivities) {
-      // system.activities can be a Map, Collection, or Array depending on document state/version
-      const activityList =
-        typeof existingActivities.values === "function"
-          ? Array.from(existingActivities.values())
-          : Array.isArray(existingActivities)
-            ? existingActivities
-            : Object.values(existingActivities);
+    // 1. Identify existing activities
+    const rawActivities = item.system.activities as any;
+    const activityList =
+      typeof rawActivities?.values === "function"
+        ? Array.from(rawActivities.values())
+        : Array.isArray(rawActivities)
+          ? rawActivities
+          : Object.values(rawActivities || {});
 
-      for (const activity of activityList as any[]) {
-        if (activity?.id && activity.flags?.["thefehrs-learning-manager"]?.isLearningActivity) {
-          activityUpdates[`-=${activity.id}`] = null;
-        }
+    const existingLearningActivities = (activityList as any[]).filter(
+      (a) => a?.flags?.[Settings.ID]?.isLearningActivity,
+    );
+
+    // 2. Match and update existing, or mark for removal if no longer needed
+    const usedExistingIds = new Set<string>();
+
+    for (const newActivity of activitiesData) {
+      const newTimeUnitId = newActivity.flags?.[Settings.ID]?.timeUnitId;
+      const newIsSpendAll = newActivity.flags?.[Settings.ID]?.isSpendAll;
+
+      const existingMatch = existingLearningActivities.find((ea) => {
+        const eaFlags = ea.flags?.[Settings.ID];
+        if (newIsSpendAll) return eaFlags?.isSpendAll;
+        return eaFlags?.timeUnitId === newTimeUnitId;
+      });
+
+      if (existingMatch) {
+        // Reuse the ID and update
+        const id = existingMatch.id || existingMatch._id;
+        newActivity._id = id;
+        activityUpdates[id] = newActivity;
+        usedExistingIds.add(id);
+      } else {
+        // New activity, use its generated ID
+        activityUpdates[newActivity._id] = newActivity;
       }
     }
 
-    if (activitiesData.length === 0) {
-      Logger.debug(
-        `Clearing activities for "${(item as unknown as Item).name}" (target is ${target}).`,
-      );
-    } else {
-      // 2. Add the new activities (IDs already generated in getActivitiesData)
-      for (const activity of activitiesData) {
-        activityUpdates[activity._id] = activity;
+    // 3. Mark for removal any existing learning activities that weren't matched
+    for (const ea of existingLearningActivities) {
+      const id = ea.id || ea._id;
+      if (!usedExistingIds.has(id)) {
+        // Use the -= notation for removal
+        activityUpdates[`-=${id}`] = null;
       }
     }
 
     if (Object.keys(activityUpdates).length > 0) {
-      await item.update({ "system.activities": activityUpdates } as any);
-      Logger.debug(`Successfully synced activities for "${(item as unknown as Item).name}".`);
-      return true;
+      // Check if any updates are NOT just deletions to avoid the dnd5e v3 migration bug if possible
+      // Actually, if we matched correctly, we should have very few deletions.
+      try {
+        await item.update({ "system.activities": activityUpdates } as any);
+        Logger.debug(`Successfully synced activities for "${(item as unknown as Item).name}".`);
+        return true;
+      } catch (err) {
+        Logger.error(`Failed to update activities for item "${item.name}":`, true, err);
+        return false;
+      }
     }
     return false;
   }
 
-  /**
-   * Iterates through all actors and regenerates activities for all learning projects.
-   * Useful when time units change in settings.
-   */
   static async syncAllProjectActivities() {
     const game = getGame();
-    if (!game?.user?.isGM) return;
+    const actors = game.actors?.contents || [];
+    const moduleId = Settings.ID;
 
-    getUI()?.notifications?.info("Downtime Engine | Syncing project activities...");
-
-    const actors = (game.actors || []) as unknown as Actor5e[];
     let updatedCount = 0;
     let failedCount = 0;
 
+    getUI()?.notifications?.info("Downtime Engine | Syncing project activities...");
+
     for (const actor of actors) {
-      const learningItems = (actor as unknown as Actor).items.filter((i: any) =>
-        i.getFlag("thefehrs-learning-manager", "isLearningProject"),
-      ) as unknown as Item5e[];
+      const projects = (actor.items as any).filter((i: any) =>
+        i.getFlag(moduleId, "isLearningProject"),
+      ) as Item5e[];
 
-      for (const item of learningItems) {
+      for (const project of projects) {
         try {
-          const result = await this.injectActivities(item);
-          if (result === true) {
-            updatedCount++;
-          }
+          const result = await this.injectActivities(project);
+          if (result) updatedCount++;
         } catch (err) {
-          Logger.error(
-            `Failed to sync activities for item "${item.name}" on actor "${actor.name}":`,
-            true,
-            err,
-          );
           failedCount++;
+          Logger.error(`Failed to sync activities for project "${project.name}":`, false, err);
         }
-      }
-
-      // Pause to rate-limit/backoff and avoid overwhelming
-      // downstream systems (Foundry database writes, client updates) during batch updates.
-      // Can be tuned via ActivityManager.actorUpdateDelayMs.
-      if (ActivityManager.actorUpdateDelayMs > 0 && learningItems.length > 0) {
-        await new Promise((resolve) => setTimeout(resolve, ActivityManager.actorUpdateDelayMs));
       }
     }
 
