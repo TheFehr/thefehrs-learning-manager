@@ -2,14 +2,21 @@ import { Settings } from "./settings.js";
 import { Logger } from "./logger.js";
 import { FoundryUtils } from "./foundry-utils.js";
 import { createBaseActivityTemplate } from "./constants.js";
-import type { Actor5e, Item5e, ActivityData5e, TimeUnit } from "@/types.js";
+import type { Actor5e, Item5e, ActivityData5e } from "@/types.js";
 import { getGame, getUI } from "./foundry.js";
 
 export class ActivityManager {
+  /**
+   * Generates training activities data based on world settings.
+   */
   static getActivitiesData(target: number): ActivityData5e[] {
     if (target <= 0) return [];
 
     const timeUnits = Settings.get("timeUnits");
+    if (!Array.isArray(timeUnits) || timeUnits.length === 0) {
+      return [];
+    }
+
     const activities: ActivityData5e[] = timeUnits.map((tu) => ({
       ...createBaseActivityTemplate(),
       _id: FoundryUtils.randomID(),
@@ -17,7 +24,6 @@ export class ActivityManager {
       sort: 0,
       description: {
         chatFlavor: `Training for ${tu.name}`,
-        value: "",
       },
       flags: {
         "thefehrs-learning-manager": {
@@ -35,7 +41,6 @@ export class ActivityManager {
       sort: 100,
       description: {
         chatFlavor: "Spending all available training time",
-        value: "",
       },
       flags: {
         "thefehrs-learning-manager": {
@@ -49,29 +54,32 @@ export class ActivityManager {
     return activities;
   }
 
+  /**
+   * Injects training activities into a project item based on world settings.
+   */
   static async injectActivities(item: Item5e, forceTarget?: number) {
-    const isProject = item.getFlag(Settings.ID, "isLearningProject");
-    if (!isProject) return false;
-
     const projectData = item.getFlag(Settings.ID, "projectData") as any;
-    const target = forceTarget ?? projectData?.target ?? 0;
 
-    if (target <= 0) {
-      Logger.debug(`Target for project "${item.name}" is 0 or less. Not injecting activities.`);
+    if (!projectData && forceTarget === undefined) {
+      Logger.warn(
+        `Cannot inject activities for "${(item as unknown as Item).name}" - missing projectData flag.`,
+      );
       return false;
     }
+
+    const target = forceTarget ?? projectData?.target ?? 0;
 
     const activitiesData = this.getActivitiesData(target);
     const activityUpdates: Record<string, any> = {};
 
     // 1. Identify existing activities
-    const rawActivities = item.system.activities as any;
+    const rawActivities = (item.system as any).activities || {};
     const activityList =
       typeof rawActivities?.values === "function"
         ? Array.from(rawActivities.values())
         : Array.isArray(rawActivities)
           ? rawActivities
-          : Object.values(rawActivities || {});
+          : Object.values(rawActivities);
 
     const existingLearningActivities = (activityList as any[]).filter(
       (a) => a?.flags?.[Settings.ID]?.isLearningActivity,
@@ -81,8 +89,8 @@ export class ActivityManager {
     const usedExistingIds = new Set<string>();
 
     for (const newActivity of activitiesData) {
-      const newTimeUnitId = newActivity.flags?.[Settings.ID]?.timeUnitId;
-      const newIsSpendAll = newActivity.flags?.[Settings.ID]?.isSpendAll;
+      const newTimeUnitId = (newActivity.flags as any)?.[Settings.ID]?.timeUnitId;
+      const newIsSpendAll = (newActivity.flags as any)?.[Settings.ID]?.isSpendAll;
 
       const existingMatch = existingLearningActivities.find((ea) => {
         const eaFlags = ea.flags?.[Settings.ID];
@@ -112,23 +120,29 @@ export class ActivityManager {
     }
 
     if (Object.keys(activityUpdates).length > 0) {
-      // Check if any updates are NOT just deletions to avoid the dnd5e v3 migration bug if possible
-      // Actually, if we matched correctly, we should have very few deletions.
-      try {
-        await item.update({ "system.activities": activityUpdates } as any);
-        Logger.debug(`Successfully synced activities for "${(item as unknown as Item).name}".`);
-        return true;
-      } catch (err) {
-        Logger.error(`Failed to update activities for item "${item.name}":`, true, err);
-        return false;
-      }
+      await item.update({ "system.activities": activityUpdates } as any);
+      Logger.debug(`Successfully synced activities for "${(item as unknown as Item).name}".`);
+      return true;
     }
     return false;
   }
 
+  /**
+   * Iterates through all actors and regenerates activities for all learning projects.
+   */
   static async syncAllProjectActivities() {
     const game = getGame();
-    const actors = game.actors?.contents || [];
+    if (!game?.user?.isGM) return;
+
+    // Support both Collection (v12+) and Array (test mocks)
+    const actorsCollection = game.actors;
+    const actors =
+      actorsCollection && typeof (actorsCollection as any).contents !== "undefined"
+        ? (actorsCollection as any).contents
+        : Array.isArray(actorsCollection)
+          ? actorsCollection
+          : [];
+
     const moduleId = Settings.ID;
 
     let updatedCount = 0;
@@ -137,9 +151,10 @@ export class ActivityManager {
     getUI()?.notifications?.info("Downtime Engine | Syncing project activities...");
 
     for (const actor of actors) {
-      const projects = (actor.items as any).filter((i: any) =>
-        i.getFlag(moduleId, "isLearningProject"),
-      ) as Item5e[];
+      const items = (actor as any).items || [];
+      const projects = (
+        typeof items.filter === "function" ? items : Array.from(items.values())
+      ).filter((i: any) => i.getFlag(moduleId, "isLearningProject")) as Item5e[];
 
       for (const project of projects) {
         try {
