@@ -352,6 +352,7 @@ export class TabLogic {
         remaining = 0;
 
         for (const cd of denoms) {
+          if ((cd.id === "pp" || cd.id === "ep") && (cur[cd.id] || 0) === 0) continue;
           const toAdd = Math.floor(changeCp / cd.value);
           if (toAdd > 0) {
             cur[cd.id] = Number(cur[cd.id] || 0) + toAdd;

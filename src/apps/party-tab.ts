@@ -1,27 +1,11 @@
 import { Settings } from "@/core/settings.js";
 import { ActorProxy } from "@/logic/actor-proxy.js";
 import { TabLogic } from "@/logic/tab-logic.js";
-import {
-  isActor5e,
-  type DowntimeGroupActor,
-  type TimeUnit,
-  type Item5e,
-  type ProjectFlagData,
-} from "@/types.js";
+import { isActor5e, type DowntimeGroupActor, type TimeUnit, type Item5e } from "@/types.js";
 import type { PartyMemberData } from "@dnd5e/data/actor/_types.mjs";
 import { MODULE_ID } from "@/global.js";
 import { getGame } from "@/core/foundry.js";
-
-export type ProjectMappedData = ProjectFlagData & {
-  id: string;
-  name: string;
-  maxProgress: number;
-  guidanceType: string;
-  isSelfStudy: boolean;
-  progressPercentage: number;
-  canAbort: boolean;
-  isItemBased: boolean;
-};
+import type { ProjectMappedData } from "@/logic/project-item.js";
 
 export interface MemberMappedData {
   id: string;
@@ -64,33 +48,19 @@ export class PartyTab {
 
     const bank = proxy.bank;
 
-    const itemProjects = (actualActor.items as unknown as Item5e[])
-      .filter(
-        (i) => i.getFlag(MODULE_ID, "isLearningProject") || i.getFlag(MODULE_ID, "isLearnedReward"),
-      )
-      .map((i): ProjectMappedData | null => {
-        const projectData = i.getFlag(MODULE_ID, "projectData");
-        if (!projectData) return null;
+    const itemProjects = proxy.getMappedProjects().map((p): ProjectMappedData => {
+      const item =
+        typeof actualActor.items.get === "function"
+          ? actualActor.items.get(p.id)
+          : (actualActor.items as unknown as Item5e[]).find((i) => i.id === p.id);
 
-        const isLearnedReward = i.getFlag(MODULE_ID, "isLearnedReward");
-
-        return {
-          ...projectData,
-          id: i.id!,
-          name: i.name!,
-          maxProgress: projectData.target || 0,
-          guidanceType: projectData.lastInstructorName || "Self-Study",
-          isSelfStudy: !projectData.lastInstructorName,
-          progressPercentage:
-            projectData.target && projectData.target > 0
-              ? Math.min(100, Math.round(((projectData.progress || 0) / projectData.target) * 100))
-              : 0,
-          canAbort:
-            ((projectData.progress || 0) === 0 && !isLearnedReward) || !!getGame().user?.isGM,
-          isItemBased: true,
-        };
-      })
-      .filter((p): p is ProjectMappedData => p !== null);
+      const isLearnedReward = (item as any)?.getFlag(MODULE_ID, "isLearnedReward");
+      return {
+        ...p,
+        canAbort: (p.progress === 0 && !isLearnedReward) || !!getGame().user?.isGM,
+        isItemBased: true,
+      };
+    });
 
     return {
       id: proxy.id,

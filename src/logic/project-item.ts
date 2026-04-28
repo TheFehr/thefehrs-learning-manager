@@ -41,6 +41,21 @@ export type ProjectFlagData = {
   stashedSourceUuid?: string;
 };
 
+export interface ProjectMappedData extends ProjectFlagData {
+  id: string;
+  name: string;
+  progress: number;
+  target: number;
+  maxProgress: number; // Alias for target used in UI
+  percentage: number;
+  tutelageName: string;
+  guidanceType: string;
+  progressPercentage: number;
+  isSelfStudy: boolean;
+  canAbort?: boolean;
+  isItemBased?: boolean;
+}
+
 export const ProjectItem = {
   ID: "thefehrs-learning-manager" as const,
 };

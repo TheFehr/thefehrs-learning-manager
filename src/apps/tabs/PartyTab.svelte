@@ -1,6 +1,7 @@
 <script lang="ts">
   import {Settings} from "@/core/settings.js";
-  import type {MemberMappedData, ProjectMappedData} from "@/apps/party-tab.js";
+  import type {MemberMappedData} from "@/apps/party-tab.js";
+  import type {ProjectMappedData} from "@/logic/project-item.js";
   import {PartyTabLogic} from "@/logic/party-tab-logic.js";
 
   let {members, isGM, actor} = $props<{
