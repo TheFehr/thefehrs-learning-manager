@@ -17,26 +17,31 @@ export class ActivityManager {
       return [];
     }
 
-    const activities: ActivityData5e[] = timeUnits.map((tu) => ({
-      ...createBaseActivityTemplate(),
-      _id: FoundryUtils.randomID(),
-      img: "icons/svg/book.svg",
-      sort: 0,
-      description: {
-        chatFlavor: `Training for ${tu.name}`,
-      },
-      flags: {
-        "thefehrs-learning-manager": {
-          isLearningActivity: true,
-          timeUnitId: tu.id,
+    const activities: ActivityData5e[] = timeUnits.map((tu) => {
+      const activity: any = {
+        ...createBaseActivityTemplate(),
+        _id: FoundryUtils.randomID(),
+        type: "utility",
+        img: "icons/svg/book.svg",
+        sort: 0,
+        description: {
+          chatFlavor: `Training for ${tu.name}`,
         },
-      },
-      name: `Train ${tu.name}`,
-    }));
+        flags: {
+          "thefehrs-learning-manager": {
+            isLearningActivity: true,
+            timeUnitId: tu.id,
+          },
+        },
+        name: `Train ${tu.name}`,
+      };
+      return activity as ActivityData5e;
+    });
 
-    activities.push({
+    const spendAllActivity: any = {
       ...createBaseActivityTemplate(),
       _id: FoundryUtils.randomID(),
+      type: "utility",
       img: "icons/svg/coins.svg",
       sort: 100,
       description: {
@@ -49,7 +54,8 @@ export class ActivityManager {
         },
       },
       name: "Spend all time",
-    });
+    };
+    activities.push(spendAllActivity as ActivityData5e);
 
     return activities;
   }
@@ -68,7 +74,6 @@ export class ActivityManager {
     }
 
     const target = forceTarget ?? projectData?.target ?? 0;
-
     const activitiesData = this.getActivitiesData(target);
     const activityUpdates: Record<string, any> = {};
 
@@ -85,44 +90,45 @@ export class ActivityManager {
       (a) => a?.flags?.[Settings.ID]?.isLearningActivity,
     );
 
-    // 2. Match and update existing, or mark for removal if no longer needed
+    // 2. Match and update existing, or create new
     const usedExistingIds = new Set<string>();
 
-    for (const newActivity of activitiesData) {
-      const newTimeUnitId = (newActivity.flags as any)?.[Settings.ID]?.timeUnitId;
-      const newIsSpendAll = (newActivity.flags as any)?.[Settings.ID]?.isSpendAll;
+    for (const newData of activitiesData) {
+      const newTUId = (newData.flags as any)?.[Settings.ID]?.timeUnitId;
+      const newIsSpendAll = (newData.flags as any)?.[Settings.ID]?.isSpendAll;
 
-      const existingMatch = existingLearningActivities.find((ea) => {
+      const match = existingLearningActivities.find((ea) => {
         const eaFlags = ea.flags?.[Settings.ID];
-        if (newIsSpendAll) return eaFlags?.isSpendAll;
-        return eaFlags?.timeUnitId === newTimeUnitId;
+        return newIsSpendAll ? eaFlags?.isSpendAll : eaFlags?.timeUnitId === newTUId;
       });
 
-      if (existingMatch) {
-        // Reuse the ID and update
-        const id = existingMatch.id || existingMatch._id;
-        newActivity._id = id;
-        activityUpdates[id] = newActivity;
+      if (match) {
+        const id = match.id || match._id;
+        const final = {
+          ...newData,
+          _id: id,
+        };
+
+        activityUpdates[id] = final;
         usedExistingIds.add(id);
       } else {
-        // New activity, use its generated ID
-        activityUpdates[newActivity._id] = newActivity;
+        activityUpdates[newData._id] = newData;
       }
     }
 
-    // 3. Mark for removal any existing learning activities that weren't matched
-    for (const ea of existingLearningActivities) {
-      const id = ea.id || ea._id;
-      if (!usedExistingIds.has(id)) {
-        // Use the -= notation for removal
-        activityUpdates[`-=${id}`] = null;
-      }
-    }
+    // Note: Removal of orphaned learning activities is deliberately skipped here
+    // as dnd5e 3.x migration of the system.activities collection encounters issues
+    // with the standard removal notation during silent updates.
 
     if (Object.keys(activityUpdates).length > 0) {
-      await item.update({ "system.activities": activityUpdates } as any);
-      Logger.debug(`Successfully synced activities for "${(item as unknown as Item).name}".`);
-      return true;
+      try {
+        const updateData: Record<string, unknown> = { "system.activities": activityUpdates };
+        await item.update(updateData, { render: false });
+        return true;
+      } catch (err) {
+        Logger.error(`Failed to inject activities into "${item.name}":`, true, err);
+        return false;
+      }
     }
     return false;
   }
@@ -134,10 +140,9 @@ export class ActivityManager {
     const game = getGame();
     if (!game?.user?.isGM) return;
 
-    // Support both Collection (v12+) and Array (test mocks)
     const actorsCollection = game.actors;
     const actors =
-      actorsCollection && typeof (actorsCollection as any).contents !== "undefined"
+      typeof (actorsCollection as any).contents !== "undefined"
         ? (actorsCollection as any).contents
         : Array.isArray(actorsCollection)
           ? actorsCollection
@@ -148,28 +153,29 @@ export class ActivityManager {
     let updatedCount = 0;
     let failedCount = 0;
 
-    getUI()?.notifications?.info("Downtime Engine | Syncing project activities...");
-
-    for (const actor of actors) {
-      const items = (actor as any).items || [];
-      const projects = (
-        typeof items.filter === "function" ? items : Array.from(items.values())
-      ).filter((i: any) => i.getFlag(moduleId, "isLearningProject")) as Item5e[];
+    for (const actor of actors as Actor5e[]) {
+      const projects = (actor.items as any).filter((i: any) =>
+        i.getFlag(moduleId, "isLearningProject"),
+      );
 
       for (const project of projects) {
         try {
-          const result = await this.injectActivities(project);
-          if (result) updatedCount++;
+          const success = await this.injectActivities(project as unknown as Item5e);
+          if (success) updatedCount++;
         } catch (err) {
           failedCount++;
-          Logger.error(`Failed to sync activities for project "${project.name}":`, false, err);
+          Logger.error(
+            `Failed to sync activities for project "${project.name}" on actor "${actor.name}":`,
+            false,
+            err,
+          );
         }
       }
     }
 
     if (failedCount > 0) {
       getUI()?.notifications?.warn(
-        `Downtime Engine | Synced activities for ${updatedCount} items. ${failedCount} items failed (check application logs).`,
+        `Downtime Engine | Synced activities for ${updatedCount} items. ${failedCount} items failed.`,
       );
     } else {
       getUI()?.notifications?.info(

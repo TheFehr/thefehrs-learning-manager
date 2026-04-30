@@ -423,7 +423,7 @@ test.describe("Data Setup", () => {
             type: "feat",
             img: "icons/skills/trades/smithing-anvil-silver.webp",
             system: {
-              type: { value: "feat" },
+              type: { value: "learning-project" },
               activities: {},
             },
             flags: {

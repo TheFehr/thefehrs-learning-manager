@@ -15,6 +15,16 @@ test.describe("Advanced Time Bank Management", () => {
     // 1. Setup PC 3 with 100 hours and reset progress
     await page.evaluate(async (moduleId) => {
       const actor = (game as any).actors.getName("PC 3");
+
+      // Set DC to 1 and method to direct to ensure progress is guaranteed for the test
+      const rules = (game as any).settings.get(moduleId, "rules");
+      await (game as any).settings.set(moduleId, "rules", {
+        ...rules,
+        checkDC: 1,
+        bulkMethod: "direct",
+        nonBulkMethod: "direct",
+      });
+
       // Use the API/Proxy to set bank to ensure consistency if possible,
       // but direct flag update is most reliable for setup.
       await actor.setFlag(moduleId, "bank", { total: 100 });
@@ -92,6 +102,15 @@ test.describe("Advanced Time Bank Management", () => {
         "workweek",
       ]);
 
+      // Set DC to 1 and method to direct to ensure progress is guaranteed for the test
+      const rules = (game as any).settings.get(moduleId, "rules");
+      await (game as any).settings.set(moduleId, "rules", {
+        ...rules,
+        checkDC: 1,
+        bulkMethod: "direct",
+        nonBulkMethod: "direct",
+      });
+
       // Reset state
       await actor.setFlag(moduleId, "bank", { total: 0 });
       const project = actor.items.find((i: any) => i.name.includes("Time Bank Project"));
@@ -105,6 +124,7 @@ test.describe("Advanced Time Bank Management", () => {
       // We redefine it to ignore isGM
       ProjectEngine.handleAutoTrainSignal = async function () {
         console.log("MOCKED handleAutoTrainSignal triggered");
+        const moduleId = "thefehrs-learning-manager"; // Hardcode inside to avoid ReferenceError
         const autoSpendEnabled = (game as any).settings.get(moduleId, "autoSpend");
         const autoSpendUnits = (game as any).settings.get(moduleId, "autoSpendUnits");
 

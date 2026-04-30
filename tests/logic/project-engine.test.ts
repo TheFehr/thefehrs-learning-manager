@@ -203,6 +203,7 @@ describe("ProjectEngine", () => {
         expect.objectContaining({
           "system.activities": expect.any(Object),
         }),
+        { render: false },
       );
     });
 

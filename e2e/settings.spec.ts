@@ -49,31 +49,34 @@ test.describe("Settings UI", () => {
 
     // 4. Select compendiums in the UI
     const selections = [
-      { section: "Template Compendiums", packId: "world.test-learning-feats" },
-      { section: "Instructor Compendiums", packId: "world.test-teachers" },
-      { section: "Book Compendiums", packId: "world.test-learning-books" },
+      {
+        section: "Template Compendiums",
+        packId: "world.test-learning-feats",
+        note: "Items dropped from these compendiums can start projects.",
+      },
+      {
+        section: "Instructor Compendiums",
+        packId: "world.test-teachers",
+        note: "Compendiums containing actors with Teacher Offerings.",
+      },
+      {
+        section: "Book Compendiums",
+        packId: "world.test-learning-books",
+        note: "Compendiums containing items with Learning Book bonuses.",
+      },
     ];
 
-    for (const { section, packId } of selections) {
-      const sectionLocator = page
-        .locator(".world-settings section, .world-settings")
-        .filter({ has: page.getByRole("heading", { name: section }) });
-      // If the above doesn't work well, we can try finding the heading and then the next CompendiumConfig
-      // But let's try a simpler approach: find the checkbox that is descendant of a container with the heading
-      const checkbox = page
-        .locator("h3")
-        .filter({ hasText: section })
-        .locator("xpath=following-sibling::div[1]//input[@data-pack-id='" + packId + "']")
-        .first();
+    for (const { section, packId, note } of selections) {
+      // Find the specific section by its unique note text
+      const sectionGroup = settingsDialog.locator("section").filter({
+        has: page.locator("p.notes", { hasText: note }),
+      });
 
-      // Actually, a cleaner way with Playwright:
-      const group = page
-        .locator("div.world-settings > h3")
-        .filter({ hasText: section })
-        .locator("xpath=following-sibling::section[1]");
-      const cb = group.locator(`input[data-pack-id="${packId}"]`);
+      // Find the checkbox within that specific section
+      const cb = sectionGroup.locator(`input[data-pack-id="${packId}"]`);
 
-      await expect(cb).toBeVisible({ timeout: 10000 });
+      // Wait for it to be visible (handles async loading)
+      await expect(cb).toBeVisible({ timeout: 20000 });
 
       const isChecked = await cb.isChecked();
       if (!isChecked) {
