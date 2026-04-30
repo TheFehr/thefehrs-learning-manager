@@ -1,12 +1,11 @@
 import type { ActivityData5e } from "@/types.js";
+import { Logger } from "@/core/logger.js";
 
 export function createBaseActivityTemplate(): Omit<
   ActivityData5e,
   "name" | "img" | "sort" | "_id"
 > {
-  // @ts-ignore
-  if (typeof globalThis.Logger !== "undefined")
-    globalThis.Logger.debug("Creating base activity template");
+  Logger.debug("Creating base activity template");
   return {
     override: false,
     concentration: false,

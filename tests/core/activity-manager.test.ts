@@ -1,6 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { ActivityManager } from "../../src/core/activity-manager";
-import { Settings } from "../../src/core/settings";
 import { Logger } from "../../src/core/logger";
 
 // Mock Settings using the relative path to the source module
@@ -115,8 +114,7 @@ describe("ActivityManager", () => {
       mockGame.actors.contents = [actor as any];
 
       // Direct implementation mock to ensure it correctly records failure
-      const injectSpy = vi
-        .spyOn(ActivityManager, "injectActivities")
+      vi.spyOn(ActivityManager, "injectActivities")
         .mockResolvedValueOnce(true)
         .mockRejectedValueOnce(new Error("Fail"));
 
