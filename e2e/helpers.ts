@@ -74,3 +74,54 @@ export async function deleteWorldIfExists(page: Page, worldId: string) {
     await expect(worldBox).toBeHidden();
   }
 }
+
+export async function returnToSetup(page: Page, adminPassword?: string) {
+  const currentUrl = page.url();
+
+  if (currentUrl.includes("/setup")) {
+    return;
+  }
+
+  if (currentUrl.includes("/game")) {
+    // Open Settings sidebar
+    await page.getByRole("tab", { name: "Game Settings" }).click();
+    // Click Return to Setup
+    const returnToSetupButton = page.locator('button[data-app="setup"]');
+    await returnToSetupButton.click();
+
+    // Handle confirmation dialog if it appears
+    const confirmButton = page.locator("button.yes, button.default").filter({ hasText: /Yes/i });
+    try {
+      await confirmButton.waitFor({ state: "visible", timeout: 2000 });
+      await confirmButton.click();
+    } catch (e) {
+      // Dialog might not have appeared
+    }
+  } else if (currentUrl.includes("/join")) {
+    const returnToSetupButton = page.getByRole("button", { name: /Return to Setup/i });
+    if (await returnToSetupButton.isVisible()) {
+      const adminPasswordInput = page
+        .locator('input[name="adminPassword"], input[type="password"]')
+        .last();
+      if ((await adminPasswordInput.isVisible()) && adminPassword) {
+        await adminPasswordInput.fill(adminPassword);
+      }
+      await returnToSetupButton.click();
+    }
+  }
+
+  // Wait for /setup or /auth
+  await page.waitForURL(
+    (url) => url.pathname.includes("/setup") || url.pathname.includes("/auth"),
+    { timeout: 30000 },
+  );
+
+  if (page.url().includes("/auth")) {
+    const passwordInput = page.locator('input[name="adminPassword"]');
+    if ((await passwordInput.isVisible()) && adminPassword) {
+      await passwordInput.fill(adminPassword);
+      await page.getByRole("button", { name: "Log In" }).click();
+      await page.waitForURL((url) => url.pathname.includes("/setup"), { timeout: 30000 });
+    }
+  }
+}

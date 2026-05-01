@@ -5,7 +5,7 @@ import dotenv from "dotenv";
 dotenv.config({ override: true });
 
 import moduleDefinition from "../public/module.json" with { type: "json" };
-import { switchTab, disableTour, deleteWorldIfExists } from "./helpers";
+import { switchTab, disableTour, deleteWorldIfExists, returnToSetup } from "./helpers";
 import fs from "fs";
 import path from "path";
 
@@ -16,15 +16,7 @@ const moduleTabHeading = "Add-on Modules";
 setup("authenticate and verify module", async ({ page, baseURL }) => {
   setup.setTimeout(180000); // 3 minutes for setup as Foundry can be slow
 
-  const rawAdminPassword = process.env.FOUNDRY_ADMIN_PASSWORD;
-  console.log(`FOUNDRY_ADMIN_PASSWORD length: ${rawAdminPassword?.length || 0}`);
-  if (rawAdminPassword) {
-    console.log(
-      `FOUNDRY_ADMIN_PASSWORD starts with: ${rawAdminPassword[0]}, ends with: ${rawAdminPassword[rawAdminPassword.length - 1]}`,
-    );
-  }
-
-  const adminPassword = rawAdminPassword;
+  const adminPassword = process.env.FOUNDRY_ADMIN_PASSWORD;
   const worldId = process.env.FOUNDRY_E2E_WORLD;
   const userName = process.env.FOUNDRY_E2E_USER;
   const password = process.env.FOUNDRY_E2E_PASSWORD;
@@ -58,46 +50,7 @@ setup("authenticate and verify module", async ({ page, baseURL }) => {
         `Current page "${currentUrl}" is not setup and not the correct launched world. Returning to setup.`,
       );
 
-      // Wait for setup screen or handle redirection to auth/join
-      const handleRedirection = async () => {
-        if (page.url().includes("/auth")) {
-          console.log("On admin auth screen. Logging in.");
-          if (!adminPassword) {
-            throw new Error(
-              "Foundry admin authentication required but FOUNDRY_ADMIN_PASSWORD is not set.",
-            );
-          }
-          await page.locator('input[name="adminPassword"]').fill(adminPassword);
-          await page.getByRole("button", { name: "Log In" }).click();
-          await page.waitForURL(/\/setup/, { timeout: 30000 });
-        } else if (page.url().includes("/join")) {
-          const returnToSetupButton = page.getByRole("button", { name: "Return to Setup" });
-          const adminPasswordInput = page.locator('input[name="adminPassword"]');
-
-          if (await returnToSetupButton.isVisible()) {
-            if (await adminPasswordInput.isVisible()) {
-              if (adminPassword) {
-                console.log("Admin password found and provided. Filling it.");
-                await adminPasswordInput.fill(adminPassword);
-              }
-            }
-            await returnToSetupButton.click();
-            await page.waitForURL(
-              (url) => url.pathname.includes("/setup") || url.pathname.includes("/auth"),
-              { timeout: 30000 },
-            );
-            await handleRedirection(); // Recursive call to handle /auth if it appears after button click
-          } else {
-            throw new Error(
-              `Stuck on join screen with no way to return to setup. URL: ${page.url()}`,
-            );
-          }
-        }
-      };
-
-      if (!page.url().includes("/setup")) {
-        await handleRedirection();
-      }
+      await returnToSetup(page, adminPassword);
 
       try {
         await page.waitForURL((url) => url.pathname.includes("/setup"), { timeout: 10000 });
@@ -105,12 +58,7 @@ setup("authenticate and verify module", async ({ page, baseURL }) => {
         const errorNotification = page.locator(".notification.error");
         if (await errorNotification.isVisible()) {
           const errorText = await errorNotification.innerText();
-          throw new Error(`Failed to return to setup from join screen: ${errorText}`);
-        }
-        if (page.url().includes("/join")) {
-          throw new Error(
-            `Stuck on join screen after clicking "Return to Setup". URL: ${page.url()}`,
-          );
+          throw new Error(`Failed to return to setup: ${errorText}`);
         }
         throw e;
       }

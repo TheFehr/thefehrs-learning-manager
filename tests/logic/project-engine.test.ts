@@ -273,7 +273,7 @@ describe("ProjectEngine", () => {
       expect(item.delete).toHaveBeenCalled();
     });
 
-    it("should fallback to in-place restore if source is not found", async () => {
+    it("should fallback to recreation restore if source is not found", async () => {
       const actor = new Actor() as any;
       const projectDataFlags = {
         stashedSourceUuid: "Compendium.missing.uuid",
@@ -291,7 +291,7 @@ describe("ProjectEngine", () => {
       item.actor = actor;
       item.name = "Learning Project";
       item.type = "weapon";
-      item.delete = vi.fn();
+      item.delete = vi.fn().mockResolvedValue(true);
       const activitiesMap = new Map([
         ["act1", { id: "act1", flags: { [MODULE_ID]: { isLearningActivity: true } } }],
         ["act2", { id: "act2" }],
@@ -309,26 +309,21 @@ describe("ProjectEngine", () => {
 
       await ProjectEngine.completeProject(item);
 
-      // Should have been called once (atomic update)
-      expect(item.update).toHaveBeenCalledTimes(1);
-
-      // Call: primary update (system, name, etc., and dot-notation updates)
-      expect(vi.mocked(item.update).mock.calls[0][0]).toEqual(
-        expect.objectContaining({
-          name: "Stashed Name",
-          system: expect.objectContaining({
-            original: true,
-            activities: expect.objectContaining({
-              act3: {},
+      // Should have been recreated
+      expect(actor.createEmbeddedDocuments).toHaveBeenCalledWith(
+        "Item",
+        expect.arrayContaining([
+          expect.objectContaining({
+            name: "Stashed Name",
+            type: "weapon",
+            system: expect.objectContaining({
+              original: true,
+              activities: { act3: {} },
             }),
           }),
-          "flags.thefehrs-learning-manager": expect.objectContaining({
-            isLearnedReward: true,
-          }),
-          "system.activities.-=act1": null,
-        }),
+        ]),
       );
-      expect(item.delete).not.toHaveBeenCalled();
+      expect(item.delete).toHaveBeenCalled();
     });
 
     it("should recreate the item if type change is needed during restoration", async () => {
@@ -419,20 +414,21 @@ describe("ProjectEngine", () => {
       const result = await ProjectEngine.processTraining(activity as any, { skipPrompt: true });
 
       expect(result).toBe(true);
-      // Check for completion update (atomic since Phase 1 refactor)
-      expect(item.update).toHaveBeenCalled();
+      // Check for completion recreation
+      expect(actor.createEmbeddedDocuments).toHaveBeenCalled();
 
-      const completionUpdate = vi
-        .mocked(item.update)
-        .mock.calls.find((c) => c[0]["flags.thefehrs-learning-manager"])![0];
+      const createdItem = vi
+        .mocked(actor.createEmbeddedDocuments)
+        .mock.calls.find((c) => c[1][0].flags?.[Settings.ID]?.isLearnedReward)![1][0];
 
-      expect(completionUpdate["flags.thefehrs-learning-manager"]).toEqual(
+      expect(createdItem.flags[Settings.ID]).toEqual(
         expect.objectContaining({
           isLearnedReward: true,
         }),
       );
       // system.description.value should be updated (now in nested system object)
-      expect(completionUpdate.system.description.value).toBeDefined();
+      expect(createdItem.system.description.value).toBeDefined();
+      expect(item.delete).toHaveBeenCalled();
 
       expect(actor.setFlag).toHaveBeenCalledWith(
         MODULE_ID,

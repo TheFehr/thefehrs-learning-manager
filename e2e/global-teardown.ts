@@ -1,5 +1,5 @@
 import { test as teardown, expect } from "@playwright/test";
-import { disableTour, deleteWorldIfExists } from "./helpers";
+import { disableTour, deleteWorldIfExists, returnToSetup } from "./helpers";
 
 teardown("delete test world", async ({ page, baseURL }) => {
   const adminPassword = process.env.FOUNDRY_ADMIN_PASSWORD;
@@ -12,9 +12,12 @@ teardown("delete test world", async ({ page, baseURL }) => {
   // 1. Set localStorage before navigation to disable the tour
   await disableTour(page);
 
-  await page.goto("/setup");
+  // 2. Navigate to root and ensure we are on the setup page
+  await page.goto("/");
+  await page.waitForLoadState("networkidle");
+  await returnToSetup(page, adminPassword);
 
-  // 2. If we're on the setup screen handle login
+  // 3. If we're on the setup screen handle login (sometimes it's a form on /setup itself)
   if (page.url().includes("/setup")) {
     const passwordInput = page.locator('input[name="adminPassword"]');
     if (await passwordInput.isVisible()) {

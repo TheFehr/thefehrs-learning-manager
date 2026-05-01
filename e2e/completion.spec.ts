@@ -133,7 +133,10 @@ test.describe("Project Completion and Reward Restoration", () => {
         const actor = (game as any).actors.getName(actorName);
         const item = actor.items.find((i: any) => i.name === projectName);
         const activities = item?.system.activities || {};
-        return Object.values(activities).some(
+        const activityValues = activities?.contents
+          ? Object.values(activities.contents)
+          : Object.values(activities);
+        return activityValues.some(
           (a: any) => a.flags?.["thefehrs-learning-manager"]?.isLearningActivity,
         );
       },
