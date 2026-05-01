@@ -34,7 +34,7 @@ test.describe("Data Setup", () => {
       // 2. Create Learning Feat
       const featPack = (game as any).packs.get("world.test-learning-feats");
       const existingFeats = await featPack.getDocuments();
-      if (existingFeats.length === 0) {
+      if (!existingFeats.some((f) => f.name === "Test Learning Feat")) {
         const featData = {
           name: "Test Learning Feat",
           type: "feat",
@@ -90,115 +90,121 @@ test.describe("Data Setup", () => {
       // 3. Create Learning Books
       const bookPack = (game as any).packs.get("world.test-learning-books");
       const existingBooks = await bookPack.getDocuments();
-      if (existingBooks.length === 0) {
-        const booksData = [
-          {
-            name: "Test Learning Book",
-            type: "loot",
-            img: "icons/sundries/books/book-embossed-bound-gold.webp",
-            system: {
-              description: { value: "A test book for learning." },
-            },
-            flags: {
-              "thefehrs-learning-manager": {
-                learningBookBonus: {
-                  modifier: 2,
-                  categories: ["General"],
-                },
+      const booksData = [
+        {
+          name: "Test Learning Book",
+          type: "loot",
+          img: "icons/sundries/books/book-embossed-bound-gold.webp",
+          system: {
+            description: { value: "A test book for learning." },
+          },
+          flags: {
+            "thefehrs-learning-manager": {
+              learningBookBonus: {
+                modifier: 2,
+                categories: ["General"],
               },
             },
           },
-          {
-            name: "Manual of Arms",
-            type: "loot",
-            img: "icons/sundries/books/book-warfare-brown.webp",
-            system: {
-              description: { value: "A manual on combat techniques." },
-            },
-            flags: {
-              "thefehrs-learning-manager": {
-                learningBookBonus: {
-                  modifier: 1,
-                  categories: ["Combat"],
-                },
+        },
+        {
+          name: "Manual of Arms",
+          type: "loot",
+          img: "icons/sundries/books/book-warfare-brown.webp",
+          system: {
+            description: { value: "A manual on combat techniques." },
+          },
+          flags: {
+            "thefehrs-learning-manager": {
+              learningBookBonus: {
+                modifier: 1,
+                categories: ["Combat"],
               },
             },
           },
-        ];
-        // @ts-ignore
-        await Item.create(booksData, { pack: "world.test-learning-books" });
-        console.log("Created Test Learning Books");
+        },
+      ];
+
+      for (const bookData of booksData) {
+        if (!existingBooks.some((b) => b.name === bookData.name)) {
+          // @ts-ignore
+          await Item.create(bookData, { pack: "world.test-learning-books" });
+          console.log(`Created Learning Book: ${bookData.name}`);
+        }
       }
 
       // 4. Create Teachers
       const teacherPack = (game as any).packs.get("world.test-teachers");
       const existingTeachers = await teacherPack.getDocuments();
-      if (existingTeachers.length === 0) {
-        const teachersData = [
-          {
-            name: "Test Teacher",
-            type: "npc",
-            img: "icons/citizens/scholars/scholar-monocle-reading.webp",
-            system: {
-              details: { biography: { value: "A test teacher." } },
-            },
-            flags: {
-              "thefehrs-learning-manager": {
-                teacherOfferings: [
-                  {
-                    name: "Expert Tutelage",
-                    modifier: 5,
-                    costs: { hour: 1000 }, // 10 GP
-                    categories: ["General"],
-                  },
-                ],
-              },
+      const teachersData = [
+        {
+          name: "Test Teacher",
+          type: "npc",
+          img: "icons/citizens/scholars/scholar-monocle-reading.webp",
+          system: {
+            details: { biography: { value: "A test teacher." } },
+          },
+          flags: {
+            "thefehrs-learning-manager": {
+              teacherOfferings: [
+                {
+                  name: "Expert Tutelage",
+                  modifier: 5,
+                  costs: { hour: 1000 }, // 10 GP
+                  categories: ["General"],
+                },
+              ],
             },
           },
-          {
-            name: "Combat Master",
-            type: "npc",
-            img: "icons/citizens/knights/knight-armor-plate-helmet.webp",
-            system: {
-              details: { biography: { value: "A master of combat." } },
-            },
-            flags: {
-              "thefehrs-learning-manager": {
-                teacherOfferings: [
-                  {
-                    name: "Combat Training",
-                    modifier: 5,
-                    costs: { hour: 2000 }, // 20 GP
-                    categories: ["Combat"],
-                  },
-                ],
-              },
+        },
+        {
+          name: "Combat Master",
+          type: "npc",
+          img: "icons/citizens/knights/knight-armor-plate-helmet.webp",
+          system: {
+            details: { biography: { value: "A master of combat." } },
+          },
+          flags: {
+            "thefehrs-learning-manager": {
+              teacherOfferings: [
+                {
+                  name: "Combat Training",
+                  modifier: 5,
+                  costs: { hour: 2000 }, // 20 GP
+                  categories: ["Combat"],
+                },
+              ],
             },
           },
-          {
-            name: "Scholar",
-            type: "npc",
-            img: "icons/citizens/scholars/scholar-reading-scroll.webp",
-            system: {
-              details: { biography: { value: "A wise scholar." } },
-            },
-            flags: {
-              "thefehrs-learning-manager": {
-                teacherOfferings: [
-                  {
-                    name: "History Lessons",
-                    modifier: 2,
-                    costs: { hour: 500 }, // 5 GP
-                    categories: ["History"],
-                  },
-                ],
-              },
+        },
+        {
+          name: "Scholar",
+          type: "npc",
+          img: "icons/citizens/scholars/scholar-reading-scroll.webp",
+          system: {
+            details: { biography: { value: "A wise scholar." } },
+          },
+          flags: {
+            "thefehrs-learning-manager": {
+              teacherOfferings: [
+                {
+                  name: "History Lessons",
+                  modifier: 2,
+                  costs: { hour: 500 }, // 5 GP
+                  categories: ["History"],
+                },
+              ],
             },
           },
-        ];
-        // @ts-ignore
-        await Actor.create(teachersData, { pack: "world.test-teachers" });
-        console.log("Created Test Teachers");
+        },
+      ];
+
+      for (const teacherData of teachersData) {
+        if (!existingTeachers.some((t) => t.name === teacherData.name)) {
+          // @ts-ignore
+          await Actor.create(teacherData, { pack: "world.test-teachers" });
+          console.log(`Created Teacher: ${teacherData.name}`);
+        }
       }
 
       // 5. Create PC Actors
@@ -314,7 +320,7 @@ test.describe("Data Setup", () => {
                   progress: 95,
                   target: 100,
                   stashedName: completionProjectName,
-                  stashedType: "weapon",
+                  stashedType: "feat",
                   stashedEffects: [
                     {
                       name: "AC Bonus",

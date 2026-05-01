@@ -87,10 +87,10 @@ test.describe("Project Completion and Reward Restoration", () => {
     await expect(notification).toBeVisible({ timeout: 15000 });
 
     // 5. Verify the project item name is restored on PC 1 sheet (removes progress indicator)
-    // Since it's now a weapon, it might have moved to the Inventory tab
-    const inventoryTab = actorSheet.getByRole("tab", { name: /Inventory/i }).first();
-    if (await inventoryTab.isVisible()) {
-      await inventoryTab.click();
+    // Since it's a feat, it should be in the Features tab
+    const featuresTabAfter = actorSheet.getByRole("tab", { name: /Features/i }).first();
+    if (await featuresTabAfter.isVisible()) {
+      await featuresTabAfter.click();
     }
 
     const restoredItemRow = actorSheet
@@ -101,7 +101,7 @@ test.describe("Project Completion and Reward Restoration", () => {
     await expect(restoredItemRow).toBeVisible({ timeout: 15000 });
     await expect(restoredItemRow).not.toContainText("100/100");
 
-    // 6. Verify the item type is restored to its original type ('weapon')
+    // 6. Verify the item type is restored to its original type ('feat')
     // We can check this via evaluate because it's hard to see in the UI without opening the item sheet
     const itemType = await page.evaluate(
       ({ actorName, projectName }) => {
@@ -112,7 +112,7 @@ test.describe("Project Completion and Reward Restoration", () => {
       { actorName, projectName },
     );
 
-    expect(itemType).toBe("weapon");
+    expect(itemType).toBe("feat");
 
     // 7. Verify the Active Effect is re-enabled and visible on the actor
     const hasActiveEffect = await page.evaluate(
