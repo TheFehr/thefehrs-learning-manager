@@ -254,6 +254,7 @@ setup("authenticate and verify module", async ({ page, baseURL }) => {
       .locator("dialog,div,section,form")
       .filter({ has: page.getByRole("heading", { name: "Reload Application?" }) })
       .last();
+    await reloadDialog.waitFor({ state: "visible" });
     await reloadDialog.getByRole("button", { name: /Yes/i }).click();
 
     // Wait for reload

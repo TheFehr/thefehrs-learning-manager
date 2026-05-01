@@ -269,7 +269,16 @@ test.describe("Instructor and Tutelage System", () => {
     );
 
     // 8. Verify GP deducted and time deducted
-    await page.waitForTimeout(5000);
+    await page.waitForFunction(
+      (moduleId) => {
+        const actor = (game as any).actors.getName("Poor Student");
+        const bank = actor.getFlag(moduleId, "bank")?.total;
+        // We wait for the bank to be updated as a proxy for the entire transaction
+        return bank === 9;
+      },
+      moduleId,
+      { timeout: 15000 },
+    );
 
     const finalStudentData = await page.evaluate((moduleId) => {
       const actor = (game as any).actors.getName("Poor Student");

@@ -66,8 +66,17 @@ test.describe("Advanced Time Bank Management", () => {
     await dialog.getByRole("button", { name: /Yes/i }).click();
 
     // 6. Verify bank is empty and project progressed
-    // We'll wait a bit for the async operations to complete
-    await page.waitForTimeout(3000);
+    await page.waitForFunction(
+      (moduleId) => {
+        const actor = (game as any).actors.getName("PC 3");
+        const project = actor.items.find((i: any) => i.name.includes("Time Bank Project"));
+        const bankTotal = actor.getFlag(moduleId, "bank")?.total;
+        const progress = project.getFlag(moduleId, "projectData")?.progress;
+        return bankTotal === 0 && progress > 0;
+      },
+      moduleId,
+      { timeout: 15000 },
+    );
 
     const stats = await page.evaluate((moduleId) => {
       const actor = (game as any).actors.getName("PC 3");
@@ -174,7 +183,15 @@ test.describe("Advanced Time Bank Management", () => {
     }, moduleId);
 
     // 3. Verify project progress increased automatically
-    await page.waitForTimeout(5000); // Give it more time to process
+    await page.waitForFunction(
+      (moduleId) => {
+        const actor = (game as any).actors.getName("PC 3");
+        const project = actor.items.find((i: any) => i.name.includes("Time Bank Project"));
+        return (project.getFlag(moduleId, "projectData")?.progress || 0) > 0;
+      },
+      moduleId,
+      { timeout: 15000 },
+    );
 
     const stats = await page.evaluate((moduleId) => {
       const actor = (game as any).actors.getName("PC 3");

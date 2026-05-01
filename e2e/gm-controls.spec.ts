@@ -64,8 +64,16 @@ test.describe("GM Administrative Controls (Party Tab)", () => {
     await progressInput.fill("75");
     await progressInput.press("Enter");
 
-    // Wait for backend to update and UI potentially re-render
-    await page.waitForTimeout(2000);
+    // Wait for backend to update
+    await page.waitForFunction(
+      (moduleId) => {
+        const actor = (game as any).actors.getName("PC 4");
+        const project = actor.items.find((i: any) => i.name.includes("GM Override Project"));
+        return project?.getFlag(moduleId, "projectData")?.progress === 75;
+      },
+      moduleId,
+      { timeout: 10000 },
+    );
 
     // Verify update in backend
     const backendProgress = await page.evaluate((moduleId) => {
@@ -91,7 +99,16 @@ test.describe("GM Administrative Controls (Party Tab)", () => {
     await targetInput.fill("150");
     await targetInput.press("Enter");
 
-    await page.waitForTimeout(2000);
+    // Wait for backend to update
+    await page.waitForFunction(
+      (moduleId) => {
+        const actor = (game as any).actors.getName("PC 4");
+        const project = actor.items.find((i: any) => i.name.includes("GM Override Project"));
+        return project?.getFlag(moduleId, "projectData")?.target === 150;
+      },
+      moduleId,
+      { timeout: 10000 },
+    );
 
     // Verify update in backend
     const backendTarget = await page.evaluate((moduleId) => {
@@ -122,7 +139,14 @@ test.describe("GM Administrative Controls (Party Tab)", () => {
     await abortDialog.getByRole("button", { name: /Yes/i }).click();
 
     // 9. Verify project is removed from PC 4
-    await page.waitForTimeout(2000);
+    await page.waitForFunction(
+      () => {
+        const actor = (game as any).actors.getName("PC 4");
+        return !actor.items.find((i: any) => i.name.includes("GM Override Project"));
+      },
+      { timeout: 10000 },
+    );
+
     const projectExists = await page.evaluate(() => {
       const actor = (game as any).actors.getName("PC 4");
       return !!actor.items.find((i: any) => i.name.includes("GM Override Project"));

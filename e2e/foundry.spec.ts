@@ -13,7 +13,7 @@ test.describe("Foundry VTT Interface", () => {
     // (This is a generic check, you can add more specific selectors later)
     const isModuleLoaded = await page.evaluate(() => {
       // @ts-ignore
-      return !!game.modules.get("thefehrs-learning-manager");
+      return game.modules.get("thefehrs-learning-manager")?.active === true;
     });
     expect(isModuleLoaded).toBe(true);
   });

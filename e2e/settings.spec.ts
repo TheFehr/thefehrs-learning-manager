@@ -10,28 +10,36 @@ test.describe("Settings UI", () => {
       timeout: 60000,
     });
 
-    // 1. Ensure settings are registered (fallback logic from original test)
+    // 1. Ensure settings are registered
     await page.evaluate(() => {
       const moduleId = "thefehrs-learning-manager";
-      const missing = [
+      const requiredSettings = [
         "allowedCompendiums",
         "teacherCompendiums",
         "bookCompendiums",
         "rules",
         "timeUnits",
       ];
-      for (const key of missing) {
-        if (!(game as any).settings.settings.has(`${moduleId}.${key}`)) {
-          console.log(`Manually registering ${key} for test stability`);
-          (game as any).settings.register(moduleId, key, {
-            scope: "world",
-            config: false,
-            type: key === "rules" || key === "timeUnits" ? Object : Array,
-            default: key === "rules" ? {} : key === "timeUnits" ? [] : [],
-          });
-        }
+      const missing = requiredSettings.filter(
+        (key) => !(game as any).settings.settings.has(`${moduleId}.${key}`),
+      );
+      if (missing.length > 0) {
+        throw new Error(`Failed to initialize settings. Missing: ${missing.join(", ")}`);
       }
     });
+
+    // Wait for compendiums to be indexed
+    await page.waitForFunction(
+      () => {
+        const packs = (game as any).packs;
+        return (
+          packs.has("world.test-learning-feats") &&
+          packs.has("world.test-teachers") &&
+          packs.has("world.test-learning-books")
+        );
+      },
+      { timeout: 30000 },
+    );
 
     // 2. Open the Settings app via the menu
     await page.evaluate(() => {
@@ -95,6 +103,16 @@ test.describe("Settings UI", () => {
 
     // 6. Click Save
     await page.getByRole("button", { name: "Save Settings" }).click();
+
+    // Wait for settings to persist
+    await page.waitForFunction(
+      () => {
+        const moduleId = "thefehrs-learning-manager";
+        const rules = (game as any).settings.get(moduleId, "rules");
+        return rules?.notificationLevel === "debug";
+      },
+      { timeout: 10000 },
+    );
 
     // 7. Verify settings are saved via API
     const savedSettings = await page.evaluate(() => {
