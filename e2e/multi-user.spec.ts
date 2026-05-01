@@ -58,6 +58,19 @@ test.describe("Multi-User Interactions", () => {
     console.log("Configuring Player character and settings...");
     await playerPage.evaluate(async (moduleId) => {
       const actor = (game as any).actors.getName("PC 3");
+
+      // Cleanup extra projects to avoid interference from stale data
+      const projects = actor.items.filter((i: any) => i.getFlag(moduleId, "isLearningProject"));
+      if (projects.length > 1) {
+        const timeBankProject = projects.find((p: any) => p.name.includes("Time Bank Project"));
+        const toDelete = projects
+          .filter((p: any) => p.id !== (timeBankProject?.id ?? projects[0].id))
+          .map((p: any) => p.id);
+        if (toDelete.length > 0) {
+          await actor.deleteEmbeddedDocuments("Item", toDelete);
+        }
+      }
+
       const user = (game as any).user;
       await user.update({ character: actor.id });
 
