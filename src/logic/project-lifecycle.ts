@@ -290,9 +290,10 @@ export class ProjectLifecycle {
     clonedData.name = projectDataFlags.stashedName || item.name;
     clonedData.effects = (projectDataFlags.stashedEffects || []) as any[];
 
-    // Replace system data with deep clone of stashed system to prevent artifact survival
+    // Restore system data via merge to prevent artifact survival while preserving required structures
     if (projectDataFlags.stashedSystem) {
-      clonedData.system = FoundryUtils.deepClone(
+      clonedData.system = FoundryUtils.mergeObject(
+        clonedData.system || {},
         projectDataFlags.stashedSystem as unknown as object,
       );
     }

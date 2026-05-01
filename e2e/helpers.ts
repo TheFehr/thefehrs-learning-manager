@@ -97,7 +97,8 @@ export async function returnToSetup(page: Page, adminPassword?: string) {
     }
   } else if (currentUrl.includes("/join")) {
     const returnToSetupButton = page.getByRole("button", { name: /Return to Setup/i });
-    if (await returnToSetupButton.isVisible()) {
+    try {
+      await returnToSetupButton.waitFor({ state: "visible", timeout: 5000 });
       const adminPasswordInput = page
         .locator('input[name="adminPassword"], input[type="password"]')
         .last();
@@ -105,6 +106,8 @@ export async function returnToSetup(page: Page, adminPassword?: string) {
         await adminPasswordInput.fill(adminPassword);
       }
       await returnToSetupButton.click();
+    } catch (e) {
+      // Button might not be present if no admin password is set or already at setup
     }
   }
 

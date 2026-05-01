@@ -30,7 +30,9 @@ test.describe("Multi-User Interactions", () => {
 
     // 2. Setup Player Page
     console.log("Setting up Player Page...");
-    const playerContext = await browser.newContext(); // Fresh context
+    const playerContext = await browser.newContext({
+      viewport: { width: 1920, height: 1080 },
+    }); // Fresh context with required resolution
     const playerPage = await playerContext.newPage();
     await playerPage.goto("/join");
     await playerPage.waitForLoadState("networkidle");
