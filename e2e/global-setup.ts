@@ -17,6 +17,7 @@ setup("authenticate and verify module", async ({ page, baseURL }) => {
   setup.setTimeout(180000); // 3 minutes for setup as Foundry can be slow
 
   const adminPassword = process.env.FOUNDRY_ADMIN_PASSWORD;
+  console.log("admin password provided:", !!adminPassword);
   const worldId = process.env.FOUNDRY_E2E_WORLD;
   const userName = process.env.FOUNDRY_E2E_USER;
   const password = process.env.FOUNDRY_E2E_PASSWORD;
