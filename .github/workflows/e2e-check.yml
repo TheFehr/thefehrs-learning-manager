@@ -1,0 +1,45 @@
+name: E2E Verification Check
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  check-e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify E2E Signature
+        run: |
+          if [ ! -f .e2e-verification ]; then
+            echo "::error::.e2e-verification file is missing. You must run 'npm run test:e2e:verify' locally and push the resulting commit."
+            exit 1
+          fi
+
+          VERIFIED_COMMIT=$(cat .e2e-verification | tr -d '[:space:]')
+          echo "Verified commit according to file: $VERIFIED_COMMIT"
+
+          # 1. Verify that the commit exists and is an ancestor of HEAD
+          if ! git merge-base --is-ancestor "$VERIFIED_COMMIT" HEAD; then
+            echo "::error::The verified commit ($VERIFIED_COMMIT) is not in the history of the current HEAD. This usually happens if you rebased or squashed. Please re-run 'npm run test:e2e:verify' locally."
+            exit 1
+          fi
+
+          # 2. Verify that NO files other than .e2e-verification have changed since that commit
+          CHANGES=$(git diff --name-only "$VERIFIED_COMMIT" HEAD)
+          UNVERIFIED_CHANGES=""
+          for FILE in $CHANGES; do
+            if [ "$FILE" != ".e2e-verification" ]; then
+              UNVERIFIED_CHANGES="$UNVERIFIED_CHANGES $FILE"
+            fi
+          done
+
+          if [ -n "$UNVERIFIED_CHANGES" ]; then
+            echo "::error::Source files have been modified since the last E2E verification: $UNVERIFIED_CHANGES. Please run 'npm run test:e2e:verify' locally to verify your latest changes."
+            exit 1
+          fi
+
+          echo "✅ E2E verification is valid for the current HEAD."
