@@ -4,20 +4,29 @@ set -e
 # Ensure we are at the repo root
 cd "$(dirname "$0")/.."
 
-# Check for uncommitted changes
-if ! git diff-index --quiet HEAD --; then
+# Check for uncommitted changes (excluding .e2e-verification)
+if ! git diff-index --quiet HEAD -- . ':!.e2e-verification'; then
     echo "❌ Error: Working directory must be clean before running verification."
     echo "Please commit or stash your changes first."
     exit 1
 fi
 
+# Function to calculate hash of all relevant files
+calculate_hash() {
+    git ls-files src/ e2e/ public/ package.json package-lock.json playwright.config.ts vite.config.ts tsconfig*.json .tool-versions | \
+    sort | \
+    xargs sha256sum | \
+    sha256sum | \
+    cut -d ' ' -f 1
+}
+
 echo "🚀 Running E2E tests..."
 npm run test:e2e:run
 
 # If tests passed, update the verification file
-COMMIT=$(git rev-parse HEAD)
-echo "$COMMIT" > .e2e-verification
+HASH=$(calculate_hash)
+echo "$HASH" > .e2e-verification
 git add .e2e-verification
-git commit -m "chore: verify e2e"
+git commit -m "chore: verify e2e [hash: ${HASH:0:8}]"
 
-echo "✅ E2E verification successful and committed ($COMMIT)."
+echo "✅ E2E verification successful and committed ($HASH)."

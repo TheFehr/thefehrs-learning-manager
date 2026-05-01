@@ -19,27 +19,24 @@ jobs:
             exit 1
           fi
 
-          VERIFIED_COMMIT=$(cat .e2e-verification | tr -d '[:space:]')
-          echo "Verified commit according to file: $VERIFIED_COMMIT"
+          # Function to calculate hash (MUST match scripts/e2e-verify.sh)
+          calculate_hash() {
+              git ls-files src/ e2e/ public/ package.json package-lock.json playwright.config.ts vite.config.ts tsconfig*.json .tool-versions | \
+              sort | \
+              xargs sha256sum | \
+              sha256sum | \
+              cut -d ' ' -f 1
+          }
 
-          # 1. Verify that the commit exists and is an ancestor of HEAD
-          if ! git merge-base --is-ancestor "$VERIFIED_COMMIT" HEAD; then
-            echo "::error::The verified commit ($VERIFIED_COMMIT) is not in the history of the current HEAD. This usually happens if you rebased or squashed. Please re-run 'npm run test:e2e:verify' locally."
+          EXPECTED_HASH=$(cat .e2e-verification | tr -d '[:space:]')
+          ACTUAL_HASH=$(calculate_hash)
+
+          echo "Expected hash: $EXPECTED_HASH"
+          echo "Actual hash:   $ACTUAL_HASH"
+
+          if [ "$EXPECTED_HASH" != "$ACTUAL_HASH" ]; then
+            echo "::error::E2E verification hash mismatch. Source files or configuration have changed since the last E2E verification. Please run 'npm run test:e2e:verify' locally and push the updated .e2e-verification file."
             exit 1
           fi
 
-          # 2. Verify that NO files other than .e2e-verification have changed since that commit
-          CHANGES=$(git diff --name-only "$VERIFIED_COMMIT" HEAD)
-          UNVERIFIED_CHANGES=""
-          for FILE in $CHANGES; do
-            if [ "$FILE" != ".e2e-verification" ]; then
-              UNVERIFIED_CHANGES="$UNVERIFIED_CHANGES $FILE"
-            fi
-          done
-
-          if [ -n "$UNVERIFIED_CHANGES" ]; then
-            echo "::error::Source files have been modified since the last E2E verification: $UNVERIFIED_CHANGES. Please run 'npm run test:e2e:verify' locally to verify your latest changes."
-            exit 1
-          fi
-
-          echo "✅ E2E verification is valid for the current HEAD."
+          echo "✅ E2E verification is valid for the current content."
