@@ -188,7 +188,7 @@ describe("ProjectLifecycle", () => {
 
       const createdData = mockActor.createEmbeddedDocuments.mock.calls[0][1][0];
       expect(createdData.system.transientField).toBeUndefined();
-      expect(createdData.system.value).toBe(20); // Kept updated value
+      expect(createdData.system.value).toBe(10); // Restored from stashed value
       expect(createdData.system.activities).toEqual({ act1: { name: "Activity 1" } });
     });
   });
