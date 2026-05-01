@@ -66,13 +66,32 @@ globalThis.foundry = {
     getProperty: vi.fn((obj: any, path: string) => {
       return path.split(".").reduce((o, i) => (o ? o[i] : undefined), obj);
     }),
-    mergeObject: vi.fn((target: any, source: any) => {
+    mergeObject: vi.fn((target: any, source: any, options: any = {}) => {
+      const recursive = options.recursive !== false;
+      const insertKeys = options.insertKeys !== false;
+      const overwrite = options.overwrite !== false;
+
       for (const [key, value] of Object.entries(source)) {
-        if (value && typeof value === "object" && !Array.isArray(value)) {
-          if (!target[key]) target[key] = {};
-          globalThis.foundry.utils.mergeObject(target[key], value);
-        } else {
-          target[key] = value;
+        if (Object.prototype.hasOwnProperty.call(target, key)) {
+          if (
+            recursive &&
+            value &&
+            typeof value === "object" &&
+            !Array.isArray(value) &&
+            target[key] &&
+            typeof target[key] === "object" &&
+            !Array.isArray(target[key])
+          ) {
+            globalThis.foundry.utils.mergeObject(target[key], value, options);
+          } else if (overwrite) {
+            target[key] = value;
+          }
+        } else if (insertKeys) {
+          if (recursive && value && typeof value === "object" && !Array.isArray(value)) {
+            target[key] = globalThis.foundry.utils.deepClone(value);
+          } else {
+            target[key] = value;
+          }
         }
       }
       return target;

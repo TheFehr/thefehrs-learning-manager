@@ -293,8 +293,9 @@ export class ProjectLifecycle {
     // Restore system data via merge to prevent artifact survival while preserving required structures
     if (projectDataFlags.stashedSystem) {
       clonedData.system = FoundryUtils.mergeObject(
+        FoundryUtils.deepClone(projectDataFlags.stashedSystem as unknown as object),
         clonedData.system || {},
-        projectDataFlags.stashedSystem as unknown as object,
+        { insertKeys: false },
       );
     }
 
