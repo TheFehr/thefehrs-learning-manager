@@ -28,11 +28,19 @@ test.describe("Data Setup", () => {
             package: "world",
           });
           console.log(`Created compendium: ${c.label}`);
+          // Re-fetch to ensure it's available
+          pack = (game as any).packs.get(`world.${c.name}`);
+        }
+        if (!pack) {
+          throw new Error(`Failed to create or find compendium: world.${c.name}`);
         }
       }
 
       // 2. Create Learning Feat
       const featPack = (game as any).packs.get("world.test-learning-feats");
+      if (!featPack) {
+        throw new Error("Compendium world.test-learning-feats not found");
+      }
       const existingFeats = await featPack.getDocuments();
       if (!existingFeats.some((f) => f.name === "Test Learning Feat")) {
         const featData = {
@@ -89,6 +97,9 @@ test.describe("Data Setup", () => {
 
       // 3. Create Learning Books
       const bookPack = (game as any).packs.get("world.test-learning-books");
+      if (!bookPack) {
+        throw new Error("Compendium world.test-learning-books not found");
+      }
       const existingBooks = await bookPack.getDocuments();
       const booksData = [
         {
@@ -135,6 +146,9 @@ test.describe("Data Setup", () => {
 
       // 4. Create Teachers
       const teacherPack = (game as any).packs.get("world.test-teachers");
+      if (!teacherPack) {
+        throw new Error("Compendium world.test-teachers not found");
+      }
       const existingTeachers = await teacherPack.getDocuments();
       const teachersData = [
         {
@@ -355,6 +369,9 @@ test.describe("Data Setup", () => {
         const existingManual = pc1.items.find((i) => i.name === "Manual of Arms");
         if (!existingManual) {
           const bookPack = (game as any).packs.get("world.test-learning-books");
+          if (!bookPack) {
+            throw new Error("Compendium world.test-learning-books not found");
+          }
           const book = (await bookPack.getDocuments()).find((i) => i.name === "Manual of Arms");
           if (book) {
             await pc1.createEmbeddedDocuments("Item", [book.toObject()]);
