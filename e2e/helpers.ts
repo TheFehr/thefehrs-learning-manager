@@ -56,8 +56,6 @@ export async function deleteWorldIfExists(page: Page, worldId: string) {
     const deleteOption = page.locator(".context-item").filter({ hasText: "Delete World" });
     await deleteOption.click();
 
-    await page.waitForTimeout(1000);
-
     // Handle the confirmation dialog with the random code
     const dialog = page
       .locator("dialog,div,section,form")

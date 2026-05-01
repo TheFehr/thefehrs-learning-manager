@@ -302,7 +302,9 @@ test.describe("Data Setup", () => {
 
         // Project near completion for Test 1
         const completionProjectName = "Test Learning Feat";
-        const existingCompletion = pc1.items.find((i) => i.name.startsWith(completionProjectName));
+        const existingCompletion = pc1.items.find(
+          (i) => i.name === `${completionProjectName} (95/100)`,
+        );
         if (!existingCompletion) {
           const projectData = {
             name: `${completionProjectName} (95/100)`,
@@ -513,6 +515,22 @@ test.describe("Data Setup", () => {
       ]);
 
       console.log("Configured module settings");
+
+      // 9. Create Non-GM User
+      let testUser = (game as any).users.getName("Test Player");
+      if (!testUser) {
+        // @ts-ignore
+        testUser = await User.create({
+          name: "Test Player",
+          role: 1, // PLAYER
+          password: "password",
+        });
+        console.log("Created Test Player user");
+      }
+
+      if (pc3 && testUser) {
+        await pc3.update({ [`ownership.${testUser.id}`]: 3 }); // OWNER
+      }
 
       // Sync activities for all created projects
       // @ts-ignore

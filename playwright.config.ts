@@ -56,14 +56,52 @@ export default defineConfig({
       },
     },
     {
+      name: "data-setup",
+      testMatch: /00-data-setup\.spec\.ts/,
+      use: {
+        storageState: "e2e/.auth/user.json",
+      },
+      dependencies: ["setup"],
+    },
+    {
+      name: "setup-player",
+      testMatch: /player-setup\.ts/,
+      use: {
+        storageState: "e2e/.auth/user.json",
+      },
+      dependencies: ["data-setup"],
+    },
+    {
       name: "chromium",
       testMatch: /.*\.spec\.ts/,
+      testIgnore: [/00-data-setup\.spec\.ts/, /multi-user\.spec\.ts/],
       use: {
         ...devices["Desktop Chrome"],
         storageState: "e2e/.auth/user.json",
         viewport: { width: 1920, height: 1080 },
       },
       dependencies: ["setup"],
+    },
+    {
+      name: "chromium-player",
+      testMatch: /.*\.spec\.ts/,
+      testIgnore: [/00-data-setup\.spec\.ts/, /multi-user\.spec\.ts/],
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "e2e/.auth/player.json",
+        viewport: { width: 1920, height: 1080 },
+      },
+      dependencies: ["setup-player"],
+    },
+    {
+      name: "multi-user",
+      testMatch: /multi-user\.spec\.ts/,
+      use: {
+        ...devices["Desktop Chrome"],
+        storageState: "e2e/.auth/user.json",
+        viewport: { width: 1920, height: 1080 },
+      },
+      dependencies: ["setup-player"],
     },
   ],
 });
