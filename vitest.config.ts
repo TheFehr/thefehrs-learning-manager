@@ -16,6 +16,7 @@ export default defineConfig({
   test: {
     setupFiles: ["./tests/setup.ts"],
     environment: "happy-dom",
+    exclude: ["node_modules", "dist", ".idea", ".git", ".cache", "e2e/**"],
     coverage: {
       provider: "v8",
       reporter: ["text", "json", "html"],

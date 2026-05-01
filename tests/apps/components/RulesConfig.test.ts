@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import RulesConfig from "@/apps/components/RulesConfig.svelte";
+import RulesConfigWrapper from "./RulesConfigWrapper.svelte";
 import { mount, unmount, tick } from "svelte";
 
 vi.unmock("svelte");
@@ -54,13 +55,33 @@ describe("RulesConfig.svelte", () => {
     expect(target.querySelector("select#rule-crit")).not.toBeNull();
   });
 
-  it("should show bulk expected formula when bulk method is mathematical", async () => {
-    instance = mount(RulesConfig, {
+  it("should update rules when inputs change", async () => {
+    instance = mount(RulesConfigWrapper, {
       target,
-      props: { rules: { ...mockRules, bulkMethod: "mathematical" } },
+      props: {
+        initialRules: { ...mockRules },
+      },
     });
     await tick();
 
-    expect(target.querySelector("input#rule-bulk-formula")).not.toBeNull();
+    expect(instance.getRules().notificationLevel).toBe("info");
+
+    // Change DC
+    const dcInput = target.querySelector("input#rule-dc") as HTMLInputElement;
+    dcInput.value = "15";
+    dcInput.dispatchEvent(new Event("input", { bubbles: true }));
+    await tick();
+
+    expect(instance.getRules().checkDC).toBe(15);
+
+    // Change Method to direct
+    const methodSelect = target.querySelector("select#rule-non-bulk-method") as HTMLSelectElement;
+    expect(methodSelect).not.toBeNull();
+    methodSelect.value = "direct";
+    methodSelect.dispatchEvent(new Event("change", { bubbles: true }));
+    await tick();
+    await tick();
+
+    expect(instance.getRules().nonBulkMethod).toBe("direct");
   });
 });

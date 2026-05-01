@@ -181,36 +181,23 @@ export class ProjectLifecycle {
       if (success) return;
     }
 
-    // Fallback Restoration: Restore in-place (or recreate if type differs)
-    Logger.warn(`Falling back to in-place restoration for ${item.name}`);
+    // Fallback Restoration: Always recreate to ensure clean data migration
+    // especially for dnd5e v3 activities which can fail on in-place updates with deletions
+    Logger.warn(`Falling back to recreation restoration for ${item.name}`);
 
     const stashedType = projectDataFlags.stashedType || item.type;
-    const needsTypeChange = stashedType !== item.type;
+    const success = await this.recreateItem(
+      item,
+      actor,
+      stashedType,
+      projectDataFlags,
+      completedFlags,
+    );
 
-    if (needsTypeChange) {
-      const success = await this.recreateWithTypeChange(
-        item,
-        actor,
-        stashedType,
-        projectDataFlags,
-        completedFlags,
-      );
-      // If type change failed, we should NOT fall back to updateInPlace as it would use the wrong type
-      if (!success) {
-        Logger.error(
-          `Type change recreation failed for ${
-            projectDataFlags.stashedName || item.name
-          }. Completion aborted.`,
-        );
-        return;
-      }
-      return;
-    }
-
-    // Standard in-place update if no type change needed
-    const success = await this.updateInPlace(item, stashedType, projectDataFlags, completedFlags);
     if (!success) {
-      Logger.error(`In-place update failed for project "${item.name}".`);
+      Logger.error(
+        `Restoration failed for ${projectDataFlags.stashedName || item.name}. Completion aborted.`,
+      );
     }
   }
 
@@ -288,7 +275,7 @@ export class ProjectLifecycle {
     return true;
   }
 
-  private static async recreateWithTypeChange(
+  private static async recreateItem(
     item: Item,
     actor: Actor,
     stashedType: string,
@@ -303,7 +290,7 @@ export class ProjectLifecycle {
     clonedData.name = projectDataFlags.stashedName || item.name;
     clonedData.effects = (projectDataFlags.stashedEffects || []) as any[];
 
-    // Replace system data with deep clone of stashed system to prevent artifact survival
+    // Restore system data via merge to prevent artifact survival while preserving required structures
     if (projectDataFlags.stashedSystem) {
       clonedData.system = FoundryUtils.deepClone(
         projectDataFlags.stashedSystem as unknown as object,
@@ -315,9 +302,10 @@ export class ProjectLifecycle {
       ...completedFlags,
     };
 
-    if (projectDataFlags.stashedActivities) {
+    // Ensure activities are restored to their stashed state (or empty)
+    if (clonedData.system) {
       (clonedData.system as any).activities = FoundryUtils.deepClone(
-        projectDataFlags.stashedActivities as object,
+        projectDataFlags.stashedActivities || {},
       );
     }
 
@@ -338,73 +326,6 @@ export class ProjectLifecycle {
       );
     }
     return false;
-  }
-
-  private static async updateInPlace(
-    item: Item,
-    stashedType: string,
-    projectDataFlags: ProjectFlagData,
-    completedFlags: any,
-  ): Promise<boolean> {
-    const dotFlags: Record<string, any> = {};
-    for (const [key, value] of Object.entries(completedFlags)) {
-      dotFlags[`flags.${key}`] = value;
-    }
-
-    // Identify learning activities to explicitly remove via dot-path
-    const existingActivities = (item.system as any).activities;
-    if (existingActivities) {
-      const activityList =
-        typeof (existingActivities as any).values === "function"
-          ? Array.from((existingActivities as any).values())
-          : Array.isArray(existingActivities)
-            ? existingActivities
-            : Object.values(existingActivities);
-
-      for (const activity of activityList as Array<any>) {
-        if (activity?.id && activity.flags?.[Settings.ID]?.isLearningActivity) {
-          dotFlags[`system.activities.-=${activity.id}`] = null;
-        }
-      }
-    }
-
-    // Prepare sanitized system without activities
-    const { activities: _ignored, ...sanitizedSystem } =
-      (projectDataFlags.stashedSystem as unknown as { activities: unknown }) || {};
-
-    // Merge stashed activities (non-learning ones)
-    const systemToUpdate: Record<string, unknown> = { ...(sanitizedSystem as any) };
-    if (projectDataFlags.stashedActivities) {
-      const baseActivities = systemToUpdate.activities as Record<string, unknown>;
-      systemToUpdate.activities = {
-        ...baseActivities,
-        ...projectDataFlags.stashedActivities,
-      };
-    }
-
-    const primaryUpdate: any = {
-      name: projectDataFlags.stashedName || item.name,
-      effects: projectDataFlags.stashedEffects || [],
-      system: systemToUpdate,
-      ...dotFlags,
-    };
-
-    try {
-      // 1. Update basic data, nested system, flags and activity removals atomically
-      await item.update(primaryUpdate);
-    } catch (err) {
-      Logger.error(`Failed to update item in-place:`, true, err);
-      getUI()?.notifications?.error(
-        `Failed to complete project in-place for ${item.name}. See console for details.`,
-      );
-      return false;
-    }
-
-    getUI()?.notifications?.info(`Learning Complete: ${item.name} is now fully available!`);
-    if (typeof (item as Item5e).displayCard === "function") {
-      await (item as Item5e).displayCard({ rollMode: Settings.get("rules").rollMode });
-    }
-    return true;
   }
 
   /**

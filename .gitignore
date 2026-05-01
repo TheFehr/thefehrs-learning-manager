@@ -8,3 +8,7 @@ dist/
 
 .env.foundryvtt.local
 /.junie/
+/playwright-report/
+/test-results/
+/.env
+e2e/.auth/

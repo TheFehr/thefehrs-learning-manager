@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import type { TimeUnit } from "@/types.js";
   import type { MemberMappedData } from "@/apps/party-tab.js";
   import { GrantTimeLogic } from "@/logic/grant-time-logic.js";
@@ -10,8 +11,13 @@
     onsubmit: (timeValues: Record<string, number>, selectedIds: string[]) => void
   } = $props();
 
-  let timeValuesArray = $state(timeUnits.map(tu => ({ id: tu.id, name: tu.name, value: 0 })));
-  let selectedIds = $state<string[]>(isParty ? members.map(m => m.id) : []);
+  let timeValuesArray = $state<{id: string, name: string, value: number}[]>([]);
+  let selectedIds = $state<string[]>([]);
+
+  onMount(() => {
+    timeValuesArray = timeUnits.map(tu => ({ id: tu.id, name: tu.name, value: 0 }));
+    selectedIds = isParty ? members.map(m => m.id) : [];
+  });
 
   // Exported function to be called by the parent
   export function submit() {

@@ -61,7 +61,7 @@
     if (currentSnapshot === untrack(() => initialSnapshot)) return;
 
     const timeout = setTimeout(() => {
-      saveConfig(structuredClone(currentOfferings), currentEnabled);
+      saveConfig(structuredClone($state.snapshot(currentOfferings)), currentEnabled);
     }, 500);
 
     return () => clearTimeout(timeout);

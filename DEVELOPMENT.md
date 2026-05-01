@@ -74,4 +74,10 @@ To ensure project stability and type safety, **always** run the following comman
 
 1.  **Type Checking**: Run `npx tsc --noEmit` to ensure there are no TypeScript errors.
 2.  **Tests**: Run `npm run test` to ensure all Vitest tests pass.
-3.  **Linting**: Run `npm run lint` and `npm run fmt:check` to ensure code style compliance.
+3.  **Manual E2E Testing**:
+    - Copy `.env.example` to `.env`.
+    - Configure `FOUNDRY_URL`, `FOUNDRY_E2E_WORLD`, and `FOUNDRY_E2E_USER`.
+    - Ensure your local FoundryVTT is running and the test world has the module enabled.
+    - Run `npm run test:e2e` to execute the Playwright tests.
+    - Run `npm run test:e2e:ui` to open the Playwright UI for debugging.
+4.  **Linting**: Run `npm run lint` and `npm run fmt:check` to ensure code style compliance.

@@ -197,11 +197,11 @@ describe("TutelageResolverService", () => {
         items: [
           {
             name: "Spellbook",
+            flags: { core: { sourceId: "compendium.item1" } },
             getFlag: vi.fn().mockImplementation((scope, key) => {
               if (scope === MODULE_ID && key === "learningBookBonus") {
                 return { modifier: 2, categories: ["magic"] };
               }
-              if (scope === "core" && key === "sourceId") return "compendium.item1";
               return null;
             }),
           },
@@ -234,9 +234,9 @@ describe("TutelageResolverService", () => {
         items: [
           {
             name: "Legacy Allowed Book",
+            flags: { core: { sourceId: "Compendium.my.pack.item1" } },
             getFlag: vi.fn().mockImplementation((scope, key) => {
               if (scope === MODULE_ID && key === "learningBookBonus") return { modifier: 2 };
-              if (scope === "core" && key === "sourceId") return "Compendium.my.pack.item1";
               return null;
             }),
           },
@@ -250,9 +250,9 @@ describe("TutelageResolverService", () => {
           },
           {
             name: "Forbidden Book",
+            flags: { core: { sourceId: "Compendium.other.pack.item2" } },
             getFlag: vi.fn().mockImplementation((scope, key) => {
               if (scope === MODULE_ID && key === "learningBookBonus") return { modifier: 5 };
-              if (scope === "core" && key === "sourceId") return "Compendium.other.pack.item2";
               return null;
             }),
           },

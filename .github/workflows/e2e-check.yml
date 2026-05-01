@@ -1,0 +1,44 @@
+name: E2E Verification Check
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  check-e2e:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+
+      - name: Verify E2E Signature
+        run: |
+          if [ ! -f .e2e-verification ]; then
+            echo "::error::.e2e-verification file is missing. You must run 'npm run test:e2e:verify' locally and push the resulting commit."
+            exit 1
+          fi
+
+          # Function to calculate hash (MUST match scripts/e2e-verify.sh)
+          calculate_hash() {
+              git ls-files -z src/ e2e/ public/ package.json package-lock.json playwright.config.ts vite.config.ts tsconfig*.json .tool-versions | \
+              sort -z | \
+              xargs -0 sha256sum | \
+              sha256sum | \
+              cut -d ' ' -f 1
+          }
+
+          EXPECTED_HASH=$(cat .e2e-verification | tr -d '[:space:]')
+          ACTUAL_HASH=$(calculate_hash)
+
+          echo "Expected hash: $EXPECTED_HASH"
+          echo "Actual hash:   $ACTUAL_HASH"
+
+          if [ "$EXPECTED_HASH" != "$ACTUAL_HASH" ]; then
+            echo "::error::E2E verification hash mismatch. Source files or configuration have changed since the last E2E verification. Please run 'npm run test:e2e:verify' locally and push the updated .e2e-verification file."
+            exit 1
+          fi
+
+          echo "✅ E2E verification is valid for the current content."

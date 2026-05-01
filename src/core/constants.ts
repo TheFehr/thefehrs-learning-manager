@@ -1,9 +1,11 @@
 import type { ActivityData5e } from "@/types.js";
+import { Logger } from "@/core/logger.js";
 
 export function createBaseActivityTemplate(): Omit<
   ActivityData5e,
   "name" | "img" | "sort" | "_id"
 > {
+  Logger.debug("Creating base activity template");
   return {
     override: false,
     concentration: false,
@@ -13,10 +15,10 @@ export function createBaseActivityTemplate(): Omit<
       type: "special",
       override: false,
       condition: "",
-      value: 1,
+      value: null,
     } as any,
     consumption: {
-      value: "1",
+      value: null,
       scaling: {
         allowed: false,
         max: "",
@@ -28,7 +30,7 @@ export function createBaseActivityTemplate(): Omit<
       chatFlavor: "",
     },
     duration: {
-      value: "1",
+      value: "",
       units: "perm",
       concentration: false,
       override: false,
@@ -37,23 +39,23 @@ export function createBaseActivityTemplate(): Omit<
     effects: [],
     flags: {},
     range: {
-      value: "0",
+      value: null,
       units: "self",
       override: false,
       special: "",
     } as any,
     target: {
       template: {
-        count: "1",
-        size: "0",
-        width: "0",
-        height: "0",
+        count: "",
+        size: "",
+        width: "",
+        height: "",
         contiguous: false,
-        units: "ft",
+        units: "",
         type: "",
       },
       affects: {
-        count: "1",
+        count: "",
         choice: false,
         type: "",
         special: "",

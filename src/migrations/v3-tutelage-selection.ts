@@ -443,11 +443,9 @@ export async function migrateToV3() {
               };
             }
 
-            // Ensure both _stats.compendiumSource (primary v13 field) and flags.core.sourceId (legacy compatibility) are set
+            // Ensure _stats.compendiumSource (primary v13 field) is set
             bookData._stats = bookData._stats || {};
             bookData._stats.compendiumSource = bookDoc.uuid;
-            bookData.flags.core = bookData.flags.core || {};
-            (bookData.flags.core as any).sourceId = bookDoc.uuid;
 
             await actor.createEmbeddedDocuments("Item", [bookData]);
           }
@@ -570,7 +568,7 @@ async function getOrCreateCompendium(type: "Actor" | "Item", label: string) {
 
   if (!pack) {
     try {
-      pack = await (CompendiumCollection as any).createCompendium({
+      pack = await (foundry.documents.collections.CompendiumCollection as any).createCompendium({
         type,
         label,
         name: packName,

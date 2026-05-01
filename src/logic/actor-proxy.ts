@@ -1,118 +1,153 @@
-import type { TimeBank, Actor5e, Item5e, LearningActor } from "@/types.js";
-import type { ProjectFlagData } from "./project-item.js";
+import type { TimeBank, Actor5e, Item5e, LearningActor, ActorSystem5e } from "@/types.js";
+import { ProjectFlagData, ProjectMappedData } from "./project-item.js";
 import { DocumentUtils } from "@/core/document-utils.js";
 import { MODULE_ID } from "@/global.js";
+import { FoundryUtils } from "@/core/foundry-utils.js";
+
+/**
+ * Internal interface to model the specific Foundry VTT Actor properties
+ * required by the proxy, avoiding scattered 'any' casts.
+ */
+interface ProxyActorCore extends Omit<
+  Actor5e,
+  "update" | "items" | "createEmbeddedDocuments" | "system" | "prototypeToken"
+> {
+  uuid: string;
+  img: string;
+  prototypeToken?: { texture?: { src?: string } };
+  items: {
+    get(id: string): Item5e | undefined;
+    filter(predicate: (i: Item5e) => boolean | unknown): Item5e[];
+    map<T>(transform: (i: Item5e) => T): T[];
+  };
+  system: ActorSystem5e & {
+    currency?: { cp: number; sp: number; ep: number; gp: number; pp: number };
+  };
+  update(data: Record<string, unknown>, options?: Record<string, unknown>): Promise<Actor5e>;
+  createEmbeddedDocuments(type: string, data: Record<string, unknown>[]): Promise<any[]>;
+  deleteEmbeddedDocuments(type: string, ids: string[]): Promise<any[]>;
+}
 
 export class ActorProxy {
-  private actor: Actor5e;
+  private actor: ProxyActorCore;
 
   constructor(actor: Actor5e) {
-    this.actor = actor;
+    this.actor = actor as unknown as ProxyActorCore;
   }
 
   get id(): string {
-    return this.actor.id ?? "";
-  }
-
-  get name(): string {
-    return this.actor.name ?? "";
-  }
-
-  get img(): string | null {
-    return (this.actor as any).img ?? null;
-  }
-
-  get tokenImg(): string | null {
-    return (this.actor as any).prototypeToken?.texture?.src ?? (this.actor as any).img ?? null;
+    return this.actor.id!;
   }
 
   get uuid(): string {
     return this.actor.uuid;
   }
 
-  get projects() {
-    return this.getMappedProjects().map((p: any) => ({
-      ...p,
-      progressPercentage: p.progressPercentage ?? p.percentage,
-      guidanceType: p.tutelageName,
-    }));
+  get name(): string {
+    return this.actor.name || "Unknown";
   }
 
-  getMappedProjects() {
-    return (this.actor.items as unknown as Item5e[])
-      .filter((i: Item5e) => i.getFlag(MODULE_ID, "isLearningProject"))
+  get img(): string {
+    return this.actor.img || "icons/svg/mystery-man.svg";
+  }
+
+  get tokenImg(): string {
+    return this.actor.prototypeToken?.texture?.src || this.img;
+  }
+
+  get bank(): TimeBank {
+    return (
+      (this.actor.getFlag(MODULE_ID, "bank") as TimeBank) || {
+        total: 0,
+      }
+    );
+  }
+
+  get currency(): { cp: number; sp: number; ep: number; gp: number; pp: number } {
+    return this.actor.system.currency || { cp: 0, sp: 0, ep: 0, gp: 0, pp: 0 };
+  }
+
+  get projects(): ProjectMappedData[] {
+    return this.getMappedProjects();
+  }
+
+  getMappedProjects(): ProjectMappedData[] {
+    return this.actor.items
+      .filter(
+        (i: Item5e) =>
+          i.getFlag(MODULE_ID, "isLearningProject") || i.getFlag(MODULE_ID, "isLearnedReward"),
+      )
       .map((i: Item5e) => {
-        const projectData = i.getFlag(MODULE_ID, "projectData") as ProjectFlagData | undefined;
-        const hasInstructor = !!projectData?.lastInstructorName?.trim();
+        const projectData = (i.getFlag(MODULE_ID, "projectData") as ProjectFlagData) || {};
+        const progress = projectData.progress || 0;
+        const target = projectData.target || 0;
+        const percentage = target > 0 ? Math.min(100, Math.round((progress / target) * 100)) : 0;
+        const tutelageName = projectData.lastInstructorName || "Self-Study";
+
         return {
-          id: i.id,
-          name: i.name,
-          progress: projectData?.progress ?? 0,
-          target: projectData?.target ?? 0,
-          progressPercentage: projectData?.progressPercentage,
-          percentage:
-            projectData && projectData.target && projectData.target > 0
-              ? Math.min(100, Math.round(((projectData.progress ?? 0) / projectData.target) * 100))
-              : 0,
-          tutelageName: hasInstructor ? projectData!.lastInstructorName : "Self-Study",
-          isSelfStudy: !hasInstructor,
+          id: i.id!,
+          name: i.name!,
+          progress,
+          target,
+          maxProgress: target,
+          percentage,
+          tutelageName,
+          guidanceType: tutelageName,
+          progressPercentage: projectData.progressPercentage ?? percentage,
+          isSelfStudy: !projectData.lastInstructorName,
         };
       });
   }
 
-  get bank(): TimeBank {
-    return this.actor.getFlag(MODULE_ID, "bank") || { total: 0 };
-  }
-
-  // When options.render === false, we use DocumentUtils.setFlagsSilently to bypass
-  // Foundry's normal document rendering cycle. This is useful for batch updates
-  // or to avoid unnecessary UI flicker. The method still returns the actor.
-  async setBank(bank: TimeBank, options: { render?: boolean } = {}): Promise<Actor5e> {
+  async setBank(bank: TimeBank, options: { render?: boolean } = {}): Promise<LearningActor> {
     if (options.render === false) {
       const success = await DocumentUtils.setFlagsSilently(this.actor, { bank });
       if (!success) {
-        throw new Error("Downtime Engine | Failed to set bank silently");
+        throw new Error("Failed to set bank silently");
       }
-      return this.actor;
+      return this.actor as unknown as LearningActor;
     }
-    return (await (this.actor as any).setFlag(MODULE_ID, "bank", bank)) as Actor5e;
+    return (await this.actor.setFlag(MODULE_ID, "bank", bank)) as unknown as LearningActor;
   }
 
-  async update(data: object, options: { render?: boolean } = {}): Promise<Actor5e> {
-    return (await (this.actor as any).update(data, options)) as Actor5e;
-  }
+  async updateProject(
+    itemId: string,
+    projectData: Partial<ProjectFlagData>,
+  ): Promise<Item5e | null> {
+    const item = this.actor.items.get(itemId);
+    if (!item) return null;
 
-  async createEmbeddedDocuments(type: "Item" | "ActiveEffect", data: object[]): Promise<any[]> {
-    return (await (this.actor as any).createEmbeddedDocuments(type, data as any[])) || [];
-  }
+    const currentData = (item.getFlag(MODULE_ID, "projectData") as ProjectFlagData) || {};
+    const updatedData = FoundryUtils.mergeObject(currentData, projectData);
 
-  async deleteEmbeddedDocuments(type: "Item" | "ActiveEffect", ids: string[]): Promise<any[]> {
-    return await this.actor.deleteEmbeddedDocuments(type, ids);
-  }
-
-  get currency(): { cp: number; sp: number; ep: number; gp: number; pp: number } {
-    const currency = (this.actor as LearningActor).system?.currency;
-    return {
-      cp: currency?.cp ?? 0,
-      sp: currency?.sp ?? 0,
-      ep: currency?.ep ?? 0,
-      gp: currency?.gp ?? 0,
-      pp: currency?.pp ?? 0,
-    };
+    return (await item.setFlag(MODULE_ID, "projectData", updatedData)) as Item5e;
   }
 
   async updateCurrency(
     currency: { cp: number; sp: number; ep: number; gp: number; pp: number },
     options: { render?: boolean } = {},
   ): Promise<Actor5e> {
-    return (await (this.actor as any).update(
-      {
-        system: {
-          currency,
+    const updateData = {
+      system: {
+        currency: {
+          cp: Number(currency.cp || 0),
+          sp: Number(currency.sp || 0),
+          ep: Number(currency.ep || 0),
+          gp: Number(currency.gp || 0),
+          pp: Number(currency.pp || 0),
         },
       },
-      options,
-    )) as Actor5e;
+    };
+
+    return await this.actor.update(updateData, options);
+  }
+
+  async createEmbeddedDocuments(type: string, data: Record<string, unknown>[]): Promise<any[]> {
+    return await this.actor.createEmbeddedDocuments(type, data);
+  }
+
+  async deleteEmbeddedDocuments(type: string, ids: string[]): Promise<string[]> {
+    return (await this.actor.deleteEmbeddedDocuments(type, ids)) as string[];
   }
 
   static forActor(actor: Actor5e): ActorProxy {

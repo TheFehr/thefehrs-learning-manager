@@ -101,13 +101,16 @@ describe("v3-tutelage-selection migration", () => {
 
     (globalThis as any).fromUuid = vi.fn();
     (globalThis as any).ui = { notifications: { info: vi.fn(), error: vi.fn(), warn: vi.fn() } };
-    (globalThis as any).CompendiumCollection = {
-      createCompendium: vi.fn().mockImplementation(async (data: any) => {
-        return makePack(data.name || data.label);
-      }),
-    };
-
     (globalThis as any).foundry = {
+      documents: {
+        collections: {
+          CompendiumCollection: {
+            createCompendium: vi.fn().mockImplementation(async (data: any) => {
+              return makePack(data.name || data.label);
+            }),
+          },
+        },
+      },
       applications: {
         api: {
           DialogV2: {
@@ -121,6 +124,9 @@ describe("v3-tutelage-selection migration", () => {
         mergeObject: vi.fn((t, s) => Object.assign(t, s)),
       },
     };
+    (globalThis as any).CompendiumCollection = (
+      globalThis as any
+    ).foundry.documents.collections.CompendiumCollection;
   });
 
   it("should migrate guidance tiers and detect categories from effects", async () => {
@@ -303,7 +309,9 @@ describe("v3-tutelage-selection migration", () => {
     const project = makeItem("T", { isLearningProject: true, projectData: { tutelageId: "t1" } });
     makeActor([project]);
 
-    vi.mocked(CompendiumCollection.createCompendium).mockRejectedValue(new Error("Failed"));
+    vi.mocked(
+      foundry.documents.collections.CompendiumCollection.createCompendium,
+    ).mockRejectedValue(new Error("Failed"));
 
     await migrateToV3();
 

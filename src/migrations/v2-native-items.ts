@@ -20,7 +20,7 @@ export async function migrateToV2() {
 
     let pack = game.packs?.get(compendiumKey);
     if (!pack) {
-      pack = await (CompendiumCollection as any).createCompendium({
+      pack = await (foundry.documents.collections.CompendiumCollection as any).createCompendium({
         type: "Item",
         label: compendiumLabel,
         name: compendiumName,

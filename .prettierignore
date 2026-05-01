@@ -3,3 +3,4 @@ dist/
 node_modules/
 external-types/
 external-dts/
+e2e/.auth/

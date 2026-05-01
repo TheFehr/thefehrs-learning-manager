@@ -60,19 +60,45 @@ describe("UserPreferencesConfig.svelte", () => {
     expect(dayCheckbox.checked).toBe(true);
   });
 
-  it("should not show unit checkboxes when autoSpend is false", async () => {
+  it("should toggle autoSpend and autoSpendUnits when clicked", async () => {
+    let autoSpend = false;
+    let autoSpendUnits: string[] = [];
+
     instance = mount(UserPreferencesConfig, {
       target,
       props: {
-        autoSpend: false,
-        autoSpendUnits: ["hour"],
+        autoSpend,
+        autoSpendUnits,
         timeUnits: mockTimeUnits as any,
+        // In Svelte 5, we can't easily capture bindable updates without a wrapper
+        // but we can check if the UI state changed and if the internal state (if accessible) changed.
+        // Or we can check if the checkboxes are checked correctly.
       },
     });
     await tick();
 
-    expect(target.innerHTML).not.toContain("Allowed Units");
-    const hourCheckbox = target.querySelector("input[data-unit-id='hour']");
-    expect(hourCheckbox).toBeNull();
+    const autoSpendCheckbox = target.querySelector("#auto-spend") as HTMLInputElement;
+    autoSpendCheckbox.click();
+    await tick();
+
+    // Now autoSpend is true, unit checkboxes should be visible
+    const hourCheckbox = target.querySelector("input[data-unit-id='hour']") as HTMLInputElement;
+    expect(hourCheckbox).not.toBeNull();
+
+    hourCheckbox.click();
+    await tick();
+
+    expect(hourCheckbox.checked).toBe(true);
+
+    const dayCheckbox = target.querySelector("input[data-unit-id='day']") as HTMLInputElement;
+    dayCheckbox.click();
+    await tick();
+
+    expect(dayCheckbox.checked).toBe(true);
+
+    // Toggle off again
+    hourCheckbox.click();
+    await tick();
+    expect(hourCheckbox.checked).toBe(false);
   });
 });

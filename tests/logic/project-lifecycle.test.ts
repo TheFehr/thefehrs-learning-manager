@@ -157,5 +157,39 @@ describe("ProjectLifecycle", () => {
       ]);
       expect(mockItem.delete).toHaveBeenCalled();
     });
+
+    it("should not preserve transient system fields when recreating item", async () => {
+      mockItem._isLearningProject = true;
+      mockItem._projectData = {
+        stashedName: "Original Name",
+        stashedSystem: { value: 10 },
+        stashedActivities: { act1: { name: "Activity 1" } },
+        stashedEffects: [],
+        target: 10,
+        progress: 10,
+      };
+
+      // Live system has a transient field that should be removed
+      mockItem.toObject.mockReturnValue({
+        name: "Project Name",
+        type: "feat",
+        system: {
+          value: 20,
+          transientField: "should be gone",
+          activities: { projectAct: { name: "Project Activity" } },
+        },
+        flags: {},
+      });
+
+      mockItem.actor = mockActor;
+      (globalThis as any).fromUuid.mockResolvedValue(null); // Force recreation from flags
+
+      await ProjectLifecycle.completeProject(mockItem);
+
+      const createdData = mockActor.createEmbeddedDocuments.mock.calls[0][1][0];
+      expect(createdData.system.transientField).toBeUndefined();
+      expect(createdData.system.value).toBe(10); // Restored from stashed value
+      expect(createdData.system.activities).toEqual({ act1: { name: "Activity 1" } });
+    });
   });
 });
