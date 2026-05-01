@@ -41,32 +41,25 @@ setup("authenticate and verify module", async ({ page, baseURL }) => {
   await page.goto("/");
   await page.waitForLoadState("networkidle");
 
-  // 3. If we are in a world, check if it's the right one
-  const currentUrl = page.url();
-  if (!currentUrl.includes("/setup")) {
-    const isCorrectWorld =
-      currentUrl.includes(`/${worldId}/`) || (await page.title()).includes(worldId);
-    if (!isCorrectWorld || currentUrl.includes("/join")) {
-      console.log(
-        `Current page "${currentUrl}" is not setup and not the correct launched world. Returning to setup.`,
-      );
+  // 3. Ensure we are on the setup page before provisioning
+  if (!page.url().includes("/setup")) {
+    console.log(`Current page "${page.url()}" is not setup. Returning to setup.`);
 
-      await returnToSetup(page, adminPassword);
+    await returnToSetup(page, adminPassword);
 
-      try {
-        await page.waitForURL((url) => url.pathname.includes("/setup"), { timeout: 10000 });
-      } catch (e) {
-        const errorNotification = page.locator(".notification.error");
-        if (await errorNotification.isVisible()) {
-          const errorText = await errorNotification.innerText();
-          throw new Error(`Failed to return to setup: ${errorText}`);
-        }
-        throw e;
+    try {
+      await page.waitForURL((url) => url.pathname.includes("/setup"), { timeout: 15000 });
+    } catch (e) {
+      const errorNotification = page.locator(".notification.error");
+      if (await errorNotification.isVisible()) {
+        const errorText = await errorNotification.innerText();
+        throw new Error(`Failed to return to setup: ${errorText}`);
       }
+      throw e;
     }
   }
 
-  // 4. Check if we're on the setup screen and login if needed
+  // 4. Provisioning logic (must be on setup screen)
   if (page.url().includes("/setup")) {
     console.log("On setup screen. Checking for admin login.");
     const passwordInput = page.locator('input[name="adminPassword"]');
