@@ -1,7 +1,7 @@
 import { test, expect } from "./fixtures";
 
 test.describe("Multi-User Interactions", () => {
-  test("Cross-user signal and auto-spend", async ({ page, browser }) => {
+  test("Cross-user signal and auto-spend", async ({ page, browser, baseURL }) => {
     test.setTimeout(180000);
     const moduleId = "thefehrs-learning-manager";
 
@@ -31,6 +31,7 @@ test.describe("Multi-User Interactions", () => {
     // 2. Setup Player Page
     console.log("Setting up Player Page...");
     const playerContext = await browser.newContext({
+      baseURL,
       viewport: { width: 1920, height: 1080 },
     }); // Fresh context with required resolution
     const playerPage = await playerContext.newPage();
