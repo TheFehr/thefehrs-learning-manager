@@ -59,7 +59,7 @@ test.describe("Training Resolution Choice", () => {
 
     // 6. Verify messages in chat (1 roll + 1 card)
     await page.waitForFunction(
-      (initial) => (game as any).messages.size > initial,
+      (initial) => (game as any).messages.size - initial === 2,
       initialMsgCount,
       { timeout: 15000 },
     );
@@ -80,14 +80,21 @@ test.describe("Training Resolution Choice", () => {
       workWeekActivity.use();
     }, moduleId);
 
-    await expect(dialog).toBeVisible({ timeout: 15000 });
+    const sepDialog = page.locator(".thefehrs-learning-manager-dialog, dialog").last();
+    await expect(sepDialog).toBeVisible({ timeout: 15000 });
 
     const initialMsgCountSep = await page.evaluate(() => (game as any).messages.size);
 
     // Select "Roll separately"
-    await dialog.getByRole("button", { name: /Roll separately/i }).click();
+    await sepDialog.getByRole("button", { name: /Roll separately/i }).click();
 
     // 8. Verify multiple rolls summarized + 1 card
+    await page.waitForFunction(
+      (initial) => (game as any).messages.size - initial === 1,
+      initialMsgCountSep,
+      { timeout: 15000 },
+    );
+
     await expect(
       page.getByText(/Training complete: Gained .* progress from 40 separate rolls/i),
     ).toBeVisible({ timeout: 20000 });

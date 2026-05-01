@@ -258,8 +258,9 @@ test.describe("Instructor and Tutelage System", () => {
     }, moduleId);
 
     // Select Combat Master again
-    await dialog.locator("label").filter({ hasText: "Combat Master" }).click();
-    await dialog.getByRole("button", { name: /Confirm/i }).click();
+    const reopenedDialog = page.locator(".thefehrs-learning-manager-dialog, dialog").last();
+    await reopenedDialog.locator("label").filter({ hasText: "Combat Master" }).click();
+    await reopenedDialog.getByRole("button", { name: /Confirm/i }).click();
 
     // Wait for message in data structure
     await page.waitForFunction(
