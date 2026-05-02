@@ -58,10 +58,10 @@ When a migration needs to access a setting that has been removed from the curren
 
 ### Foundry VTT Version & Application Architecture
 
-This project exclusively supports **Foundry VTT V12+** and utilizes the **ApplicationV2** framework for all user interfaces.
+This project exclusively supports **Foundry VTT V13+** and utilizes the **ApplicationV2** framework for all user interfaces.
 
 - **Exclusion of Application V1**: Legacy `Application` (V1), `FormApplication`, and related legacy classes must not be used for new development.
-- **Lifecycle Management**: All UI components are built with Svelte 5 and mounted within `ApplicationV2` windows.
+- **Lifecycle Management**: All UI components are built with **Svelte 5** and mounted within `ApplicationV2` windows using the `mount`/`unmount` API.
 - **Cleanup Requirement**: Global cleanup is managed via the `closeApplicationV2` hook in `LearningManager.ts`. Any new Svelte-mounted components that exist outside a standard `ApplicationV2` lifecycle (e.g., injected content) must ensure their IDs are tracked in `LearningManager.svelteInstances` to be correctly unmounted when their parent sheet closes.
 
 ### Code Quality & Reviews
@@ -72,7 +72,7 @@ This project exclusively supports **Foundry VTT V12+** and utilizes the **Applic
 
 To ensure project stability and type safety, **always** run the following commands before claiming a task is complete:
 
-1.  **Type Checking**: Run `npx tsc --noEmit` to ensure there are no TypeScript errors.
+1.  **Type Checking**: Run `npm run typecheck` to ensure there are no TypeScript errors.
 2.  **Tests**: Run `npm run test` to ensure all Vitest tests pass.
 3.  **Manual E2E Testing**:
     - Copy `.env.example` to `.env`.
@@ -80,4 +80,5 @@ To ensure project stability and type safety, **always** run the following comman
     - Ensure your local FoundryVTT is running and the test world has the module enabled.
     - Run `npm run test:e2e` to execute the Playwright tests.
     - Run `npm run test:e2e:ui` to open the Playwright UI for debugging.
+    - Run `npm run test:e2e:verify` to perform the full verification suite.
 4.  **Linting**: Run `npm run lint` and `npm run fmt:check` to ensure code style compliance.
