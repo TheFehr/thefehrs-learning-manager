@@ -30,6 +30,7 @@ describe("PartyTab.svelte", () => {
     members: [
       {
         id: "actor1",
+        uuid: "Actor.actor1",
         name: "Actor 1",
         img: "img1.png",
         formattedBank: "10h",
@@ -134,10 +135,11 @@ describe("PartyTab.svelte", () => {
     await tick();
 
     expect(PartyTabLogic.updateProgress).toHaveBeenCalledWith(
-      "actor1",
-      mockProps.members[0].projects[0],
+      "Actor.actor1",
+      expect.objectContaining({ id: "proj1", progress: 7 }),
       7,
       true,
+      mockActor,
     );
 
     // Change Target
@@ -149,10 +151,11 @@ describe("PartyTab.svelte", () => {
     await tick();
 
     expect(PartyTabLogic.updateTarget).toHaveBeenCalledWith(
-      "actor1",
-      mockProps.members[0].projects[0],
+      "Actor.actor1",
+      expect.objectContaining({ id: "proj1", maxProgress: 20 }),
       20,
       true,
+      mockActor,
     );
   });
 
@@ -173,10 +176,11 @@ describe("PartyTab.svelte", () => {
     deleteBtn.click();
 
     expect(PartyTabLogic.deleteProject).toHaveBeenCalledWith(
-      "actor1",
-      mockProps.members[0].projects[0],
+      "Actor.actor1",
+      expect.objectContaining({ id: "proj1" }),
       undefined,
       true,
+      mockActor,
     );
   });
 });
