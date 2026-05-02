@@ -149,10 +149,11 @@ export class PartyTabLogic {
     }
   }
 
-  private static normalizeActorUuid(uuid: string): string {
-    if (uuid.startsWith("Actor.")) return uuid;
-    if (uuid.toLowerCase().startsWith("actor.")) return `Actor.${uuid.slice(6)}`;
-    return `Actor.${uuid}`;
+  private static normalizeActorUuid(uuid: string): `Actor.${string}` {
+    if (uuid.startsWith("Actor.")) return uuid as `Actor.${string}`;
+    if (uuid.toLowerCase().startsWith("actor."))
+      return `Actor.${uuid.slice(6)}` as `Actor.${string}`;
+    return `Actor.${uuid}` as `Actor.${string}`;
   }
 
   /**
@@ -219,7 +220,8 @@ export class PartyTabLogic {
     _parentActor?: Actor,
   ) {
     if (!isGM) return;
-    const targetActor = (await fromUuid(memberUuid)) as Actor5e | undefined;
+    const normalizedUuid = this.normalizeActorUuid(memberUuid);
+    const targetActor = (await fromUuid(normalizedUuid)) as Actor5e | undefined;
     if (!targetActor) return;
 
     const item = targetActor.items.get(project.id);
