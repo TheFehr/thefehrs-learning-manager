@@ -4,11 +4,17 @@
   import type {ProjectMappedData} from "@/logic/project-item.js";
   import {PartyTabLogic} from "@/logic/party-tab-logic.js";
 
-  let {members, isGM, actor} = $props<{
+  let {members: membersProp, isGM, actor} = $props<{
     members: MemberMappedData[];
     isGM: boolean;
     actor: Actor;
   }>();
+
+  let members = $state(membersProp);
+
+  $effect(() => {
+    members = membersProp;
+  });
 
   let isEditMode = $state(false);
 
@@ -21,16 +27,39 @@
   }
 
 
-  function updateProgress(actorId: string, project: ProjectMappedData, newProgress: number) {
-    PartyTabLogic.updateProgress(actorId, project, newProgress, isGM);
+  function updateProgress(memberUuid: string, project: ProjectMappedData, newProgress: number) {
+    // Optimistic local update to avoid flickering while waiting for silent backend update
+    const member = members.find(m => m.uuid === memberUuid);
+    if (member) {
+        const p = member.projects.find(proj => proj.id === project.id);
+        if (p) {
+            const max = p.maxProgress || project.maxProgress || 0;
+            p.progress = Math.max(0, Math.min(newProgress, max));
+            // Update percentage for the bar
+            p.progressPercentage = max > 0 ? Math.min(100, Math.round((p.progress / max) * 100)) : 0;
+        }
+    }
+    PartyTabLogic.updateProgress(memberUuid, project, newProgress, isGM, actor);
   }
 
-  function updateTarget(actorId: string, project: ProjectMappedData, newTarget: number) {
-    PartyTabLogic.updateTarget(actorId, project, newTarget, isGM);
+  function updateTarget(memberUuid: string, project: ProjectMappedData, newTarget: number) {
+    // Optimistic local update
+    const member = members.find(m => m.uuid === memberUuid);
+    if (member) {
+        const p = member.projects.find(proj => proj.id === project.id);
+        if (p) {
+            p.target = Math.max(0, newTarget);
+            p.maxProgress = p.target;
+            // Update percentage for the bar
+            const max = p.maxProgress || 0;
+            p.progressPercentage = max > 0 ? Math.min(100, Math.round((p.progress / max) * 100)) : 0;
+        }
+    }
+    PartyTabLogic.updateTarget(memberUuid, project, newTarget, isGM, actor);
   }
 
-  function deleteProject(actorId: string, project: ProjectMappedData) {
-    PartyTabLogic.deleteProject(actorId, project, undefined, isGM);
+  function deleteProject(memberUuid: string, project: ProjectMappedData) {
+    PartyTabLogic.deleteProject(memberUuid, project, undefined, isGM, actor);
   }
 </script>
 
@@ -61,11 +90,11 @@
                     data-actor-id={member.id}
                     role="button"
                     tabindex="0"
-                    onclick={() => openActorSheet(`Actor.${member.id}`)}
+                    onclick={() => openActorSheet(member.uuid)}
                     onkeydown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
-            openActorSheet(`Actor.${member.id}`);
+            openActorSheet(member.uuid);
           }
         }}
             >
@@ -153,7 +182,7 @@
                                                             value={project.progress}
                                                             onchange={(e) =>
                                 updateProgress(
-                                  member.id,
+                                  member.uuid,
                                   project,
                                   parseInt(e.currentTarget.value) || 0,
                                 )}
@@ -172,7 +201,7 @@
                                                             value={project.maxProgress}
                                                             onchange={(e) =>
                                 updateTarget(
-                                  member.id,
+                                  member.uuid,
                                   project,
                                   parseInt(e.currentTarget.value) || 0,
                                 )}
@@ -199,7 +228,7 @@
                                                 class="delete-project party-edit-control tidy-button small"
                                                 title="Abort Project"
                                                 aria-label="Abort Project"
-                                                onclick={() => deleteProject(member.id, project)}
+                                                onclick={() => deleteProject(member.uuid, project)}
                                                 style="min-width: 2rem; padding: 2px 4px; color: var(--t5e-danger-color);"
                                         >
                                             <i class="fas fa-trash"></i>

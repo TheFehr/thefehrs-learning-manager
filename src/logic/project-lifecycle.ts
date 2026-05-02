@@ -336,6 +336,7 @@ export class ProjectLifecycle {
     item: Item,
     projectData: ProjectFlagData,
     instructorName: string = "Self-Study",
+    render: boolean = false,
   ): Promise<void> {
     const progress = projectData.progress ?? 0;
     const target = projectData.target ?? 0;
@@ -345,13 +346,17 @@ export class ProjectLifecycle {
     const stashedName = projectData.stashedName || item.name;
     const stashedDescription = projectData.stashedDescription || "";
 
-    const success = await DocumentUtils.updateSilently(item, {
+    const updateData = {
       name: `${stashedName} (${progress}/${target})`,
       ["system.description.value"]: progressHtml + stashedDescription,
       [`flags.${Settings.ID}.projectData`]: projectData,
-    } as Record<string, any>);
+    } as Record<string, any>;
 
-    if (!success) {
+    const success = render
+      ? await (item.update(updateData) as unknown as Promise<boolean>)
+      : await DocumentUtils.updateSilently(item, updateData);
+
+    if (success === false) {
       const errorMsg = `Failed to update item "${item.name}" (${item.id}) with new progress.`;
       Logger.error(errorMsg, false);
       throw new Error(errorMsg);
