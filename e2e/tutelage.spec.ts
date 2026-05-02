@@ -300,4 +300,94 @@ test.describe("Instructor and Tutelage System", () => {
     expect(finalStudentData.bank).toBe(9); // 1 hour used
     expect(finalStudentData.totalCp).toBe(0);
   });
+
+  test("verify world-created books are detected even with compendium filters", async ({ page }) => {
+    test.setTimeout(180000);
+    await page.goto("/game");
+
+    await page.waitForFunction(() => typeof (game as any) !== "undefined" && (game as any).ready);
+
+    const moduleId = "thefehrs-learning-manager";
+
+    // 1. Setup Actor with a World Book and a Project
+    await page.evaluate(async (moduleId) => {
+      const actorName = "World Book User";
+      const existing = (game as any).actors.getName(actorName);
+      if (existing) await existing.delete();
+
+      const actor = await Actor.create({
+        name: actorName,
+        type: "character",
+        flags: { core: { sheetClass: "dnd5e.Tidy5eCharacterSheet" } },
+      });
+
+      // Create a World Book (not from compendium)
+      await actor.createEmbeddedDocuments("Item", [
+        {
+          name: "Custom World Book",
+          type: "loot",
+          flags: {
+            [moduleId]: {
+              learningBookBonus: { modifier: 3, categories: ["Magic"] },
+            },
+          },
+        },
+      ]);
+
+      // Create a Project
+      const [project] = await actor.createEmbeddedDocuments("Item", [
+        {
+          name: "Magic Project",
+          type: "feat",
+          flags: {
+            [moduleId]: {
+              projectData: { target: 100, categories: ["Magic"] },
+            },
+          },
+        },
+      ]);
+
+      await actor.setFlag(moduleId, "bank", { total: 10 });
+
+      // @ts-ignore
+      const ProjectEngine = game.modules.get(moduleId).api.ProjectEngine;
+      await ProjectEngine.initiateProjectFromItem(actor, project);
+
+      // Set bookCompendiums to a specific pack (this is what triggered the bug before)
+      await (game as any).settings.set(moduleId, "bookCompendiums", ["world.test-learning-books"]);
+
+      // Ensure "direct" method for simplicity
+      await (game as any).settings.set(moduleId, "rules", {
+        ...(game as any).settings.get(moduleId, "rules"),
+        nonBulkMethod: "direct",
+      });
+    }, moduleId);
+
+    // 2. Open sheet and trigger training
+    await page.evaluate(() => {
+      const actor = (game as any).actors.getName("World Book User");
+      actor.sheet.render(true);
+    });
+
+    await expect(page.locator(".tidy5e-sheet")).toBeVisible({ timeout: 20000 });
+
+    await page.evaluate(async (moduleId) => {
+      const actor = (game as any).actors.getName("World Book User");
+      const project = actor.items.find((i: any) => i.getFlag(moduleId, "isLearningProject"));
+      // @ts-ignore
+      const activity = project.system.activities.contents.find((a: any) =>
+        a.name.includes("Train"),
+      );
+      activity.use();
+    }, moduleId);
+
+    // 3. Verify InstructorSelectionDialog shows the "Custom World Book"
+    const dialog = page.locator(".thefehrs-learning-manager-dialog, dialog").last();
+    await expect(dialog).toBeVisible({ timeout: 20000 });
+
+    // The "Self-Study" option should now mention the book
+    const selfStudyOption = dialog.locator(".option").filter({ hasText: "Self-Study" });
+    await expect(selfStudyOption).toContainText("Custom World Book");
+    await expect(selfStudyOption).toContainText("+3");
+  });
 });
