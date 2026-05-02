@@ -141,13 +141,13 @@ test.describe("GM Administrative Controls (Party Tab)", () => {
     if (await tabButton.isVisible()) await tabButton.click();
 
     await ensureEditMode(); // Re-enable to see input value or check read-only
-    const targetValue = await page
-      .locator(`[data-tidy-section-key="actor-${pc4Id}"]`)
-      .locator(".project-row")
-      .filter({ hasText: /GM Override Project/i })
-      .locator(".update-project-target")
-      .inputValue();
-    expect(targetValue).toBe("150");
+    await expect(
+      page
+        .locator(`[data-tidy-section-key="actor-${pc4Id}"]`)
+        .locator(".project-row")
+        .filter({ hasText: /GM Override Project/i })
+        .locator(".update-project-target"),
+    ).toHaveValue("150");
 
     // 7. Click Abort button
     console.log("Aborting project...");
