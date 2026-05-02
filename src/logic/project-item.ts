@@ -31,6 +31,7 @@ export type ProjectFlagData = {
   progressPercentage?: number;
   categories?: string[];
   followUpProjectId?: string;
+  followUpProjectIds?: string[];
   requirements?: ProjectRequirement[];
   stashedType?: string;
   stashedEffects?: unknown[];

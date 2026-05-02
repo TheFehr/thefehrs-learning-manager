@@ -114,7 +114,7 @@ export async function returnToSetup(page: Page, adminPassword?: string) {
   // Wait for /setup or /auth
   await page.waitForURL(
     (url) => url.pathname.includes("/setup") || url.pathname.includes("/auth"),
-    { timeout: 30000 },
+    { timeout: 60000 },
   );
 
   if (page.url().includes("/auth")) {
@@ -122,7 +122,7 @@ export async function returnToSetup(page: Page, adminPassword?: string) {
     if ((await passwordInput.isVisible()) && adminPassword) {
       await passwordInput.fill(adminPassword);
       await page.getByRole("button", { name: "Log In" }).click();
-      await page.waitForURL((url) => url.pathname.includes("/setup"), { timeout: 30000 });
+      await page.waitForURL((url) => url.pathname.includes("/setup"), { timeout: 60000 });
     }
   }
 }

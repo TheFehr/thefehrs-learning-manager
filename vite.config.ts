@@ -7,7 +7,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const MODULE_ID = "thefehrs-learning-manager";
 const BASE_PATH = `/modules/${MODULE_ID}/`;
-const FOUNDRY_URL = "http://localhost:30000";
+const FOUNDRY_URL = "http://localhost:30003";
 
 export default defineConfig({
   base: BASE_PATH,
@@ -43,7 +43,7 @@ export default defineConfig({
 
   server: {
     host: "localhost",
-    port: 30001,
+    port: 30004,
     proxy: {
       // Proxy everything EXCEPT your module assets to the real Foundry
       [`^(?!${BASE_PATH})`]: {

@@ -15,7 +15,6 @@ export class ItemConfigLogic {
     enabled: boolean,
     project?: {
       target: number;
-      followUpProjectId: string;
       requirements: ProjectRequirement[];
       categories: string[];
     },
@@ -30,7 +29,13 @@ export class ItemConfigLogic {
 
     if (enabled) {
       if (project) {
-        updateData[`flags.${MODULE_ID}.projectData`] = project;
+        // IMPORTANT: Preserve existing hierarchical links
+        const existing = item.getFlag(MODULE_ID, "projectData") as any;
+        updateData[`flags.${MODULE_ID}.projectData`] = {
+          ...project,
+          followUpProjectId: existing?.followUpProjectId ?? "",
+          followUpProjectIds: existing?.followUpProjectIds ?? [],
+        };
       } else {
         updateData[`flags.${MODULE_ID}.-=projectData`] = null;
       }
@@ -46,21 +51,5 @@ export class ItemConfigLogic {
     }
 
     return await DocumentUtils.updateSilently(item, updateData);
-  }
-
-  /**
-   * Orchestrates the search for a follow-up project using available modules.
-   */
-  static async searchFollowUp(): Promise<string | null> {
-    return searchWithOmnisearchOrQuickInsert("!item ", ["Item"]);
-  }
-
-  /**
-   * Processes a drop event to extract an Item UUID.
-   */
-  static handleDrop(e: DragEvent): string | null {
-    e.preventDefault();
-    e.stopPropagation();
-    return extractItemUuidFromDrop(e);
   }
 }

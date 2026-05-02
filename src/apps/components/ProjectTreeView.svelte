@@ -1,0 +1,304 @@
+<script lang="ts">
+  import { onMount } from "svelte";
+  import { TreeLogic, type ProjectTreeNode } from "@/logic/tree-logic.js";
+  import ProjectTreeNodeComponent from "./ProjectTreeNode.svelte";
+  import { Logger } from "@/core/logger.js";
+  import { Settings } from "@/core/settings.js";
+
+  let forest = $state<ProjectTreeNode[]>([]);
+  let isLoading = $state(true);
+  let searchQuery = $state("");
+  let showAllItems = $state(false);
+  let pinnedUuids = $state<string[]>([]);
+  let errorMessage = $state<string | null>(null);
+
+  async function loadTree() {
+    try {
+      isLoading = true;
+      errorMessage = null;
+      // Copy array to break proxy
+      const rawPinned = [...pinnedUuids];
+      forest = await TreeLogic.buildProjectTree(showAllItems, rawPinned);
+    } catch (err) {
+      Logger.error("Failed to load project tree:", true, err);
+      errorMessage = "Failed to load project tree. Check console for details.";
+    } finally {
+      isLoading = false;
+    }
+  }
+
+  const filteredForest = $derived.by(() => {
+    if (!searchQuery) return forest;
+    
+    const query = searchQuery.toLowerCase();
+    
+    function filterNode(node: ProjectTreeNode): ProjectTreeNode | null {
+      const nameMatch = node.name.toLowerCase().includes(query);
+      
+      const filteredChildren = node.children
+        .map(child => filterNode(child))
+        .filter((child): child is ProjectTreeNode => child !== null);
+      
+      if (nameMatch || filteredChildren.length > 0) {
+        return {
+          ...node,
+          children: filteredChildren
+        };
+      }
+      return null;
+    }
+
+    return forest
+      .map(node => filterNode(node))
+      .filter((node): node is ProjectTreeNode => node !== null);
+  });
+
+  async function addRootProject() {
+      const { ApplicationV2 } = foundry.applications.api;
+      const { mount, unmount } = await import("svelte");
+      const FollowUpPicker = (await import("../dialogs/FollowUpPicker.svelte")).default;
+
+      const pickerApp = new class extends ApplicationV2 {
+          static override DEFAULT_OPTIONS = {
+              window: { title: "Add Project to Tree", resizable: true },
+              position: { width: 450, height: 500 }
+          };
+          private instance: any = null;
+          protected override async _renderHTML() { return ""; }
+          protected override _replaceHTML() {}
+          protected override async _onRender() {
+              const target = this.element.querySelector(".window-content") || this.element;
+              this.instance = mount(FollowUpPicker, {
+                  target,
+                  props: {
+                      parentItem: { uuid: "", name: "Root" } as any,
+                      onSelect: async (uuid: string) => {
+                          if (!pinnedUuids.includes(uuid)) {
+                              pinnedUuids = [...pinnedUuids, uuid];
+                          }
+                          this.close();
+                      },
+                      onClose: () => this.close()
+                  }
+              });
+          }
+          override async close(o = {}) {
+              if (this.instance) unmount(this.instance);
+              return super.close(o);
+          }
+      }();
+
+      pickerApp.render(true);
+  }
+
+  $effect(() => {
+      loadTree();
+  });
+</script>
+
+<div class="project-tree-container thefehrs-learning-manager">
+  <header class="tree-header">
+    <div class="header-left">
+        <h2><i class="fas fa-sitemap"></i> Project Tree View</h2>
+        <p class="subtitle">Hierarchical project paths from allowed compendiums</p>
+    </div>
+    
+    <div class="header-actions">
+      <label class="toggle-control" title="Show all items from compendiums, not just configured projects">
+          <input type="checkbox" bind:checked={showAllItems} />
+          <span>Show All Items</span>
+      </label>
+
+      <button type="button" class="tidy-button" onclick={addRootProject}>
+          <i class="fas fa-plus"></i> Add Project
+      </button>
+
+      <div class="search-box">
+        <i class="fas fa-search"></i>
+        <input 
+          type="text" 
+          placeholder="Search projects..." 
+          bind:value={searchQuery}
+        />
+      </div>
+      <button type="button" class="tidy-button refresh-btn" onclick={loadTree} title="Refresh Tree">
+        <i class="fas fa-sync" class:fa-spin={isLoading}></i>
+      </button>
+    </div>
+  </header>
+
+  <main class="tree-content">
+    {#if isLoading}
+      <div class="state-message">
+        <i class="fas fa-spinner fa-spin"></i> Loading tree structure...
+      </div>
+    {:else if errorMessage}
+      <div class="state-message error">
+        <i class="fas fa-exclamation-triangle"></i> {errorMessage}
+      </div>
+    {:else if filteredForest.length === 0}
+      <div class="state-message empty">
+        <p>{searchQuery ? "No projects match your search." : "No projects found in allowed compendiums."}</p>
+        {#if !searchQuery}
+            <small>Ensure you have compendiums selected in World Settings.</small>
+        {/if}
+      </div>
+    {:else}
+      <div class="tree-root-list">
+        {#each filteredForest as root (root.uuid)}
+          <ProjectTreeNodeComponent node={root} depth={0} onRefresh={loadTree} />
+        {/each}
+      </div>
+    {/if}
+  </main>
+</div>
+
+<style lang="scss">
+  .project-tree-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    min-height: 400px;
+    background: var(--color-bg-dark-1);
+    color: var(--color-text-light-2);
+    font-family: var(--font-primary);
+  }
+
+  .tree-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px;
+    background: rgba(0, 0, 0, 0.3);
+    border-bottom: 1px solid var(--color-border-dark-1);
+    gap: 16px;
+
+    .header-left {
+        h2 {
+            margin: 0;
+            font-size: 1.25rem;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: var(--color-text-light-1);
+
+            i {
+                color: var(--color-level-info);
+            }
+        }
+
+        .subtitle {
+            margin: 4px 0 0;
+            font-size: 0.85rem;
+            color: var(--color-text-light-7);
+        }
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .toggle-control {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        font-size: 0.85rem;
+        color: var(--color-text-light-7);
+        cursor: pointer;
+
+        input { margin: 0; }
+        &:hover { color: var(--color-text-light-2); }
+    }
+
+    .search-box {
+      position: relative;
+      display: flex;
+      align-items: center;
+
+      i {
+        position: absolute;
+        left: 10px;
+        color: var(--color-text-light-7);
+        pointer-events: none;
+      }
+
+      input {
+        padding: 6px 12px 6px 32px;
+        background: rgba(0, 0, 0, 0.2);
+        border: 1px solid var(--color-border-dark-2);
+        border-radius: 4px;
+        color: var(--color-text-light-2);
+        width: 180px;
+        transition: width 0.3s ease, border-color 0.3s ease;
+
+        &:focus {
+          width: 240px;
+          border-color: var(--color-level-info);
+          outline: none;
+        }
+      }
+    }
+
+    .refresh-btn {
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+  }
+
+  .tree-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+
+    /* Custom scrollbar */
+    &::-webkit-scrollbar {
+      width: 8px;
+    }
+    &::-webkit-scrollbar-track {
+      background: rgba(0, 0, 0, 0.1);
+    }
+    &::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 4px;
+    }
+  }
+
+  .state-message {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--color-text-light-7);
+    gap: 16px;
+    font-size: 1.1rem;
+
+    i {
+      font-size: 2rem;
+    }
+
+    &.error i {
+      color: var(--color-level-error);
+    }
+
+    &.empty {
+        text-align: center;
+        small {
+            font-size: 0.8rem;
+        }
+    }
+  }
+
+  .tree-root-list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+</style>

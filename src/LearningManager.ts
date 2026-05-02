@@ -10,6 +10,7 @@ import { TutelageResolverService } from "./logic/tutelage-resolver.js";
 import { Settings, SettingsManager } from "./core/settings.js";
 import { LearningConfigApp } from "./apps/settings-app.js";
 import { ProjectOverviewApp } from "./apps/overview-app.js";
+import { ProjectTreeApp } from "./apps/tree-view-app.js";
 import { TabLogic } from "./logic/tab-logic.js";
 import { projectData, LearningFeatType, LearningActivityData } from "./logic/project-item.js";
 import { mount, unmount } from "svelte";
@@ -53,6 +54,15 @@ export class LearningManager {
       hint: "View invalid learning projects",
       icon: "fas fa-eye",
       type: ProjectOverviewApp,
+      restricted: true,
+    });
+
+    Settings.registerMenu("treeViewMenu", {
+      name: "Project Tree View",
+      label: "Project Tree View",
+      hint: "View and manage hierarchical learning paths",
+      icon: "fas fa-sitemap",
+      type: ProjectTreeApp,
       restricted: true,
     });
   }

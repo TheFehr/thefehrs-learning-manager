@@ -83,7 +83,7 @@ export const SETTINGS_DEFINITIONS: {
   },
   migrationVersion: {
     scope: WORLD_SCOPE,
-    default: "3.0.0",
+    default: "4.2.0",
   },
   autoSpend: {
     scope: USER_SCOPE,

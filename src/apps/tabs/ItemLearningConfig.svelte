@@ -12,7 +12,6 @@
   let { item } = $props<{ item: Item5e }>();
 
   let targetValue = $state(0);
-  let followUpProjectId = $state<string>("");
   let requirements = $state<ProjectRequirement[]>([]);
   let categories = $state<string[]>([]);
   let bookModifier = $state(0);
@@ -70,7 +69,6 @@
     if (untrack(() => initialized)) return;
     const data = item.getFlag(MODULE_ID, "projectData");
     targetValue = data?.target ?? 0;
-    followUpProjectId = data?.followUpProjectId ?? "";
     requirements = data?.requirements ? $state.snapshot(data.requirements) : [];
     categories = data?.categories ? [...data.categories] : [];
 
@@ -85,7 +83,6 @@
     initialSnapshot = JSON.stringify({ 
       learningModeEnabled,
       target: targetValue, 
-      followUpProjectId, 
       requirements, 
       categories,
       bookModifier, 
@@ -97,7 +94,6 @@
   // Auto-save logic
   $effect(() => {
     const target = targetValue;
-    const followUpId = followUpProjectId;
     const reqs = requirements;
     const cats = categories;
     const bMod = bookModifier;
@@ -110,7 +106,6 @@
     const currentSnapshot = JSON.stringify({ 
       learningModeEnabled: enabled,
       target, 
-      followUpProjectId: followUpId, 
       requirements: reqs,
       categories: cats,
       bookModifier: bMod,
@@ -123,7 +118,6 @@
         enabled,
         showProjectConfig ? {
           target,
-          followUpProjectId: followUpId,
           requirements: $state.snapshot(reqs),
           categories: [...cats]
         } : undefined,
@@ -146,7 +140,7 @@
 
   async function saveConfig(
     enabled: boolean,
-    project?: { target: number; followUpProjectId: string; requirements: ProjectRequirement[]; categories: string[] },
+    project?: { target: number; requirements: ProjectRequirement[]; categories: string[] },
     book?: { modifier: number; categories: string[] }
   ) {
     if (enabled && project && project.target <= 0) {
@@ -165,7 +159,6 @@
           initialSnapshot = JSON.stringify({ 
             learningModeEnabled: enabled,
             target: project?.target ?? 0, 
-            followUpProjectId: project?.followUpProjectId ?? "", 
             requirements: project?.requirements ?? [], 
             categories: project?.categories ?? [],
             bookModifier: book?.modifier ?? 0, 
@@ -199,17 +192,6 @@
 
   function removeRequirement(id: string) {
     requirements = requirements.filter(r => r.id !== id);
-  }
-
-  async function handleSearchFollowUp() {
-    const uuid = await ItemConfigLogic.searchFollowUp();
-    if (uuid) followUpProjectId = uuid;
-  }
-
-  function handleDrop(e: DragEvent) {
-    e.preventDefault();
-    const uuid = ItemConfigLogic.handleDrop(e);
-    if (uuid) followUpProjectId = uuid;
   }
 </script>
 
@@ -250,27 +232,6 @@
       <label for="project-categories">Project Categories</label>
       <p class="notes" style="margin-top: 0;">Add categories/tags to this project for flexible instructor matching.</p>
       <CategorySelector bind:categories={categories} />
-    </div>
-
-    <div class="form-group">
-      <label for="follow-up-project">Follow-up Project</label>
-      <p class="notes" style="margin-top: 0;">If progress exceeds the target, prompt to start this project with excess progress.</p>
-      <div class="form-fields" style="display: flex; gap: 0.5rem; align-items: center;">
-        <input
-          id="follow-up-project"
-          type="text"
-          bind:value={followUpProjectId}
-          onchange={(e) => e.stopPropagation()}
-          oninput={(e) => e.stopPropagation()}
-          ondrop={(e) => { e.stopPropagation(); handleDrop(e); }}
-          ondragover={(e) => e.preventDefault()}
-          placeholder="Item UUID (e.g. Compendium.module.pack.Item.id)"
-          style="flex: 1;"
-        />
-        <button type="button" class="tidy-button small" onclick={(e) => { e.stopPropagation(); handleSearchFollowUp(); }} title="Search for Follow-up Project" aria-label="Search for follow-up project">
-          <i class="fas fa-search"></i>
-        </button>
-      </div>
     </div>
 
     <hr />
