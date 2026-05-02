@@ -85,8 +85,9 @@ export class ProjectEngine {
     item: Item5e,
     projectData: ProjectFlagData,
     instructorName: string = "Self-Study",
+    render: boolean = false,
   ): Promise<void> {
-    return ProjectLifecycle.updateItemWithProgress(item, projectData, instructorName);
+    return ProjectLifecycle.updateItemWithProgress(item, projectData, instructorName, render);
   }
 
   static _tabLogicModule: any = null;

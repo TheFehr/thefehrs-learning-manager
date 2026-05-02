@@ -9,6 +9,7 @@ import type { ProjectMappedData } from "@/logic/project-item.js";
 
 export interface MemberMappedData {
   id: string;
+  uuid: string;
   name: string;
   img: string | null;
   tokenImg: string | null;
@@ -64,6 +65,7 @@ export class PartyTab {
 
     return {
       id: proxy.id,
+      uuid: proxy.uuid,
       name: proxy.name,
       img: proxy.img,
       tokenImg: proxy.tokenImg,

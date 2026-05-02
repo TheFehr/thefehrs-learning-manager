@@ -3,6 +3,7 @@ import { Logger } from "@/core/logger.js";
 import { ActorProxy } from "./actor-proxy.js";
 import { TabLogic } from "./tab-logic.js";
 import { ProjectEngine } from "./project-engine.js";
+import { FoundryUtils } from "@/core/foundry-utils.js";
 import type { ProjectItem, ProjectFlagData, ProjectMappedData } from "./project-item.js";
 import type { MemberMappedData } from "@/apps/party-tab.js";
 import { isActor5e, type Item5e, type Actor5e } from "@/types.js";
@@ -152,20 +153,22 @@ export class PartyTabLogic {
    * Manually updates project progress.
    */
   static async updateProgress(
-    actorId: string,
+    memberUuid: string,
     project: ProjectMappedData,
     newProgress: number,
     isGM: boolean,
+    _parentActor?: Actor,
   ) {
     if (!isGM) return;
-    const targetActor = getGame().actors?.get(actorId) as Actor5e | undefined;
+    const targetActor = (await fromUuid(memberUuid)) as Actor5e | undefined;
     if (!targetActor) return;
 
     const item = targetActor.items.get(project.id);
     if (item) {
       try {
-        const proxyItem = item as unknown as ProjectItem;
-        const projectData = proxyItem.getFlag("thefehrs-learning-manager", "projectData");
+        const projectData = FoundryUtils.deepClone(
+          (item.getFlag("thefehrs-learning-manager", "projectData") as ProjectFlagData) || {},
+        );
         if (!projectData) return;
 
         projectData.progress = Math.max(0, Math.min(newProgress, projectData.target || 0));
@@ -175,10 +178,22 @@ export class PartyTabLogic {
           projectData.progress >= projectData.target &&
           !projectData.isCompleted
         ) {
-          await ProjectEngine.updateItemWithProgress(item as unknown as Item5e, projectData);
+          // Completion ALWAYS renders because it changes item types/recreates
+          await ProjectEngine.updateItemWithProgress(
+            item as unknown as Item5e,
+            projectData,
+            "GM Manual Edit",
+            true,
+          );
           await ProjectEngine.completeProject(item as unknown as Item5e);
         } else {
-          await ProjectEngine.updateItemWithProgress(item as unknown as Item5e, projectData);
+          // Normal manual update is SILENT to avoid flickering/scroll loss
+          await ProjectEngine.updateItemWithProgress(
+            item as unknown as Item5e,
+            projectData,
+            "GM Manual Edit",
+            false,
+          );
         }
       } catch (err) {
         Logger.error(`Failed to manually update progress for "${item.name}":`, true, err);
@@ -190,22 +205,25 @@ export class PartyTabLogic {
    * Manually updates project target.
    */
   static async updateTarget(
-    actorId: string,
+    memberUuid: string,
     project: ProjectMappedData,
     newTarget: number,
     isGM: boolean,
+    _parentActor?: Actor,
   ) {
     if (!isGM) return;
-    const targetActor = getGame().actors?.get(actorId) as Actor5e | undefined;
+    const targetActor = (await fromUuid(memberUuid)) as Actor5e | undefined;
     if (!targetActor) return;
 
     const item = targetActor.items.get(project.id);
     if (item) {
       try {
-        const projectData = (item.getFlag(
-          "thefehrs-learning-manager",
-          "projectData",
-        ) as ProjectFlagData) || { progress: 0, target: 0 };
+        const projectData = FoundryUtils.deepClone(
+          (item.getFlag("thefehrs-learning-manager", "projectData") as ProjectFlagData) || {
+            progress: 0,
+            target: 0,
+          },
+        );
         const oldTarget = projectData.target;
         projectData.target = Math.max(0, newTarget);
         Logger.debug(`updateTarget: Setting target to ${projectData.target} for ${item.name}`);
@@ -217,7 +235,12 @@ export class PartyTabLogic {
             projectData.progress !== undefined &&
             projectData.progress >= projectData.target
           ) {
-            await ProjectEngine.updateItemWithProgress(item as unknown as Item5e, projectData);
+            await ProjectEngine.updateItemWithProgress(
+              item as unknown as Item5e,
+              projectData,
+              "GM Manual Edit",
+              true,
+            );
             await ProjectEngine.completeProject(item as unknown as Item5e);
             return;
           }
@@ -228,7 +251,13 @@ export class PartyTabLogic {
           await ProjectEngine.injectActivities(item as unknown as Item5e, projectData.target);
         }
 
-        await ProjectEngine.updateItemWithProgress(item as unknown as Item5e, projectData);
+        // Normal manual update is SILENT to avoid flickering/scroll loss
+        await ProjectEngine.updateItemWithProgress(
+          item as unknown as Item5e,
+          projectData,
+          "GM Manual Edit",
+          false,
+        );
       } catch (err) {
         Logger.error(`Failed to manually update target for "${item.name}":`, true, err);
       }
@@ -239,14 +268,15 @@ export class PartyTabLogic {
    * Orchestrates project deletion/abortion.
    */
   static async deleteProject(
-    actorId: string,
+    memberUuid: string,
     project: ProjectMappedData,
     confirmFn?: () => Promise<boolean>,
     isGM?: boolean,
+    parentActor?: Actor,
   ) {
     try {
-      const targetActor = getGame().actors?.get(actorId) as Actor5e | undefined;
-      if (!targetActor || !targetActor.isOwner) {
+      const targetActor = (await fromUuid(memberUuid)) as Actor5e | undefined;
+      if (!targetActor || (!targetActor.isOwner && !isGM)) {
         getUI()?.notifications?.warn("You do not have permission to modify this actor's projects.");
         return;
       }
@@ -264,7 +294,11 @@ export class PartyTabLogic {
 
       if (confirmed) {
         const item = targetActor.items.get(project.id);
-        if (item) await item.delete();
+        if (item) {
+          await item.delete();
+          // Deletion should trigger a render because the row is gone
+          if (parentActor) parentActor.render();
+        }
       }
     } catch (err) {
       Logger.error(`Failed to delete project:`, true, err);

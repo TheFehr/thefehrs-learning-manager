@@ -75,20 +75,37 @@ test.describe("GM Administrative Controls (Party Tab)", () => {
       { timeout: 10000 },
     );
 
-    // Verify update in backend
-    const backendProgress = await page.evaluate((moduleId) => {
-      const actor = (game as any).actors.getName("PC 4");
-      const project = actor.items.find((i: any) => i.name.includes("GM Override Project"));
-      return project.getFlag(moduleId, "projectData")?.progress;
-    }, moduleId);
-    expect(backendProgress).toBe(75);
+    // REAL-TIME UI CHECK: Verify UI reflects change immediately without reopen
+    const progressTextImmediate = page
+      .locator(`[data-tidy-section-key="actor-${pc4Id}"]`)
+      .locator(".project-row")
+      .filter({ hasText: /GM Override Project/i })
+      .locator(".progress-read-only");
+    await expect(progressTextImmediate).toHaveText("75");
+
+    // PERSISTENCE CHECK: Close and Reopen the sheet to ensure UI reflects saved state
+    console.log("Persistence Check: Reopening sheet...");
+    await page.locator('.window-header [data-action="close"]').first().click();
+    await page.evaluate(async () => {
+      const groupActor = (game as any).actors.getName("Test Group");
+      return groupActor.sheet.render(true);
+    });
+    await expect(page.locator(".thefehrs-party-tab").first()).toBeVisible();
+    if (await tabButton.isVisible()) await tabButton.click();
+
+    // Verify UI reflects the change after reopen
+    const progressText = page
+      .locator(`[data-tidy-section-key="actor-${pc4Id}"]`)
+      .locator(".project-row")
+      .filter({ hasText: /GM Override Project/i })
+      .locator(".progress-read-only");
+    await expect(progressText).toHaveText("75");
 
     // 6. Change Target from 100 to 150 via UI
     console.log("Updating target via UI...");
-    // Re-enable edit mode if it was lost during re-render
     await ensureEditMode();
 
-    // Re-locate project row in case it became stale
+    // Re-locate project row
     const projectRowTarget = partyTab
       .locator(`[data-tidy-section-key="actor-${pc4Id}"]`)
       .locator(".project-row")
@@ -99,7 +116,7 @@ test.describe("GM Administrative Controls (Party Tab)", () => {
     await targetInput.fill("150");
     await targetInput.press("Enter");
 
-    // Wait for backend to update
+    // Wait for backend
     await page.waitForFunction(
       (moduleId) => {
         const actor = (game as any).actors.getName("PC 4");
@@ -110,13 +127,16 @@ test.describe("GM Administrative Controls (Party Tab)", () => {
       { timeout: 10000 },
     );
 
-    // Verify update in backend
-    const backendTarget = await page.evaluate((moduleId) => {
-      const actor = (game as any).actors.getName("PC 4");
-      const project = actor.items.find((i: any) => i.name.includes("GM Override Project"));
-      return project.getFlag(moduleId, "projectData")?.target;
-    }, moduleId);
-    expect(backendTarget).toBe(150);
+    // PERSISTENCE CHECK: Verify UI target reflects the change
+    console.log("Persistence Check: Verifying target UI...");
+    await ensureEditMode(); // Re-enable to see input value or check read-only
+    const targetValue = await page
+      .locator(`[data-tidy-section-key="actor-${pc4Id}"]`)
+      .locator(".project-row")
+      .filter({ hasText: /GM Override Project/i })
+      .locator(".update-project-target")
+      .inputValue();
+    expect(targetValue).toBe("150");
 
     // 7. Click Abort button
     console.log("Aborting project...");
