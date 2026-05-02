@@ -50,7 +50,7 @@ jobs:
     if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     concurrency:
-      group: latest-beta
+      group: release-${{ github.ref }}
       cancel-in-progress: true
     permissions:
       contents: write
