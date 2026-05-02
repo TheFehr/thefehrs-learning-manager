@@ -302,5 +302,10 @@ export function validateSettings(data: unknown) {
     );
   }
 
+  // 7. Validate Scan World Actors
+  if (typeof data.scanWorldActors === "boolean") {
+    result.scanWorldActors = data.scanWorldActors;
+  }
+
   return result;
 }

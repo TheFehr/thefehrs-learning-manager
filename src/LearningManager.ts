@@ -101,6 +101,9 @@ export class LearningManager {
       bookCompendiums: {
         onChange: () => TutelageResolverService.clearCache(),
       },
+      scanWorldActors: {
+        onChange: () => TutelageResolverService.clearCache(),
+      },
     });
   }
 

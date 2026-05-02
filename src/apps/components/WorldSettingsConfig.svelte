@@ -13,6 +13,7 @@
     teacherCompendiums = $bindable(),
     bookCompendiums = $bindable(),
     allowedCompendiums = $bindable(),
+    scanWorldActors = $bindable(),
     availableItemPacks = [],
     instructorPacks = [],
     bookPacks = [],
@@ -22,6 +23,7 @@
     teacherCompendiums: string[];
     bookCompendiums: string[];
     allowedCompendiums: string[];
+    scanWorldActors: boolean;
     availableItemPacks: PackInfo[];
     instructorPacks: PackInfo[];
     bookPacks: PackInfo[];
@@ -34,6 +36,7 @@
       teacherCompendiums,
       bookCompendiums,
       allowedCompendiums,
+      scanWorldActors,
     };
     foundry.utils.saveDataToFile(
       JSON.stringify(data, null, 2),
@@ -112,6 +115,8 @@
               bookCompendiums = validated.bookCompendiums;
             if (validated.allowedCompendiums !== undefined)
               allowedCompendiums = validated.allowedCompendiums;
+            if (validated.scanWorldActors !== undefined)
+              scanWorldActors = validated.scanWorldActors;
 
             ui.notifications?.info(
               "Downtime Engine | Settings imported. Click Save to persist.",
@@ -176,6 +181,14 @@
     >
       <i class="fas fa-sync"></i> Clear Cache
     </button>
+  </div>
+
+  <div class="form-group">
+    <label for="scan-world-actors" style="font-weight: bold;">Scan World Actors for Instructors</label>
+    <div class="form-fields">
+      <input id="scan-world-actors" type="checkbox" bind:checked={scanWorldActors} />
+    </div>
+    <p class="notes">If enabled, the module will scan all actors in the world for teacher offerings. Disabling this can improve performance in very large worlds.</p>
   </div>
 
   <RulesConfig bind:rules />

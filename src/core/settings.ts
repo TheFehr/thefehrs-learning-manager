@@ -96,6 +96,10 @@ export const SETTINGS_DEFINITIONS: {
     scope: WORLD_SCOPE,
     default: [...DEFAULT_CATEGORIES],
   },
+  scanWorldActors: {
+    scope: WORLD_SCOPE,
+    default: true,
+  },
 };
 
 /**
