@@ -33,10 +33,10 @@
     if (member) {
         const p = member.projects.find(proj => proj.id === project.id);
         if (p) {
-            p.progress = Math.max(0, Math.min(newProgress, p.target || 0));
+            const max = p.maxProgress || project.maxProgress || 0;
+            p.progress = Math.max(0, Math.min(newProgress, max));
             // Update percentage for the bar
-            const target = p.target || 0;
-            p.progressPercentage = target > 0 ? Math.min(100, Math.round((p.progress / target) * 100)) : 0;
+            p.progressPercentage = max > 0 ? Math.min(100, Math.round((p.progress / max) * 100)) : 0;
         }
     }
     PartyTabLogic.updateProgress(memberUuid, project, newProgress, isGM, actor);
@@ -51,8 +51,8 @@
             p.target = Math.max(0, newTarget);
             p.maxProgress = p.target;
             // Update percentage for the bar
-            const target = p.target || 0;
-            p.progressPercentage = target > 0 ? Math.min(100, Math.round((p.progress / target) * 100)) : 0;
+            const max = p.maxProgress || 0;
+            p.progressPercentage = max > 0 ? Math.min(100, Math.round((p.progress / max) * 100)) : 0;
         }
     }
     PartyTabLogic.updateTarget(memberUuid, project, newTarget, isGM, actor);

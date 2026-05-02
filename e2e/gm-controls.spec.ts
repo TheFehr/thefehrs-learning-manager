@@ -75,12 +75,13 @@ test.describe("GM Administrative Controls (Party Tab)", () => {
       { timeout: 10000 },
     );
 
+    // Exit edit mode to verify read-only state
+    const editModeToggle = partyTab.locator(".toggle-progress-edit");
+    await editModeToggle.click();
+    await expect(editModeToggle).toHaveAttribute("aria-checked", "false");
+
     // REAL-TIME UI CHECK: Verify UI reflects change immediately without reopen
-    const progressTextImmediate = page
-      .locator(`[data-tidy-section-key="actor-${pc4Id}"]`)
-      .locator(".project-row")
-      .filter({ hasText: /GM Override Project/i })
-      .locator(".progress-read-only");
+    const progressTextImmediate = projectRow.locator(".progress-read-only");
     await expect(progressTextImmediate).toHaveText("75");
 
     // PERSISTENCE CHECK: Close and Reopen the sheet to ensure UI reflects saved state

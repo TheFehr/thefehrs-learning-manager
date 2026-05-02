@@ -273,11 +273,11 @@ describe("PartyTabLogic", () => {
         isOwner: true,
         items: { get: vi.fn().mockReturnValue(mockItem) },
       };
-      (game.actors as any).set("actor1", mockActor);
+      (globalThis as any).fromUuid = vi.fn().mockResolvedValue(mockActor);
 
       const confirmFn = vi.fn().mockResolvedValue(false);
       await PartyTabLogic.deleteProject(
-        "actor1",
+        "Actor.actor1",
         { id: "item1", progress: 0 } as any,
         confirmFn,
         false,
@@ -288,9 +288,9 @@ describe("PartyTabLogic", () => {
 
     it("should warn if no permission", async () => {
       const mockActor = { isOwner: false };
-      (game.actors as any).set("actor1", mockActor);
+      (globalThis as any).fromUuid = vi.fn().mockResolvedValue(mockActor);
 
-      await PartyTabLogic.deleteProject("actor1", {} as any, undefined, false);
+      await PartyTabLogic.deleteProject("Actor.actor1", {} as any, undefined, false);
       expect(ui.notifications.warn).toHaveBeenCalledWith(expect.stringContaining("permission"));
     });
 
