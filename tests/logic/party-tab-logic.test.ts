@@ -296,7 +296,7 @@ describe("PartyTabLogic", () => {
 
     it("should warn if trying to abort in-progress project without being GM", async () => {
       const mockActor = { isOwner: true, name: "Actor" };
-      vi.mocked(fromUuid).mockResolvedValue(mockActor as any);
+      vi.mocked(globalThis.fromUuid).mockResolvedValue(mockActor as any);
 
       await PartyTabLogic.deleteProject("Actor.actor1", { progress: 5 } as any, undefined, false);
       expect(ui.notifications.warn).toHaveBeenCalledWith(

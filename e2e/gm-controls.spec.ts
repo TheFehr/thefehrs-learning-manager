@@ -130,6 +130,16 @@ test.describe("GM Administrative Controls (Party Tab)", () => {
 
     // PERSISTENCE CHECK: Verify UI target reflects the change
     console.log("Persistence Check: Verifying target UI...");
+
+    // REHYDRATE: Close and Reopen to exercise rehydration path
+    await page.locator('.window-header [data-action="close"]').first().click();
+    await page.evaluate(async () => {
+      const groupActor = (game as any).actors.getName("Test Group");
+      return groupActor.sheet.render(true);
+    });
+    await expect(page.locator(".thefehrs-party-tab").first()).toBeVisible();
+    if (await tabButton.isVisible()) await tabButton.click();
+
     await ensureEditMode(); // Re-enable to see input value or check read-only
     const targetValue = await page
       .locator(`[data-tidy-section-key="actor-${pc4Id}"]`)
