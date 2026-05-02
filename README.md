@@ -14,7 +14,7 @@ Whether your players are learning a new language, training a feat, or mastering 
 - **Intuitive Configuration UI:** Manage scaling matrices, learning rates, and tutelage modifiers directly in Foundry through a user-friendly settings panel.
 - **Custom Tutelage Matrix:** Define effectiveness and costs for different teachers (e.g., _Self-Taught_, _Amateur_, _Professional_).
 - **Project Library & Dynamic Rewards:** Pre-define standard projects and attach UUIDs to auto-grant Items or Active Effects upon completion.
-- **Requirement System:** Set attribute or skill-based conditions (e.g., `Intelligence >= 13`) for project participation.
+- **Requirement System:** Set attribute or skill-based conditions (e.g., `@abilities.int.value >= 13`) for project participation.
 - **Party Time Management:** A dedicated "Group Learning" tab on Party/Group actors for distributing time and tracking all party members' progress at once.
 
 ### For the Players
