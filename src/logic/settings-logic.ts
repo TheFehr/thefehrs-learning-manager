@@ -25,6 +25,7 @@ export async function saveSettings(
   allowedCompendiums: string[],
   autoSpend?: boolean,
   autoSpendUnits?: string[],
+  scanWorldActors?: boolean,
 ): Promise<boolean> {
   const isGM = !!getGame().user?.isGM;
 
@@ -36,6 +37,7 @@ export async function saveSettings(
     toSave.teacherCompendiums = teacherCompendiums;
     toSave.bookCompendiums = bookCompendiums;
     toSave.allowedCompendiums = allowedCompendiums;
+    if (scanWorldActors !== undefined) toSave.scanWorldActors = scanWorldActors;
   }
   if (autoSpend !== undefined) toSave.autoSpend = autoSpend;
   if (autoSpendUnits !== undefined) toSave.autoSpendUnits = autoSpendUnits;
@@ -185,6 +187,7 @@ export function validateSettings(data: unknown) {
     bookCompendiums?: string[];
     allowedCompendiums?: string[];
     categories?: string[];
+    scanWorldActors?: boolean;
   } = {};
 
   if (!isPlainObject(data)) {

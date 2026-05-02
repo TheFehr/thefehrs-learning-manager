@@ -127,7 +127,7 @@ test.describe("Category Matching", () => {
 
     // Close dialog
     await page.keyboard.press("Escape");
-    await page.waitForTimeout(1000);
+    await dialog.waitFor({ state: "hidden" });
 
     // 3. Test Athletics Project
     await page.evaluate(async (moduleId) => {

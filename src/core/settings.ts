@@ -25,6 +25,7 @@ export interface SettingsSchema {
   autoSpend: boolean;
   autoSpendUnits: string[];
   categories: string[];
+  scanWorldActors: boolean;
 }
 
 const WORLD_SCOPE = "world" as const;

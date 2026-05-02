@@ -84,28 +84,23 @@ test.describe("Item Learning Configuration", () => {
     await expect(itemSheet.locator("h4:has-text('Learning Book Configuration')")).toBeVisible();
 
     // 4. Configure as a BOOK (fill modifier)
-    await page.fill("#book-modifier", "5");
+    await itemSheet.locator("#book-modifier").fill("5");
 
-    // Wait for auto-save (500ms + buffer)
-    await page.waitForTimeout(2000);
-
-    // 5. Verify Project Configuration is now HIDDEN
+    // 5. Verify Project Configuration is now HIDDEN (auto-waits)
     await expect(itemSheet.locator("h4:has-text('Project Configuration')")).toBeHidden();
     await expect(itemSheet.locator("h4:has-text('Learning Book Configuration')")).toBeVisible();
 
     // 6. Clear Book modifier (set to 0)
-    await page.fill("#book-modifier", "0");
-    await page.waitForTimeout(2000);
+    await itemSheet.locator("#book-modifier").fill("0");
 
-    // 7. Verify BOTH are visible again
+    // 7. Verify BOTH are visible again (auto-waits)
     await expect(itemSheet.locator("h4:has-text('Project Configuration')")).toBeVisible();
     await expect(itemSheet.locator("h4:has-text('Learning Book Configuration')")).toBeVisible();
 
     // 8. Configure as a PROJECT (fill target)
-    await page.fill("#target-progress", "10");
-    await page.waitForTimeout(2000);
+    await itemSheet.locator("#target-progress").fill("10");
 
-    // 9. Verify Book Configuration is now HIDDEN
+    // 9. Verify Book Configuration is now HIDDEN (auto-waits)
     await expect(itemSheet.locator("h4:has-text('Learning Book Configuration')")).toBeHidden();
     await expect(itemSheet.locator("h4:has-text('Project Configuration')")).toBeVisible();
   });

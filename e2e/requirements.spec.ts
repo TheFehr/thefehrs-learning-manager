@@ -1,6 +1,25 @@
 import { test, expect } from "./fixtures";
 
 test.describe("Project Requirements", () => {
+  let setupData: any;
+
+  test.afterEach(async ({ page }) => {
+    if (setupData) {
+      await page.evaluate(async (data) => {
+        const moduleId = "thefehrs-learning-manager";
+        // Restore settings
+        await (game as any).settings.set(moduleId, "allowedCompendiums", data.originalAllowed);
+
+        // Delete world documents
+        const pack = (game as any).packs.get(data.packId);
+        if (pack) await pack.delete();
+
+        const actor = (game as any).actors.get(data.actorId);
+        if (actor) await actor.delete();
+      }, setupData);
+    }
+  });
+
   test("verify requirement enforcement during project initiation", async ({ page }) => {
     test.setTimeout(240000);
     await page.goto("/game");
@@ -12,7 +31,7 @@ test.describe("Project Requirements", () => {
     const moduleId = "thefehrs-learning-manager";
 
     // 1. Setup: Create a learnable item with a requirement and an actor
-    const setupData = await page.evaluate(async (moduleId) => {
+    setupData = await page.evaluate(async (moduleId) => {
       // Create a Pack for the item
       const packName = "test-requirements";
       const pack = (game as any).packs.get(`world.${packName}`);
@@ -65,6 +84,7 @@ test.describe("Project Requirements", () => {
 
       // Allow the compendium
       const allowed = (game as any).settings.get(moduleId, "allowedCompendiums") || [];
+      const originalValue = [...allowed];
       if (!allowed.includes(`world.${packName}`)) {
         await (game as any).settings.set(moduleId, "allowedCompendiums", [
           ...allowed,
@@ -76,6 +96,7 @@ test.describe("Project Requirements", () => {
         actorId: actor.id,
         itemUuid: item.uuid,
         packId: `world.${packName}`,
+        originalAllowed: originalValue,
       };
     }, moduleId);
 
