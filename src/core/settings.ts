@@ -25,6 +25,7 @@ export interface SettingsSchema {
   autoSpend: boolean;
   autoSpendUnits: string[];
   categories: string[];
+  scanWorldActors: boolean;
 }
 
 const WORLD_SCOPE = "world" as const;
@@ -95,6 +96,10 @@ export const SETTINGS_DEFINITIONS: {
   categories: {
     scope: WORLD_SCOPE,
     default: [...DEFAULT_CATEGORIES],
+  },
+  scanWorldActors: {
+    scope: WORLD_SCOPE,
+    default: true,
   },
 };
 

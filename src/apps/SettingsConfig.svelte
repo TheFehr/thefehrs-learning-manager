@@ -16,6 +16,7 @@
   let teacherCompendiums = $state<string[]>(Settings.get("teacherCompendiums"));
   let bookCompendiums = $state<string[]>(Settings.get("bookCompendiums"));
   let allowedCompendiums = $state<string[]>(Settings.get("allowedCompendiums"));
+  let scanWorldActors = $state<boolean>(Settings.get("scanWorldActors"));
 
   // User Preferences
   let autoSpend = $state<boolean>(!isGM ? Settings.get("autoSpend") : false);
@@ -63,6 +64,7 @@
       allowedCompendiums,
       autoSpend,
       autoSpendUnits,
+      scanWorldActors,
     );
   }
 </script>
@@ -75,6 +77,7 @@
       bind:teacherCompendiums
       bind:bookCompendiums
       bind:allowedCompendiums
+      bind:scanWorldActors
       {availableItemPacks}
       {instructorPacks}
       {bookPacks}

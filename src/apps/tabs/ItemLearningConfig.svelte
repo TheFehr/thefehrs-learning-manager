@@ -40,10 +40,20 @@
   const isAlreadyProject = $derived(!!item.getFlag(MODULE_ID, "isLearningProject"));
   const isLearnedReward = $derived(!!item.getFlag(MODULE_ID, "isLearnedReward"));
   const isLearningType = $derived(item.type === "feat" && (item.system as any).type?.value === LearningFeatType);
-  const isActuallyProject = $derived(isAlreadyProject || isLearningType || isLearnedReward);
+  
+  const isActuallyProject = $derived(isAlreadyProject || isLearningType || isLearnedReward || targetValue > 0);
+  const isActuallyBook = $derived(bookModifier > 0);
 
-  const showProjectConfig = $derived(isProjectCompendium || isActuallyProject || (!isProjectCompendium && !isBookCompendium));
-  const showBookConfig = $derived((isBookCompendium || (!isProjectCompendium && !isBookCompendium)) && !isActuallyProject);
+  const showProjectConfig = $derived(
+    isProjectCompendium || 
+    isActuallyProject || 
+    (!isProjectCompendium && !isBookCompendium && !isActuallyBook)
+  );
+  
+  const showBookConfig = $derived(
+    (isBookCompendium || (!isProjectCompendium && !isBookCompendium)) && 
+    !isActuallyProject
+  );
 
   const operatorChoices: Record<ComparisonOperator, string> = {
     "==": "Equal To",
@@ -61,7 +71,7 @@
     const data = item.getFlag(MODULE_ID, "projectData");
     targetValue = data?.target ?? 0;
     followUpProjectId = data?.followUpProjectId ?? "";
-    requirements = data?.requirements ? structuredClone(data.requirements) : [];
+    requirements = data?.requirements ? $state.snapshot(data.requirements) : [];
     categories = data?.categories ? [...data.categories] : [];
 
     const bookData = item.getFlag(MODULE_ID, "learningBookBonus");
@@ -114,7 +124,7 @@
         showProjectConfig ? {
           target,
           followUpProjectId: followUpId,
-          requirements: structuredClone(reqs),
+          requirements: $state.snapshot(reqs),
           categories: [...cats]
         } : undefined,
         showBookConfig ? {

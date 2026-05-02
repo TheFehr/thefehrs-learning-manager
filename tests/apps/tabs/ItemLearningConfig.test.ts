@@ -85,9 +85,17 @@ describe("ItemLearningConfig.svelte", () => {
       return [];
     });
 
+    const bookItem = {
+      ...mockItem,
+      getFlag: vi.fn().mockImplementation((_scope, key) => {
+        if (key === "learningModeEnabled") return true;
+        return null;
+      }),
+    };
+
     instance = mount(ItemLearningConfig, {
       target,
-      props: { item: mockItem },
+      props: { item: bookItem },
     });
     await tick();
 
@@ -102,9 +110,17 @@ describe("ItemLearningConfig.svelte", () => {
       return [];
     });
 
+    const neutralItem = {
+      ...mockItem,
+      getFlag: vi.fn().mockImplementation((_scope, key) => {
+        if (key === "learningModeEnabled") return true;
+        return null;
+      }),
+    };
+
     instance = mount(ItemLearningConfig, {
       target,
-      props: { item: mockItem },
+      props: { item: neutralItem },
     });
     await tick();
 

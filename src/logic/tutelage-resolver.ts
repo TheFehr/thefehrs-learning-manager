@@ -45,14 +45,18 @@ export class TutelageResolverService {
     }
 
     const projectName = projectItem.name;
-    const projectCats = projectItem.getFlag(MODULE_ID, "projectData")?.categories || [];
+    const projectCats = (projectItem.getFlag(MODULE_ID, "projectData")?.categories || []).map(
+      (c: string) => c.toLowerCase().trim(),
+    );
 
     Logger.debug(
       `Filtering ${this.instructorCache.length} instructors for project: "${projectName}", categories: ${projectCats.join(", ")}`,
     );
 
     const result = this.instructorCache.filter((instructor) => {
-      const instructorCats = instructor.offering.categories || [];
+      const instructorCats = (instructor.offering.categories || []).map((c: string) =>
+        c.toLowerCase().trim(),
+      );
       const hasCategoryList = instructorCats.length > 0;
 
       // Match all if no categories specified, otherwise match any category
@@ -79,6 +83,28 @@ export class TutelageResolverService {
     const compendiumIds = Settings.get("teacherCompendiums") || [];
     const instructors: InstructorInstance[] = [];
 
+    // 1. Scan World Actors
+    if (Settings.get("scanWorldActors")) {
+      const worldActors = getGame().actors?.contents || [];
+      for (const actor of worldActors) {
+        const isInstructor = actor.getFlag(MODULE_ID, "learningModeEnabled");
+        if (!isInstructor) continue;
+
+        const offerings = actor.getFlag(MODULE_ID, "teacherOfferings") as TeacherOffering[];
+        if (offerings && Array.isArray(offerings) && offerings.length > 0) {
+          for (const offering of offerings) {
+            instructors.push({
+              actorUuid: actor.uuid,
+              name: actor.name || "Unknown Instructor",
+              offering: offering,
+            });
+          }
+        }
+      }
+      Logger.debug(`Found ${instructors.length} world instructors.`);
+    }
+
+    // 2. Scan Compendiums
     for (const id of compendiumIds) {
       try {
         const pack = getGame().packs?.get(id);
@@ -130,39 +156,45 @@ export class TutelageResolverService {
     actor: Actor5e,
     projectItem: ProjectItem,
   ): { name: string; modifier: number }[] {
-    const projectCats = projectItem.getFlag(MODULE_ID, "projectData")?.categories || [];
+    const projectCats = (projectItem.getFlag(MODULE_ID, "projectData")?.categories || []).map(
+      (c: string) => c.toLowerCase().trim(),
+    );
     const books: { name: string; modifier: number }[] = [];
 
     const items = actor.items as any;
     const bookCompendiums = Settings.get("bookCompendiums") || [];
 
     for (const item of items) {
+      const bonus = item.getFlag(MODULE_ID, "learningBookBonus") as LearningBookBonus;
+      if (!bonus) continue;
+
       // Filter by compendium if configured
       if (bookCompendiums.length > 0) {
         const sourceId = (item._stats?.compendiumSource || (item as any).flags?.core?.sourceId) as
           | string
           | undefined;
-        if (!sourceId || !sourceId.startsWith("Compendium.")) continue;
-        const parts = sourceId.split(".");
-        if (parts.length < 3) continue;
-        const packId = `${parts[1]}.${parts[2]}`;
-        if (!bookCompendiums.includes(packId)) continue;
+
+        // Only apply filter if it comes from a compendium. World items are always allowed if they have the flag.
+        if (sourceId && sourceId.startsWith("Compendium.")) {
+          const parts = sourceId.split(".");
+          if (parts.length >= 3) {
+            const packId = `${parts[1]}.${parts[2]}`;
+            if (!bookCompendiums.includes(packId)) continue;
+          }
+        }
       }
 
-      const bonus = item.getFlag(MODULE_ID, "learningBookBonus") as LearningBookBonus;
-      if (bonus) {
-        const bookCats = bonus.categories || [];
-        const hasCategoryList = bookCats.length > 0;
+      const bookCats = (bonus.categories || []).map((c: string) => c.toLowerCase().trim());
+      const hasCategoryList = bookCats.length > 0;
 
-        // Match all if no categories specified, otherwise match any category
-        const isApplicable = !hasCategoryList || projectCats.some((c) => bookCats.includes(c));
+      // Match all if no categories specified, otherwise match any category
+      const isApplicable = !hasCategoryList || projectCats.some((c) => bookCats.includes(c));
 
-        if (isApplicable) {
-          books.push({
-            name: item.name,
-            modifier: bonus.modifier,
-          });
-        }
+      if (isApplicable) {
+        books.push({
+          name: item.name,
+          modifier: bonus.modifier,
+        });
       }
     }
 
