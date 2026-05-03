@@ -106,12 +106,9 @@ export const SETTINGS_DEFINITIONS: {
 /**
  * Derived default values for all settings.
  */
-export const DEFAULT_SETTINGS: SettingsSchema = (
-  Object.keys(SETTINGS_DEFINITIONS) as Array<keyof SettingsSchema>
-).reduce((acc, key) => {
-  (acc as any)[key] = SETTINGS_DEFINITIONS[key].default;
-  return acc;
-}, {} as Partial<SettingsSchema>) as SettingsSchema;
+export const DEFAULT_SETTINGS: SettingsSchema = Object.fromEntries(
+  Object.entries(SETTINGS_DEFINITIONS).map(([key, metadata]) => [key, metadata.default]),
+) as unknown as SettingsSchema;
 
 export interface SettingMenuConfig {
   name: string;
@@ -199,10 +196,7 @@ export class SettingsManager {
     key: K,
     fallback: SettingsSchema[K],
   ): SettingsSchema[K] {
-    const val = getGame().settings.get(
-      SettingsManager.ID,
-      key as any,
-    ) as unknown as SettingsSchema[K];
+    const val = getGame().settings.get(SettingsManager.ID, key as any) as SettingsSchema[K];
     if (val === undefined || val === null) {
       const keyStr = key as string;
       if (!this.seenMissing.has(keyStr)) {

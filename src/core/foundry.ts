@@ -5,7 +5,7 @@ import type { FoundrySocket } from "@/types.js";
  * @throws Error if game is not initialized.
  */
 export function getGame(): Game {
-  const g = (globalThis as any).game as Game | undefined;
+  const g = (globalThis as unknown as { game: Game }).game;
   if (!g) {
     throw new Error("Foundry VTT game is not initialized yet.");
   }
@@ -17,7 +17,7 @@ export function getGame(): Game {
  * @throws Error if canvas is not initialized.
  */
 export function getCanvas(): Canvas {
-  const c = (globalThis as any).canvas as Canvas | undefined;
+  const c = (globalThis as unknown as { canvas: Canvas }).canvas;
   if (!c) {
     throw new Error("Foundry VTT canvas is not initialized yet.");
   }
@@ -29,7 +29,11 @@ export function getCanvas(): Canvas {
  * Returns undefined if ui is not initialized.
  */
 export function getUI(): ({ notifications?: Notifications } & Record<string, any>) | undefined {
-  return (globalThis as any).ui;
+  return (
+    globalThis as unknown as {
+      ui: ({ notifications?: Notifications } & Record<string, any>) | undefined;
+    }
+  ).ui;
 }
 
 /**
@@ -37,5 +41,7 @@ export function getUI(): ({ notifications?: Notifications } & Record<string, any
  * Returns null if no socket is available (e.g. in some specialized environments).
  */
 export function getSocket(): FoundrySocket | null {
-  return (globalThis as any).game?.socket ?? null;
+  return (
+    (globalThis as unknown as { game?: { socket: FoundrySocket | null } }).game?.socket ?? null
+  );
 }

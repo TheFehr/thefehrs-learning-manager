@@ -4,52 +4,12 @@
   import ProjectTreeNodeComponent from "./ProjectTreeNode.svelte";
   import { Logger } from "@/core/logger.js";
   import { Settings } from "@/core/settings.js";
-  import FollowUpPicker from "../dialogs/FollowUpPicker.svelte";
+  import { RootProjectPickerApp } from "../dialogs/RootProjectPickerApp.js";
 
   let { showAllItems = $bindable(false), searchQuery = $bindable("") } = $props<{
     showAllItems?: boolean;
     searchQuery?: string;
   }>();
-
-  // --- Top-level Application Class ---
-
-  class RootProjectPickerApp extends (foundry.applications.api.ApplicationV2 as any) {
-    static override DEFAULT_OPTIONS = {
-        window: { title: "Add Project to Tree", resizable: true },
-        position: { width: 450, height: 500 }
-    };
-
-    private instance: any = null;
-    private onSelect: (uuid: string) => void;
-
-    constructor(onSelect: (uuid: string) => void, options = {}) {
-        super(options);
-        this.onSelect = onSelect;
-    }
-
-    protected override async _renderHTML() { return ""; }
-    protected override _replaceHTML() {}
-
-    protected override async _onRender() {
-        const target = this.element.querySelector(".window-content") || this.element;
-        this.instance = mount(FollowUpPicker, {
-            target,
-            props: {
-                parentItem: { uuid: "", name: "Root" } as any,
-                onSelect: (uuid: string) => {
-                    this.onSelect(uuid);
-                    this.close();
-                },
-                onClose: () => this.close()
-            }
-        });
-    }
-
-    override async close(o = {}) {
-        if (this.instance) unmount(this.instance);
-        return super.close(o);
-    }
-  }
 
   let forest = $state<ProjectTreeNode[]>([]);
   let isLoading = $state(true);

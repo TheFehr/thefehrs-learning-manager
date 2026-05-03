@@ -18,7 +18,7 @@
   const hasChildren = $derived(node.children.length > 0);
   const data = $derived(projectData(node.item));
   const target = $derived(data?.target ?? 0);
-  const compendiumLabel = $derived((node.item as any).pack ?? "World");
+  const compendiumLabel = $derived((node.item as unknown as { pack?: string }).pack ?? "World");
 
   function toggleExpand(e: MouseEvent) {
     e.stopPropagation();
@@ -49,7 +49,7 @@
                   ui.notifications?.error("Could not find parent item to break link.");
                   return;
               }
-              const success = await TreeLogic.orphanProject(parentItem as any, node.uuid);
+              const success = await TreeLogic.orphanProject(parentItem as Item5e, node.uuid);
               if (success) onRefresh?.();
           } catch (error) {
               console.error(`${MODULE_ID} | Failed to break link:`, error);
@@ -117,7 +117,12 @@
     ondrop={onDrop}
     role="button"
     tabindex="0"
-    onkeydown={(e) => e.key === "Enter" && openSheet()}
+    onkeydown={(e) => {
+      if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") {
+        if (e.key === " " || e.key === "Spacebar") e.preventDefault();
+        openSheet();
+      }
+    }}
   >
     <div class="indent-guides">
         {#each Array(depth) as _}

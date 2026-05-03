@@ -124,7 +124,7 @@ export async function getAvailablePacks(
   type: "Item" | "Actor" = "Item",
   flagToMatch?: string,
 ): Promise<PackInfo[]> {
-  const packs = (getGame().packs as any).contents || [];
+  const packs = getGame().packs?.contents || [];
   const results: PackInfo[] = [];
 
   for (const pack of packs) {
@@ -143,8 +143,8 @@ export async function getAvailablePacks(
       try {
         // We only check the index, which is fast
         const flagPath = `flags.${MODULE_ID}.${flagToMatch}`;
-        const index = await pack.getIndex({ fields: [flagPath] });
-        isFitting = index.some((entry: any) => {
+        const index = await pack.getIndex({ fields: [flagPath] as any });
+        isFitting = index.some((entry: Record<string, unknown>) => {
           const flagData = FoundryUtils.getProperty(entry, flagPath) || entry[flagPath];
 
           let hasFittingData = flagData !== undefined && flagData !== null;

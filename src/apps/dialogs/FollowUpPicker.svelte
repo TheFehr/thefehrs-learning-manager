@@ -5,7 +5,7 @@
   import { Logger } from "@/core/logger.js";
 
   let { parentItem, onSelect, onClose } = $props<{
-    parentItem: Item5e;
+    parentItem: Item5e | null;
     onSelect: (childUuid: string) => void;
     onClose: () => void;
   }>();
@@ -15,7 +15,7 @@
   let isLoading = $state(true);
 
   const filteredItems = $derived.by(() => {
-    const baseItems = allItems.filter(item => item.uuid !== parentItem.uuid);
+    const baseItems = allItems.filter(item => item.uuid !== parentItem?.uuid);
     if (!searchQuery) return baseItems.slice(0, 20);
     const query = searchQuery.toLowerCase();
     return baseItems
@@ -31,7 +31,7 @@
 
       for (const packId of allowed) {
         try {
-          const pack = (game as any).packs.get(packId);
+          const pack = (game as unknown as { packs: { get: (id: string) => any } }).packs.get(packId);
           if (!pack) continue;
           const packDocs = await pack.getDocuments();
           docs.push(...(packDocs as Item5e[]));
@@ -58,7 +58,7 @@
     <i class="fas fa-search"></i>
     <input 
       type="text" 
-      placeholder="Search for a project to follow {parentItem.name}..." 
+      placeholder={parentItem ? `Search for a project to follow ${parentItem.name}...` : "Search for a project to add to the tree..."} 
       bind:value={searchQuery}
       autofocus
     />
@@ -79,7 +79,7 @@
                 <img src={item.img} alt="" />
                 <div class="details">
                     <span class="name">{item.name}</span>
-                    <span class="pack">{(item as any).pack ?? "World"}</span>
+                    <span class="pack">{(item as unknown as { pack?: string }).pack ?? "World"}</span>
                 </div>
                 <i class="fas fa-plus"></i>
             </button>

@@ -4,7 +4,7 @@ import { ActorProxy } from "./actor-proxy.js";
 import { TabLogic } from "./tab-logic.js";
 import { ProjectEngine } from "./project-engine.js";
 import { FoundryUtils } from "@/core/foundry-utils.js";
-import type { ProjectItem, ProjectFlagData, ProjectMappedData } from "./project-item.js";
+import type { ProjectFlagData, ProjectMappedData } from "./project-item.js";
 import type { MemberMappedData } from "@/apps/party-tab.js";
 import { isActor5e, type Item5e, type Actor5e } from "@/types.js";
 import AbortProjectDialog from "@/apps/dialogs/AbortProjectDialog.svelte";
@@ -144,7 +144,7 @@ export class PartyTabLogic {
               throw err;
             }
           },
-        } as any,
+        } as unknown as object,
       }) as unknown as GrantTimeInstance;
     }
   }

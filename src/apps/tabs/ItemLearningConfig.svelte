@@ -38,7 +38,7 @@
 
   const isAlreadyProject = $derived(!!item.getFlag(MODULE_ID, "isLearningProject"));
   const isLearnedReward = $derived(!!item.getFlag(MODULE_ID, "isLearnedReward"));
-  const isLearningType = $derived(item.type === "feat" && (item.system as any).type?.value === LearningFeatType);
+  const isLearningType = $derived(item.type === "feat" && (item.system as unknown as { type?: { value: string } }).type?.value === LearningFeatType);
   
   const isActuallyProject = $derived(isAlreadyProject || isLearningType || isLearnedReward || targetValue > 0);
   const isActuallyBook = $derived(bookModifier > 0);

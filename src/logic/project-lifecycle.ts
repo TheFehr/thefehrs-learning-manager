@@ -88,7 +88,7 @@ export class ProjectLifecycle {
     const items = await DocumentUtils.safeCreateEmbeddedDocuments<Item5e>(
       actor,
       "Item",
-      [updateData] as any[],
+      [updateData] as unknown as Record<string, unknown>[],
       rewardDoc.name ?? "Unknown Reward",
     );
     if (!items || items.length === 0) {
@@ -238,7 +238,7 @@ export class ProjectLifecycle {
       }
     } else {
       Logger.warn(
-        `sourceItem is not a valid Item. documentName: ${(sourceItem as any)?.documentName}`,
+        `sourceItem is not a valid Item. documentName: ${(sourceItem as unknown as { documentName: string }).documentName}`,
       );
     }
     return false;
@@ -288,7 +288,7 @@ export class ProjectLifecycle {
 
     // Update flags and basic info in the clone
     clonedData.name = projectDataFlags.stashedName || item.name;
-    clonedData.effects = (projectDataFlags.stashedEffects || []) as any[];
+    clonedData.effects = (projectDataFlags.stashedEffects || []) as unknown[];
 
     // Restore system data via merge to prevent artifact survival while preserving required structures
     if (projectDataFlags.stashedSystem) {
@@ -304,7 +304,7 @@ export class ProjectLifecycle {
 
     // Ensure activities are restored to their stashed state (or empty)
     if (clonedData.system) {
-      (clonedData.system as any).activities = FoundryUtils.deepClone(
+      (clonedData.system as Record<string, unknown>).activities = FoundryUtils.deepClone(
         projectDataFlags.stashedActivities || {},
       );
     }
@@ -312,7 +312,7 @@ export class ProjectLifecycle {
     const createdDocs = await DocumentUtils.safeCreateEmbeddedDocuments<Item>(
       actor,
       "Item",
-      [clonedData] as any[],
+      [clonedData] as unknown as Record<string, unknown>[],
       item.name ?? "Unknown Item",
     );
     const created = createdDocs?.[0];
@@ -350,10 +350,10 @@ export class ProjectLifecycle {
       name: `${stashedName} (${progress}/${target})`,
       ["system.description.value"]: progressHtml + stashedDescription,
       [`flags.${Settings.ID}.projectData`]: projectData,
-    } as Record<string, any>;
+    } as Record<string, unknown>;
 
     const success = render
-      ? await (item.update(updateData) as unknown as Promise<boolean>)
+      ? await (item.update(updateData) as Promise<unknown>)
       : await DocumentUtils.updateSilently(item, updateData);
 
     if (success === false) {

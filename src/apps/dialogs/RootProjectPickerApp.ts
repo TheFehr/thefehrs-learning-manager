@@ -3,19 +3,17 @@ import { mount, unmount } from "svelte";
 
 const { ApplicationV2 } = foundry.applications.api;
 
-export class FollowUpPickerApp extends ApplicationV2 {
+export class RootProjectPickerApp extends ApplicationV2 {
   static override DEFAULT_OPTIONS = {
-    window: { title: "Add Follow-up Project", resizable: true },
+    window: { title: "Add Project to Tree", resizable: true },
     position: { width: 450, height: 500 },
   };
 
   private instance: any = null;
-  private parentItem: any;
   private onSelect: (uuid: string) => void;
 
-  constructor(parentItem: any, onSelect: (uuid: string) => void, options = {}) {
+  constructor(onSelect: (uuid: string) => void, options = {}) {
     super(options);
-    this.parentItem = parentItem;
     this.onSelect = onSelect;
   }
 
@@ -30,7 +28,7 @@ export class FollowUpPickerApp extends ApplicationV2 {
     this.instance = mount(FollowUpPicker, {
       target,
       props: {
-        parentItem: this.parentItem,
+        parentItem: null,
         onSelect: (uuid: string) => {
           this.onSelect(uuid);
           this.close();

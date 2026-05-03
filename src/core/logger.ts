@@ -1,5 +1,5 @@
 import { MODULE_ID } from "@/global.js";
-import type { NotificationLevel } from "@/types.js";
+import type { NotificationLevel, SystemRules } from "@/types.js";
 import { getGame, getUI } from "./foundry.js";
 
 const LEVELS: Record<NotificationLevel, number> = {
@@ -20,7 +20,7 @@ export class LoggerSingleton {
     try {
       const game = getGame();
       if (!game.settings) return LEVELS.info;
-      const rules = game.settings.get(MODULE_ID, "rules") as any;
+      const rules = game.settings.get(MODULE_ID, "rules") as SystemRules | undefined;
       const level = rules?.notificationLevel || "info";
       return LEVELS[level as NotificationLevel] ?? LEVELS.info;
     } catch {
@@ -76,18 +76,21 @@ export class LoggerSingleton {
         try {
           const ui = getUI();
           if (ui?.notifications && level !== "none") {
-            (ui.notifications as any)[level](message);
+            const notificationMethod = level as keyof Notifications;
+            if (typeof ui.notifications[notificationMethod] === "function") {
+              (ui.notifications[notificationMethod] as Function)(message);
+            }
           }
         } catch (err) {
           console.error(`${LOG_PREFIX}Logger | UI notification failed:`, err);
         }
       }
 
-      const consoleMethod = level === "none" ? "log" : level;
+      const consoleMethod = (level === "none" ? "log" : level) as keyof Console;
       if (data.length > 0) {
-        (console as any)[consoleMethod](`${LOG_PREFIX}${message}`, ...data);
+        (console[consoleMethod] as Function)(`${LOG_PREFIX}${message}`, ...data);
       } else {
-        (console as any)[consoleMethod](`${LOG_PREFIX}${message}`);
+        (console[consoleMethod] as Function)(`${LOG_PREFIX}${message}`);
       }
     }
   }

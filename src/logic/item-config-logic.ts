@@ -1,7 +1,6 @@
 import { MODULE_ID } from "@/global.js";
 import { DocumentUtils } from "@/core/document-utils.js";
 import type { Item5e, ProjectRequirement } from "@/types.js";
-import { extractItemUuidFromDrop, searchWithOmnisearchOrQuickInsert } from "./config-utils.js";
 
 /**
  * Logic for the Item Target Config component.
@@ -30,7 +29,9 @@ export class ItemConfigLogic {
     if (enabled) {
       if (project) {
         // IMPORTANT: Preserve existing hierarchical links
-        const existing = item.getFlag(MODULE_ID, "projectData") as any;
+        const existing = item.getFlag(MODULE_ID, "projectData") as
+          | { followUpProjectId?: string }
+          | undefined;
         updateData[`flags.${MODULE_ID}.projectData`] = {
           ...project,
           followUpProjectId: existing?.followUpProjectId ?? "",

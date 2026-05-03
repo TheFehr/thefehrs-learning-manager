@@ -90,11 +90,11 @@ export class ProjectEngine {
     return ProjectLifecycle.updateItemWithProgress(item, projectData, instructorName, render);
   }
 
-  static _tabLogicModule: any = null;
+  static _tabLogicModule: { TabLogic: any } | null = null;
 
   static async importTabLogic() {
     if (this._tabLogicModule) return this._tabLogicModule;
-    this._tabLogicModule = await import("./tab-logic");
+    this._tabLogicModule = (await import("./tab-logic")) as { TabLogic: any };
     return this._tabLogicModule;
   }
 
@@ -259,8 +259,8 @@ export class ProjectEngine {
       return false;
     }
 
-    const instructors = await TutelageResolverService.getAvailableInstructors(item as any);
-    const books = TutelageResolverService.getAvailableBooks(actor, item as any);
+    const instructors = await TutelageResolverService.getAvailableInstructors(item as ProjectItem);
+    const books = TutelageResolverService.getAvailableBooks(actor, item as ProjectItem);
     const bestBookMod = books.reduce((max, b) => Math.max(max, b.modifier), 0);
     const bestBooks = books.filter((b) => b.modifier === bestBookMod && bestBookMod > 0);
     const bestBookNames = bestBooks.map((b) => b.name).join(", ");
@@ -293,7 +293,8 @@ export class ProjectEngine {
             resolve(null);
           };
 
-          const dialog = new (foundry.applications.api.DialogV2 as any)({
+          const DialogV2 = (foundry.applications.api as unknown as { DialogV2: any }).DialogV2;
+          const dialog = new DialogV2({
             window: {
               title: `Select Instructor: ${item.name}`,
               contentClasses: ["thefehrs-learning-manager-dialog"],
@@ -365,7 +366,7 @@ export class ProjectEngine {
 
     const resolution = await TutelageResolverService.resolveTutelage(
       actor,
-      item as any,
+      item as ProjectItem,
       selectedInstructor?.actorUuid,
       selectedInstructor?.offering.name,
     );
@@ -585,8 +586,11 @@ export class ProjectEngine {
 
         // Ensure we have the latest document instance before displaying the card
         const freshItem = actor.items.get(item.id!) as Item5e | undefined;
-        if (freshItem && typeof (freshItem as any).displayCard === "function") {
-          await (freshItem as any).displayCard({ rollMode: rules.rollMode });
+        if (
+          freshItem &&
+          typeof (freshItem as unknown as { displayCard: Function }).displayCard === "function"
+        ) {
+          await freshItem.displayCard({ rollMode: rules.rollMode });
         }
       }
     } catch (err) {
@@ -617,7 +621,7 @@ export class ProjectEngine {
       for (const r of rolls) {
         await r.toMessage(
           {
-            speaker: ChatMessage.getSpeaker({ actor: actor as any }),
+            speaker: ChatMessage.getSpeaker({ actor: actor as Actor }),
             flavor: `${actor.name} tries to learn ${item.name || "Unknown Item"} (DC ${Number(rules.checkDC ?? DEFAULT_DC)})`,
           },
           { rollMode: (rules.rollMode || "gmroll") as foundry.dice.RollMode },
@@ -649,7 +653,7 @@ export class ProjectEngine {
 
     if (!autoSpendEnabled || getGame().user?.isGM) return;
 
-    const actor = (getGame().user as any).character;
+    const actor = (getGame().user as unknown as { character: Actor }).character;
     if (!actor) return;
 
     const projects = (actor.items as unknown as Item5e[]).filter((i: Item5e) =>

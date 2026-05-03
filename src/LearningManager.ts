@@ -279,13 +279,14 @@ export class LearningManager {
 
           const isLearningType =
             (item.type as string) === "feat" &&
-            (item.system as any).type?.value === LearningFeatType;
+            (item.system as unknown as { type?: { value: string } }).type?.value ===
+              LearningFeatType;
           const isProject = item.getFlag("thefehrs-learning-manager", "isLearningProject");
           const hasBookBonus = !!item.getFlag("thefehrs-learning-manager", "learningBookBonus");
 
           if (isLearningType || isProject || hasBookBonus) return isGM;
 
-          const uuid = (item as any).uuid || "";
+          const uuid = (item as unknown as { uuid: string }).uuid || "";
           if (uuid.startsWith("Compendium.")) {
             return isGM;
           }
@@ -319,7 +320,7 @@ export class LearningManager {
         const hasOfferings = !!actor.getFlag(this.ID, "teacherOfferings");
         if (hasOfferings) return true;
 
-        const uuid = (actor as any).uuid || "";
+        const uuid = (actor as unknown as { uuid: string }).uuid || "";
         if (uuid.startsWith("Compendium.")) {
           const parts = uuid.split(".");
           const packId = `${parts[1]}.${parts[2]}`;

@@ -1,8 +1,8 @@
 import { Settings } from "@/core/settings.js";
 import { Logger } from "@/core/logger.js";
 import { projectData } from "@/logic/project-item.js";
-import { getUI } from "@/core/foundry.js";
-import type { Item5e } from "@/types.js";
+import { getUI, getGame } from "@/core/foundry.js";
+import type { Item5e, ProjectFlagData } from "@/types.js";
 
 export interface ProjectTreeNode {
   uuid: string;
@@ -28,7 +28,7 @@ export class TreeLogic {
 
     // 1. Fetch all items from allowed compendiums
     for (const packId of allowedCompendiums) {
-      const pack = (game as any).packs.get(packId);
+      const pack = getGame().packs?.get(packId);
       if (!pack) continue;
 
       const documents = await pack.getDocuments();
@@ -90,9 +90,8 @@ export class TreeLogic {
    */
   static async orphanProject(parentItem: Item5e, childUuid: string): Promise<boolean> {
     try {
-      const pack = (parentItem as any).pack
-        ? (game as any).packs.get((parentItem as any).pack)
-        : null;
+      const packId = (parentItem as unknown as { pack?: string }).pack;
+      const pack = packId ? getGame().packs?.get(packId) : null;
       if (pack?.locked) {
         getUI()?.notifications?.error(
           `Compendium "${pack.metadata.label}" is locked! Unlock it to modify projects.`,
@@ -118,9 +117,8 @@ export class TreeLogic {
    */
   static async reparentProject(parentItem: Item5e, childUuid: string): Promise<boolean> {
     try {
-      const pack = (parentItem as any).pack
-        ? (game as any).packs.get((parentItem as any).pack)
-        : null;
+      const packId = (parentItem as unknown as { pack?: string }).pack;
+      const pack = packId ? getGame().packs?.get(packId) : null;
       if (pack?.locked) {
         getUI()?.notifications?.error(
           `Compendium "${pack.metadata.label}" is locked! Unlock it to modify projects.`,
@@ -132,6 +130,19 @@ export class TreeLogic {
       if (parentItem.uuid === childUuid) {
         getUI()?.notifications?.warn("A project cannot be its own follow-up!");
         return false;
+      }
+
+      // Prevent circular follow-up chains
+      let currentUuid: string | null = childUuid;
+      while (currentUuid) {
+        if (currentUuid === parentItem.uuid) {
+          getUI()?.notifications?.warn("This change would create a circular follow-up chain!");
+          return false;
+        }
+
+        const currentItem = (await fromUuid(currentUuid)) as Item5e | null;
+        const data = currentItem ? projectData(currentItem) : null;
+        currentUuid = data?.followUpProjectId || null;
       }
 
       await parentItem.update({
@@ -211,7 +222,7 @@ export class TreeLogic {
     };
   }
 
-  private static _getChildUuids(data: any): Set<string> {
+  private static _getChildUuids(data: ProjectFlagData | null | undefined): Set<string> {
     const ids = new Set<string>();
     if (data?.followUpProjectId) ids.add(data.followUpProjectId);
     return ids;

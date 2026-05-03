@@ -2,7 +2,7 @@ import { Settings } from "./settings.js";
 import { Logger } from "./logger.js";
 import { FoundryUtils } from "./foundry-utils.js";
 import { createBaseActivityTemplate } from "./constants.js";
-import type { Actor5e, Item5e, ActivityData5e } from "@/types.js";
+import type { Actor5e, Item5e, ActivityData5e, ProjectFlagData } from "@/types.js";
 import { getGame, getUI } from "./foundry.js";
 
 export class ActivityManager {
@@ -18,7 +18,7 @@ export class ActivityManager {
     }
 
     const activities: ActivityData5e[] = timeUnits.map((tu) => {
-      const activity: any = {
+      const activity: ActivityData5e = {
         ...createBaseActivityTemplate(),
         _id: FoundryUtils.randomID(),
         type: "utility",
@@ -35,10 +35,10 @@ export class ActivityManager {
         },
         name: `Train ${tu.name}`,
       };
-      return activity as ActivityData5e;
+      return activity;
     });
 
-    const spendAllActivity: any = {
+    const spendAllActivity: ActivityData5e = {
       ...createBaseActivityTemplate(),
       _id: FoundryUtils.randomID(),
       type: "utility",
@@ -55,7 +55,7 @@ export class ActivityManager {
       },
       name: "Spend all time",
     };
-    activities.push(spendAllActivity as ActivityData5e);
+    activities.push(spendAllActivity);
 
     return activities;
   }
@@ -64,12 +64,10 @@ export class ActivityManager {
    * Injects training activities into a project item based on world settings.
    */
   static async injectActivities(item: Item5e, forceTarget?: number) {
-    const projectData = item.getFlag(Settings.ID, "projectData") as any;
+    const projectData = item.getFlag(Settings.ID, "projectData") as ProjectFlagData | undefined;
 
     if (!projectData && forceTarget === undefined) {
-      Logger.warn(
-        `Cannot inject activities for "${(item as unknown as Item).name}" - missing projectData flag.`,
-      );
+      Logger.warn(`Cannot inject activities for "${item.name}" - missing projectData flag.`);
       return false;
     }
 
@@ -78,15 +76,15 @@ export class ActivityManager {
     const activityUpdates: Record<string, any> = {};
 
     // 1. Identify existing activities
-    const rawActivities = (item.system as any).activities || {};
+    const rawActivities = item.system.activities || {};
     const activityList =
-      typeof rawActivities?.values === "function"
-        ? Array.from(rawActivities.values())
+      typeof (rawActivities as unknown as { values?: Function }).values === "function"
+        ? Array.from((rawActivities as unknown as { values: () => Iterable<unknown> }).values())
         : Array.isArray(rawActivities)
           ? rawActivities
           : Object.values(rawActivities);
 
-    const existingLearningActivities = (activityList as any[]).filter(
+    const existingLearningActivities = (activityList as unknown as ActivityData5e[]).filter(
       (a) => a?.flags?.[Settings.ID]?.isLearningActivity,
     );
 
@@ -94,8 +92,8 @@ export class ActivityManager {
     const usedExistingIds = new Set<string>();
 
     for (const newData of activitiesData) {
-      const newTUId = (newData.flags as any)?.[Settings.ID]?.timeUnitId;
-      const newIsSpendAll = (newData.flags as any)?.[Settings.ID]?.isSpendAll;
+      const newTUId = newData.flags?.[Settings.ID]?.timeUnitId;
+      const newIsSpendAll = newData.flags?.[Settings.ID]?.isSpendAll;
 
       const match = existingLearningActivities.find((ea) => {
         const eaFlags = ea.flags?.[Settings.ID];
@@ -103,7 +101,7 @@ export class ActivityManager {
       });
 
       if (match) {
-        const id = match.id || match._id;
+        const id = (match as any).id || (match as any)._id;
         const final = {
           ...newData,
           _id: id,
@@ -141,11 +139,12 @@ export class ActivityManager {
     if (!game?.user?.isGM) return;
 
     const actorsCollection = game.actors;
+    if (!actorsCollection) return;
     const actors =
-      typeof (actorsCollection as any).contents !== "undefined"
-        ? (actorsCollection as any).contents
+      "contents" in actorsCollection
+        ? (actorsCollection.contents as Actor5e[])
         : Array.isArray(actorsCollection)
-          ? actorsCollection
+          ? (actorsCollection as Actor5e[])
           : [];
 
     const moduleId = Settings.ID;
@@ -153,9 +152,9 @@ export class ActivityManager {
     let updatedCount = 0;
     let failedCount = 0;
 
-    for (const actor of actors as Actor5e[]) {
-      const projects = (actor.items as any).filter((i: any) =>
-        i.getFlag(moduleId, "isLearningProject"),
+    for (const actor of actors) {
+      const projects = (actor.items as unknown as Item5e[]).filter(
+        (i) => !!i.getFlag(moduleId, "isLearningProject"),
       );
 
       for (const project of projects) {
