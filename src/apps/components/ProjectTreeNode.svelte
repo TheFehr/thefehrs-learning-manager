@@ -8,13 +8,62 @@
   import { unmount, mount } from "svelte";
   import { MODULE_ID } from "@/global.js";
 
+  // --- Top-level Application Class ---
+
+  class FollowUpPickerApp extends (foundry.applications.api.ApplicationV2 as any) {
+    static override DEFAULT_OPTIONS = {
+        window: { title: "Add Follow-up Project", resizable: true },
+        position: { width: 450, height: 500 }
+    };
+
+    private instance: any = null;
+    private parentItem: any;
+    private onSelect: (uuid: string) => void;
+
+    constructor(parentItem: any, onSelect: (uuid: string) => void, options = {}) {
+        super(options);
+        this.parentItem = parentItem;
+        this.onSelect = onSelect;
+    }
+
+    protected override async _renderHTML() { return ""; }
+    protected override _replaceHTML() {}
+
+    protected override async _onRender() {
+        const target = this.element.querySelector(".window-content") || this.element;
+        this.instance = mount(FollowUpPicker, {
+            target,
+            props: {
+                parentItem: this.parentItem,
+                onSelect: (uuid: string) => {
+                    this.onSelect(uuid);
+                    this.close();
+                },
+                onClose: () => this.close()
+            }
+        });
+    }
+
+    override async close(o = {}) {
+        if (this.instance) unmount(this.instance);
+        return super.close(o);
+    }
+  }
+
   let { node, depth = 0, onRefresh } = $props<{
     node: ProjectTreeNode;
     depth?: number;
     onRefresh?: () => void;
   }>();
 
-  let isExpanded = $state(depth < 1); // Expand roots by default
+  let isExpanded = $state(node.expanded ?? depth < 1); // Expand roots by default
+  
+  $effect(() => {
+    if (node.expanded !== undefined) {
+      isExpanded = node.expanded;
+    }
+  });
+
   const hasChildren = $derived(node.children.length > 0);
   const data = $derived(projectData(node.item));
   const target = $derived(data?.target ?? 0);
@@ -86,40 +135,14 @@
   async function addFollowUp(e: MouseEvent) {
       e.stopPropagation();
       
-      const { ApplicationV2 } = foundry.applications.api;
-      
-      const pickerApp = new class extends ApplicationV2 {
-          static override DEFAULT_OPTIONS = {
-              window: { title: "Add Follow-up Project", resizable: true },
-              position: { width: 450, height: 500 }
-          };
-          private instance: any = null;
-          protected override async _renderHTML() { return ""; }
-          protected override _replaceHTML() {}
-          protected override async _onRender() {
-              const target = this.element.querySelector(".window-content") || this.element;
-              this.instance = mount(FollowUpPicker, {
-                  target,
-                  props: {
-                      parentItem: node.item,
-                      onSelect: async (uuid: string) => {
-                          // Promote parent to project if it isn't one
-                          if (!node.item.getFlag(MODULE_ID, "isLearningProject")) {
-                              await node.item.update({ [`flags.${MODULE_ID}.isLearningProject`]: true });
-                          }
-                          const success = await TreeLogic.reparentProject(node.item, uuid);
-                          if (success) onRefresh?.();
-                          this.close();
-                      },
-                      onClose: () => this.close()
-                  }
-              });
+      const pickerApp = new FollowUpPickerApp(node.item, async (uuid: string) => {
+          // Promote parent to project if it isn't one
+          if (!node.item.getFlag(MODULE_ID, "isLearningProject")) {
+              await node.item.update({ [`flags.${MODULE_ID}.isLearningProject`]: true });
           }
-          override async close(o = {}) {
-              if (this.instance) unmount(this.instance);
-              return super.close(o);
-          }
-      }();
+          const success = await TreeLogic.reparentProject(node.item, uuid);
+          if (success) onRefresh?.();
+      });
 
       pickerApp.render(true);
   }

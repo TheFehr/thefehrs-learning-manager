@@ -5,7 +5,6 @@ import { migrateToV2 } from "./v2-native-items.js";
 import { migrateToV2Direct } from "./v2-direct.js";
 import { migrateToV2_1, migrateToV2_1_1 } from "./v2_1-flexible-methods.js";
 import { migrateToV3 } from "./v3-tutelage-selection.js";
-import { migrateToV4_2 } from "./v4_2-multi-child.js";
 import { MODULE_ID } from "@/global.js";
 import { Logger } from "@/core/logger.js";
 import { FoundryUtils } from "@/core/foundry-utils.js";
@@ -67,12 +66,6 @@ export async function migrateData() {
 
     if (isNewerVersion("3.0.0", currentVersion)) {
       await migrateToV3();
-    }
-
-    const needs42 = isNewerVersion("4.2.0", currentVersion);
-    Logger.info(`Checking if v4.2.0 migration is needed (${currentVersion} < 4.2.0): ${needs42}`);
-    if (needs42) {
-      await migrateToV4_2();
     }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);

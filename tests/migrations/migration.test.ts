@@ -31,6 +31,15 @@ vi.mock("@/migrations/v3-tutelage-selection", () => ({
   migrateToV3: vi.fn(),
 }));
 
+vi.mock("@/core/logger", () => ({
+  Logger: {
+    info: vi.fn(),
+    error: vi.fn(),
+    warn: vi.fn(),
+    debug: vi.fn(),
+  },
+}));
+
 describe("migration.ts", () => {
   let mockGame: any;
 

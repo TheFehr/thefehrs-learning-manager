@@ -34,7 +34,6 @@ export class ItemConfigLogic {
         updateData[`flags.${MODULE_ID}.projectData`] = {
           ...project,
           followUpProjectId: existing?.followUpProjectId ?? "",
-          followUpProjectIds: existing?.followUpProjectIds ?? [],
         };
       } else {
         updateData[`flags.${MODULE_ID}.-=projectData`] = null;

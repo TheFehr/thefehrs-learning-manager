@@ -76,30 +76,6 @@ describe("TreeLogic", () => {
     expect(forest[0].children[0].uuid).toBe("uuid2");
   });
 
-  it("should support multiple follow-up projects (Branching)", async () => {
-    const root = {
-      uuid: "root",
-      name: "Parent",
-      getFlag: vi.fn().mockImplementation((scope, key) => {
-        if (key === "projectData") return { followUpProjectIds: ["child1", "child2"] };
-        if (key === "isLearningProject") return true;
-        return undefined;
-      }),
-    };
-    const child1 = { uuid: "child1", name: "C1", getFlag: vi.fn().mockReturnValue({}) };
-    const child2 = { uuid: "child2", name: "C2", getFlag: vi.fn().mockReturnValue({}) };
-
-    const mockPack = { getDocuments: vi.fn().mockResolvedValue([root, child1, child2]) };
-    vi.mocked(Settings.get).mockReturnValue(["pack1"]);
-    vi.mocked((global as any).game.packs.get).mockReturnValue(mockPack);
-
-    const forest = await TreeLogic.buildProjectTree();
-
-    expect(forest[0].children.length).toBe(2);
-    expect(forest[0].children.map((c) => c.uuid)).toContain("child1");
-    expect(forest[0].children.map((c) => c.uuid)).toContain("child2");
-  });
-
   it("should show pinned items as roots even if they are children elsewhere", async () => {
     const parent = {
       uuid: "parent",
@@ -123,12 +99,8 @@ describe("TreeLogic", () => {
     vi.mocked(Settings.get).mockReturnValue(["pack1"]);
     vi.mocked((global as any).game.packs.get).mockReturnValue(mockPack);
 
-    // Child is pinned. In the UI it should appear TWICE if we don't have duplicate suppression,
-    // but our logic suppresses it if it's already rendered.
-    // Actually, if it's already a child, we skip it at root.
     const forest = await TreeLogic.buildProjectTree(false, ["child"]);
 
-    // It should still only have 1 root (parent) because child is already rendered inside parent
     expect(forest.length).toBe(1);
     expect(forest[0].uuid).toBe("parent");
     expect(forest[0].children[0].uuid).toBe("child");
@@ -180,7 +152,6 @@ describe("TreeLogic", () => {
 
     const forest = await TreeLogic.buildProjectTree();
 
-    // In a pure circle with no other roots, forest will be empty because everything is someone's child
     expect(forest.length).toBe(0);
   });
 
@@ -189,15 +160,14 @@ describe("TreeLogic", () => {
       uuid: "p",
       name: "Parent",
       update: vi.fn().mockResolvedValue(true),
-      getFlag: vi.fn().mockReturnValue({ followUpProjectIds: ["old-child"] }),
+      getFlag: vi.fn().mockReturnValue({ followUpProjectId: "old-child" }),
     };
 
     const success = await TreeLogic.reparentProject(parent as any, "new-child");
 
     expect(success).toBe(true);
     expect(parent.update).toHaveBeenCalledWith({
-      [`flags.${MODULE_ID}.projectData.followUpProjectIds`]: ["old-child", "new-child"],
-      [`flags.${MODULE_ID}.projectData.followUpProjectId`]: "",
+      [`flags.${MODULE_ID}.projectData.followUpProjectId`]: "new-child",
     });
   });
 

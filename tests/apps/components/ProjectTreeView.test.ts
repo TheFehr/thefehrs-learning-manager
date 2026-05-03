@@ -117,14 +117,9 @@ describe("ProjectTreeView.svelte", () => {
 
     vi.mocked(TreeLogic.buildProjectTree).mockResolvedValue(mockForest as any);
 
-    instance = mount(ProjectTreeView, { target });
+    instance = mount(ProjectTreeView, { target, props: { searchQuery: "app" } });
     await tick();
     await tick();
-    await tick();
-
-    const searchInput = target.querySelector("input") as HTMLInputElement;
-    searchInput.value = "app";
-    searchInput.dispatchEvent(new Event("input"));
     await tick();
 
     expect(target.textContent).toContain("Apple");

@@ -1,14 +1,58 @@
 <script lang="ts">
-  import { onMount } from "svelte";
+  import { onMount, mount, unmount } from "svelte";
   import { TreeLogic, type ProjectTreeNode } from "@/logic/tree-logic.js";
   import ProjectTreeNodeComponent from "./ProjectTreeNode.svelte";
   import { Logger } from "@/core/logger.js";
   import { Settings } from "@/core/settings.js";
+  import FollowUpPicker from "../dialogs/FollowUpPicker.svelte";
+
+  let { showAllItems = $bindable(false), searchQuery = $bindable("") } = $props<{
+    showAllItems?: boolean;
+    searchQuery?: string;
+  }>();
+
+  // --- Top-level Application Class ---
+
+  class RootProjectPickerApp extends (foundry.applications.api.ApplicationV2 as any) {
+    static override DEFAULT_OPTIONS = {
+        window: { title: "Add Project to Tree", resizable: true },
+        position: { width: 450, height: 500 }
+    };
+
+    private instance: any = null;
+    private onSelect: (uuid: string) => void;
+
+    constructor(onSelect: (uuid: string) => void, options = {}) {
+        super(options);
+        this.onSelect = onSelect;
+    }
+
+    protected override async _renderHTML() { return ""; }
+    protected override _replaceHTML() {}
+
+    protected override async _onRender() {
+        const target = this.element.querySelector(".window-content") || this.element;
+        this.instance = mount(FollowUpPicker, {
+            target,
+            props: {
+                parentItem: { uuid: "", name: "Root" } as any,
+                onSelect: (uuid: string) => {
+                    this.onSelect(uuid);
+                    this.close();
+                },
+                onClose: () => this.close()
+            }
+        });
+    }
+
+    override async close(o = {}) {
+        if (this.instance) unmount(this.instance);
+        return super.close(o);
+    }
+  }
 
   let forest = $state<ProjectTreeNode[]>([]);
   let isLoading = $state(true);
-  let searchQuery = $state("");
-  let showAllItems = $state(false);
   let pinnedUuids = $state<string[]>([]);
   let errorMessage = $state<string | null>(null);
 
@@ -27,68 +71,49 @@
     }
   }
 
-  const filteredForest = $derived.by(() => {
-    if (!searchQuery) return forest;
+  function filterNode(node: ProjectTreeNode, query: string): ProjectTreeNode | null {
+    const nameMatch = node.name.toLowerCase().includes(query);
     
-    const query = searchQuery.toLowerCase();
+    const filteredChildren = node.children
+      .map(child => filterNode(child, query))
+      .filter((child): child is ProjectTreeNode => child !== null);
     
-    function filterNode(node: ProjectTreeNode): ProjectTreeNode | null {
-      const nameMatch = node.name.toLowerCase().includes(query);
-      
-      const filteredChildren = node.children
-        .map(child => filterNode(child))
-        .filter((child): child is ProjectTreeNode => child !== null);
-      
-      if (nameMatch || filteredChildren.length > 0) {
-        return {
-          ...node,
-          children: filteredChildren
-        };
-      }
-      return null;
+    if (nameMatch || filteredChildren.length > 0) {
+      return {
+        ...node,
+        children: filteredChildren
+      };
     }
+    return null;
+  }
 
-    return forest
-      .map(node => filterNode(node))
-      .filter((node): node is ProjectTreeNode => node !== null);
-  });
+  const filteredForest = $derived(
+    !searchQuery 
+      ? forest 
+      : forest
+          .map(node => filterNode(node, searchQuery.toLowerCase()))
+          .filter((node): node is ProjectTreeNode => node !== null)
+  );
 
   async function addRootProject() {
-      const { ApplicationV2 } = foundry.applications.api;
-      const { mount, unmount } = await import("svelte");
-      const FollowUpPicker = (await import("../dialogs/FollowUpPicker.svelte")).default;
-
-      const pickerApp = new class extends ApplicationV2 {
-          static override DEFAULT_OPTIONS = {
-              window: { title: "Add Project to Tree", resizable: true },
-              position: { width: 450, height: 500 }
-          };
-          private instance: any = null;
-          protected override async _renderHTML() { return ""; }
-          protected override _replaceHTML() {}
-          protected override async _onRender() {
-              const target = this.element.querySelector(".window-content") || this.element;
-              this.instance = mount(FollowUpPicker, {
-                  target,
-                  props: {
-                      parentItem: { uuid: "", name: "Root" } as any,
-                      onSelect: async (uuid: string) => {
-                          if (!pinnedUuids.includes(uuid)) {
-                              pinnedUuids = [...pinnedUuids, uuid];
-                          }
-                          this.close();
-                      },
-                      onClose: () => this.close()
-                  }
-              });
+      const pickerApp = new RootProjectPickerApp((uuid: string) => {
+          if (!pinnedUuids.includes(uuid)) {
+              pinnedUuids = [...pinnedUuids, uuid];
           }
-          override async close(o = {}) {
-              if (this.instance) unmount(this.instance);
-              return super.close(o);
-          }
-      }();
+      });
 
       pickerApp.render(true);
+  }
+
+  function setAllExpansion(expanded: boolean) {
+    const walk = (nodes: ProjectTreeNode[]): ProjectTreeNode[] => {
+      return nodes.map(n => ({
+        ...n,
+        expanded,
+        children: walk(n.children)
+      }));
+    };
+    forest = walk(forest);
   }
 
   $effect(() => {
@@ -121,6 +146,16 @@
           bind:value={searchQuery}
         />
       </div>
+
+      <div class="button-group">
+        <button type="button" class="tidy-button" onclick={() => setAllExpansion(true)} title="Expand All">
+          <i class="fas fa-expand-alt"></i>
+        </button>
+        <button type="button" class="tidy-button" onclick={() => setAllExpansion(false)} title="Collapse All">
+          <i class="fas fa-compress-alt"></i>
+        </button>
+      </div>
+
       <button type="button" class="tidy-button refresh-btn" onclick={loadTree} title="Refresh Tree">
         <i class="fas fa-sync" class:fa-spin={isLoading}></i>
       </button>
@@ -239,6 +274,30 @@
           border-color: var(--color-level-info);
           outline: none;
         }
+      }
+    }
+
+    .button-group {
+      display: flex;
+      gap: 2px;
+      background: rgba(0, 0, 0, 0.2);
+      padding: 2px;
+      border-radius: 4px;
+      border: 1px solid var(--color-border-dark-2);
+
+      .tidy-button {
+          border: none;
+          background: none;
+          height: 28px;
+          width: 32px;
+          padding: 0;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          
+          &:hover {
+              background: rgba(255, 255, 255, 0.1);
+          }
       }
     }
 

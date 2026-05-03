@@ -12,6 +12,7 @@ export interface ProjectTreeNode {
   children: ProjectTreeNode[];
   parentId: string | null;
   depth: number;
+  expanded?: boolean;
 }
 
 export class TreeLogic {
@@ -100,18 +101,10 @@ export class TreeLogic {
       }
 
       const data = projectData(parentItem);
-      let currentChildren = data?.followUpProjectIds || [];
 
-      // Handle legacy singular field
       if (data?.followUpProjectId === childUuid) {
         await parentItem.update({ [`flags.${Settings.ID}.projectData.followUpProjectId`]: "" });
       }
-
-      currentChildren = currentChildren.filter((id) => id !== childUuid);
-
-      await parentItem.update({
-        [`flags.${Settings.ID}.projectData.followUpProjectIds`]: currentChildren,
-      });
 
       return true;
     } catch (err) {
@@ -141,15 +134,8 @@ export class TreeLogic {
         return false;
       }
 
-      const data = projectData(parentItem);
-      const currentChildren = new Set(data?.followUpProjectIds || []);
-      if (data?.followUpProjectId) currentChildren.add(data.followUpProjectId);
-
-      currentChildren.add(childUuid);
-
       await parentItem.update({
-        [`flags.${Settings.ID}.projectData.followUpProjectIds`]: Array.from(currentChildren),
-        [`flags.${Settings.ID}.projectData.followUpProjectId`]: "", // Clear legacy
+        [`flags.${Settings.ID}.projectData.followUpProjectId`]: childUuid,
       });
 
       return true;
@@ -226,11 +212,6 @@ export class TreeLogic {
   private static _getChildUuids(data: any): Set<string> {
     const ids = new Set<string>();
     if (data?.followUpProjectId) ids.add(data.followUpProjectId);
-    if (Array.isArray(data?.followUpProjectIds)) {
-      for (const id of data.followUpProjectIds) {
-        if (id) ids.add(id);
-      }
-    }
     return ids;
   }
 }

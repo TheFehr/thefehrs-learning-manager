@@ -25,8 +25,7 @@ describe("ItemConfigLogic", () => {
     it("should set flags on the item and preserve hierarchical links", async () => {
       const mockItem = {
         getFlag: vi.fn().mockImplementation((scope, key) => {
-          if (key === "projectData")
-            return { followUpProjectId: "existing-uuid", followUpProjectIds: ["id1"] };
+          if (key === "projectData") return { followUpProjectId: "existing-uuid" };
           return undefined;
         }),
         update: vi.fn().mockResolvedValue(true),
@@ -62,7 +61,6 @@ describe("ItemConfigLogic", () => {
             requirements,
             categories,
             followUpProjectId: "existing-uuid",
-            followUpProjectIds: ["id1"],
           },
           "flags.thefehrs-learning-manager.learningBookBonus": {
             modifier: bookModifier,
