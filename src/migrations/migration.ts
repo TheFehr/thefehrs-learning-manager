@@ -10,6 +10,13 @@ import { Logger } from "@/core/logger.js";
 import { FoundryUtils } from "@/core/foundry-utils.js";
 import { getGame } from "@/core/foundry.js";
 
+/**
+ * Orchestrates sequential data migrations based on the stored migrationVersion setting and runs only for the active GM.
+ *
+ * Normalizes the stored version value (string, number, or other) and maps legacy integer-only versions greater than 0 to "1.2.0". If the resolved version is "0" it runs the direct v2 migration path; otherwise it executes each migration whose target version is newer than the current version in ascending order. Non-GM users exit early.
+ *
+ * @throws The original error if any migration step fails.
+ */
 export async function migrateData() {
   const game = getGame();
   const isGM = !!game.user?.isGM;

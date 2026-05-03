@@ -73,6 +73,13 @@ export async function deleteWorldIfExists(page: Page, worldId: string) {
   }
 }
 
+/**
+ * Navigate the application back to its setup screen, handling UI flows for game, join, and authentication pages.
+ *
+ * Attempts to trigger the in-app "Return to Setup" action for the current page, waits for navigation to either `/setup` or `/auth` (up to 60 seconds), and if redirected to `/auth` will submit `adminPassword` and wait for `/setup` to load.
+ *
+ * @param adminPassword - Optional admin password to confirm deletion or to authenticate on the `/auth` page when prompted
+ */
 export async function returnToSetup(page: Page, adminPassword?: string) {
   const currentUrl = page.url();
 
