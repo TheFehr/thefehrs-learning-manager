@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import type { Item5e } from "@/types.js";
   import { Settings } from "@/core/settings.js";
+  import { Logger } from "@/core/logger.js";
 
   let { parentItem, onSelect, onClose } = $props<{
     parentItem: Item5e;
@@ -14,28 +15,37 @@
   let isLoading = $state(true);
 
   const filteredItems = $derived.by(() => {
-    if (!searchQuery) return allItems.slice(0, 20);
+    const baseItems = allItems.filter(item => item.uuid !== parentItem.uuid);
+    if (!searchQuery) return baseItems.slice(0, 20);
     const query = searchQuery.toLowerCase();
-    return allItems.filter(item => 
-        item.name?.toLowerCase().includes(query) && 
-        item.uuid !== parentItem.uuid
-    ).slice(0, 20);
+    return baseItems
+      .filter(item => item.name?.toLowerCase().includes(query))
+      .slice(0, 20);
   });
 
   async function loadAllProjects() {
-    isLoading = true;
-    const allowed = Settings.get("allowedCompendiums");
-    const docs: Item5e[] = [];
+    try {
+      isLoading = true;
+      const allowed = Settings.get("allowedCompendiums");
+      const docs: Item5e[] = [];
 
-    for (const packId of allowed) {
-      const pack = (game as any).packs.get(packId);
-      if (!pack) continue;
-      const packDocs = await pack.getDocuments();
-      docs.push(...(packDocs as Item5e[]));
+      for (const packId of allowed) {
+        try {
+          const pack = (game as any).packs.get(packId);
+          if (!pack) continue;
+          const packDocs = await pack.getDocuments();
+          docs.push(...(packDocs as Item5e[]));
+        } catch (err) {
+          Logger.error(`Failed to load pack ${packId}:`, false, err);
+        }
+      }
+      
+      allItems = docs;
+    } catch (err) {
+      Logger.error("Failed to load all projects:", true, err);
+    } finally {
+      isLoading = false;
     }
-    
-    allItems = docs;
-    isLoading = false;
   }
 
   onMount(() => {

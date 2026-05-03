@@ -181,7 +181,9 @@ export class TreeLogic {
           // @ts-ignore
           childItem = await fromUuid(childUuid);
           if (childItem) itemMap.set(childUuid, childItem);
-        } catch (e) {}
+        } catch (e) {
+          Logger.debug(`Failed to fetch child item ${childUuid} for parent ${item.uuid}`, e);
+        }
       }
 
       if (childItem) {

@@ -55,19 +55,29 @@
   let isLoading = $state(true);
   let pinnedUuids = $state<string[]>([]);
   let errorMessage = $state<string | null>(null);
+  let loadSeq = 0;
 
   async function loadTree() {
+    const mySeq = ++loadSeq;
     try {
       isLoading = true;
       errorMessage = null;
       // Copy array to break proxy
       const rawPinned = [...pinnedUuids];
-      forest = await TreeLogic.buildProjectTree(showAllItems, rawPinned);
+      const result = await TreeLogic.buildProjectTree(showAllItems, rawPinned);
+      
+      if (mySeq === loadSeq) {
+        forest = result;
+      }
     } catch (err) {
-      Logger.error("Failed to load project tree:", true, err);
-      errorMessage = "Failed to load project tree. Check console for details.";
+      if (mySeq === loadSeq) {
+        Logger.error("Failed to load project tree:", true, err);
+        errorMessage = "Failed to load project tree. Check console for details.";
+      }
     } finally {
-      isLoading = false;
+      if (mySeq === loadSeq) {
+        isLoading = false;
+      }
     }
   }
 
@@ -143,20 +153,21 @@
         <input 
           type="text" 
           placeholder="Search projects..." 
+          aria-label="Search projects"
           bind:value={searchQuery}
         />
       </div>
 
       <div class="button-group">
-        <button type="button" class="tidy-button" onclick={() => setAllExpansion(true)} title="Expand All">
+        <button type="button" class="tidy-button" onclick={() => setAllExpansion(true)} title="Expand All" aria-label="Expand all projects">
           <i class="fas fa-expand-alt"></i>
         </button>
-        <button type="button" class="tidy-button" onclick={() => setAllExpansion(false)} title="Collapse All">
+        <button type="button" class="tidy-button" onclick={() => setAllExpansion(false)} title="Collapse All" aria-label="Collapse all projects">
           <i class="fas fa-compress-alt"></i>
         </button>
       </div>
 
-      <button type="button" class="tidy-button refresh-btn" onclick={loadTree} title="Refresh Tree">
+      <button type="button" class="tidy-button refresh-btn" onclick={loadTree} title="Refresh Tree" aria-label="Refresh project tree">
         <i class="fas fa-sync" class:fa-spin={isLoading}></i>
       </button>
     </div>

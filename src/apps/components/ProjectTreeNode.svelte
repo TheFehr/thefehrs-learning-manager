@@ -4,51 +4,8 @@
   import { projectData } from "@/logic/project-item.js";
   import ProjectTreeNodeComponent from "./ProjectTreeNode.svelte";
   import { TreeLogic } from "@/logic/tree-logic.js";
-  import FollowUpPicker from "../dialogs/FollowUpPicker.svelte";
-  import { unmount, mount } from "svelte";
+  import { FollowUpPickerApp } from "../dialogs/FollowUpPickerApp.js";
   import { MODULE_ID } from "@/global.js";
-
-  // --- Top-level Application Class ---
-
-  class FollowUpPickerApp extends (foundry.applications.api.ApplicationV2 as any) {
-    static override DEFAULT_OPTIONS = {
-        window: { title: "Add Follow-up Project", resizable: true },
-        position: { width: 450, height: 500 }
-    };
-
-    private instance: any = null;
-    private parentItem: any;
-    private onSelect: (uuid: string) => void;
-
-    constructor(parentItem: any, onSelect: (uuid: string) => void, options = {}) {
-        super(options);
-        this.parentItem = parentItem;
-        this.onSelect = onSelect;
-    }
-
-    protected override async _renderHTML() { return ""; }
-    protected override _replaceHTML() {}
-
-    protected override async _onRender() {
-        const target = this.element.querySelector(".window-content") || this.element;
-        this.instance = mount(FollowUpPicker, {
-            target,
-            props: {
-                parentItem: this.parentItem,
-                onSelect: (uuid: string) => {
-                    this.onSelect(uuid);
-                    this.close();
-                },
-                onClose: () => this.close()
-            }
-        });
-    }
-
-    override async close(o = {}) {
-        if (this.instance) unmount(this.instance);
-        return super.close(o);
-    }
-  }
 
   let { node, depth = 0, onRefresh } = $props<{
     node: ProjectTreeNode;
@@ -57,12 +14,6 @@
   }>();
 
   let isExpanded = $state(node.expanded ?? depth < 1); // Expand roots by default
-  
-  $effect(() => {
-    if (node.expanded !== undefined) {
-      isExpanded = node.expanded;
-    }
-  });
 
   const hasChildren = $derived(node.children.length > 0);
   const data = $derived(projectData(node.item));
@@ -92,10 +43,17 @@
       if (!confirmed) return;
 
       if (node.parentId) {
-          const parentItem = await fromUuid(node.parentId as `Item.${string}`);
-          if (parentItem) {
+          try {
+              const parentItem = await fromUuid(node.parentId as `Item.${string}`);
+              if (!parentItem) {
+                  ui.notifications?.error("Could not find parent item to break link.");
+                  return;
+              }
               const success = await TreeLogic.orphanProject(parentItem as any, node.uuid);
               if (success) onRefresh?.();
+          } catch (error) {
+              console.error(`${MODULE_ID} | Failed to break link:`, error);
+              ui.notifications?.error("An error occurred while trying to break the link.");
           }
       }
   }
@@ -167,7 +125,7 @@
         {/each}
     </div>
 
-    <div class="node-drag-handle" draggable="true" ondragstart={onDragStart} role="presentation">
+    <div class="node-drag-handle" draggable="true" ondragstart={onDragStart} role="button" aria-label="Drag handle" tabindex="0">
         <i class="fas fa-grip-vertical"></i>
     </div>
 

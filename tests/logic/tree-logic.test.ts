@@ -76,7 +76,7 @@ describe("TreeLogic", () => {
     expect(forest[0].children[0].uuid).toBe("uuid2");
   });
 
-  it("should show pinned items as roots even if they are children elsewhere", async () => {
+  it("pinned items do not create duplicate roots and still appear under their parent", async () => {
     const parent = {
       uuid: "parent",
       name: "Parent",

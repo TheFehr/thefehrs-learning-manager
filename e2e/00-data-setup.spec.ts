@@ -97,6 +97,7 @@ test.describe("Data Setup", () => {
 
       // 2.2 Create apprentice and journeyman projects for tree testing
       if (!existingFeats.some((f) => f.name === "Apprentice Project")) {
+        // @ts-ignore
         await Item.create(
           {
             name: "Apprentice Project",
@@ -114,6 +115,7 @@ test.describe("Data Setup", () => {
         );
       }
       if (!existingFeats.some((f) => f.name === "Journeyman Project")) {
+        // @ts-ignore
         await Item.create(
           {
             name: "Journeyman Project",

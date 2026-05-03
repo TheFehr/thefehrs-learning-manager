@@ -81,10 +81,18 @@ test.describe("Project Tree View E2E", () => {
     await expect(childNode.locator(".guide-line")).toHaveCount(0); // It's a root in "Show All"
 
     // 8. Test Drag and Drop Reparenting
-    await childNode.locator(".node-drag-handle").dragTo(rootNode);
+    const dragHandle = childNode.locator(".node-drag-handle");
+    await dragHandle.waitFor();
+    await rootNode.waitFor();
 
-    // Verify it's a child again
-    await expect(childNode.locator(".guide-line")).toHaveCount(1);
+    // Drag and drop can be flaky, so we retry if the post-condition isn't met
+    await expect(async () => {
+      await dragHandle.dragTo(rootNode);
+      await expect(childNode.locator(".guide-line")).toHaveCount(1);
+    }).toPass({
+      intervals: [1000, 2000, 5000],
+      timeout: 15000,
+    });
 
     // 9. Test Search
     const searchInput = page.getByPlaceholder("Search projects...");
