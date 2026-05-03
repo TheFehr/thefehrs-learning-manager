@@ -132,7 +132,7 @@ export class TreeLogic {
         return false;
       }
 
-      // Prevent circular follow-up chains
+      // Prevent circular follow-up chains (walking up from child)
       let currentUuid: string | null = childUuid;
       while (currentUuid) {
         if (currentUuid === parentItem.uuid) {
@@ -143,6 +143,19 @@ export class TreeLogic {
         const currentItem = (await fromUuid(currentUuid)) as Item5e | null;
         const data = currentItem ? projectData(currentItem) : null;
         currentUuid = data?.followUpProjectId || null;
+      }
+
+      // Prevent redundant descendant links (walking down from parent)
+      let parentChainUuid: string | null = projectData(parentItem)?.followUpProjectId || null;
+      while (parentChainUuid) {
+        if (parentChainUuid === childUuid) {
+          getUI()?.notifications?.warn(
+            "This project is already a descendant of the selected parent!",
+          );
+          return false;
+        }
+        const item = (await fromUuid(parentChainUuid)) as Item5e | null;
+        parentChainUuid = item ? projectData(item)?.followUpProjectId || null : null;
       }
 
       await parentItem.update({

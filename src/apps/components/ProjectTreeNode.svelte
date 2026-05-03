@@ -118,8 +118,8 @@
     role="button"
     tabindex="0"
     onkeydown={(e) => {
-      if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") {
-        if (e.key === " " || e.key === "Spacebar") e.preventDefault();
+      if (e.key === "Enter" || e.key === " " || e.key === "Spacebar" || e.code === "Space") {
+        if (e.key === " " || e.key === "Spacebar" || e.code === "Space") e.preventDefault();
         openSheet();
       }
     }}
