@@ -22,7 +22,7 @@ export function createBaseActivityTemplate(): Omit<
       type: "special",
       override: false,
       condition: "",
-      value: null as unknown as number,
+      value: 0,
     } as ActivationData5e,
     consumption: {
       value: "",
@@ -46,7 +46,7 @@ export function createBaseActivityTemplate(): Omit<
     effects: [],
     flags: {},
     range: {
-      value: null as unknown as string,
+      value: "",
       units: "self",
       override: false,
       special: "",

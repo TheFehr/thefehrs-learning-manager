@@ -37,7 +37,13 @@ export class ItemConfigLogic {
           followUpProjectId: existing?.followUpProjectId ?? "",
         };
       } else {
-        updateData[`flags.${MODULE_ID}.-=projectData`] = null;
+        const existing = item.getFlag(MODULE_ID, "projectData") as
+          | { followUpProjectId?: string }
+          | undefined;
+        if (existing?.followUpProjectId) {
+          updateData[`flags.${MODULE_ID}.projectData.followUpProjectId`] =
+            existing.followUpProjectId;
+        }
       }
 
       if (book) {

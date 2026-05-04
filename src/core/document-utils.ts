@@ -39,11 +39,7 @@ export class DocumentUtils {
         updateData[`flags.${MODULE_ID}.${key}`] = value;
       }
 
-      await (
-        doc as unknown as {
-          update: (data: Record<string, unknown>, options?: object) => Promise<unknown>;
-        }
-      ).update(updateData, { render: false });
+      await doc.update(updateData, { render: false });
       return true;
     } catch (err) {
       Logger.error(
@@ -88,11 +84,7 @@ export class DocumentUtils {
         updateData[`flags.${MODULE_ID}.-=${key}`] = null;
       }
 
-      await (
-        doc as unknown as {
-          update: (data: Record<string, unknown>, options?: object) => Promise<unknown>;
-        }
-      ).update(updateData, { render: false });
+      await doc.update(updateData, { render: false });
       return true;
     } catch (err) {
       Logger.error(
@@ -130,11 +122,7 @@ export class DocumentUtils {
     if (Object.keys(data || {}).length === 0) return true;
 
     try {
-      await (
-        doc as unknown as {
-          update: (data: Record<string, unknown>, options?: object) => Promise<unknown>;
-        }
-      ).update(data, { render: false });
+      await doc.update(data, { render: false });
       return true;
     } catch (err) {
       Logger.error(
@@ -157,7 +145,7 @@ export class DocumentUtils {
    */
   static async safeCreateEmbeddedDocuments<T = unknown>(
     actor: Actor,
-    type: string,
+    type: "Item",
     docs: any[],
     rewardName: string,
   ): Promise<T[]> {
@@ -175,7 +163,7 @@ export class DocumentUtils {
     }
 
     try {
-      const results = (await actor.createEmbeddedDocuments(type as "Item", docs)) as unknown as T[];
+      const results = (await actor.createEmbeddedDocuments(type, docs)) as unknown as T[];
       if (!results || results.length === 0) {
         Logger.error(
           `DocumentUtils.safeCreateEmbeddedDocuments | Failed to create embedded documents for "${rewardName}" on actor "${actor.name || actor.id}" (no documents returned).`,
