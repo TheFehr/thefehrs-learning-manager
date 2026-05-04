@@ -118,12 +118,12 @@ export class TutelageResolverService {
         }
 
         const flagPath = `flags.${MODULE_ID}.teacherOfferings`;
-        const index = await (pack as any).getIndex({ fields: [flagPath] });
-        Logger.debug(`Scanning compendium ${id}, found ${index.size || index.length} entries.`);
+        const index = await pack.getIndex({ fields: [flagPath] as any });
+        Logger.debug(`Scanning compendium ${id}, found ${index.size} entries.`);
 
         for (const entry of index) {
           const offerings = (FoundryUtils.getProperty(entry, flagPath) ||
-            (entry as any)[flagPath]) as TeacherOffering[];
+            (entry as Record<string, unknown>)[flagPath]) as TeacherOffering[];
           if (offerings && Array.isArray(offerings)) {
             Logger.debug(
               `Found ${offerings.length} offerings on actor ${entry.name} (${entry._id})`,
@@ -132,9 +132,9 @@ export class TutelageResolverService {
               instructors.push({
                 actorUuid:
                   entry.uuid ||
-                  (pack as any).getUuid(entry._id) ||
+                  (pack as unknown as { getUuid: (id: string) => string }).getUuid(entry._id) ||
                   `Compendium.${pack.metadata.id}.Actor.${entry._id}`,
-                name: entry.name,
+                name: entry.name || "Unknown Instructor",
                 offering: offering,
               });
             }
@@ -161,7 +161,7 @@ export class TutelageResolverService {
     );
     const books: { name: string; modifier: number }[] = [];
 
-    const items = actor.items as any;
+    const items = actor.items;
     const bookCompendiums = Settings.get("bookCompendiums") || [];
 
     for (const item of items) {
@@ -170,9 +170,9 @@ export class TutelageResolverService {
 
       // Filter by compendium if configured
       if (bookCompendiums.length > 0) {
-        const sourceId = (item._stats?.compendiumSource || (item as any).flags?.core?.sourceId) as
-          | string
-          | undefined;
+        const sourceId = (item._stats?.compendiumSource ||
+          (item as unknown as { flags: { core?: { sourceId?: string } } }).flags?.core
+            ?.sourceId) as string | undefined;
 
         // Only apply filter if it comes from a compendium. World items are always allowed if they have the flag.
         if (sourceId && sourceId.startsWith("Compendium.")) {

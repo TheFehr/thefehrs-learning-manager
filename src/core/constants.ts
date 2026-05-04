@@ -1,5 +1,12 @@
-import type { ActivityData5e } from "@/types.js";
-import { Logger } from "@/core/logger.js";
+import type {
+  ActivityData5e,
+  ActivationData5e,
+  ConsumptionData5e,
+  DurationData5e,
+  RangeData5e,
+  TargetData5e,
+} from "@/types.js";
+import { Logger } from "./logger.js";
 
 export function createBaseActivityTemplate(): Omit<
   ActivityData5e,
@@ -15,17 +22,17 @@ export function createBaseActivityTemplate(): Omit<
       type: "special",
       override: false,
       condition: "",
-      value: null,
-    } as any,
+      value: 0,
+    } as ActivationData5e,
     consumption: {
-      value: null,
+      value: "",
       scaling: {
         allowed: false,
         max: "",
       },
       spellSlot: false,
       targets: [],
-    } as any,
+    } as unknown as ConsumptionData5e,
     description: {
       chatFlavor: "",
     },
@@ -35,15 +42,15 @@ export function createBaseActivityTemplate(): Omit<
       concentration: false,
       override: false,
       special: "",
-    } as any,
+    } as DurationData5e,
     effects: [],
     flags: {},
     range: {
-      value: null,
+      value: "",
       units: "self",
       override: false,
       special: "",
-    } as any,
+    } as RangeData5e,
     target: {
       template: {
         count: "",
@@ -62,7 +69,7 @@ export function createBaseActivityTemplate(): Omit<
       },
       override: false,
       prompt: false,
-    } as any,
+    } as TargetData5e,
     uses: {
       spent: 0,
       recovery: [],

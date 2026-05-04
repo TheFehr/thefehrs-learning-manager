@@ -10,6 +10,7 @@ import { TutelageResolverService } from "./logic/tutelage-resolver.js";
 import { Settings, SettingsManager } from "./core/settings.js";
 import { LearningConfigApp } from "./apps/settings-app.js";
 import { ProjectOverviewApp } from "./apps/overview-app.js";
+import { ProjectTreeApp } from "./apps/tree-view-app.js";
 import { TabLogic } from "./logic/tab-logic.js";
 import { projectData, LearningFeatType, LearningActivityData } from "./logic/project-item.js";
 import { mount, unmount } from "svelte";
@@ -53,6 +54,15 @@ export class LearningManager {
       hint: "View invalid learning projects",
       icon: "fas fa-eye",
       type: ProjectOverviewApp,
+      restricted: true,
+    });
+
+    Settings.registerMenu("treeViewMenu", {
+      name: "Project Tree View",
+      label: "Project Tree View",
+      hint: "View and manage hierarchical learning paths",
+      icon: "fas fa-sitemap",
+      type: ProjectTreeApp,
       restricted: true,
     });
   }
@@ -269,13 +279,14 @@ export class LearningManager {
 
           const isLearningType =
             (item.type as string) === "feat" &&
-            (item.system as any).type?.value === LearningFeatType;
+            (item.system as unknown as { type?: { value: string } }).type?.value ===
+              LearningFeatType;
           const isProject = item.getFlag("thefehrs-learning-manager", "isLearningProject");
           const hasBookBonus = !!item.getFlag("thefehrs-learning-manager", "learningBookBonus");
 
           if (isLearningType || isProject || hasBookBonus) return isGM;
 
-          const uuid = (item as any).uuid || "";
+          const uuid = (item as unknown as { uuid: string }).uuid || "";
           if (uuid.startsWith("Compendium.")) {
             return isGM;
           }
@@ -309,7 +320,7 @@ export class LearningManager {
         const hasOfferings = !!actor.getFlag(this.ID, "teacherOfferings");
         if (hasOfferings) return true;
 
-        const uuid = (actor as any).uuid || "";
+        const uuid = (actor as unknown as { uuid: string }).uuid || "";
         if (uuid.startsWith("Compendium.")) {
           const parts = uuid.split(".");
           const packId = `${parts[1]}.${parts[2]}`;

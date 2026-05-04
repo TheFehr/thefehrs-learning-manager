@@ -15,7 +15,8 @@ function resolveControlledActor(): Actor5e | undefined {
   let actor = getGame().user?.character;
 
   // Fallback to selected token
-  const controlledTokens = (canvas as any).tokens?.controlled;
+  const controlledTokens = (canvas as unknown as { tokens: { controlled: { actor?: Actor }[] } })
+    .tokens?.controlled;
   if (!actor && controlledTokens && controlledTokens.length > 0) {
     actor = controlledTokens[0].actor ?? undefined;
   }
@@ -171,20 +172,22 @@ export const DebugHelpers = {
    * Test instructor filtering for a specific project by UUID.
    */
   async testInstructorsByUuid(itemUuid: string) {
-    const item = await fromUuid(itemUuid as any);
+    const item = await fromUuid(itemUuid as `Item.${string}`);
     if (!item || !(item instanceof Item)) {
       Logger.warn(`Item not found or invalid: ${itemUuid}`);
       return [];
     }
 
     // Verify item has project data before treating as ProjectItem
-    const hasProjectData = (item as any).getFlag?.("thefehrs-learning-manager", "projectData");
+    const hasProjectData = !!(
+      item as unknown as { getFlag?: (m: string, f: string) => unknown }
+    ).getFlag?.("thefehrs-learning-manager", "projectData");
     if (!hasProjectData) {
       Logger.warn(`Item "${item.name}" is not a learning project.`);
       return [];
     }
 
-    return await TutelageResolverService.getAvailableInstructors(item as any as ProjectItem);
+    return await TutelageResolverService.getAvailableInstructors(item as unknown as ProjectItem);
   },
 
   /**

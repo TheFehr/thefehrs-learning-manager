@@ -91,7 +91,7 @@ describe("LearningManager", () => {
 
       expect(registerMigrationSettings).toHaveBeenCalled();
       expect(SettingsManager.registerAll).toHaveBeenCalled();
-      expect(Settings.registerMenu).toHaveBeenCalledTimes(2);
+      expect(Settings.registerMenu).toHaveBeenCalledTimes(3);
       expect(Hooks.on).toHaveBeenCalled();
     });
 

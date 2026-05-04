@@ -55,7 +55,7 @@ export class PartyTab {
           ? actualActor.items.get(p.id)
           : (actualActor.items as unknown as Item5e[]).find((i) => i.id === p.id);
 
-      const isLearnedReward = (item as any)?.getFlag(MODULE_ID, "isLearnedReward");
+      const isLearnedReward = !!(item as Item5e | undefined)?.getFlag(MODULE_ID, "isLearnedReward");
       return {
         ...p,
         canAbort: (p.progress === 0 && !isLearnedReward) || !!getGame().user?.isGM,

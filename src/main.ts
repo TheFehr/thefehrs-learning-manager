@@ -7,7 +7,7 @@ Hooks.once("init", () => {
   // Expose API for E2E tests and other modules
   const module = game.modules.get(LearningManager.ID);
   if (module) {
-    (module as any).api = {
+    (module as unknown as { api: object }).api = {
       ProjectEngine,
     };
   }

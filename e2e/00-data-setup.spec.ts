@@ -95,6 +95,44 @@ test.describe("Data Setup", () => {
         console.log("Created Invalid Project in compendium");
       }
 
+      // 2.2 Create apprentice and journeyman projects for tree testing
+      if (!existingFeats.some((f) => f.name === "Apprentice Project")) {
+        // @ts-ignore
+        await Item.create(
+          {
+            name: "Apprentice Project",
+            type: "feat",
+            img: "icons/skills/trades/smithing-anvil-silver.webp",
+            system: { type: { value: "feat" }, activities: {}, description: { value: "Root" } },
+            flags: {
+              "thefehrs-learning-manager": {
+                isLearningProject: true,
+                projectData: { target: 100 },
+              },
+            },
+          },
+          { pack: "world.test-learning-feats" },
+        );
+      }
+      if (!existingFeats.some((f) => f.name === "Journeyman Project")) {
+        // @ts-ignore
+        await Item.create(
+          {
+            name: "Journeyman Project",
+            type: "feat",
+            img: "icons/skills/trades/smithing-anvil-silver.webp",
+            system: { type: { value: "feat" }, activities: {}, description: { value: "Child" } },
+            flags: {
+              "thefehrs-learning-manager": {
+                isLearningProject: true,
+                projectData: { target: 200 },
+              },
+            },
+          },
+          { pack: "world.test-learning-feats" },
+        );
+      }
+
       // 3. Create Learning Books
       const bookPack = (game as any).packs.get("world.test-learning-books");
       if (!bookPack) {

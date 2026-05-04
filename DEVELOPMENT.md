@@ -77,6 +77,7 @@ To ensure project stability and type safety, **always** run the following comman
 3.  **Manual E2E Testing**:
     - Copy `.env.example` to `.env`.
     - Configure `FOUNDRY_URL`, `FOUNDRY_E2E_WORLD`, and `FOUNDRY_E2E_USER`.
+    - **Note:** `FOUNDRY_URL` must point to the Vite dev-server (e.g., `http://localhost:30004`) so that Playwright can access the built module assets.
     - Ensure your local FoundryVTT is running and the test world has the module enabled.
     - Run `npm run test:e2e` to execute the Playwright tests.
     - Run `npm run test:e2e:ui` to open the Playwright UI for debugging.

@@ -37,7 +37,7 @@ export class Socket {
       const message = args[0];
       const isValid = this.isLearningModuleMessage(message);
       const summary = {
-        type: isValid ? message.type : (message as any)?.type || "unknown",
+        type: isValid ? message.type : (message as Record<string, unknown>)?.type || "unknown",
         valid: isValid,
         argsCount: args.length,
       };

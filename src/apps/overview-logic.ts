@@ -46,8 +46,8 @@ function validateProjectData(data: ValidationData): string[] {
   let hasActivities = false;
   if (Array.isArray(activities)) {
     hasActivities = activities.length > 0;
-  } else if (typeof activities === "object" && "size" in activities) {
-    hasActivities = (activities as any).size > 0;
+  } else if (typeof activities === "object" && activities !== null && "size" in activities) {
+    hasActivities = (activities as { size: number }).size > 0;
   } else {
     hasActivities = Object.keys(activities).length > 0;
   }
@@ -108,9 +108,9 @@ export async function getInvalidProjects(): Promise<InvalidProjectReason[]> {
           "system.description.value",
           "system.activities",
           "effects",
-        ] as any,
+        ],
         force: true,
-      } as any)) as unknown as (ValidationData & { _id: string })[];
+      } as unknown as object)) as unknown as (ValidationData & { _id: string })[];
     } catch (error) {
       Logger.error(
         `Failed to read index for compendium "${packId}": ${

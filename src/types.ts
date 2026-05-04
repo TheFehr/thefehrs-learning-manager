@@ -48,6 +48,7 @@ import type {
 } from "@dnd5e/data/shared/_types.mjs";
 import type { ActivityData } from "@dnd5e/data/activity/_types.mjs";
 import type { Tidy5eSheetsApi } from "@tidy5e/api/Tidy5eSheetsApi.js";
+import { MODULE_ID } from "./global.js";
 import { Logger } from "./core/logger.js";
 import type {
   ProjectFlagData,
@@ -242,16 +243,18 @@ export type Actor5e<TSystem = ActorSystem5e> = Actor<any> & {
  * Type guard for Actor5e.
  * Verifies the document has dnd5e-specific runtime properties.
  */
-export function isActor5e(actor: any): actor is Actor5e {
+export function isActor5e(actor: unknown): actor is Actor5e {
+  const a = actor as
+    | (Actor5e & { system: { attributes?: unknown; abilities?: unknown } })
+    | undefined;
   return (
-    actor &&
-    typeof actor.getFlag === "function" &&
-    (actor as any).system !== undefined &&
-    typeof (actor as any).system === "object" &&
-    (actor as any).system !== null &&
-    ((actor as any).system.abilities !== undefined ||
-      (actor as any).system.attributes !== undefined) &&
-    typeof (actor as any).getRollData === "function"
+    !!a &&
+    typeof a.getFlag === "function" &&
+    a.system !== undefined &&
+    typeof a.system === "object" &&
+    a.system !== null &&
+    (a.system.abilities !== undefined || a.system.attributes !== undefined) &&
+    typeof a.getRollData === "function"
   );
 }
 
@@ -322,7 +325,7 @@ export interface ModuleAPIs {
 export function getModuleAPI<T extends string & keyof ModuleAPIs>(
   id: T,
 ): ModuleAPIs[T] | undefined {
-  let game: any;
+  let game: Game;
   try {
     game = getGame();
   } catch (err) {
@@ -336,7 +339,7 @@ export function getModuleAPI<T extends string & keyof ModuleAPIs>(
     return undefined;
   }
 
-  const api = (mod as any).api;
+  const api = (mod as { api?: unknown }).api;
   if (!api || typeof api !== "object") {
     Logger.debug(`getModuleAPI | module ${id} has no api`);
     return undefined;
@@ -412,5 +415,13 @@ export interface ActivityData5e extends Omit<
       min: number | null;
       max: number | null;
     };
+  };
+  flags: {
+    [MODULE_ID]?: {
+      isLearningActivity?: boolean;
+      timeUnitId?: string;
+      isSpendAll?: boolean;
+    };
+    [key: string]: any;
   };
 }

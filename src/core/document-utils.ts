@@ -13,7 +13,17 @@ export class DocumentUtils {
    * @param flags A record of flag keys and values to set.
    * @returns A promise that resolves to `true` if the update succeeded, otherwise `false`.
    */
-  static async setFlagsSilently(doc: any, flags: Record<string, unknown>): Promise<boolean> {
+  static async setFlagsSilently(
+    doc: {
+      update: (
+        data: Record<string, unknown>,
+        options?: Record<string, unknown>,
+      ) => Promise<unknown>;
+      name?: string;
+      id?: string | null;
+    },
+    flags: Record<string, unknown>,
+  ): Promise<boolean> {
     if (!doc || typeof doc.update !== "function") {
       Logger.error("DocumentUtils.setFlagsSilently | Invalid document provided.", true, doc);
       return false;
@@ -48,7 +58,17 @@ export class DocumentUtils {
    * @param keys The flag keys to remove.
    * @returns A promise that resolves to `true` if the update succeeded, otherwise `false`.
    */
-  static async unsetFlagsSilently(doc: any, keys: string[]): Promise<boolean> {
+  static async unsetFlagsSilently(
+    doc: {
+      update: (
+        data: Record<string, unknown>,
+        options?: Record<string, unknown>,
+      ) => Promise<unknown>;
+      name?: string;
+      id?: string | null;
+    },
+    keys: string[],
+  ): Promise<boolean> {
     if (!doc || typeof doc.update !== "function") {
       Logger.error("DocumentUtils.unsetFlagsSilently | Invalid document provided.", true, doc);
       return false;
@@ -83,7 +103,17 @@ export class DocumentUtils {
    * @param data The data to update.
    * @returns A promise that resolves to `true` if the update succeeded, otherwise `false`.
    */
-  static async updateSilently(doc: any, data: Record<string, unknown>): Promise<boolean> {
+  static async updateSilently(
+    doc: {
+      update: (
+        data: Record<string, unknown>,
+        options?: Record<string, unknown>,
+      ) => Promise<unknown>;
+      name?: string;
+      id?: string | null;
+    },
+    data: Record<string, unknown>,
+  ): Promise<boolean> {
     if (!doc || typeof doc.update !== "function") {
       Logger.error("DocumentUtils.updateSilently | Invalid document provided.", true, doc);
       return false;
@@ -113,9 +143,9 @@ export class DocumentUtils {
    * @param rewardName The name of the reward for logging context.
    * @returns A promise that resolves to the created documents, or an empty array if failed.
    */
-  static async safeCreateEmbeddedDocuments<T = any>(
+  static async safeCreateEmbeddedDocuments<T = unknown>(
     actor: Actor,
-    type: string,
+    type: "Item",
     docs: any[],
     rewardName: string,
   ): Promise<T[]> {
@@ -133,7 +163,7 @@ export class DocumentUtils {
     }
 
     try {
-      const results = (await actor.createEmbeddedDocuments(type as any, docs)) as unknown as T[];
+      const results = (await actor.createEmbeddedDocuments(type, docs)) as unknown as T[];
       if (!results || results.length === 0) {
         Logger.error(
           `DocumentUtils.safeCreateEmbeddedDocuments | Failed to create embedded documents for "${rewardName}" on actor "${actor.name || actor.id}" (no documents returned).`,

@@ -12,7 +12,9 @@ import { getGame } from "@/core/foundry.js";
 
 export async function migrateData() {
   const game = getGame();
-  if (!game.user?.isGM) return;
+  const isGM = !!game.user?.isGM;
+  Logger.info(`Migration orchestrator started. isGM: ${isGM}`);
+  if (!isGM) return;
 
   try {
     const raw = game.settings.get(MODULE_ID, "migrationVersion");
@@ -29,6 +31,8 @@ export async function migrateData() {
     if (/^\d+$/.test(currentVersion) && currentVersion !== "0") {
       currentVersion = "1.2.0";
     }
+
+    Logger.info(`Current data version: ${currentVersion}`);
 
     if (currentVersion === "0") {
       // New installation or very old version

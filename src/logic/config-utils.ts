@@ -14,7 +14,7 @@ export async function searchWithOmnisearchOrQuickInsert(
       const result = await omnisearch.prompt({ query });
       const uuid = result?.data?.uuid;
       if (uuid) {
-        const doc = await fromUuid(uuid as any);
+        const doc = await fromUuid(uuid as `Item.${string}`);
         if (doc && (restrictTypes.length === 0 || restrictTypes.includes(doc.documentName))) {
           return uuid;
         }
@@ -39,7 +39,7 @@ export async function searchWithOmnisearchOrQuickInsert(
           onSubmit: async (item: { uuid: string }) => {
             clearTimeout(timeoutId);
             try {
-              const doc = await fromUuid(item.uuid as any);
+              const doc = await fromUuid(item.uuid as `Item.${string}`);
               if (!doc || (restrictTypes.length > 0 && !restrictTypes.includes(doc.documentName))) {
                 resolve(null);
               } else {

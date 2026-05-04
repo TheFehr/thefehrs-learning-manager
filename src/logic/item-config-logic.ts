@@ -1,7 +1,6 @@
 import { MODULE_ID } from "@/global.js";
 import { DocumentUtils } from "@/core/document-utils.js";
 import type { Item5e, ProjectRequirement } from "@/types.js";
-import { extractItemUuidFromDrop, searchWithOmnisearchOrQuickInsert } from "./config-utils.js";
 
 /**
  * Logic for the Item Target Config component.
@@ -15,7 +14,6 @@ export class ItemConfigLogic {
     enabled: boolean,
     project?: {
       target: number;
-      followUpProjectId: string;
       requirements: ProjectRequirement[];
       categories: string[];
     },
@@ -30,9 +28,22 @@ export class ItemConfigLogic {
 
     if (enabled) {
       if (project) {
-        updateData[`flags.${MODULE_ID}.projectData`] = project;
+        // IMPORTANT: Preserve existing hierarchical links
+        const existing = item.getFlag(MODULE_ID, "projectData") as
+          | { followUpProjectId?: string }
+          | undefined;
+        updateData[`flags.${MODULE_ID}.projectData`] = {
+          ...project,
+          followUpProjectId: existing?.followUpProjectId ?? "",
+        };
       } else {
-        updateData[`flags.${MODULE_ID}.-=projectData`] = null;
+        const existing = item.getFlag(MODULE_ID, "projectData") as
+          | { followUpProjectId?: string }
+          | undefined;
+        if (existing?.followUpProjectId) {
+          updateData[`flags.${MODULE_ID}.projectData.followUpProjectId`] =
+            existing.followUpProjectId;
+        }
       }
 
       if (book) {
@@ -46,21 +57,5 @@ export class ItemConfigLogic {
     }
 
     return await DocumentUtils.updateSilently(item, updateData);
-  }
-
-  /**
-   * Orchestrates the search for a follow-up project using available modules.
-   */
-  static async searchFollowUp(): Promise<string | null> {
-    return searchWithOmnisearchOrQuickInsert("!item ", ["Item"]);
-  }
-
-  /**
-   * Processes a drop event to extract an Item UUID.
-   */
-  static handleDrop(e: DragEvent): string | null {
-    e.preventDefault();
-    e.stopPropagation();
-    return extractItemUuidFromDrop(e);
   }
 }

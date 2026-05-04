@@ -10,6 +10,10 @@ dotenv.config();
  */
 export default defineConfig({
   testDir: "./e2e",
+  timeout: 60000,
+  expect: {
+    timeout: 10000,
+  },
   /* Run tests in files in parallel */
   fullyParallel: false, // For Foundry tests, we usually want sequential to avoid world locking
   /* Fail the build on CI if you accidentally left test.only in the source code. */
@@ -23,7 +27,7 @@ export default defineConfig({
   /* Run your local dev server before starting the tests */
   webServer: {
     command: "npm run dev",
-    url: "http://localhost:30001",
+    url: "http://localhost:30004",
     reuseExistingServer: !process.env.CI,
     stdout: "pipe",
     stderr: "pipe",
@@ -31,8 +35,9 @@ export default defineConfig({
 
   /* Shared settings for all the projects below. See https://playwright.dev/docs/api/class-testoptions. */
   use: {
-    /* Base URL to use in actions like `await page.goto('/')`. */
-    baseURL: process.env.FOUNDRY_URL || "http://localhost:30001",
+    /* Base URL to use in actions like `await page.goto('/')`.
+       Should point to the Vite dev-server (default: http://localhost:30004) */
+    baseURL: process.env.FOUNDRY_URL || "http://localhost:30004",
 
     /* Collect trace when retrying the failed test. See https://playwright.dev/docs/trace-viewer */
     trace: "on-first-retry",
