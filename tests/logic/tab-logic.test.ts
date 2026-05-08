@@ -135,12 +135,12 @@ describe("TabLogic", () => {
       expect(result.reason).toContain("Invalid check formula");
     });
 
-    it("should allow 'roll' method for bulk units", async () => {
+    it("should allow 'roll' method for bulk units and return ratio as progress", async () => {
       const bulkRules = { ...rules, bulkMethod: "roll", checkDC: 15 };
       const bulkTu = { id: "day", isBulk: true, ratio: 10 };
 
       const result = await TabLogic.computeProgress(actor, bulkRules, tutelageMod, bulkTu as any);
-      expect(result.progressGained).toBe(1);
+      expect(result.progressGained).toBe(10);
     });
 
     it("should handle crit doubling in 'roll' method", async () => {

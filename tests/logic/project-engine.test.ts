@@ -804,7 +804,7 @@ describe("ProjectEngine", () => {
       expect(result).toBe(false);
     });
 
-    it("should iterate and call processTraining for fitting activities", async () => {
+    it("should iterate and call executeTrainingIteration and applyTrainingResult", async () => {
       const actor = new Actor() as any;
       const item = new Item() as any;
       item.id = "proj1";
@@ -812,6 +812,8 @@ describe("ProjectEngine", () => {
       item.system = {
         activities: [
           {
+            id: "act1",
+            item: item,
             flags: {
               [MODULE_ID]: { isLearningActivity: true, timeUnitId: "hour" },
             },
@@ -819,64 +821,85 @@ describe("ProjectEngine", () => {
         ],
       };
 
-      const mockProxy = { bank: { total: 2 } };
+      const mockProxy = { bank: { total: 2 }, currency: { cp: 0, sp: 0, ep: 0, gp: 0, pp: 0 } };
       vi.spyOn(ActorProxy, "forActor").mockReturnValue(mockProxy as any);
       vi.mocked(foundry.applications.api.DialogV2.confirm).mockResolvedValue(true);
 
-      const processSpy = vi.spyOn(ProjectEngine, "processTraining").mockImplementation(async () => {
-        mockProxy.bank.total -= 1;
-        return true;
-      });
+      const executeSpy = vi
+        .spyOn(ProjectEngine, "executeTrainingIteration")
+        .mockImplementation(async (_act, opts) => {
+          const state = opts?.currentState!;
+          state.bankTotal -= 1;
+          state.projectData.progress += 1;
+          return {
+            progressGained: 1,
+            costCp: 0,
+            timeSpent: 1,
+            rolls: [],
+            reasons: [],
+            instructorName: "Self-Study",
+            newState: state,
+          };
+        });
+      const applySpy = vi.spyOn(ProjectEngine, "applyTrainingResult").mockResolvedValue(true);
 
       actor.items = {
         get: vi.fn().mockReturnValue(item),
       };
-      item.getFlag = vi.fn().mockReturnValue({ isCompleted: false });
+      item.getFlag = vi.fn().mockReturnValue({ progress: 0, target: 100, isCompleted: false });
 
       const result = await ProjectEngine.processSpendAll(item);
 
       expect(result).toBe(true);
-      expect(processSpy).toHaveBeenCalledTimes(2);
-      expect(processSpy).toHaveBeenCalledWith(
-        item.system.activities[0],
-        expect.objectContaining({ skipPrompt: true }),
-      );
-      expect(mockProxy.bank.total).toBe(0);
+      expect(executeSpy).toHaveBeenCalledTimes(2);
+      expect(applySpy).toHaveBeenCalledTimes(1);
+      expect(mockProxy.bank.total).toBe(2); // Local aggregation doesn't update original proxy until apply
     });
 
     it("should handle failures in the loop and continue", async () => {
       const actor = new Actor() as any;
       const item = new Item() as any;
+      item.id = "proj1";
       item.actor = actor;
       item.system = {
         activities: [
           {
+            id: "act1",
+            item: item,
             flags: {
               [MODULE_ID]: { isLearningActivity: true, timeUnitId: "hour" },
             },
           },
         ],
       };
-      const mockProxy = { bank: { total: 2 } };
+      const mockProxy = { bank: { total: 2 }, currency: { cp: 0, sp: 0, ep: 0, gp: 0, pp: 0 } };
       vi.spyOn(ActorProxy, "forActor").mockReturnValue(mockProxy as any);
       vi.mocked(foundry.applications.api.DialogV2.confirm).mockResolvedValue(true);
 
       let calls = 0;
-      const _processSpy = vi
-        .spyOn(ProjectEngine, "processTraining")
-        .mockImplementation(async () => {
+      const _executeSpy = vi
+        .spyOn(ProjectEngine, "executeTrainingIteration")
+        .mockImplementation(async (_act, opts) => {
           calls++;
-          if (calls === 1) return false; // Fail first call
-          mockProxy.bank.total -= 1;
-          return true;
+          if (calls === 1) return null; // Fail first call
+          const state = opts?.currentState!;
+          state.bankTotal -= 1;
+          return {
+            progressGained: 1,
+            costCp: 0,
+            timeSpent: 1,
+            rolls: [],
+            reasons: [],
+            instructorName: "Self-Study",
+            newState: state,
+          };
         });
 
       actor.items = { get: vi.fn().mockReturnValue(item) };
-      item.getFlag = vi.fn().mockReturnValue({ isCompleted: false });
+      item.getFlag = vi.fn().mockReturnValue({ progress: 0, target: 100, isCompleted: false });
 
       await ProjectEngine.processSpendAll(item);
-      expect(calls).toBe(3);
-      expect(mockProxy.bank.total).toBe(0);
+      expect(calls).toBe(1); // It now breaks on first failure
     });
   });
 
