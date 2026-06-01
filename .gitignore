@@ -12,3 +12,10 @@ dist/
 /test-results/
 /.env
 e2e/.auth/
+
+# TheFehr/Playwright-Foundry
+.foundry_cache/
+.foundry_test_data/
+
+# AI Tools
+.antigravitycli/
