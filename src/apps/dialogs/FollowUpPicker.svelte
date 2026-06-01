@@ -56,6 +56,7 @@
 <div class="follow-up-picker thefehrs-learning-manager">
   <div class="search-header">
     <i class="fas fa-search"></i>
+    <!-- svelte-ignore a11y_autofocus -->
     <input 
       type="text" 
       placeholder={parentItem ? `Search for a project to follow ${parentItem.name}...` : "Search for a project to add to the tree..."} 

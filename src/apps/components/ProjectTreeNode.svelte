@@ -13,6 +13,7 @@
     onRefresh?: () => void;
   }>();
 
+  // svelte-ignore state_referenced_locally
   let isExpanded = $state(node.expanded ?? depth < 1); // Expand roots by default
 
   const hasChildren = $derived(node.children.length > 0);
@@ -52,6 +53,7 @@
               const success = await TreeLogic.orphanProject(parentItem as Item5e, node.uuid);
               if (success) onRefresh?.();
           } catch (error) {
+              // eslint-disable-next-line no-console
               console.error(`${MODULE_ID} | Failed to break link:`, error);
               ui.notifications?.error("An error occurred while trying to break the link.");
           }

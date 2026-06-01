@@ -26,7 +26,6 @@
   let availableItemPacks = $state<PackInfo[]>([]);
   let instructorPacks = $state<PackInfo[]>([]);
   let bookPacks = $state<PackInfo[]>([]);
-
   onMount(async () => {
     if (isGM) {
       const results = await Promise.allSettled([
@@ -38,19 +37,19 @@
       if (results[0].status === "fulfilled") {
         availableItemPacks = results[0].value;
       } else {
-        Logger.error("Failed to load item packs:", true, results[0].reason);
+        Logger.error("Failed to load item packs:", false, results[0].reason);
       }
 
       if (results[1].status === "fulfilled") {
         instructorPacks = results[1].value;
       } else {
-        Logger.error("Failed to load instructor packs:", true, results[1].reason);
+        Logger.error("Failed to load instructor packs:", false, results[1].reason);
       }
 
       if (results[2].status === "fulfilled") {
         bookPacks = results[2].value;
       } else {
-        Logger.error("Failed to load book packs:", true, results[2].reason);
+        Logger.error("Failed to load book packs:", false, results[2].reason);
       }
     }
   });
