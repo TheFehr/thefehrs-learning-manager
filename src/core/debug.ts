@@ -7,6 +7,7 @@ import { Settings } from "./settings.js";
 import { getAvailablePacks } from "@/logic/settings-logic.js";
 import { Logger } from "./logger.js";
 import { getCanvas, getGame } from "./foundry.js";
+import { migrateData } from "@/migrations/migration.js";
 
 function resolveControlledActor(): Actor5e | undefined {
   const canvas = getCanvas();
@@ -194,7 +195,6 @@ export const DebugHelpers = {
    * Run the migration logic.
    */
   async runMigration() {
-    const { migrateData } = await import("@/migrations/migration.js");
     await migrateData();
   },
 

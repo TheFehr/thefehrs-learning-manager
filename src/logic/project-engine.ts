@@ -12,6 +12,7 @@ import { Socket } from "@/core/socket.js";
 import { mount, unmount } from "svelte";
 import { TutelageResolverService } from "./tutelage-resolver.js";
 import InstructorSelectionDialog from "@/apps/dialogs/InstructorSelectionDialog.svelte";
+import { TabLogic } from "./tab-logic.js";
 
 import { ProjectUI } from "@/core/project-ui.js";
 import { getGame, getUI } from "@/core/foundry.js";
@@ -106,12 +107,8 @@ export class ProjectEngine {
     return ProjectLifecycle.updateItemWithProgress(item, projectData, instructorName, render);
   }
 
-  static _tabLogicModule: { TabLogic: any } | null = null;
-
   static async importTabLogic() {
-    if (this._tabLogicModule) return this._tabLogicModule;
-    this._tabLogicModule = (await import("./tab-logic")) as { TabLogic: any };
-    return this._tabLogicModule;
+    return { TabLogic };
   }
 
   /**
@@ -585,7 +582,7 @@ export class ProjectEngine {
       const excessProgress = Math.max(0, totalRawProgress - target);
 
       if (newState.projectData.isCompleted) {
-        await this.updateItemWithProgress(item, newState.projectData, instructorName);
+        await this.updateItemWithProgress(item, newState.projectData, instructorName, true);
         await this.completeProject(item);
 
         if (excessProgress > 0 && newState.projectData.followUpProjectId) {
@@ -597,7 +594,7 @@ export class ProjectEngine {
           );
         }
       } else {
-        await this.updateItemWithProgress(item, newState.projectData, instructorName);
+        await this.updateItemWithProgress(item, newState.projectData, instructorName, true);
         const freshItem = actor.items.get(item.id!) as Item5e | undefined;
         if (freshItem?.displayCard) {
           await freshItem.displayCard({ rollMode: Settings.get("rules").rollMode });
@@ -660,7 +657,6 @@ export class ProjectEngine {
     if (proceed) {
       const newItem = await this.initiateProjectFromItem(actor as unknown as Actor, followUpItem);
       if (newItem) {
-        const { TabLogic } = await this.importTabLogic();
         const newFlags = FoundryUtils.deepClone(
           (newItem as unknown as ProjectItem).getFlag(Settings.ID, "projectData"),
         );

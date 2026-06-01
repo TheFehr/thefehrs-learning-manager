@@ -625,7 +625,6 @@ describe("ProjectEngine", () => {
             /<!-- learning-manager:progress-start -->[\s\S]*?<!-- learning-manager:progress-end -->Real Content/,
           ),
         }),
-        { render: false },
       );
 
       const lastUpdate = vi.mocked(item.update).mock.lastCall![0];
@@ -828,7 +827,8 @@ describe("ProjectEngine", () => {
       const executeSpy = vi
         .spyOn(ProjectEngine, "executeTrainingIteration")
         .mockImplementation(async (_act, opts) => {
-          const state = opts?.currentState!;
+          const state = opts?.currentState;
+          if (!state) throw new Error("Mock executeTrainingIteration: currentState is missing");
           state.bankTotal -= 1;
           state.projectData.progress += 1;
           return {
@@ -882,7 +882,8 @@ describe("ProjectEngine", () => {
         .mockImplementation(async (_act, opts) => {
           calls++;
           if (calls === 1) return null; // Fail first call
-          const state = opts?.currentState!;
+          const state = opts?.currentState;
+          if (!state) throw new Error("Mock executeTrainingIteration: currentState is missing");
           state.bankTotal -= 1;
           return {
             progressGained: 1,

@@ -9,6 +9,7 @@ Hooks.once("init", () => {
   if (module) {
     (module as unknown as { api: object }).api = {
       ProjectEngine,
+      LearningManager,
     };
   }
 });
