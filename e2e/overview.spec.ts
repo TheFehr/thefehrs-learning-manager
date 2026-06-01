@@ -1,30 +1,81 @@
-import { test, expect } from "./fixtures";
+import {
+  test,
+  expect,
+  useFoundry,
+  waitForReady,
+  loginAs,
+  disableTour,
+} from "@thefehr/foundry-playwright";
+
+useFoundry(test, {
+  worldId: "test-world",
+  systemId: "dnd5e",
+  moduleId: ["thefehrs-learning-manager", "tidy5e-sheet"],
+  adminPassword: "admin",
+  deleteIfExists: true,
+});
 
 test.describe("Project Overview UI", () => {
   test("verify invalid projects are listed", async ({ page }) => {
-    test.setTimeout(120000);
     await page.goto("/game");
-
-    // Wait for game to be ready
-    await page.waitForFunction(() => typeof (game as any) !== "undefined" && (game as any).ready, {
-      timeout: 60000,
+    await loginAs(page, "Gamemaster");
+    await disableTour(page);
+    await page.evaluate(() => {
+      const tourElements = document.querySelectorAll(
+        ".tour, .tour-overlay, .tour-center-step, .tour-step-anchor, aside.tour",
+      );
+      tourElements.forEach((el) => (el as HTMLElement).remove());
+      document.body.classList.remove("tour-open");
     });
+    await waitForReady(page);
+
+    const moduleId = "thefehrs-learning-manager";
+
+    // 0. Setup: Create a compendium with an invalid project
+    await page.evaluate(async (moduleId) => {
+      const packId = "world.test-learning-feats";
+      let pack = (game as any).packs.get(packId);
+      if (pack) await pack.deleteCompendium();
+
+      // @ts-ignore
+      await foundry.documents.collections.CompendiumCollection.createCompendium({
+        type: "Item",
+        label: "Test Learning Feats",
+        name: "test-learning-feats",
+        package: "world",
+      });
+      pack = (game as any).packs.get(packId);
+
+      await Item.create(
+        {
+          name: "Invalid Project",
+          type: "feat",
+          system: {
+            description: { value: "" },
+            type: { value: "feat" },
+            activities: {},
+          },
+          flags: {
+            [moduleId]: {
+              isLearningProject: true,
+              projectData: { target: 0, requirements: [] },
+            },
+          },
+        },
+        { pack: packId },
+      );
+
+      await (game as any).settings.set(moduleId, "allowedCompendiums", [packId]);
+    }, moduleId);
 
     // 1. Open the Overview app via the registered menu API
     await page.evaluate(async () => {
       const moduleId = "thefehrs-learning-manager";
       const menuKey = `${moduleId}.overviewMenu`;
 
-      // Poll for menu registration
-      let menu = null;
-      for (let i = 0; i < 20; i++) {
-        // @ts-ignore
-        menu = game.settings.menus.get(menuKey);
-        if (menu) break;
-        await new Promise((r) => setTimeout(r, 500));
-      }
-
-      if (!menu) throw new Error(`Overview menu "${menuKey}" not found after polling`);
+      // @ts-ignore
+      const menu = game.settings.menus.get(menuKey);
+      if (!menu) throw new Error(`Overview menu "${menuKey}" not found`);
       const app = new menu.type();
       app.render(true);
     });
@@ -35,7 +86,6 @@ test.describe("Project Overview UI", () => {
     });
 
     // 3. Verify the "Invalid Project" from the compendium is listed
-    // It takes time to scan compendiums
     const invalidItemRow = page
       .locator(".invalid-project-card")
       .filter({ has: page.locator(".project-name").filter({ hasText: "Invalid Project" }) });
