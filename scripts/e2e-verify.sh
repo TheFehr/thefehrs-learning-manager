@@ -14,8 +14,8 @@ fi
 # Function to calculate hash of all relevant files
 calculate_hash() {
     git ls-files -z src/ e2e/ public/ package.json package-lock.json playwright.config.ts vite.config.ts tsconfig*.json .tool-versions | \
-    LC_ALL=C sort -z | \
     xargs -0 sha256sum | \
+    sort | \
     sha256sum | \
     cut -d ' ' -f 1
 }
