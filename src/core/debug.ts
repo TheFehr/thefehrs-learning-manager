@@ -7,19 +7,17 @@ import { Settings } from "./settings.js";
 import { getAvailablePacks } from "@/logic/settings-logic.js";
 import { Logger } from "./logger.js";
 import { getCanvas, getGame } from "./foundry.js";
+import { migrateData } from "@/migrations/migration.js";
 
 function resolveControlledActor(): Actor5e | undefined {
   const canvas = getCanvas();
   if (typeof canvas === "undefined" || !canvas?.ready) return undefined;
 
-  let actor = getGame().user?.character;
-
-  // Fallback to selected token
   const controlledTokens = (canvas as unknown as { tokens: { controlled: { actor?: Actor }[] } })
     .tokens?.controlled;
-  if (!actor && controlledTokens && controlledTokens.length > 0) {
-    actor = controlledTokens[0].actor ?? undefined;
-  }
+  const actor: Actor | undefined =
+    getGame().user?.character ??
+    (controlledTokens && controlledTokens.length > 0 ? controlledTokens[0].actor : undefined);
 
   return isActor5e(actor) ? actor : undefined;
 }
@@ -194,7 +192,6 @@ export const DebugHelpers = {
    * Run the migration logic.
    */
   async runMigration() {
-    const { migrateData } = await import("@/migrations/migration.js");
     await migrateData();
   },
 

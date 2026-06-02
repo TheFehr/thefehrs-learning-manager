@@ -191,6 +191,7 @@ describe("LearningManager", () => {
         system: { type: { value: "simpleM" } },
         getFlag: vi.fn().mockReturnValue(false),
         uuid: "Item.weapon1",
+        parent: {},
       };
       expect(enabled({ item: regularItem })).toBe(false);
     });

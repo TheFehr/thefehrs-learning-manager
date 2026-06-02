@@ -14,14 +14,14 @@ fi
 # Function to calculate hash of all relevant files
 calculate_hash() {
     git ls-files -z src/ e2e/ public/ package.json package-lock.json playwright.config.ts vite.config.ts tsconfig*.json .tool-versions | \
-    sort -z | \
     xargs -0 sha256sum | \
+    LC_ALL=C sort | \
     sha256sum | \
     cut -d ' ' -f 1
 }
 
-echo "🚀 Running E2E tests..."
-npm run test:e2e:run
+echo "🚀 Running E2E tests (Foundry v14, Docker)..."
+npm run test:e2e:docker:v14:verbose
 
 # If tests passed, update the verification file
 HASH=$(calculate_hash)

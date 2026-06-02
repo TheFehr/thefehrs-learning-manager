@@ -287,7 +287,7 @@ export class LearningManager {
           if (isLearningType || isProject || hasBookBonus) return isGM;
 
           const uuid = (item as unknown as { uuid: string }).uuid || "";
-          if (uuid.startsWith("Compendium.")) {
+          if (uuid.startsWith("Compendium.") || !item.parent) {
             return isGM;
           }
 

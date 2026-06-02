@@ -298,7 +298,7 @@
 </div>
 
 <style lang="scss">
-  .thefehrs-item-target-config {
+  .thefehrs-item-learning-config {
     padding: 1rem;
     display: flex;
     flex-direction: column;

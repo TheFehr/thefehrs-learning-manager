@@ -9,6 +9,16 @@ dist/
 .env.foundryvtt.local
 /.junie/
 /playwright-report/
+/playwright-report-v14/
 /test-results/
+/test-results-v14/
 /.env
 e2e/.auth/
+
+# TheFehr/Playwright-Foundry
+.foundry_cache/
+.foundry_test_data/
+
+# AI Tools
+.antigravitycli/
+e2e/thefehrs-learning-manager/

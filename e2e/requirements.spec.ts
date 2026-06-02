@@ -1,51 +1,51 @@
-import { test, expect } from "./fixtures";
+import {
+  test,
+  expect,
+  useFoundry,
+  waitForReady,
+  loginAs,
+  disableTour,
+} from "@thefehr/foundry-playwright";
+
+useFoundry(test, {
+  worldId: "test-world",
+  systemId: "dnd5e",
+  moduleId: ["thefehrs-learning-manager", "tidy5e-sheet"],
+  adminPassword: "admin",
+  deleteIfExists: true,
+});
 
 test.describe("Project Requirements", () => {
-  let setupData: any;
-
-  test.afterEach(async ({ page }) => {
-    if (setupData) {
-      await page.evaluate(async (data) => {
-        const moduleId = "thefehrs-learning-manager";
-        // Restore settings
-        await (game as any).settings.set(moduleId, "allowedCompendiums", data.originalAllowed);
-
-        // Delete world documents
-        const pack = (game as any).packs.get(data.packId);
-        if (pack) await pack.delete();
-
-        const actor = (game as any).actors.get(data.actorId);
-        if (actor) await actor.delete();
-      }, setupData);
-    }
-  });
-
   test("verify requirement enforcement during project initiation", async ({ page }) => {
-    test.setTimeout(240000);
     await page.goto("/game");
-
-    await page.waitForFunction(() => typeof (game as any) !== "undefined" && (game as any).ready, {
-      timeout: 60000,
+    await loginAs(page, "Gamemaster");
+    await disableTour(page);
+    await page.evaluate(() => {
+      const tourElements = document.querySelectorAll(
+        ".tour, .tour-overlay, .tour-center-step, .tour-step-anchor, aside.tour",
+      );
+      tourElements.forEach((el) => (el as HTMLElement).remove());
+      document.body.classList.remove("tour-open");
     });
+    await waitForReady(page);
 
     const moduleId = "thefehrs-learning-manager";
 
     // 1. Setup: Create a learnable item with a requirement and an actor
-    setupData = await page.evaluate(async (moduleId) => {
+    const setupData = await page.evaluate(async (moduleId) => {
       // Create a Pack for the item
       const packName = "test-requirements";
-      const pack = (game as any).packs.get(`world.${packName}`);
-      if (pack) await pack.delete();
+      const packId = `world.${packName}`;
+      let pack = (game as any).packs.get(packId);
+      if (pack) await pack.deleteCompendium();
 
-      // Use the correct namespaced CompendiumCollection if available, fallback to global
-      const collection =
-        (foundry as any).documents?.collections?.CompendiumCollection ||
-        (window as any).CompendiumCollection;
-      await collection.createCompendium({
+      // @ts-ignore
+      await foundry.documents.collections.CompendiumCollection.createCompendium({
         label: "Test Requirements",
         name: packName,
         type: "Item",
       });
+      pack = (game as any).packs.get(packId);
 
       // Create a Feat with a requirement
       const item = await Item.create(
@@ -54,6 +54,7 @@ test.describe("Project Requirements", () => {
           type: "feat",
           flags: {
             [moduleId]: {
+              isLearningProject: true,
               projectData: {
                 target: 10,
                 requirements: [
@@ -68,7 +69,7 @@ test.describe("Project Requirements", () => {
             },
           },
         },
-        { pack: `world.${packName}` },
+        { pack: packId },
       );
 
       // Create an Actor with low strength
@@ -84,19 +85,14 @@ test.describe("Project Requirements", () => {
 
       // Allow the compendium
       const allowed = (game as any).settings.get(moduleId, "allowedCompendiums") || [];
-      const originalValue = [...allowed];
-      if (!allowed.includes(`world.${packName}`)) {
-        await (game as any).settings.set(moduleId, "allowedCompendiums", [
-          ...allowed,
-          `world.${packName}`,
-        ]);
+      if (!allowed.includes(packId)) {
+        await (game as any).settings.set(moduleId, "allowedCompendiums", [...allowed, packId]);
       }
 
       return {
         actorId: actor.id,
         itemUuid: item.uuid,
-        packId: `world.${packName}`,
-        originalAllowed: originalValue,
+        packId: packId,
       };
     }, moduleId);
 
@@ -120,11 +116,6 @@ test.describe("Project Requirements", () => {
       .first();
     await expect(notification).toBeVisible({ timeout: 15000 });
     await expect(notification).toContainText("system.abilities.str.value (10) >= 13");
-
-    // Click to dismiss if possible, or just wait
-    try {
-      await notification.click({ timeout: 2000 });
-    } catch (e) {}
 
     // Verify item was NOT added to actor
     const hasItem = await page.evaluate(
@@ -168,12 +159,12 @@ test.describe("Project Requirements", () => {
     );
 
     const finalCheck = await page.evaluate(
-      ({ actorId }) => {
+      ({ actorId, moduleId }) => {
         const actor = (game as any).actors.get(actorId);
         const item = actor.items.find((i: any) => i.name.includes("High Strength Feat"));
-        return !!item && item.getFlag("thefehrs-learning-manager", "isLearningProject");
+        return !!item && item.getFlag(moduleId, "isLearningProject");
       },
-      { actorId: setupData.actorId },
+      { actorId: setupData.actorId, moduleId },
     );
     expect(finalCheck).toBe(true);
   });

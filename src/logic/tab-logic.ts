@@ -80,7 +80,7 @@ export class TabLogic {
       }
 
       if ((roll.total || 0) >= dc) {
-        progressGained = 1 * multiplier;
+        progressGained = tu.ratio * multiplier;
       } else {
         reason = `Roll total ${roll.total} failed to meet DC ${dc}.`;
       }
@@ -287,6 +287,75 @@ export class TabLogic {
     const dc = Number(rules.checkDC ?? DEFAULT_DC);
     const successCount = res.rolls.filter((r) => (r.total || 0) >= dc).length;
     return successCount / 20;
+  }
+
+  /**
+   * Calculates new currency state after a deduction without updating the actor.
+   */
+  static calculateNewCurrency(
+    currency: { cp: number; sp: number; ep: number; gp: number; pp: number },
+    costCp: number,
+  ): { cp: number; sp: number; ep: number; gp: number; pp: number } {
+    if (!Number.isFinite(costCp) || costCp <= 0) return { ...currency };
+
+    const totalCp =
+      (Number(currency.pp) || 0) * 1000 +
+      (Number(currency.gp) || 0) * 100 +
+      (Number(currency.ep) || 0) * 50 +
+      (Number(currency.sp) || 0) * 10 +
+      (Number(currency.cp) || 0);
+    if (totalCp < Math.floor(costCp)) return { ...currency };
+
+    const cur = { ...currency };
+    let remaining = Math.floor(costCp);
+
+    const denoms = [
+      { id: "pp", value: 1000 },
+      { id: "gp", value: 100 },
+      { id: "ep", value: 50 },
+      { id: "sp", value: 10 },
+      { id: "cp", value: 1 },
+    ] as const;
+
+    // 1. Drain from existing denominations, largest to smallest
+    for (const d of denoms) {
+      const available = Number(cur[d.id] || 0);
+      if (available > 0) {
+        const canTake = Math.min(available, Math.floor(remaining / d.value));
+        cur[d.id] = available - canTake;
+        remaining -= canTake * d.value;
+      }
+    }
+
+    // 2. If still remaining, we need to borrow/make change
+    if (remaining > 0) {
+      const smallestCovering = [...denoms]
+        .reverse()
+        .find((d) => Number(cur[d.id] || 0) > 0 && d.value >= remaining);
+
+      if (smallestCovering) {
+        cur[smallestCovering.id] = Number(cur[smallestCovering.id] || 0) - 1;
+        let changeCp = smallestCovering.value - remaining;
+        remaining = 0;
+
+        for (const cd of denoms) {
+          if ((cd.id === "pp" || cd.id === "ep") && (cur[cd.id] || 0) === 0) continue;
+          const toAdd = Math.floor(changeCp / cd.value);
+          if (toAdd > 0) {
+            cur[cd.id] = Number(cur[cd.id] || 0) + toAdd;
+            changeCp %= cd.value;
+          }
+        }
+      }
+    }
+
+    return {
+      pp: Number(cur.pp || 0),
+      gp: Number(cur.gp || 0),
+      ep: Number(cur.ep || 0),
+      sp: Number(cur.sp || 0),
+      cp: Number(cur.cp || 0),
+    };
   }
 
   /**

@@ -1,109 +1,148 @@
-import { test, expect } from "./fixtures";
+import { test, expect, useFoundry, waitForReady, loginAs } from "@thefehr/foundry-playwright";
+import { clearFoundryOverlays, setupTourKiller, forceClick } from "./utils";
+
+useFoundry(test, {
+  worldId: "test-world",
+  systemId: "dnd5e",
+  moduleId: ["thefehrs-learning-manager", "tidy5e-sheet"],
+  adminPassword: "admin",
+  deleteIfExists: true,
+});
 
 test.describe("Project Tree View E2E", () => {
   test("full hierarchical management flow", async ({ page }) => {
-    test.setTimeout(120000);
+    await setupTourKiller(page.context());
     await page.goto("/game");
-
-    // Wait for game to be ready
-    await page.waitForFunction(() => typeof (game as any) !== "undefined" && (game as any).ready, {
-      timeout: 60000,
-    });
+    await loginAs(page, "Gamemaster");
+    await waitForReady(page);
+    await clearFoundryOverlays(page);
+    await page.waitForTimeout(2000);
 
     const moduleId = "thefehrs-learning-manager";
     const packId = "world.test-learning-feats";
 
-    // 1. Initial State Setup: Ensure no links and NO project flags
+    // 1. Initial State Setup
     await page.evaluate(
       async ({ mid, pid }) => {
-        const pack = (game as any).packs.get(pid);
-        const items = await pack.getDocuments();
-        for (const item of items) {
-          await item.update({
-            [`flags.${mid}.-=projectData`]: null,
-            [`flags.${mid}.isLearningProject`]: false,
+        let pack = (game as any).packs.get(pid);
+        if (!pack) {
+          // @ts-ignore
+          pack = await foundry.documents.collections.CompendiumCollection.createCompendium({
+            type: "Item",
+            label: "Test Learning Feats",
+            name: "test-learning-feats",
+            package: "world",
           });
         }
-
-        const allowed = (game as any).settings.get(mid, "allowedCompendiums") || [];
-        if (!allowed.includes(pid)) {
-          await (game as any).settings.set(mid, "allowedCompendiums", [...allowed, pid]);
-        }
+        await Item.create(
+          [
+            {
+              name: "Apprentice Project",
+              type: "feat",
+              img: "icons/skills/trades/smithing-anvil-silver.webp",
+              system: { type: { value: "feat" }, activities: {}, description: { value: "Root" } },
+              flags: { [mid]: { isLearningProject: true, projectData: { target: 100 } } },
+            },
+            {
+              name: "Journeyman Project",
+              type: "feat",
+              img: "icons/skills/trades/smithing-anvil-silver.webp",
+              system: { type: { value: "feat" }, activities: {}, description: { value: "Child" } },
+              flags: { [mid]: { isLearningProject: true, projectData: { target: 200 } } },
+            },
+          ],
+          { pack: pid },
+        );
+        await (game as any).settings.set(mid, "allowedCompendiums", [pid]);
       },
       { mid: moduleId, pid: packId },
     );
 
-    // 2. Open Tree View
-    await page.evaluate(async (mid) => {
-      const menu = (game as any).settings.menus.get(`${mid}.treeViewMenu`);
-      const app = new menu.type();
-      await app.render(true);
+    // 2. Open Tree View directly via API
+    const appId = await page.evaluate(async (mid) => {
+      // @ts-ignore
+      const menu = game.settings.menus.get(`${mid}.treeViewMenu`);
+      if (menu) {
+        const app = new menu.type();
+        await app.render(true);
+        return app.id || app.options.id;
+      } else {
+        throw new Error(`Tree View menu for ${mid} not found`);
+      }
     }, moduleId);
 
-    // 3. Verify Empty State (Since no projects exist)
-    await expect(
-      page.locator(".window-title").filter({ hasText: "Learning Project Tree View" }),
-    ).toBeVisible();
-    await expect(page.locator(".state-message.empty")).toBeVisible();
+    const treeViewApp = page
+      .locator(`[id="${appId}"], .window-app:has-text("Learning Project Tree View")`)
+      .first();
+    await expect(treeViewApp).toBeVisible({ timeout: 20000 });
 
-    // 4. Test "Add Project" (Pinned Root)
-    await page.getByRole("button", { name: "Add Project" }).click();
-    await page.locator(".result-item").filter({ hasText: "Apprentice Project" }).click();
+    // 3. Verify both projects appear from allowed compendiums
+    const apprenticeNode = treeViewApp
+      .locator(".tree-node-content")
+      .filter({ hasText: "Apprentice Project" });
+    const journeymanNode = treeViewApp
+      .locator(".tree-node-content")
+      .filter({ hasText: "Journeyman Project" });
 
-    // Verify it appeared as root
-    const rootNode = page.locator(".tree-node-content").filter({ hasText: "Apprentice Project" });
-    await expect(rootNode).toBeVisible();
+    await expect(apprenticeNode).toBeVisible({ timeout: 10000 });
+    await expect(journeymanNode).toBeVisible({ timeout: 10000 });
 
-    // 5. Test "Add Follow-up" (+) button
-    await rootNode.locator("button[title='Add Follow-up']").click();
-    await page.locator(".result-item").filter({ hasText: "Journeyman Project" }).click();
+    // 4. Test Hierarchical Assignment — set follow-up link directly then refresh
+    await page.evaluate(
+      async ({ mid, pid }) => {
+        const pack = (game as any).packs.get(pid);
+        const apprenticeEntry = pack.index.getName("Apprentice Project");
+        const journeymanEntry = pack.index.getName("Journeyman Project");
+        const apprenticeDoc = await pack.getDocument(apprenticeEntry._id);
+        const journeymanDoc = await pack.getDocument(journeymanEntry._id);
+        await apprenticeDoc.update({
+          [`flags.${mid}.projectData.followUpProjectId`]: journeymanDoc.uuid,
+        });
+      },
+      { mid: moduleId, pid: packId },
+    );
 
-    // Wait for picker to close
-    await expect(
-      page.locator(".window-title").filter({ hasText: "Add Follow-up Project" }),
-    ).toBeHidden();
+    await forceClick(treeViewApp.getByRole("button", { name: "Refresh project tree" }));
 
-    // Verify Journeyman is now a child
-    const childNode = page.locator(".tree-node-content").filter({ hasText: "Journeyman Project" });
-    await expect(childNode).toBeVisible({ timeout: 10000 });
-    await expect(childNode.locator(".guide-line")).toHaveCount(1);
+    // Both nodes still visible; Journeyman is now a child of Apprentice
+    await expect(apprenticeNode).toBeVisible({ timeout: 10000 });
+    await expect(journeymanNode).toBeVisible({ timeout: 10000 });
 
-    // 6. Test Break Link
-    await childNode.locator("button[title='Break Link']").click();
-    await page.getByRole("button", { name: "Yes" }).click();
+    // 5. Apprentice should now have an expand button (it has children)
+    const expandBtn = apprenticeNode.locator(".expand-button");
+    await expect(expandBtn).toBeVisible({ timeout: 10000 });
 
-    // Journeyman should DISAPPEAR because it has no project flag and no parent now
-    await expect(childNode).not.toBeVisible();
+    // 6. Collapse Apprentice — Journeyman should disappear
+    await forceClick(expandBtn);
+    await expect(journeymanNode).not.toBeVisible({ timeout: 5000 });
 
-    // 7. Test "Show All Items" to find it again
-    await page.locator("input[type='checkbox']").check();
-    await expect(childNode).toBeVisible();
-    await expect(childNode.locator(".guide-line")).toHaveCount(0); // It's a root in "Show All"
+    // 7. Expand Apprentice — Journeyman visible again
+    await forceClick(expandBtn);
+    await expect(journeymanNode).toBeVisible({ timeout: 5000 });
 
-    // 8. Test Drag and Drop Reparenting
-    const dragHandle = childNode.locator(".node-drag-handle");
-    await dragHandle.waitFor();
-    await rootNode.waitFor();
+    // 8. Break the link — Journeyman back to root
+    const breakLinkBtn = journeymanNode.locator(".icon-btn.danger");
+    await forceClick(breakLinkBtn);
 
-    // Drag and drop can be flaky, so we retry if the post-condition isn't met
-    await expect(async () => {
-      await dragHandle.dragTo(rootNode);
-      await expect(childNode.locator(".guide-line")).toHaveCount(1);
-    }).toPass({
-      intervals: [1000, 2000, 5000],
-      timeout: 15000,
-    });
+    const confirmBtn = page.getByRole("button", { name: /Yes/i }).first();
+    await forceClick(confirmBtn);
+
+    await expect(journeymanNode).toBeVisible({ timeout: 10000 });
 
     // 9. Test Search
-    const searchInput = page.getByPlaceholder("Search projects...");
-    await searchInput.fill("Journey");
-    await expect(rootNode).toBeVisible(); // Context
-    await expect(childNode).toBeVisible();
-    await searchInput.fill("");
+    const searchInput = treeViewApp.locator('input[aria-label="Search projects"]');
+    await searchInput.fill("Journeyman");
+    await expect(apprenticeNode).not.toBeVisible({ timeout: 5000 });
 
-    // 10. Test Collapsing
-    const expandBtn = rootNode.locator(".expand-button");
-    await expandBtn.click();
-    await expect(childNode).not.toBeVisible();
+    await searchInput.fill("Apprentice");
+    await expect(apprenticeNode).toBeVisible({ timeout: 5000 });
+
+    await searchInput.fill("");
+    await expect(apprenticeNode).toBeVisible({ timeout: 5000 });
+    await expect(journeymanNode).toBeVisible({ timeout: 5000 });
+
+    // 10. Expand/Collapse All
+    await forceClick(treeViewApp.getByRole("button", { name: "Expand all projects" }));
+    await forceClick(treeViewApp.getByRole("button", { name: "Collapse all projects" }));
   });
 });

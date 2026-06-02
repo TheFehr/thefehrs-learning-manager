@@ -10,6 +10,7 @@
     actor: Actor;
   }>();
 
+  // svelte-ignore state_referenced_locally
   let members = $state(membersProp);
 
   $effect(() => {
