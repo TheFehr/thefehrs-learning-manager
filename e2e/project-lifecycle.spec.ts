@@ -169,7 +169,7 @@ test.describe("Project Lifecycle (Happy Path)", () => {
 
     await simulateFoundryDrop(
       page,
-      `.window-app, .sheet.actor, .tidy5e-sheet, foundry-app:has-text("${actorName}")`,
+      `:is(.window-app, .sheet.actor, .tidy5e-sheet, foundry-app):has-text("${actorName}")`,
       itemData,
     );
 

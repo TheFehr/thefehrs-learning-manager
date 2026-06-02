@@ -296,7 +296,15 @@ export class TabLogic {
     currency: { cp: number; sp: number; ep: number; gp: number; pp: number },
     costCp: number,
   ): { cp: number; sp: number; ep: number; gp: number; pp: number } {
-    if (isNaN(costCp) || costCp <= 0) return { ...currency };
+    if (!Number.isFinite(costCp) || costCp <= 0) return { ...currency };
+
+    const totalCp =
+      (Number(currency.pp) || 0) * 1000 +
+      (Number(currency.gp) || 0) * 100 +
+      (Number(currency.ep) || 0) * 50 +
+      (Number(currency.sp) || 0) * 10 +
+      (Number(currency.cp) || 0);
+    if (totalCp < Math.floor(costCp)) return { ...currency };
 
     const cur = { ...currency };
     let remaining = Math.floor(costCp);

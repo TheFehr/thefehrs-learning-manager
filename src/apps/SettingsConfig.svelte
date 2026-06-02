@@ -37,6 +37,7 @@
       if (results[0].status === "fulfilled") {
         availableItemPacks = results[0].value;
       } else {
+        // false = no UI toast; pack-load failures are non-critical during init and console-only is sufficient
         Logger.error("Failed to load item packs:", false, results[0].reason);
       }
 

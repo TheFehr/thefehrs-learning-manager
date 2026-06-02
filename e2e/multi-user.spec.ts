@@ -12,6 +12,7 @@ useFoundry(test, {
   systemId: "dnd5e",
   moduleId: ["thefehrs-learning-manager", "tidy5e-sheet"],
   adminPassword: "admin",
+  deleteIfExists: true,
 });
 
 test.describe("Multi-User Interactions", () => {
