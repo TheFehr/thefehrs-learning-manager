@@ -25,7 +25,7 @@ jobs:
           calculate_hash() {
               git ls-files -z src/ e2e/ public/ package.json package-lock.json playwright.config.ts vite.config.ts tsconfig*.json .tool-versions | \
               xargs -0 sha256sum | \
-              sort | \
+              LC_ALL=C sort | \
               sha256sum | \
               cut -d ' ' -f 1
           }
