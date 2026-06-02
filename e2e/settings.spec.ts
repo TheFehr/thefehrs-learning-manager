@@ -68,44 +68,37 @@ test.describe("Settings UI", () => {
       .first();
     await expect(customSettingsApp).toBeVisible({ timeout: 20000 });
 
-    // Verify compendiums are listed and toggle them
-    const selections = [
-      {
-        packId: "world.test-learning-feats",
-        note: "Items dropped from these compendiums can start projects.",
-      },
-      {
-        packId: "world.test-teachers",
-        note: "Compendiums containing actors with Teacher Offerings.",
-      },
-      {
-        packId: "world.test-learning-books",
-        note: "Compendiums containing items with Learning Book bonuses.",
-      },
+    // Toggle the three compendium checkboxes.
+    // test-learning-feats appears in both the Template and Book sections (same packId).
+    // Template section renders before Book section in the DOM, so .first() = template, .last() = book.
+    // test-teachers only appears in the Instructor section.
+    const checkboxes = [
+      customSettingsApp.locator('input[data-pack-id="world.test-learning-feats"]').first(),
+      customSettingsApp.locator('input[data-pack-id="world.test-teachers"]').first(),
+      customSettingsApp.locator('input[data-pack-id="world.test-learning-books"]').last(),
     ];
 
-    for (const { packId, note } of selections) {
-      const sectionGroup = customSettingsApp.locator("section").filter({ hasText: note }).first();
-      const cb = sectionGroup.locator(`input[data-pack-id="${packId}"]`).first();
+    for (const cb of checkboxes) {
       await expect(cb).toBeVisible({ timeout: 30000 });
-
       const isChecked = await cb.isChecked();
       if (!isChecked) {
-        await forceClick(cb);
+        await cb.evaluate((el: HTMLInputElement) => {
+          el.checked = true;
+          el.dispatchEvent(new Event("change", { bubbles: true }));
+        });
       }
     }
 
-    // Toggle a rule - use evaluate to set select to bypass option visibility issues
+    // Toggle a rule - target the Log Level select specifically
     await customSettingsApp
-      .locator("select")
-      .first()
+      .locator("#rule-notification-level")
       .evaluate((el: HTMLSelectElement) => {
         el.value = "debug";
         el.dispatchEvent(new Event("change", { bubbles: true }));
       });
 
     // Save
-    await forceClick(customSettingsApp.getByRole("button", { name: /Save Changes/i }));
+    await forceClick(customSettingsApp.getByRole("button", { name: /Save Settings/i }));
 
     // 4. Verify settings were saved in Foundry
     await expect(async () => {

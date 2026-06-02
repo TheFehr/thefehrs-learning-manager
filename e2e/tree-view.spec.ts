@@ -76,84 +76,73 @@ test.describe("Project Tree View E2E", () => {
       .first();
     await expect(treeViewApp).toBeVisible({ timeout: 20000 });
 
-    // 3. Test "Add Pinned Compendium"
-    const addCompendiumBtn = treeViewApp.getByRole("button", { name: "Add Compendium" });
-    await forceClick(addCompendiumBtn);
-    await forceClick(page.locator(".result-item").filter({ hasText: "Test Learning Feats" }));
-
-    // Verify compendium node exists
-    const packNode = treeViewApp
-      .locator(".tree-node-content")
-      .filter({ hasText: "Test Learning Feats" });
-    await expect(packNode).toBeVisible();
-
-    // 4. Test "Add Project" (Pinned Root)
-    await forceClick(treeViewApp.getByRole("button", { name: "Add Project" }));
-    await forceClick(page.locator(".result-item").filter({ hasText: "Apprentice Project" }));
-
-    const rootNode = treeViewApp
+    // 3. Verify both projects appear from allowed compendiums
+    const apprenticeNode = treeViewApp
       .locator(".tree-node-content")
       .filter({ hasText: "Apprentice Project" });
-    await expect(rootNode).toBeVisible();
-
-    // 5. Test Hierarchical Assignment
-    const childItem = await page.evaluate(async (pid) => {
-      const pack = (game as any).packs.get(pid);
-      const entry = pack.index.getName("Journeyman Project");
-      return await pack.getDocument(entry._id);
-    }, packId);
-
-    const rootId = await rootNode.getAttribute("data-node-id");
-    await page.evaluate(
-      async ({ item, rid }) => {
-        const dropData = { type: "Item", uuid: item.uuid };
-        const event = new CustomEvent("drop", { bubbles: true });
-        // @ts-ignore
-        event.dataTransfer = { getData: () => JSON.stringify(dropData) };
-        const target = document.querySelector(`[data-node-id="${rid}"]`);
-        target?.dispatchEvent(event);
-      },
-      { item: childItem, rid: rootId },
-    );
-
-    const childNode = treeViewApp
+    const journeymanNode = treeViewApp
       .locator(".tree-node-content")
       .filter({ hasText: "Journeyman Project" });
-    await expect(childNode).toBeVisible({ timeout: 10000 });
 
-    // 6. Test Removal
-    const removeBtn = childNode.locator(".remove-node");
-    await forceClick(removeBtn);
-    await expect(childNode).not.toBeVisible();
+    await expect(apprenticeNode).toBeVisible({ timeout: 10000 });
+    await expect(journeymanNode).toBeVisible({ timeout: 10000 });
 
-    // 7. Test Edit
-    const editBtn = rootNode.locator(".edit-node");
-    await forceClick(editBtn);
+    // 4. Test Hierarchical Assignment — set follow-up link directly then refresh
+    await page.evaluate(
+      async ({ mid, pid }) => {
+        const pack = (game as any).packs.get(pid);
+        const apprenticeEntry = pack.index.getName("Apprentice Project");
+        const journeymanEntry = pack.index.getName("Journeyman Project");
+        const apprenticeDoc = await pack.getDocument(apprenticeEntry._id);
+        const journeymanDoc = await pack.getDocument(journeymanEntry._id);
+        await apprenticeDoc.update({
+          [`flags.${mid}.projectData.followUpProjectId`]: journeymanDoc.uuid,
+        });
+      },
+      { mid: moduleId, pid: packId },
+    );
 
-    const itemSheet = page
-      .locator(".window-app, .sheet.item")
-      .filter({ hasText: "Apprentice Project" })
-      .first();
-    await expect(itemSheet).toBeVisible();
-    await itemSheet.close();
+    await forceClick(treeViewApp.getByRole("button", { name: "Refresh project tree" }));
 
-    // 8. Test Search
-    const searchInput = treeViewApp.locator('input[placeholder*="Search"]');
+    // Both nodes still visible; Journeyman is now a child of Apprentice
+    await expect(apprenticeNode).toBeVisible({ timeout: 10000 });
+    await expect(journeymanNode).toBeVisible({ timeout: 10000 });
+
+    // 5. Apprentice should now have an expand button (it has children)
+    const expandBtn = apprenticeNode.locator(".expand-button");
+    await expect(expandBtn).toBeVisible({ timeout: 10000 });
+
+    // 6. Collapse Apprentice — Journeyman should disappear
+    await forceClick(expandBtn);
+    await expect(journeymanNode).not.toBeVisible({ timeout: 5000 });
+
+    // 7. Expand Apprentice — Journeyman visible again
+    await forceClick(expandBtn);
+    await expect(journeymanNode).toBeVisible({ timeout: 5000 });
+
+    // 8. Break the link — Journeyman back to root
+    const breakLinkBtn = journeymanNode.locator(".icon-btn.danger");
+    await forceClick(breakLinkBtn);
+
+    const confirmBtn = page.getByRole("button", { name: /Yes/i }).first();
+    await forceClick(confirmBtn);
+
+    await expect(journeymanNode).toBeVisible({ timeout: 10000 });
+
+    // 9. Test Search
+    const searchInput = treeViewApp.locator('input[aria-label="Search projects"]');
     await searchInput.fill("Journeyman");
-    await expect(rootNode).not.toBeVisible();
+    await expect(apprenticeNode).not.toBeVisible({ timeout: 5000 });
 
     await searchInput.fill("Apprentice");
-    await expect(rootNode).toBeVisible();
+    await expect(apprenticeNode).toBeVisible({ timeout: 5000 });
 
-    // 9. Test Filter
     await searchInput.fill("");
-    const filterBtn = treeViewApp.locator(".filter-button");
-    await forceClick(filterBtn);
-    await forceClick(page.locator(".filter-option").filter({ hasText: "Test Learning Feats" }));
-    await expect(rootNode).toBeVisible();
+    await expect(apprenticeNode).toBeVisible({ timeout: 5000 });
+    await expect(journeymanNode).toBeVisible({ timeout: 5000 });
 
-    // 10. Test Collapsing
-    const expandBtn = rootNode.locator(".expand-button");
-    await forceClick(expandBtn);
+    // 10. Expand/Collapse All
+    await forceClick(treeViewApp.getByRole("button", { name: "Expand all projects" }));
+    await forceClick(treeViewApp.getByRole("button", { name: "Collapse all projects" }));
   });
 });

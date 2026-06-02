@@ -72,7 +72,11 @@ test.describe("GM Administrative Controls (Party Tab)", () => {
     }, moduleId);
   });
 
-  test("GM can override progress, target, and abort projects", async ({ page }) => {
+  test("GM can override progress, target, and abort projects", async ({
+    page,
+    deprecationTracker,
+  }) => {
+    deprecationTracker.registerIgnore("Deprecated since Version DnD5e");
     const moduleId = "thefehrs-learning-manager";
 
     // 1. Open the Party Tab
@@ -90,9 +94,7 @@ test.describe("GM Administrative Controls (Party Tab)", () => {
       .first();
     await expect(groupSheet).toBeVisible({ timeout: 30000 });
 
-    const tabButton = groupSheet
-      .locator('nav.tabs a.item[data-tab="thefehrs-party-tab"], a.item:has-text("Learning")')
-      .first();
+    const tabButton = groupSheet.getByRole("tab", { name: /Group Learning/i });
     await forceClick(tabButton);
 
     const partyTab = groupSheet.locator(".thefehrs-party-tab").first();
@@ -121,6 +123,10 @@ test.describe("GM Administrative Controls (Party Tab)", () => {
       expect(actualProgress).toBe(75);
     }).toPass({ timeout: 10000 });
 
+    // Actor update re-mounts the Svelte tab component, resetting isEditMode to false.
+    // Re-enable edit mode before accessing the target input.
+    await ensureEditMode(partyTab);
+
     // 5. Test Target Override
     const targetInput = projectRow.locator("input.update-project-target");
     await targetInput.clear();
@@ -136,8 +142,9 @@ test.describe("GM Administrative Controls (Party Tab)", () => {
       expect(actualTarget).toBe(150);
     }).toPass({ timeout: 10000 });
 
-    // 6. Test Abort Project
-    const abortBtn = projectRow.locator("button.abort-project");
+    // 6. Test Abort Project — re-enable edit mode again after target DB write
+    await ensureEditMode(partyTab);
+    const abortBtn = projectRow.locator("button[aria-label='Abort Project']");
     await forceClick(abortBtn);
 
     const dialog = page
@@ -145,7 +152,7 @@ test.describe("GM Administrative Controls (Party Tab)", () => {
       .filter({ hasText: /Abort Project/i })
       .first();
     await expect(dialog).toBeVisible({ timeout: 10000 });
-    await forceClick(dialog.getByRole("button", { name: /Abort Project/i }));
+    await forceClick(dialog.getByRole("button", { name: /Yes/i }));
 
     await expect(async () => {
       const exists = await page.evaluate(() => {

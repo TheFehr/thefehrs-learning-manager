@@ -17,7 +17,10 @@ useFoundry(test, {
 });
 
 test.describe("Project Lifecycle (Happy Path)", () => {
-  test("should start and progress a project on an actor", async ({ page }) => {
+  test("should start and progress a project on an actor", async ({ page, deprecationTracker }) => {
+    // dnd5e 5.3+ logs senses migration warnings (senses.darkvision → senses.ranges.darkvision etc.)
+    // These are dnd5e's own compatibility shims, not our module's issue.
+    deprecationTracker.registerIgnore("Deprecated since Version DnD5e");
     await page.goto("/game");
     await loginAs(page, "Gamemaster");
     await disableTour(page);
