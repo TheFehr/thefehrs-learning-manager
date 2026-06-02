@@ -20,8 +20,8 @@ calculate_hash() {
     cut -d ' ' -f 1
 }
 
-echo "🚀 Running E2E tests..."
-npm run test:e2e:run
+echo "🚀 Running E2E tests (Foundry v14, Docker)..."
+npm run test:e2e:docker:v14:verbose
 
 # If tests passed, update the verification file
 HASH=$(calculate_hash)
