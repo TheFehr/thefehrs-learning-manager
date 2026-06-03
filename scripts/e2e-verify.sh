@@ -21,7 +21,7 @@ calculate_hash() {
 }
 
 echo "🚀 Running E2E tests (Foundry v14, Docker)..."
-npm run test:e2e:docker:v14:verbose
+npm run test:e2e:docker:verbose
 
 # If tests passed, update the verification file
 HASH=$(calculate_hash)

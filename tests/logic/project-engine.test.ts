@@ -661,8 +661,13 @@ describe("ProjectEngine", () => {
 
       vi.mocked(TabLogic.calculateExpectedProgress).mockResolvedValue(NaN);
 
-      // Mock dialog to choose bulk
-      vi.mocked(foundry.applications.api.DialogV2.wait).mockResolvedValue("bulk");
+      // Simulate user clicking "bulk" in the resolution dialog
+      vi.spyOn(foundry.applications.api.DialogV2.prototype, "render").mockImplementation(
+        async function (this: any) {
+          this._data?.buttons?.find((b: any) => b.action === "bulk")?.callback?.();
+          return this;
+        },
+      );
 
       const result = await ProjectEngine.processTraining(activity as any);
 
@@ -701,8 +706,13 @@ describe("ProjectEngine", () => {
 
       vi.mocked(TabLogic.calculateExpectedProgress).mockResolvedValue(NaN);
 
-      // Mock dialog to choose separate
-      vi.mocked(foundry.applications.api.DialogV2.wait).mockResolvedValue("separate");
+      // Simulate user clicking "separate" in the resolution dialog
+      vi.spyOn(foundry.applications.api.DialogV2.prototype, "render").mockImplementation(
+        async function (this: any) {
+          this._data?.buttons?.find((b: any) => b.action === "separate")?.callback?.();
+          return this;
+        },
+      );
 
       const result = await ProjectEngine.processTraining(activity as any);
 
@@ -833,6 +843,7 @@ describe("ProjectEngine", () => {
           state.projectData.progress += 1;
           return {
             progressGained: 1,
+            excessProgress: 0,
             costCp: 0,
             timeSpent: 1,
             rolls: [],
@@ -887,6 +898,7 @@ describe("ProjectEngine", () => {
           state.bankTotal -= 1;
           return {
             progressGained: 1,
+            excessProgress: 0,
             costCp: 0,
             timeSpent: 1,
             rolls: [],
@@ -901,6 +913,68 @@ describe("ProjectEngine", () => {
 
       await ProjectEngine.processSpendAll(item);
       expect(calls).toBe(1); // It now breaks on first failure
+    });
+
+    it("should forward excessProgress from a completing iteration to applyTrainingResult", async () => {
+      const actor = new Actor() as any;
+      const item = new Item() as any;
+      item.id = "proj1";
+      item.actor = actor;
+      item.system = {
+        activities: [
+          {
+            id: "act1",
+            item: item,
+            flags: { [MODULE_ID]: { isLearningActivity: true, timeUnitId: "hour" } },
+          },
+        ],
+      };
+
+      const mockProxy = { bank: { total: 3 }, currency: { cp: 0, sp: 0, ep: 0, gp: 0, pp: 0 } };
+      vi.spyOn(ActorProxy, "forActor").mockReturnValue(mockProxy as any);
+      vi.mocked(foundry.applications.api.DialogV2.confirm).mockResolvedValue(true);
+
+      let calls = 0;
+      vi.spyOn(ProjectEngine, "executeTrainingIteration").mockImplementation(async (_act, opts) => {
+        calls++;
+        const state = opts?.currentState;
+        if (!state) throw new Error("currentState missing");
+        state.bankTotal -= 1;
+        if (calls === 1) {
+          state.projectData.progress = 1;
+          return {
+            progressGained: 1,
+            excessProgress: 0,
+            costCp: 0,
+            timeSpent: 1,
+            rolls: [],
+            reasons: [],
+            instructorName: "Self-Study",
+            newState: state,
+          };
+        }
+        // Second iteration: priorProgress(1) + progressGained(5) - target(2) = 4 excess
+        state.projectData.progress = 2;
+        state.projectData.isCompleted = true;
+        return {
+          progressGained: 5,
+          excessProgress: 4,
+          costCp: 0,
+          timeSpent: 1,
+          rolls: [],
+          reasons: [],
+          instructorName: "Self-Study",
+          newState: state,
+        };
+      });
+
+      const applySpy = vi.spyOn(ProjectEngine, "applyTrainingResult").mockResolvedValue(true);
+      item.getFlag = vi.fn().mockReturnValue({ progress: 0, target: 2, isCompleted: false });
+
+      await ProjectEngine.processSpendAll(item);
+
+      expect(applySpy).toHaveBeenCalledTimes(1);
+      expect(applySpy.mock.calls[0][2]).toMatchObject({ excessProgress: 4 });
     });
   });
 
