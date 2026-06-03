@@ -398,20 +398,20 @@ export class ProjectEngine {
     const tutelageMod = resolution.modifier;
     const costCp = resolution.costs[tu.id] || 0;
 
-    projectDataFlags.lastInstructorUuid = selectedInstructor?.actorUuid ?? "";
-    projectDataFlags.lastInstructorName = resolution.instructorName ?? "Self-Study";
-
-    if (rememberChoice) {
-      projectDataFlags.rememberedInstructorUuid = selectedInstructor?.actorUuid;
-      projectDataFlags.rememberedInstructorName = selectedInstructor?.offering.name;
-    }
-
     const cur = options.currentState?.currency ?? ActorProxy.forActor(actor).currency;
     const totalCp = cur.pp * 1000 + cur.gp * 100 + cur.ep * 50 + cur.sp * 10 + cur.cp;
 
     if (totalCp < costCp) {
       if (!options.currentState) getUI()?.notifications?.warn(`Need ${costCp}cp!`);
       return null;
+    }
+
+    projectDataFlags.lastInstructorUuid = selectedInstructor?.actorUuid ?? "";
+    projectDataFlags.lastInstructorName = resolution.instructorName ?? "Self-Study";
+
+    if (rememberChoice) {
+      projectDataFlags.rememberedInstructorUuid = selectedInstructor?.actorUuid;
+      projectDataFlags.rememberedInstructorName = selectedInstructor?.offering.name;
     }
 
     const rules = Settings.get("rules");

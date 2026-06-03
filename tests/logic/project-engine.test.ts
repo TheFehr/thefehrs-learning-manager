@@ -914,6 +914,68 @@ describe("ProjectEngine", () => {
       await ProjectEngine.processSpendAll(item);
       expect(calls).toBe(1); // It now breaks on first failure
     });
+
+    it("should forward excessProgress from a completing iteration to applyTrainingResult", async () => {
+      const actor = new Actor() as any;
+      const item = new Item() as any;
+      item.id = "proj1";
+      item.actor = actor;
+      item.system = {
+        activities: [
+          {
+            id: "act1",
+            item: item,
+            flags: { [MODULE_ID]: { isLearningActivity: true, timeUnitId: "hour" } },
+          },
+        ],
+      };
+
+      const mockProxy = { bank: { total: 3 }, currency: { cp: 0, sp: 0, ep: 0, gp: 0, pp: 0 } };
+      vi.spyOn(ActorProxy, "forActor").mockReturnValue(mockProxy as any);
+      vi.mocked(foundry.applications.api.DialogV2.confirm).mockResolvedValue(true);
+
+      let calls = 0;
+      vi.spyOn(ProjectEngine, "executeTrainingIteration").mockImplementation(async (_act, opts) => {
+        calls++;
+        const state = opts?.currentState;
+        if (!state) throw new Error("currentState missing");
+        state.bankTotal -= 1;
+        if (calls === 1) {
+          state.projectData.progress = 1;
+          return {
+            progressGained: 1,
+            excessProgress: 0,
+            costCp: 0,
+            timeSpent: 1,
+            rolls: [],
+            reasons: [],
+            instructorName: "Self-Study",
+            newState: state,
+          };
+        }
+        // Second iteration: overshoots target by 3
+        state.projectData.progress = 2;
+        state.projectData.isCompleted = true;
+        return {
+          progressGained: 5,
+          excessProgress: 3,
+          costCp: 0,
+          timeSpent: 1,
+          rolls: [],
+          reasons: [],
+          instructorName: "Self-Study",
+          newState: state,
+        };
+      });
+
+      const applySpy = vi.spyOn(ProjectEngine, "applyTrainingResult").mockResolvedValue(true);
+      item.getFlag = vi.fn().mockReturnValue({ progress: 0, target: 2, isCompleted: false });
+
+      await ProjectEngine.processSpendAll(item);
+
+      expect(applySpy).toHaveBeenCalledTimes(1);
+      expect(applySpy.mock.calls[0][2]).toMatchObject({ excessProgress: 3 });
+    });
   });
 
   describe("handleAutoTrainSignal", () => {
