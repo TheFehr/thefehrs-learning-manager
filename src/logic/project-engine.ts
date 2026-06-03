@@ -7,14 +7,14 @@ import { ActivityManager } from "@/core/activity-manager.js";
 import { ProjectLifecycle } from "./project-lifecycle.js";
 import { LearningActivityData, ProjectFlagData, ProjectItem } from "./project-item.js";
 import { isActor5e } from "@/types.js";
-import type { Item5e, TimeUnit, SystemRules, TrainingRoll, Actor5e } from "@/types.js";
+import type { Item5e, TrainingRoll, Actor5e } from "@/types.js";
 import { Socket } from "@/core/socket.js";
 import { mount, unmount } from "svelte";
 import { TutelageResolverService } from "./tutelage-resolver.js";
 import InstructorSelectionDialog from "@/apps/dialogs/InstructorSelectionDialog.svelte";
+import TrainingResolutionDialog from "@/apps/dialogs/TrainingResolutionDialog.svelte";
 import { TabLogic } from "./tab-logic.js";
 
-import { ProjectUI } from "@/core/project-ui.js";
 import { getGame, getUI } from "@/core/foundry.js";
 
 export interface InstructorDialogResult {
@@ -35,6 +35,7 @@ export interface TrainingSessionState {
 
 export interface TrainingSessionResult {
   progressGained: number;
+  excessProgress: number;
   costCp: number;
   timeSpent: number;
   rolls: TrainingRoll[];
@@ -45,20 +46,6 @@ export interface TrainingSessionResult {
 
 export class ProjectEngine {
   static readonly BATCH_THRESHOLD = 12;
-
-  /**
-   * Forwards call to ProjectUI
-   */
-  static generateProgressHtml(progress: number, target: number, tutelageName: string): string {
-    return ProjectUI.generateProgressHtml(progress, target, tutelageName);
-  }
-
-  /**
-   * Forwards call to ProjectUI
-   */
-  static stripProgressHtml(html: string): string {
-    return ProjectUI.stripProgressHtml(html);
-  }
 
   /**
    * Forwards call to ActivityManager
@@ -105,10 +92,6 @@ export class ProjectEngine {
     render: boolean = false,
   ): Promise<void> {
     return ProjectLifecycle.updateItemWithProgress(item, projectData, instructorName, render);
-  }
-
-  static async importTabLogic() {
-    return { TabLogic };
   }
 
   /**
@@ -162,7 +145,6 @@ export class ProjectEngine {
 
     // If manual (no allowedUnitIds), ask for confirmation
     if (!allowedUnitIds) {
-      const { TabLogic } = await this.importTabLogic();
       const formattedTime = TabLogic.formatTimeBank(bank.total || 0, Settings.get("timeUnits"));
       const safeFormattedTime = FoundryUtils.escapeHTML(formattedTime);
       const safeItemName = FoundryUtils.escapeHTML(item.name || "Unknown");
@@ -191,6 +173,7 @@ export class ProjectEngine {
 
     const aggregatedResult: TrainingSessionResult = {
       progressGained: 0,
+      excessProgress: 0,
       costCp: 0,
       timeSpent: 0,
       rolls: [],
@@ -219,6 +202,7 @@ export class ProjectEngine {
 
       // Update local aggregation
       aggregatedResult.progressGained += result.progressGained;
+      aggregatedResult.excessProgress = result.excessProgress;
       aggregatedResult.costCp += result.costCp;
       aggregatedResult.timeSpent += result.timeSpent;
       aggregatedResult.rolls.push(...result.rolls);
@@ -430,7 +414,6 @@ export class ProjectEngine {
       return null;
     }
 
-    const { TabLogic } = await this.importTabLogic();
     const rules = Settings.get("rules");
     let isSeparate = false;
 
@@ -468,31 +451,72 @@ export class ProjectEngine {
         separateValue = (sepRes.progressGained * tu.ratio).toFixed(1);
       }
 
-      const choice = await foundry.applications.api.DialogV2.wait({
-        window: { title: `Training Resolution: ${tu.name}` },
-        content: this._renderTrainingResolutionDialog(
-          tu,
-          bulkValue,
-          chancePercent,
-          separateValue,
-          rules,
-          isBulkRoll,
-          isSeparateRoll,
-        ),
-        buttons: [
-          { action: "bulk", label: `Use Bulk`, icon: "fas fa-calculator" },
-          {
-            action: "separate",
-            label: isSeparateRoll
-              ? tu.ratio > 5
-                ? `Roll separately (${tu.ratio} rolls!)`
-                : `Roll separately`
-              : `Process separately`,
-            icon: isSeparateRoll ? "fas fa-dice-d20" : "fas fa-list-ol",
-          },
-        ],
-        rejectClose: false,
-        modal: true,
+      const choice = await new Promise<"bulk" | "separate" | null>((resolve) => {
+        let resolutionInstance: any;
+
+        const cleanup = () => {
+          if (resolutionInstance) {
+            unmount(resolutionInstance);
+            resolutionInstance = null;
+          }
+          resolve(null);
+        };
+
+        const DialogV2 = (foundry.applications.api as unknown as { DialogV2: any }).DialogV2;
+        const dialog = new DialogV2({
+          window: { title: `Training Resolution: ${tu.name}` },
+          content: '<div class="ude-resolution-dialog-root"></div>',
+          buttons: [
+            {
+              action: "bulk",
+              label: "Use Bulk",
+              icon: "fas fa-calculator",
+              callback: () => resolve("bulk"),
+            },
+            {
+              action: "separate",
+              label: isSeparateRoll
+                ? tu.ratio > 5
+                  ? `Roll separately (${tu.ratio} rolls!)`
+                  : `Roll separately`
+                : `Process separately`,
+              icon: isSeparateRoll ? "fas fa-dice-d20" : "fas fa-list-ol",
+              callback: () => resolve("separate"),
+            },
+          ],
+          close: () => cleanup(),
+          rejectClose: false,
+          modal: true,
+        });
+
+        dialog
+          .render({ force: true })
+          .then(() => {
+            const root = dialog.element.querySelector(".ude-resolution-dialog-root");
+            if (root) {
+              resolutionInstance = mount(TrainingResolutionDialog, {
+                target: root,
+                props: {
+                  tuName: tu.name,
+                  bulkValue,
+                  chancePercent,
+                  separateValue,
+                  checkDC: Number(rules.checkDC ?? DEFAULT_DC),
+                  isBulkRoll,
+                  isSeparateRoll,
+                  batchThreshold: ProjectEngine.BATCH_THRESHOLD,
+                  ratio: tu.ratio,
+                },
+              });
+            } else {
+              cleanup();
+              dialog.close();
+            }
+          })
+          .catch((err: any) => {
+            Logger.error("ProjectEngine | Error rendering training resolution dialog:", true, err);
+            cleanup();
+          });
       });
 
       if (!choice) return null;
@@ -523,10 +547,13 @@ export class ProjectEngine {
       if (res.reason) reasons.push(res.reason);
     }
 
-    const rawProgress = (projectDataFlags.progress || 0) + totalProgressGained;
-    projectDataFlags.progress = Math.min(rawProgress, projectDataFlags.target || 0);
+    const priorProgress = projectDataFlags.progress || 0;
+    const rawProgress = priorProgress + totalProgressGained;
+    const target = projectDataFlags.target || 0;
+    projectDataFlags.progress = Math.min(rawProgress, target);
+    const excessProgress = Math.max(0, rawProgress - target);
 
-    if (projectDataFlags.progress >= projectDataFlags.target && !projectDataFlags.isCompleted) {
+    if (projectDataFlags.progress >= target && !projectDataFlags.isCompleted) {
       projectDataFlags.isCompleted = true;
     }
 
@@ -535,12 +562,12 @@ export class ProjectEngine {
     let newCurrency = FoundryUtils.deepClone(cur);
 
     if (costCp > 0) {
-      const { TabLogic } = await this.importTabLogic();
       newCurrency = TabLogic.calculateNewCurrency(cur, costCp);
     }
 
     return {
       progressGained: totalProgressGained,
+      excessProgress,
       costCp,
       timeSpent: tu.ratio,
       rolls,
@@ -563,7 +590,16 @@ export class ProjectEngine {
     result: TrainingSessionResult,
   ): Promise<boolean> {
     const proxy = ActorProxy.forActor(actor);
-    const { newState, instructorName, rolls, reasons, progressGained, timeSpent, costCp } = result;
+    const {
+      newState,
+      instructorName,
+      rolls,
+      reasons,
+      progressGained,
+      excessProgress,
+      timeSpent,
+      costCp,
+    } = result;
 
     try {
       // Currency update
@@ -573,13 +609,6 @@ export class ProjectEngine {
 
       // Bank update
       await proxy.setBank({ total: newState.bankTotal });
-
-      // Progress update
-      const target = newState.projectData.target || 0;
-      const rawProgress =
-        (item.getFlag(Settings.ID, "projectData") as ProjectFlagData)?.progress || 0;
-      const totalRawProgress = rawProgress + progressGained;
-      const excessProgress = Math.max(0, totalRawProgress - target);
 
       if (newState.projectData.isCompleted) {
         await this.updateItemWithProgress(item, newState.projectData, instructorName, true);
@@ -699,66 +728,5 @@ export class ProjectEngine {
    */
   static signalTimeDistribution() {
     Socket.emitSignal("timeGrantedSignal");
-  }
-
-  private static _renderTrainingResolutionDialog(
-    tu: TimeUnit,
-    bulkValue: string | number,
-    chancePercent: string | number,
-    separateValue: string | number,
-    rules: SystemRules,
-    isBulkRoll: boolean = false,
-    isSeparateRoll: boolean = true,
-  ): string {
-    const safeTuName = FoundryUtils.escapeHTML(tu.name);
-    const safeBulkValue = FoundryUtils.escapeHTML(String(bulkValue));
-    const safeChancePercent = FoundryUtils.escapeHTML(String(chancePercent));
-    const safeSeparateValue = FoundryUtils.escapeHTML(String(separateValue));
-
-    const bulkMethodLabel = isBulkRoll ? "Expected progress" : "Gaining";
-    const bulkMethodValue = isBulkRoll
-      ? `<strong>${safeBulkValue}</strong> (one roll)`
-      : `<strong>${safeBulkValue}</strong> progress fixed`;
-
-    const sepMethodLabel = isSeparateRoll ? "Expected progress" : "Gaining";
-    const sepMethodValue = isSeparateRoll
-      ? `<strong>${safeSeparateValue}</strong> across ${tu.ratio} rolls`
-      : `<strong>${safeSeparateValue}</strong> progress fixed`;
-
-    return `
-      <div style="margin-bottom: 1rem;">
-        <p>How would you like to resolve this <b>${safeTuName}</b> session?</p>
-        <div style="display: flex; gap: 1rem; flex-direction: column;">
-          <div style="padding: 0.5rem; border: 1px solid var(--t5e-faint-color); border-radius: 4px; background: rgba(0,0,0,0.05);">
-            <i class="fas fa-calculator"></i> <b>Bulk Method</b>: ${bulkMethodLabel} ${bulkMethodValue}.
-          </div>
-          <div style="padding: 0.5rem; border: 1px solid var(--t5e-faint-color); border-radius: 4px; background: rgba(0,0,0,0.05);">
-            <i class="${isSeparateRoll ? "fas fa-dice-d20" : "fas fa-list-ol"}"></i> <b>Separate Method</b>: ${sepMethodLabel} ${sepMethodValue}.
-            ${
-              isSeparateRoll
-                ? `<br><small style="opacity: 0.8;">${
-                    safeChancePercent === "unavailable"
-                      ? "Probability unavailable"
-                      : `Each hour has a <strong>${safeChancePercent}%</strong> chance of success (DC ${Number(
-                          rules.checkDC ?? DEFAULT_DC,
-                        )}).`
-                  }</small>`
-                : ""
-            }
-            ${
-              isSeparateRoll && tu.ratio > 5
-                ? `<br><small style="color: #8a6d3b;"><i class="fas fa-exclamation-triangle"></i> Note: This will trigger ${
-                    tu.ratio
-                  } separate ${
-                    tu.ratio > ProjectEngine.BATCH_THRESHOLD
-                      ? "rolls (summarized in one message)"
-                      : "roll messages"
-                  }.</small>`
-                : ""
-            }
-          </div>
-        </div>
-      </div>
-    `;
   }
 }

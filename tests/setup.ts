@@ -27,9 +27,25 @@ globalThis.foundry = {
         async close(_options = {}) {}
       },
       HandlebarsApplicationMixin: (Base: any) => class extends Base {},
-      DialogV2: {
-        confirm: vi.fn().mockResolvedValue(true),
-        wait: vi.fn(),
+      DialogV2: class {
+        static confirm = vi.fn().mockResolvedValue(true);
+        static wait = vi.fn();
+
+        element: HTMLElement;
+        private _data: any;
+
+        constructor(data: any) {
+          this._data = data;
+          this.element = document.createElement("div");
+        }
+
+        async render(_options: any = {}) {
+          return this;
+        }
+
+        async close() {
+          this._data?.close?.();
+        }
       },
     },
   },

@@ -661,8 +661,13 @@ describe("ProjectEngine", () => {
 
       vi.mocked(TabLogic.calculateExpectedProgress).mockResolvedValue(NaN);
 
-      // Mock dialog to choose bulk
-      vi.mocked(foundry.applications.api.DialogV2.wait).mockResolvedValue("bulk");
+      // Simulate user clicking "bulk" in the resolution dialog
+      vi.spyOn(foundry.applications.api.DialogV2.prototype, "render").mockImplementation(
+        async function (this: any) {
+          this._data?.buttons?.find((b: any) => b.action === "bulk")?.callback?.();
+          return this;
+        },
+      );
 
       const result = await ProjectEngine.processTraining(activity as any);
 
@@ -701,8 +706,13 @@ describe("ProjectEngine", () => {
 
       vi.mocked(TabLogic.calculateExpectedProgress).mockResolvedValue(NaN);
 
-      // Mock dialog to choose separate
-      vi.mocked(foundry.applications.api.DialogV2.wait).mockResolvedValue("separate");
+      // Simulate user clicking "separate" in the resolution dialog
+      vi.spyOn(foundry.applications.api.DialogV2.prototype, "render").mockImplementation(
+        async function (this: any) {
+          this._data?.buttons?.find((b: any) => b.action === "separate")?.callback?.();
+          return this;
+        },
+      );
 
       const result = await ProjectEngine.processTraining(activity as any);
 
@@ -833,6 +843,7 @@ describe("ProjectEngine", () => {
           state.projectData.progress += 1;
           return {
             progressGained: 1,
+            excessProgress: 0,
             costCp: 0,
             timeSpent: 1,
             rolls: [],
@@ -887,6 +898,7 @@ describe("ProjectEngine", () => {
           state.bankTotal -= 1;
           return {
             progressGained: 1,
+            excessProgress: 0,
             costCp: 0,
             timeSpent: 1,
             rolls: [],
