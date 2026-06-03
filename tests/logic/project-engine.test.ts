@@ -953,12 +953,12 @@ describe("ProjectEngine", () => {
             newState: state,
           };
         }
-        // Second iteration: overshoots target by 3
+        // Second iteration: priorProgress(1) + progressGained(5) - target(2) = 4 excess
         state.projectData.progress = 2;
         state.projectData.isCompleted = true;
         return {
           progressGained: 5,
-          excessProgress: 3,
+          excessProgress: 4,
           costCp: 0,
           timeSpent: 1,
           rolls: [],
@@ -974,7 +974,7 @@ describe("ProjectEngine", () => {
       await ProjectEngine.processSpendAll(item);
 
       expect(applySpy).toHaveBeenCalledTimes(1);
-      expect(applySpy.mock.calls[0][2]).toMatchObject({ excessProgress: 3 });
+      expect(applySpy.mock.calls[0][2]).toMatchObject({ excessProgress: 4 });
     });
   });
 
