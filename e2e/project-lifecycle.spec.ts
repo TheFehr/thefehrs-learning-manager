@@ -135,7 +135,7 @@ test.describe("Project Lifecycle (Happy Path)", () => {
       async ({ packId, projectName }) => {
         const pack = (game as any).packs.get(packId);
         const index = await pack.getIndex();
-        const entry = index.find((e) => e.name === projectName);
+        const entry = index.find((e: any) => e.name === projectName);
         if (!entry) throw new Error(`Project ${projectName} not found in ${packId}`);
         return {
           type: "Item",

@@ -1,0 +1,9 @@
+// Foundry VTT browser-side globals used inside page.evaluate() callbacks.
+declare const game: any;
+declare const Actor: any;
+declare const Item: any;
+declare const User: any;
+
+interface Window {
+  game: any;
+}
