@@ -1,27 +1,19 @@
-import { test, expect, useFoundry, waitForReady, loginAs } from "@thefehr/foundry-playwright";
-import { clearFoundryOverlays, setupTourKiller, forceClick } from "./utils";
+import { test, expect, useBaseWorld, disableTour } from "@thefehr/foundry-playwright";
+import { forceClick, waitForGameReady } from "./utils";
 
-useFoundry(test, {
+const moduleId = "thefehrs-learning-manager";
+const packId = "world.test-learning-feats";
+
+useBaseWorld(test, {
   worldId: "test-world",
   systemId: "dnd5e",
   moduleId: ["thefehrs-learning-manager", "tidy5e-sheet"],
   adminPassword: "admin",
-  deleteIfExists: true,
-});
+  backupName: "fp-base-tree-view",
+  setupWorld: async ({ page }) => {
+    await waitForGameReady(page);
+    await disableTour(page);
 
-test.describe("Project Tree View E2E", () => {
-  test("full hierarchical management flow", async ({ page }) => {
-    await setupTourKiller(page.context());
-    await page.goto("/game");
-    await loginAs(page, "Gamemaster");
-    await waitForReady(page);
-    await clearFoundryOverlays(page);
-    await page.waitForTimeout(2000);
-
-    const moduleId = "thefehrs-learning-manager";
-    const packId = "world.test-learning-feats";
-
-    // 1. Initial State Setup
     await page.evaluate(
       async ({ mid, pid }) => {
         let pack = (game as any).packs.get(pid);
@@ -57,8 +49,11 @@ test.describe("Project Tree View E2E", () => {
       },
       { mid: moduleId, pid: packId },
     );
+  },
+});
 
-    // 2. Open Tree View directly via API
+test.describe("Project Tree View E2E", () => {
+  test("full hierarchical management flow", async ({ page }) => {
     const appId = await page.evaluate(async (mid) => {
       // @ts-ignore
       const menu = game.settings.menus.get(`${mid}.treeViewMenu`);
@@ -76,7 +71,6 @@ test.describe("Project Tree View E2E", () => {
       .first();
     await expect(treeViewApp).toBeVisible({ timeout: 20000 });
 
-    // 3. Verify both projects appear from allowed compendiums
     const apprenticeNode = treeViewApp
       .locator(".tree-node-content")
       .filter({ hasText: "Apprentice Project" });
@@ -87,7 +81,7 @@ test.describe("Project Tree View E2E", () => {
     await expect(apprenticeNode).toBeVisible({ timeout: 10000 });
     await expect(journeymanNode).toBeVisible({ timeout: 10000 });
 
-    // 4. Test Hierarchical Assignment — set follow-up link directly then refresh
+    // Set follow-up link directly then refresh
     await page.evaluate(
       async ({ mid, pid }) => {
         const pack = (game as any).packs.get(pid);
@@ -104,23 +98,18 @@ test.describe("Project Tree View E2E", () => {
 
     await forceClick(treeViewApp.getByRole("button", { name: "Refresh project tree" }));
 
-    // Both nodes still visible; Journeyman is now a child of Apprentice
     await expect(apprenticeNode).toBeVisible({ timeout: 10000 });
     await expect(journeymanNode).toBeVisible({ timeout: 10000 });
 
-    // 5. Apprentice should now have an expand button (it has children)
     const expandBtn = apprenticeNode.locator(".expand-button");
     await expect(expandBtn).toBeVisible({ timeout: 10000 });
 
-    // 6. Collapse Apprentice — Journeyman should disappear
     await forceClick(expandBtn);
     await expect(journeymanNode).not.toBeVisible({ timeout: 5000 });
 
-    // 7. Expand Apprentice — Journeyman visible again
     await forceClick(expandBtn);
     await expect(journeymanNode).toBeVisible({ timeout: 5000 });
 
-    // 8. Break the link — Journeyman back to root
     const breakLinkBtn = journeymanNode.locator(".icon-btn.danger");
     await forceClick(breakLinkBtn);
 
@@ -129,7 +118,6 @@ test.describe("Project Tree View E2E", () => {
 
     await expect(journeymanNode).toBeVisible({ timeout: 10000 });
 
-    // 9. Test Search
     const searchInput = treeViewApp.locator('input[aria-label="Search projects"]');
     await searchInput.fill("Journeyman");
     await expect(apprenticeNode).not.toBeVisible({ timeout: 5000 });
@@ -141,7 +129,6 @@ test.describe("Project Tree View E2E", () => {
     await expect(apprenticeNode).toBeVisible({ timeout: 5000 });
     await expect(journeymanNode).toBeVisible({ timeout: 5000 });
 
-    // 10. Expand/Collapse All
     await forceClick(treeViewApp.getByRole("button", { name: "Expand all projects" }));
     await forceClick(treeViewApp.getByRole("button", { name: "Collapse all projects" }));
   });

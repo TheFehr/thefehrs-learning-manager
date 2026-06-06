@@ -1,47 +1,29 @@
 import {
   test,
   expect,
-  useFoundry,
-  waitForReady,
-  loginAs,
+  useBaseWorld,
   disableTour,
   simulateFoundryDrop,
 } from "@thefehr/foundry-playwright";
+import { waitForGameReady } from "./utils";
 
-useFoundry(test, {
+const moduleId = "thefehrs-learning-manager";
+const actorName = "PC 1";
+const projectName = "Test Learning Feat";
+const packId = "world.test-learning-feats";
+
+useBaseWorld(test, {
   worldId: "test-world",
   systemId: "dnd5e",
   moduleId: ["thefehrs-learning-manager", "tidy5e-sheet"],
   adminPassword: "admin",
-  deleteIfExists: true,
-});
-
-test.describe("Project Lifecycle (Happy Path)", () => {
-  test("should start and progress a project on an actor", async ({ page, deprecationTracker }) => {
-    // dnd5e 5.3+ logs senses migration warnings (senses.darkvision → senses.ranges.darkvision etc.)
-    // These are dnd5e's own compatibility shims, not our module's issue.
-    deprecationTracker.registerIgnore("Deprecated since Version DnD5e");
-    await page.goto("/game");
-    await loginAs(page, "Gamemaster");
+  backupName: "fp-base-lifecycle",
+  setupWorld: async ({ page }) => {
+    await waitForGameReady(page);
     await disableTour(page);
-    await page.evaluate(() => {
-      const tourElements = document.querySelectorAll(
-        ".tour, .tour-overlay, .tour-center-step, .tour-step-anchor, aside.tour",
-      );
-      tourElements.forEach((el) => (el as HTMLElement).remove());
-      document.body.classList.remove("tour-open");
-    });
-    await waitForReady(page);
 
-    const moduleId = "thefehrs-learning-manager";
-    const actorName = "PC 1";
-    const projectName = "Test Learning Feat";
-    const packId = "world.test-learning-feats";
-
-    // 1. Setup specialized test data and rules
     await page.evaluate(
       async ({ moduleId, actorName, projectName, packId }) => {
-        // Create Compendium
         let pack = (game as any).packs.get(packId);
         if (pack) await pack.deleteCompendium();
 
@@ -74,10 +56,7 @@ test.describe("Project Lifecycle (Happy Path)", () => {
           { pack: packId },
         );
 
-        // Create Actor
-        let actor = (game as any).actors.getName(actorName);
-        if (actor) await actor.delete();
-        actor = await Actor.create({
+        const actor = await Actor.create({
           name: actorName,
           type: "character",
           img: "icons/svg/mystery-man.svg",
@@ -85,11 +64,7 @@ test.describe("Project Lifecycle (Happy Path)", () => {
           flags: { core: { sheetClass: "dnd5e.Tidy5eCharacterSheet" } },
         });
 
-        let groupActor = (game as any).actors.find(
-          (a: any) => a.name === "Test Group" && a.type === "group",
-        );
-        if (groupActor) await groupActor.delete();
-        groupActor = await Actor.create({
+        const groupActor = await Actor.create({
           name: "Test Group",
           type: "group",
           flags: { core: { sheetClass: "dnd5e.Tidy5eGroupSheetQuadrone" } },
@@ -97,9 +72,7 @@ test.describe("Project Lifecycle (Happy Path)", () => {
         // @ts-ignore
         await groupActor.update({ "system.members": [{ actor: actor.id }] });
 
-        // Assign PC 1 to the GM so auto-spend logic finds an actor to train
         await (game as any).user.update({ character: actor.id });
-        // Enable auto-spend
         await (game as any).settings.set(moduleId, "autoSpend", true);
         await (game as any).settings.set(moduleId, "autoSpendUnits", [
           "hour",
@@ -108,7 +81,6 @@ test.describe("Project Lifecycle (Happy Path)", () => {
           "week",
         ]);
 
-        // Set DC to 1 and method to direct
         const rules = (game as any).settings.get(moduleId, "rules");
         await (game as any).settings.set(moduleId, "rules", {
           ...rules,
@@ -116,26 +88,33 @@ test.describe("Project Lifecycle (Happy Path)", () => {
           bulkMethod: "direct",
           nonBulkMethod: "direct",
         });
-
-        // Patch handleAutoTrainSignal to bypass the GM check for the purpose of this E2E test
-        const ProjectEngine = (game as any).modules.get(moduleId).api.ProjectEngine;
-        ProjectEngine.handleAutoTrainSignal = async function () {
-          const actor = (game as any).user.character;
-          if (!actor) return;
-          const projects = actor.items.filter(
-            (i: any) =>
-              i.getFlag(moduleId, "isLearningProject") &&
-              (i.name.includes("0/100") || i.name.includes(projectName)),
-          );
-          if (projects.length >= 1) {
-            await ProjectEngine.processSpendAll(projects[0], ["hour", "day", "workweek", "week"]);
-          }
-        };
       },
       { moduleId, actorName, projectName, packId },
     );
+  },
+});
 
-    // 2. Open the Actor Sheet for PC 1
+test.describe("Project Lifecycle (Happy Path)", () => {
+  test("should start and progress a project on an actor", async ({ page, deprecationTracker }) => {
+    deprecationTracker.registerIgnore("Deprecated since Version DnD5e");
+
+    // Patch handleAutoTrainSignal to bypass the GM check for this E2E test
+    await page.evaluate(async (moduleId) => {
+      const ProjectEngine = (game as any).modules.get(moduleId).api.ProjectEngine;
+      ProjectEngine.handleAutoTrainSignal = async function () {
+        const actor = (game as any).user.character;
+        if (!actor) return;
+        const projects = actor.items.filter(
+          (i: any) =>
+            i.getFlag(moduleId, "isLearningProject") &&
+            (i.name.includes("0/100") || i.name.includes("Test Learning Feat")),
+        );
+        if (projects.length >= 1) {
+          await ProjectEngine.processSpendAll(projects[0], ["hour", "day", "workweek", "week"]);
+        }
+      };
+    }, moduleId);
+
     await page.evaluate((name) => {
       const actor = (game as any).actors.getName(name);
       return actor.sheet.render(true);
@@ -152,7 +131,6 @@ test.describe("Project Lifecycle (Happy Path)", () => {
       await featuresTab.click();
     }
 
-    // 3. Start a project by "dropping" an item from a compendium onto the actor
     const itemData = await page.evaluate(
       async ({ packId, projectName }) => {
         const pack = (game as any).packs.get(packId);
@@ -173,7 +151,6 @@ test.describe("Project Lifecycle (Happy Path)", () => {
       itemData,
     );
 
-    // 4. Verify the project appeared on the actor sheet
     const projectRow = actorSheet
       .locator(".project-row, .item-row, .item-table-row")
       .filter({ hasText: projectName })
@@ -182,7 +159,6 @@ test.describe("Project Lifecycle (Happy Path)", () => {
     await projectRow.scrollIntoViewIfNeeded();
     await expect(projectRow).toBeVisible({ timeout: 20000 });
 
-    // 5. Open the Party Tab
     await page.evaluate(() => {
       const groupActor = (game as any).actors.find(
         (a: any) => a.name === "Test Group" && a.type === "group",
@@ -199,12 +175,10 @@ test.describe("Project Lifecycle (Happy Path)", () => {
     const groupLearningTab = groupSheet.getByRole("tab", { name: /Group Learning/i });
     await groupLearningTab.click();
 
-    // 6. Click "Distribute Time" button
     const distributeBtn = groupSheet.getByRole("button", { name: /Distribute Time/i });
     await expect(distributeBtn).toBeVisible({ timeout: 15000 });
     await distributeBtn.click();
 
-    // 7. Fill the Grant Time dialog
     const grantDialog = page
       .locator(".thefehrs-learning-manager-dialog, .instructor-selection, .dialog")
       .filter({ hasText: "Modify Training Time" })
@@ -225,14 +199,11 @@ test.describe("Project Lifecycle (Happy Path)", () => {
     await applyBtn.click();
     await expect(grantDialog).toBeHidden({ timeout: 10000 });
 
-    // 7.5. Manually trigger auto-spend
-    await page.evaluate(async () => {
-      const moduleId = "thefehrs-learning-manager";
+    await page.evaluate(async (moduleId) => {
       const ProjectEngine = (game as any).modules.get(moduleId).api.ProjectEngine;
       await ProjectEngine.handleAutoTrainSignal();
-    });
+    }, moduleId);
 
-    // 8. Verify progress increased
     await expect(projectRow).not.toContainText("0/100", { timeout: 30000 });
   });
 });

@@ -1,39 +1,19 @@
-import {
-  test,
-  expect,
-  useFoundry,
-  waitForReady,
-  loginAs,
-  disableTour,
-} from "@thefehr/foundry-playwright";
+import { test, expect, useBaseWorld, disableTour } from "@thefehr/foundry-playwright";
+import { waitForGameReady } from "./utils";
 
-useFoundry(test, {
+const moduleId = "thefehrs-learning-manager";
+
+useBaseWorld(test, {
   worldId: "test-world",
   systemId: "dnd5e",
   moduleId: ["thefehrs-learning-manager", "tidy5e-sheet"],
   adminPassword: "admin",
-  deleteIfExists: true,
-});
-
-test.describe("Project Requirements", () => {
-  test("verify requirement enforcement during project initiation", async ({ page }) => {
-    await page.goto("/game");
-    await loginAs(page, "Gamemaster");
+  backupName: "fp-base-requirements",
+  setupWorld: async ({ page }) => {
+    await waitForGameReady(page);
     await disableTour(page);
-    await page.evaluate(() => {
-      const tourElements = document.querySelectorAll(
-        ".tour, .tour-overlay, .tour-center-step, .tour-step-anchor, aside.tour",
-      );
-      tourElements.forEach((el) => (el as HTMLElement).remove());
-      document.body.classList.remove("tour-open");
-    });
-    await waitForReady(page);
 
-    const moduleId = "thefehrs-learning-manager";
-
-    // 1. Setup: Create a learnable item with a requirement and an actor
-    const setupData = await page.evaluate(async (moduleId) => {
-      // Create a Pack for the item
+    await page.evaluate(async (moduleId) => {
       const packName = "test-requirements";
       const packId = `world.${packName}`;
       let pack = (game as any).packs.get(packId);
@@ -45,10 +25,8 @@ test.describe("Project Requirements", () => {
         name: packName,
         type: "Item",
       });
-      pack = (game as any).packs.get(packId);
 
-      // Create a Feat with a requirement
-      const item = await Item.create(
+      await Item.create(
         {
           name: "High Strength Feat",
           type: "feat",
@@ -72,44 +50,46 @@ test.describe("Project Requirements", () => {
         { pack: packId },
       );
 
-      // Create an Actor with low strength
-      const actor = await Actor.create({
+      await Actor.create({
         name: "Weak Actor",
         type: "character",
-        system: {
-          abilities: {
-            str: { value: 10 },
-          },
-        },
+        system: { abilities: { str: { value: 10 } } },
       });
 
-      // Allow the compendium
       const allowed = (game as any).settings.get(moduleId, "allowedCompendiums") || [];
       if (!allowed.includes(packId)) {
         await (game as any).settings.set(moduleId, "allowedCompendiums", [...allowed, packId]);
       }
+    }, moduleId);
+  },
+});
 
+test.describe("Project Requirements", () => {
+  test("verify requirement enforcement during project initiation", async ({ page }) => {
+    const setupData = await page.evaluate(async (moduleId) => {
+      const packId = "world.test-requirements";
+      const pack = (game as any).packs.get(packId);
+      const index = await pack.getIndex();
+      const entry = index.getName("High Strength Feat");
+      const item = await pack.getDocument(entry._id);
+
+      const actor = (game as any).actors.getName("Weak Actor");
       return {
         actorId: actor.id,
         itemUuid: item.uuid,
-        packId: packId,
       };
     }, moduleId);
 
-    // 2. Test 1: Attempt to drop item onto actor (Should Fail)
+    // Test 1: Drop onto actor with insufficient strength (should fail)
     await page.evaluate(
       async ({ actorId, itemUuid }) => {
         const actor = (game as any).actors.get(actorId);
         // @ts-ignore
-        Hooks.call("dropActorSheetData", actor, null, {
-          type: "Item",
-          uuid: itemUuid,
-        });
+        Hooks.call("dropActorSheetData", actor, null, { type: "Item", uuid: itemUuid });
       },
       { actorId: setupData.actorId, itemUuid: setupData.itemUuid },
     );
 
-    // Verify warning notification
     const notification = page
       .locator("#notifications .notification, .notification.warn, .notification.warning")
       .filter({ hasText: "Requirements not met" })
@@ -117,7 +97,6 @@ test.describe("Project Requirements", () => {
     await expect(notification).toBeVisible({ timeout: 15000 });
     await expect(notification).toContainText("system.abilities.str.value (10) >= 13");
 
-    // Verify item was NOT added to actor
     const hasItem = await page.evaluate(
       ({ actorId }) => {
         const actor = (game as any).actors.get(actorId);
@@ -127,7 +106,7 @@ test.describe("Project Requirements", () => {
     );
     expect(hasItem).toBe(false);
 
-    // 3. Test 2: Increase actor strength and try again (Should Pass)
+    // Test 2: Increase strength and retry (should succeed)
     await page.evaluate(
       async ({ actorId }) => {
         const actor = (game as any).actors.get(actorId);
@@ -140,15 +119,11 @@ test.describe("Project Requirements", () => {
       async ({ actorId, itemUuid }) => {
         const actor = (game as any).actors.get(actorId);
         // @ts-ignore
-        Hooks.call("dropActorSheetData", actor, null, {
-          type: "Item",
-          uuid: itemUuid,
-        });
+        Hooks.call("dropActorSheetData", actor, null, { type: "Item", uuid: itemUuid });
       },
       { actorId: setupData.actorId, itemUuid: setupData.itemUuid },
     );
 
-    // Verify item WAS added to actor
     await page.waitForFunction(
       ({ actorId }) => {
         const actor = (game as any).actors.get(actorId);

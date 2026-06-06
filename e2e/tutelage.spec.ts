@@ -1,40 +1,23 @@
-import {
-  test,
-  expect,
-  useFoundry,
-  waitForReady,
-  loginAs,
-  disableTour,
-} from "@thefehr/foundry-playwright";
+import { test, expect, useBaseWorld, disableTour } from "@thefehr/foundry-playwright";
+import { waitForGameReady } from "./utils";
 
-useFoundry(test, {
+const moduleId = "thefehrs-learning-manager";
+
+useBaseWorld(test, {
   worldId: "test-world",
   systemId: "dnd5e",
   moduleId: ["thefehrs-learning-manager", "tidy5e-sheet"],
   adminPassword: "admin",
+  backupName: "fp-base-tutelage",
+  setupWorld: async ({ page }) => {
+    await waitForGameReady(page);
+    await disableTour(page);
+  },
 });
 
 test.describe("Instructor and Tutelage System", () => {
-  test.beforeEach(async ({ page }) => {
-    await page.goto("/game");
-    await loginAs(page, "Gamemaster");
-    await disableTour(page);
-    await page.evaluate(() => {
-      const tourElements = document.querySelectorAll(
-        ".tour, .tour-overlay, .tour-center-step, .tour-step-anchor, aside.tour",
-      );
-      tourElements.forEach((el) => (el as HTMLElement).remove());
-      document.body.classList.remove("tour-open");
-    });
-    await waitForReady(page);
-  });
-
-  test("verify instructors and books filters and modifiers", async ({ page, foundry }) => {
-    const moduleId = "thefehrs-learning-manager";
-
-    // 1. Setup a completely dedicated actor and project
+  test("verify instructors and books filters and modifiers", async ({ page }) => {
     await page.evaluate(async (moduleId) => {
-      // Setup Instructor
       let instructor = (game as any).actors.getName("Combat Master");
       if (!instructor) {
         instructor = await Actor.create({
@@ -59,41 +42,31 @@ test.describe("Instructor and Tutelage System", () => {
         await instructor.update({
           [`flags.${moduleId}.learningModeEnabled`]: true,
           [`flags.${moduleId}.teacherOfferings`]: [
-            {
-              name: "Combat Training",
-              modifier: 5,
-              costs: { hour: 2000 },
-              categories: ["Combat"],
-            },
+            { name: "Combat Training", modifier: 5, costs: { hour: 2000 }, categories: ["Combat"] },
           ],
         });
       }
 
-      // Setup Settings
       await (game as any).settings.set(moduleId, "scanWorldActors", true);
 
-      const actorName = "Tutelage Specialist";
-      let actor = (game as any).actors.getName(actorName);
+      let actor = (game as any).actors.getName("Tutelage Specialist");
       if (actor) await actor.delete();
 
       actor = await Actor.create({
-        name: actorName,
+        name: "Tutelage Specialist",
         type: "character",
         img: "icons/svg/mystery-man.svg",
         system: { currency: { gp: 1000 } },
         flags: { core: { sheetClass: "dnd5e.Tidy5eCharacterSheet" } },
       });
 
-      // Create Manual of Arms in world if needed, or just create it on actor
       await actor.createEmbeddedDocuments("Item", [
         {
           name: "Manual of Arms",
           type: "loot",
           img: "icons/sundries/books/book-warfare-brown.webp",
           flags: {
-            [moduleId]: {
-              learningBookBonus: { modifier: 1, categories: ["Combat"] },
-            },
+            [moduleId]: { learningBookBonus: { modifier: 1, categories: ["Combat"] } },
           },
         },
       ]);
@@ -102,10 +75,7 @@ test.describe("Instructor and Tutelage System", () => {
         {
           name: "Combat Training Project",
           type: "feat",
-          system: {
-            type: { value: "learning-project" },
-            activities: {},
-          },
+          system: { type: { value: "learning-project" }, activities: {} },
           flags: {
             [moduleId]: {
               isLearningProject: true,
@@ -127,7 +97,6 @@ test.describe("Instructor and Tutelage System", () => {
       });
     }, moduleId);
 
-    // 2. Open the dedicated Actor Sheet
     await page.evaluate(() => {
       const actor = (game as any).actors.getName("Tutelage Specialist");
       actor.sheet.render(true);
@@ -136,7 +105,6 @@ test.describe("Instructor and Tutelage System", () => {
     const sheet = page.locator(".window-app, .sheet.actor, foundry-app").first();
     await expect(sheet).toBeVisible({ timeout: 20000 });
 
-    // 3. Trigger the training button
     await page.evaluate(async (moduleId) => {
       const actor = (game as any).actors.getName("Tutelage Specialist");
       const project = actor.items.find((i: any) => i.getFlag(moduleId, "isLearningProject"));
@@ -146,7 +114,6 @@ test.describe("Instructor and Tutelage System", () => {
       activity.use();
     }, moduleId);
 
-    // 4. Verify InstructorSelectionDialog content
     const dialog = page
       .locator(".thefehrs-learning-manager-dialog, .instructor-selection, .dialog")
       .first();
@@ -154,7 +121,6 @@ test.describe("Instructor and Tutelage System", () => {
     await expect(dialog.getByText("Combat Master")).toBeVisible({ timeout: 10000 });
     await expect(dialog.getByText("Manual of Arms")).toBeVisible({ timeout: 10000 });
 
-    // 6. Select Combat Master
     await dialog.locator("label").filter({ hasText: "Combat Master" }).click();
     const initialMsgCount = await page.evaluate(() => (game as any).messages.size);
     await dialog.getByRole("button", { name: /Confirm/i }).click();
@@ -165,7 +131,6 @@ test.describe("Instructor and Tutelage System", () => {
       { timeout: 15000 },
     );
 
-    // 8. Verify GP deduction (1000 - 20 = 980)
     const currentGp = await page.evaluate(() => {
       const actor = (game as any).actors.getName("Tutelage Specialist");
       return actor.system.currency.gp;
@@ -173,12 +138,8 @@ test.describe("Instructor and Tutelage System", () => {
     expect(currentGp).toBe(980);
   });
 
-  test("verify instructor fees block training if unaffordable", async ({ page, foundry }) => {
-    const moduleId = "thefehrs-learning-manager";
-
-    // 1. Setup a "Poor Student" actor
+  test("verify instructor fees block training if unaffordable", async ({ page }) => {
     await page.evaluate(async (moduleId) => {
-      // Ensure Instructor exists
       let instructor = (game as any).actors.getName("Combat Master");
       if (!instructor) {
         await Actor.create({
@@ -201,12 +162,11 @@ test.describe("Instructor and Tutelage System", () => {
       }
       await (game as any).settings.set(moduleId, "scanWorldActors", true);
 
-      const actorName = "Poor Student";
-      let actor = (game as any).actors.getName(actorName);
+      let actor = (game as any).actors.getName("Poor Student");
       if (actor) await actor.delete();
 
       actor = await Actor.create({
-        name: actorName,
+        name: "Poor Student",
         type: "character",
         system: { currency: { gp: 0 } },
         flags: { core: { sheetClass: "dnd5e.Tidy5eCharacterSheet" } },
@@ -216,10 +176,7 @@ test.describe("Instructor and Tutelage System", () => {
         {
           name: "Expensive Learning",
           type: "feat",
-          system: {
-            type: { value: "learning-project" },
-            activities: {},
-          },
+          system: { type: { value: "learning-project" }, activities: {} },
           flags: {
             [moduleId]: {
               isLearningProject: true,
@@ -269,16 +226,13 @@ test.describe("Instructor and Tutelage System", () => {
     });
   });
 
-  test("verify world-created books are detected", async ({ page, foundry }) => {
-    const moduleId = "thefehrs-learning-manager";
-
+  test("verify world-created books are detected", async ({ page }) => {
     await page.evaluate(async (moduleId) => {
-      const actorName = "World Book User";
-      let actor = (game as any).actors.getName(actorName);
+      let actor = (game as any).actors.getName("World Book User");
       if (actor) await actor.delete();
 
       actor = await Actor.create({
-        name: actorName,
+        name: "World Book User",
         type: "character",
         flags: { core: { sheetClass: "dnd5e.Tidy5eCharacterSheet" } },
       });
@@ -288,9 +242,7 @@ test.describe("Instructor and Tutelage System", () => {
           name: "Custom World Book",
           type: "loot",
           flags: {
-            [moduleId]: {
-              learningBookBonus: { modifier: 3, categories: ["Magic"] },
-            },
+            [moduleId]: { learningBookBonus: { modifier: 3, categories: ["Magic"] } },
           },
         },
       ]);
@@ -299,10 +251,7 @@ test.describe("Instructor and Tutelage System", () => {
         {
           name: "Magic Project",
           type: "feat",
-          system: {
-            type: { value: "learning-project" },
-            activities: {},
-          },
+          system: { type: { value: "learning-project" }, activities: {} },
           flags: {
             [moduleId]: {
               isLearningProject: true,

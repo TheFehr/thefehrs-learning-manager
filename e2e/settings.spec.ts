@@ -1,26 +1,18 @@
-import { test, expect, useFoundry, waitForReady, loginAs } from "@thefehr/foundry-playwright";
-import { clearFoundryOverlays, setupTourKiller, forceClick } from "./utils";
+import { test, expect, useBaseWorld, disableTour } from "@thefehr/foundry-playwright";
+import { forceClick, waitForGameReady } from "./utils";
 
-useFoundry(test, {
+const moduleId = "thefehrs-learning-manager";
+
+useBaseWorld(test, {
   worldId: "test-world",
   systemId: "dnd5e",
   moduleId: "thefehrs-learning-manager",
   adminPassword: "admin",
-  deleteIfExists: true,
-});
+  backupName: "fp-base-settings",
+  setupWorld: async ({ page }) => {
+    await waitForGameReady(page);
+    await disableTour(page);
 
-test.describe("Settings UI", () => {
-  test("configure compendiums via UI and verify save", async ({ page }) => {
-    await setupTourKiller(page.context());
-    await page.goto("/game");
-    await loginAs(page, "Gamemaster");
-    await waitForReady(page);
-    await clearFoundryOverlays(page);
-    await page.waitForTimeout(2000);
-
-    const moduleId = "thefehrs-learning-manager";
-
-    // 0. Setup: Create Compendiums
     await page.evaluate(async () => {
       const packs = [
         { name: "test-learning-feats", label: "Test Learning Feats", type: "Item" },
@@ -41,15 +33,15 @@ test.describe("Settings UI", () => {
           package: "world",
         });
       }
-    });
 
-    // 1. Ensure settings are registered
-    await page.evaluate(() => {
       const moduleId = "thefehrs-learning-manager";
       (game as any).settings.set(moduleId, "allowedCompendiums", []);
     });
+  },
+});
 
-    // 2. Open Module Settings directly via API and get its ID
+test.describe("Settings UI", () => {
+  test("configure compendiums via UI and verify save", async ({ page }) => {
     const appId = await page.evaluate(async (mid) => {
       // @ts-ignore
       const menu = game.settings.menus.get(`${mid}.configMenu`);
@@ -62,16 +54,11 @@ test.describe("Settings UI", () => {
       }
     }, moduleId);
 
-    // 3. Interact with the Settings App (Svelte)
     const customSettingsApp = page
       .locator(`[id="${appId}"], .window-app:has-text("Downtime Engine Configuration")`)
       .first();
     await expect(customSettingsApp).toBeVisible({ timeout: 20000 });
 
-    // Toggle the three compendium checkboxes.
-    // test-learning-feats appears in both the Template and Book sections (same packId).
-    // Template section renders before Book section in the DOM, so .first() = template, .last() = book.
-    // test-teachers only appears in the Instructor section.
     const checkboxes = [
       customSettingsApp.locator('input[data-pack-id="world.test-learning-feats"]').first(),
       customSettingsApp.locator('input[data-pack-id="world.test-teachers"]').first(),
@@ -89,7 +76,6 @@ test.describe("Settings UI", () => {
       }
     }
 
-    // Toggle a rule - target the Log Level select specifically
     await customSettingsApp
       .locator("#rule-notification-level")
       .evaluate((el: HTMLSelectElement) => {
@@ -97,10 +83,8 @@ test.describe("Settings UI", () => {
         el.dispatchEvent(new Event("change", { bubbles: true }));
       });
 
-    // Save
     await forceClick(customSettingsApp.getByRole("button", { name: /Save Settings/i }));
 
-    // 4. Verify settings were saved in Foundry
     await expect(async () => {
       const savedSettings = await page.evaluate(() => {
         const moduleId = "thefehrs-learning-manager";
