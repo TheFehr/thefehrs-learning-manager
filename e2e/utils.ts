@@ -1,6 +1,43 @@
 import { expect, type Page, type BrowserContext } from "@playwright/test";
 
 /**
+ * Waits until the Foundry game is fully initialized — game.ready is true AND all core
+ * document collections (items, packs, actors) are available. Use this at the start of
+ * setupWorld callbacks to guard against the race condition where foundrySetup returns
+ * while the page is still mid-reload after module activation.
+ */
+export async function waitForGameReady(page: Page) {
+  // foundrySetup may leave the page at /join after module activation reloads the page.
+  // If so, log in as Gamemaster before polling for full game state.
+  const url = page.url();
+  if (!url.includes("/game")) {
+    if (!url.includes("/join")) {
+      await page.goto("/join");
+    }
+    await page.waitForSelector('select[name="userid"], input[name="password"]', { timeout: 30000 });
+    const userSelect = page.locator('select[name="userid"]');
+    if (await userSelect.isVisible()) {
+      await userSelect.selectOption({ label: "Gamemaster" });
+    }
+    await page.locator('button[name="join"]').click({ force: true });
+    await page.waitForURL(/\/game/, { timeout: 60000 });
+  }
+  await page.waitForFunction(
+    () => {
+      const w = window as any;
+      return (
+        w.game?.ready === true &&
+        w.game?.items !== undefined &&
+        w.game?.packs !== undefined &&
+        typeof w.Actor?.create === "function" &&
+        typeof w.Item?.create === "function"
+      );
+    },
+    { timeout: 60000 },
+  );
+}
+
+/**
  * Injects a script that aggressively kills Foundry VTT tours and overlays
  * as soon as they appear.
  */
