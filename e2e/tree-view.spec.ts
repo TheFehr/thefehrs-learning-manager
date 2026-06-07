@@ -18,7 +18,6 @@ useBaseWorld(test, {
       async ({ mid, pid }) => {
         let pack = (game as any).packs.get(pid);
         if (!pack) {
-          // @ts-ignore
           pack = await foundry.documents.collections.CompendiumCollection.createCompendium({
             type: "Item",
             label: "Test Learning Feats",

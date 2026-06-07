@@ -25,7 +25,6 @@ useBaseWorld(test, {
         let pack = (game as any).packs.get(packId);
         if (pack) await pack.deleteCompendium();
 
-        // @ts-ignore
         await foundry.documents.collections.CompendiumCollection.createCompendium({
           type: p.type,
           label: p.label,

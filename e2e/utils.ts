@@ -19,16 +19,20 @@ export async function waitForGameReady(page: Page) {
     if (await userSelect.isVisible()) {
       await userSelect.selectOption({ label: "Gamemaster" });
     }
-    await page.locator('button[name="join"]').evaluate((el: HTMLElement) => el.click());
+    await page.locator('button[name="join"]').click({ force: true });
     await page.waitForURL(/\/game/, { timeout: 60000 });
   }
   await page.waitForFunction(
-    () =>
-      window.game?.ready === true &&
-      (window as any).game?.items !== undefined &&
-      (window as any).game?.packs !== undefined &&
-      typeof (window as any).Actor?.create === "function" &&
-      typeof (window as any).Item?.create === "function",
+    () => {
+      const w = window as any;
+      return (
+        w.game?.ready === true &&
+        w.game?.items !== undefined &&
+        w.game?.packs !== undefined &&
+        typeof w.Actor?.create === "function" &&
+        typeof w.Item?.create === "function"
+      );
+    },
     { timeout: 60000 },
   );
 }

@@ -19,7 +19,7 @@ test.describe("Foundry VTT Interface", () => {
     await expect(page.locator("#sidebar")).toBeVisible();
 
     const isModuleLoaded = await page.evaluate(() => {
-      return (game as any).modules.get("thefehrs-learning-manager")?.active === true;
+      return game.modules.get("thefehrs-learning-manager")?.active === true;
     });
     expect(isModuleLoaded).toBe(true);
   });

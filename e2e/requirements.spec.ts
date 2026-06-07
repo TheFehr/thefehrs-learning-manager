@@ -19,7 +19,6 @@ useBaseWorld(test, {
       let pack = (game as any).packs.get(packId);
       if (pack) await pack.deleteCompendium();
 
-      // @ts-ignore
       await foundry.documents.collections.CompendiumCollection.createCompendium({
         label: "Test Requirements",
         name: packName,
@@ -84,7 +83,6 @@ test.describe("Project Requirements", () => {
     await page.evaluate(
       async ({ actorId, itemUuid }) => {
         const actor = (game as any).actors.get(actorId);
-        // @ts-ignore
         Hooks.call("dropActorSheetData", actor, null, { type: "Item", uuid: itemUuid });
       },
       { actorId: setupData.actorId, itemUuid: setupData.itemUuid },
@@ -118,7 +116,6 @@ test.describe("Project Requirements", () => {
     await page.evaluate(
       async ({ actorId, itemUuid }) => {
         const actor = (game as any).actors.get(actorId);
-        // @ts-ignore
         Hooks.call("dropActorSheetData", actor, null, { type: "Item", uuid: itemUuid });
       },
       { actorId: setupData.actorId, itemUuid: setupData.itemUuid },
