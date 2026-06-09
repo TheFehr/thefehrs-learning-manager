@@ -17,10 +17,15 @@
   const bookCompendiums = Settings.get("bookCompendiums");
 
   onMount(async () => {
-    const entries = await loadBooksIndex();
-    allEntries = entries;
-    docs = await loadConfiguredDocuments<Item5e>(entries);
-    loading = false;
+    try {
+      const entries = await loadBooksIndex();
+      allEntries = entries;
+      docs = await loadConfiguredDocuments<Item5e>(entries);
+    } catch (e) {
+      console.error("[BooksTab] Failed to load books:", e);
+    } finally {
+      loading = false;
+    }
   });
 
   function toggleExpand(id: string) {

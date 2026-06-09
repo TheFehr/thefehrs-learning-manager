@@ -273,6 +273,22 @@ describe("ProjectsTab.svelte", () => {
 
   it("adds newly activated project to the list and auto-expands it", async () => {
     const existingProject = makeProject("p1", "Existing");
+    vi.mocked(logic.loadProjectsIndex).mockResolvedValue([
+      {
+        _id: "p1",
+        name: "Existing",
+        packId: "world.feats",
+        uuid: `Compendium.world.feats.Item.p1`,
+        learningModeEnabled: true,
+      },
+      {
+        _id: "p99",
+        name: "Unconfigured Project",
+        packId: "world.feats",
+        uuid: `Compendium.world.feats.Item.p99`,
+        learningModeEnabled: false,
+      },
+    ]);
     vi.mocked(logic.loadConfiguredDocuments).mockResolvedValue([existingProject] as any);
 
     instance = mount(ProjectsTab, { target: container });
@@ -284,18 +300,14 @@ describe("ProjectsTab.svelte", () => {
     addBtn.click();
     await tick();
 
-    // Simulate activation completing via onAdded
-    const newProject = makeProject("p2", "Newly Added");
+    const newProject = makeProject("p99", "Unconfigured Project");
     vi.mocked(logic.activateDocument).mockResolvedValue(newProject as any);
 
-    const firstResult = container.querySelector(".result-row") as HTMLButtonElement | null;
-    // If there are unconfigured entries, click one. Otherwise skip interaction test.
-    if (firstResult) {
-      firstResult.click();
-      await tick();
-      await vi.waitFor(() => {
-        expect(container.querySelectorAll(".entity-card")).toHaveLength(2);
-      });
-    }
+    const firstResult = container.querySelector(".result-row") as HTMLButtonElement;
+    expect(firstResult).not.toBeNull();
+    firstResult.click();
+    await vi.waitFor(() => {
+      expect(container.querySelectorAll(".entity-card")).toHaveLength(2);
+    });
   });
 });

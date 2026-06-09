@@ -165,7 +165,7 @@
           {/each}
         </select>
       </div>
-      {#if destinations.length === 0}
+      {#if destinations.length === 1}
         <p class="empty-note">No writable compendiums available. Unlock a compendium or use "World".</p>
       {/if}
       <button

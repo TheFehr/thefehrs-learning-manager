@@ -34,12 +34,11 @@ export async function buildPackIndex(
 
       for (const entry of index) {
         const flagData = foundry.utils.getProperty(entry, flagPath);
-        const docTypePart = docType === "Item" ? "Item" : "Actor";
         entries.push({
           _id: entry._id,
           name: entry.name || "Unknown",
           packId,
-          uuid: `Compendium.${packId}.${docTypePart}.${entry._id}`,
+          uuid: `Compendium.${packId}.${docType}.${entry._id}`,
           learningModeEnabled: !!flagData,
         });
       }

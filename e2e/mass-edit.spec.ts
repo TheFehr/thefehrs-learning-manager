@@ -78,9 +78,9 @@ useBaseWorld(test, {
       });
 
       // Configure module settings to use these compendiums
-      (game as any).settings.set(mid, "allowedCompendiums", ["world.me-test-projects"]);
-      (game as any).settings.set(mid, "teacherCompendiums", ["world.me-test-teachers"]);
-      (game as any).settings.set(mid, "bookCompendiums", ["world.me-test-books"]);
+      await (game as any).settings.set(mid, "allowedCompendiums", ["world.me-test-projects"]);
+      await (game as any).settings.set(mid, "teacherCompendiums", ["world.me-test-teachers"]);
+      await (game as any).settings.set(mid, "bookCompendiums", ["world.me-test-books"]);
     }, moduleId);
   },
 });
@@ -322,24 +322,24 @@ test.describe("Mass Edit App", () => {
       return entry ? `Compendium.world.me-test-projects.Item.${entry._id}` : null;
     }, moduleId);
 
-    if (followUpUuid) {
-      await select.evaluate((el: HTMLSelectElement, uuid: string) => {
-        el.value = uuid;
-        el.dispatchEvent(new Event("change", { bubbles: true }));
-      }, followUpUuid);
+    expect(followUpUuid).toBeTruthy();
 
-      // Verify flag was saved on the document
-      await expect(async () => {
-        const savedUuid = await page.evaluate(async (mid) => {
-          const pack = (game as any).packs.get("world.me-test-projects");
-          const index = await pack.getIndex();
-          const entry = index.find((e: any) => e.name === "ME Test Project");
-          if (!entry) return null;
-          const doc = await pack.getDocument(entry._id);
-          return doc.getFlag(mid, "projectData")?.followUpProjectId || null;
-        }, moduleId);
-        expect(savedUuid).toBeTruthy();
-      }).toPass({ timeout: 10000 });
-    }
+    await select.evaluate((el: HTMLSelectElement, uuid: string) => {
+      el.value = uuid;
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+    }, followUpUuid);
+
+    // Verify flag was saved on the document
+    await expect(async () => {
+      const savedUuid = await page.evaluate(async (mid) => {
+        const pack = (game as any).packs.get("world.me-test-projects");
+        const index = await pack.getIndex();
+        const entry = index.find((e: any) => e.name === "ME Test Project");
+        if (!entry) return null;
+        const doc = await pack.getDocument(entry._id);
+        return doc.getFlag(mid, "projectData")?.followUpProjectId || null;
+      }, moduleId);
+      expect(savedUuid).toBe(followUpUuid);
+    }).toPass({ timeout: 10000 });
   });
 });

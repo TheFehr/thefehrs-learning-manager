@@ -68,15 +68,21 @@ if (!fs.existsSync(worldDataPath)) {
 
   // Run via the Playwright test runner so playwright.config.ts supplies the
   // correct viewport (1920×1080), actionTimeout (120s), and executablePath.
-  execSync(`npx playwright test e2e/dev-setup.spec.ts --project=chromium`, {
-    stdio: "inherit",
-    env: {
-      ...process.env,
-      FOUNDRY_URL: foundryUrl,
-      FOUNDRY_VERSION,
-      FOUNDRY_DEV_WORLD: WORLD_ID,
-    },
-  });
+  try {
+    execSync(`npx playwright test e2e/dev-setup.spec.ts --project=chromium`, {
+      stdio: "inherit",
+      env: {
+        ...process.env,
+        FOUNDRY_URL: foundryUrl,
+        FOUNDRY_VERSION,
+        FOUNDRY_DEV_WORLD: WORLD_ID,
+      },
+    });
+  } catch (err) {
+    console.error("[dev-docker] First-time setup failed — shutting down.");
+    orchestrator.stopAndRemove();
+    process.exit(1);
+  }
 
   console.log("[dev-docker] First-time setup complete — skipped on future runs.");
 } else {

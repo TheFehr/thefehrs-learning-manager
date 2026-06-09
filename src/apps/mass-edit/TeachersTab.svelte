@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from "svelte";
+  import { MODULE_ID } from "@/global.js";
   import { Settings } from "@/core/settings.js";
   import type { Actor5e } from "@/types.js";
   import type { PackIndexEntry } from "./mass-edit-logic.js";
@@ -16,10 +17,15 @@
   const teacherCompendiums = Settings.get("teacherCompendiums");
 
   onMount(async () => {
-    const entries = await loadTeachersIndex();
-    allEntries = entries;
-    docs = await loadConfiguredDocuments<Actor5e>(entries);
-    loading = false;
+    try {
+      const entries = await loadTeachersIndex();
+      allEntries = entries;
+      docs = await loadConfiguredDocuments<Actor5e>(entries);
+    } catch (e) {
+      console.error("[TeachersTab] Failed to load teachers:", e);
+    } finally {
+      loading = false;
+    }
   });
 
   function toggleExpand(id: string) {
@@ -27,7 +33,7 @@
   }
 
   function getOfferingsCount(actor: Actor5e): number {
-    const offerings = actor.getFlag("thefehrs-learning-manager", "teacherOfferings");
+    const offerings = actor.getFlag(MODULE_ID, "teacherOfferings");
     return Array.isArray(offerings) ? offerings.length : 0;
   }
 

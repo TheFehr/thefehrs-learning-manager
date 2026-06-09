@@ -17,10 +17,15 @@
   const allowedCompendiums = Settings.get("allowedCompendiums");
 
   onMount(async () => {
-    const entries = await loadProjectsIndex();
-    allEntries = entries;
-    docs = await loadConfiguredDocuments<Item5e>(entries);
-    loading = false;
+    try {
+      const entries = await loadProjectsIndex();
+      allEntries = entries;
+      docs = await loadConfiguredDocuments<Item5e>(entries);
+    } catch (e) {
+      console.error("[ProjectsTab] Failed to load projects:", e);
+    } finally {
+      loading = false;
+    }
   });
 
   function toggleExpand(id: string) {

@@ -171,6 +171,22 @@ describe("TeachersTab.svelte", () => {
   });
 
   it("adds newly activated teacher to the list and auto-expands it", async () => {
+    vi.mocked(logic.loadTeachersIndex).mockResolvedValue([
+      {
+        _id: "t1",
+        name: "Gandalf",
+        packId: "world.teachers",
+        uuid: "Compendium.world.teachers.Actor.t1",
+        learningModeEnabled: true,
+      },
+      {
+        _id: "t99",
+        name: "Merlin",
+        packId: "world.teachers",
+        uuid: "Compendium.world.teachers.Actor.t99",
+        learningModeEnabled: false,
+      },
+    ]);
     vi.mocked(logic.loadConfiguredDocuments).mockResolvedValue([
       makeTeacher("t1", "Gandalf"),
     ] as any);
@@ -189,14 +205,12 @@ describe("TeachersTab.svelte", () => {
     addBtn.click();
     await tick();
 
-    // Simulate a result row click if one exists
-    const resultRow = container.querySelector(".result-row") as HTMLButtonElement | null;
-    if (resultRow) {
-      resultRow.click();
-      await vi.waitFor(() => {
-        expect(container.querySelectorAll(".entity-card")).toHaveLength(2);
-      });
-      expect(container.innerHTML).toContain("Merlin");
-    }
+    const resultRow = container.querySelector(".result-row") as HTMLButtonElement;
+    expect(resultRow).not.toBeNull();
+    resultRow.click();
+    await vi.waitFor(() => {
+      expect(container.querySelectorAll(".entity-card")).toHaveLength(2);
+    });
+    expect(container.innerHTML).toContain("Merlin");
   });
 });
