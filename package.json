@@ -4,6 +4,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev:docker": "node scripts/dev-docker.mjs",
+    "dev:docker:fresh": "rm -rf foundry_data_dev && npm run dev:docker",
     "generate-types": "node scripts/generate-external-types.mjs",
     "build": "tsc && vite build",
     "typecheck": "tsc --noEmit",

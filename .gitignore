@@ -18,6 +18,7 @@ e2e/.auth/
 # TheFehr/Playwright-Foundry
 .foundry_cache/
 .foundry_test_data/
+foundry_data_dev/
 
 # AI Tools
 .antigravitycli/
