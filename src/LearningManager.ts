@@ -11,6 +11,7 @@ import { Settings, SettingsManager } from "./core/settings.js";
 import { LearningConfigApp } from "./apps/settings-app.js";
 import { ProjectOverviewApp } from "./apps/overview-app.js";
 import { ProjectTreeApp } from "./apps/tree-view-app.js";
+import { MassEditApp } from "./apps/mass-edit-app.js";
 import { TabLogic } from "./logic/tab-logic.js";
 import { projectData, LearningFeatType, LearningActivityData } from "./logic/project-item.js";
 import { mount, unmount } from "svelte";
@@ -63,6 +64,15 @@ export class LearningManager {
       hint: "View and manage hierarchical learning paths",
       icon: "fas fa-sitemap",
       type: ProjectTreeApp,
+      restricted: true,
+    });
+
+    Settings.registerMenu("massEditMenu", {
+      name: "Mass Edit",
+      label: "Mass Edit",
+      hint: "Batch-configure projects, teachers, and books",
+      icon: "fas fa-table-list",
+      type: MassEditApp,
       restricted: true,
     });
   }
