@@ -6,7 +6,9 @@
     "declaration": true,
     "emitDeclarationOnly": true,
     "skipLibCheck": true,
+    "ignoreDeprecations": "6.0",
     "outDir": "./external-dts/tidy-5e",
+    "baseUrl": ".",
     "paths": {
       "@tidy5e/*": ["./externals/tidy-5e/src/*"]
     }
