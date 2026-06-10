@@ -6,8 +6,8 @@
     "declaration": true,
     "emitDeclarationOnly": true,
     "skipLibCheck": true,
+    "rootDir": "./externals/tidy-5e/src",
     "outDir": "./external-dts/tidy-5e",
-    "baseUrl": ".",
     "paths": {
       "@tidy5e/*": ["./externals/tidy-5e/src/*"]
     }
