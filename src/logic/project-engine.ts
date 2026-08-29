@@ -648,7 +648,7 @@ export class ProjectEngine {
       for (const r of rolls) {
         await r.toMessage(
           {
-            speaker: ChatMessage.getSpeaker({ actor: actor as Actor }),
+            speaker: ChatMessage.getSpeaker({ actor: actor as Actor.Stored }),
             flavor: `${actor.name} tries to learn ${item.name || "Unknown Item"} (DC ${Number(rules.checkDC ?? DEFAULT_DC)})`,
           },
           { rollMode: (rules.rollMode || "gmroll") as foundry.dice.RollMode },

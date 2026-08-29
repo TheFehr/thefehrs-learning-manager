@@ -37,7 +37,7 @@ export class TreeLogic {
 
     const itemMap = new Map<string, Item5e>();
     for (const item of allItems) {
-      itemMap.set(item.uuid, item);
+      itemMap.set(item.uuid!, item);
     }
 
     // 2. Identify all child UUIDs to find Roots
@@ -53,9 +53,9 @@ export class TreeLogic {
     // 3. Roots are items that aren't anyone's follow-up
     const roots = allItems.filter((item) => {
       // Pinned items are ALWAYS allowed to be roots (helps with UX/discovery)
-      if (pinnedUuids.includes(item.uuid)) return true;
+      if (pinnedUuids.includes(item.uuid!)) return true;
 
-      const isChild = childrenUuids.has(item.uuid);
+      const isChild = childrenUuids.has(item.uuid!);
       if (isChild) return false;
 
       if (showAll) return true;
@@ -178,7 +178,7 @@ export class TreeLogic {
     depth: number,
   ): Promise<ProjectTreeNode | null> {
     // 1. Check for True Circularity (A -> B -> A)
-    if (stack.has(item.uuid)) {
+    if (stack.has(item.uuid!)) {
       Logger.error(
         `Circular dependency detected at project: ${item.name} (${item.uuid}). Stopping recursion.`,
       );
@@ -186,12 +186,12 @@ export class TreeLogic {
     }
 
     // 2. Check for Duplicates (Item already rendered in another branch or root)
-    if (visited.has(item.uuid)) {
+    if (visited.has(item.uuid!)) {
       return null;
     }
 
-    visited.add(item.uuid);
-    stack.add(item.uuid);
+    visited.add(item.uuid!);
+    stack.add(item.uuid!);
 
     const children: ProjectTreeNode[] = [];
     const data = projectData(item);
@@ -225,7 +225,7 @@ export class TreeLogic {
     }
 
     return {
-      uuid: item.uuid,
+      uuid: item.uuid!,
       name: item.name ?? "Unknown",
       img: item.img ?? "icons/svg/item-bag.svg",
       item,
