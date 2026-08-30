@@ -4,20 +4,66 @@
 # for what runs on the VM, and must only change via a deliberate manual step).
 # Then: systemctl daemon-reload && systemctl enable --now lm-verify-renovate.timer
 #
-# Runs as the same foundry-verify system user as foundry-playwright's own
-# nightly job - it already has rootless Podman, `gh auth login`, the Foundry
-# credentials this repo's e2e suite also needs, and an SSH signing key
-# registered on GitHub. One-time setup specific to this repo:
-#   sudo -u foundry-verify git clone git@github.com:TheFehr/thefehrs-learning-manager.git /opt/thefehrs-learning-manager
-#   sudo -u foundry-verify cp /path/to/foundry-playwright/.env /opt/thefehrs-learning-manager/.env
-# (same FOUNDRY_USERNAME/PASSWORD/ADMIN_KEY/LICENSE_KEY/
-# PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH values - this repo's e2e suite is built
-# on the same foundry-playwright library and needs the same account)
+# --- Two identities, deliberately ---
+# `foundry-verify` is the same credentialed system user as foundry-playwright's
+# own nightly job - it has a repo-scoped `gh` token and an SSH commit-signing
+# key in its $HOME. verify-renovate-prs.sh only ever runs `git
+# fetch`/`push`/`gh pr ...` as this user - plain network operations, never
+# candidate-branch code.
 #
-# No docker-group membership, same reasoning as foundry-verify.service: this
-# job fetches and executes third-party FoundryVTT/module content on every
-# run, and docker-group access is root-equivalent. Containers run rootless
-# via the same podman-docker wrapper already set up for foundry-verify.
+# `lm-verify-runner` is a second, unprivileged system user created
+# specifically for this job. It runs `npm ci`, the build, and the actual
+# Docker/Podman e2e suite - i.e. everything that executes code from a
+# Renovate PR's dependency bump. It has no gh token, no SSH key, and no
+# access to foundry-verify's $HOME, so a compromised dependency's
+# install/postinstall script (CWE-829) has nothing to steal that could push,
+# merge, or forge commits as this identity. It does get the Foundry VTT test
+# credentials the e2e suite needs, via a group-shared .env that holds no
+# GitHub credentials at all.
+#
+# One-time setup:
+#   sudo useradd --system --create-home --shell /usr/sbin/nologin lm-verify-runner
+#   # Non-overlapping range from foundry-verify's own 200000-265535 (see
+#   # foundry-verify.service) - two rootless-Podman users sharing a subuid
+#   # range would let one forge UIDs inside the other's user namespace.
+#   sudo usermod --add-subuids 300000-365535 --add-subgids 300000-365535 lm-verify-runner
+#   sudo loginctl enable-linger lm-verify-runner
+#   sudo -u lm-verify-runner git config --global user.name "lm-verify-runner"
+#   sudo -u lm-verify-runner git config --global user.email "lm-verify-runner@localhost"
+#   # (no signing key for this identity - main has no signature requirement,
+#   # unlike foundry-playwright's repo, so there's nothing to sign)
+#
+#   # Shared group so foundry-verify (push/merge) and lm-verify-runner
+#   # (checkout/build/test) can both read/write the one checkout without
+#   # sharing an identity. setgid propagates the group to files either side
+#   # creates; g+w plus each identity's own `umask 002` keeps them writable
+#   # by both.
+#   sudo groupadd lm-verify-shared
+#   sudo usermod -aG lm-verify-shared foundry-verify
+#   sudo usermod -aG lm-verify-shared lm-verify-runner
+#   sudo mkdir -p /opt/thefehrs-learning-manager
+#   sudo chown foundry-verify:lm-verify-shared /opt/thefehrs-learning-manager
+#   sudo chmod 2775 /opt/thefehrs-learning-manager
+#   sudo -u foundry-verify git clone https://github.com/TheFehr/thefehrs-learning-manager.git /opt/thefehrs-learning-manager
+#   sudo find /opt/thefehrs-learning-manager -type d -exec chmod g+s {} +
+#   sudo chgrp -R lm-verify-shared /opt/thefehrs-learning-manager
+#   sudo chmod -R g+w /opt/thefehrs-learning-manager
+#
+#   # .env: Foundry VTT test credentials only (FOUNDRY_USERNAME/PASSWORD/
+#   # ADMIN_KEY/LICENSE_KEY/PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH) - same
+#   # values as foundry-playwright's own .env, but never the gh token or SSH
+#   # key, which live only in foundry-verify's $HOME and are never copied
+#   # here. Group-readable so lm-verify-runner can use it too.
+#   sudo cp /opt/foundry-playwright/.env /opt/thefehrs-learning-manager/.env
+#   sudo chown foundry-verify:lm-verify-shared /opt/thefehrs-learning-manager/.env
+#   sudo chmod 640 /opt/thefehrs-learning-manager/.env
+#
+# No docker-group membership for either user, same reasoning as
+# foundry-verify.service: this job fetches and executes third-party
+# FoundryVTT/module/dependency content on every run, and docker-group access
+# is root-equivalent. Containers run rootless via the same podman-docker
+# wrapper already set up for foundry-verify - lm-verify-runner just needs
+# its own subuid/subgid range (above), not a separate package install.
 
 [Unit]
 Description=Verify e2e for open thefehrs-learning-manager Renovate PRs
@@ -39,8 +85,10 @@ ExecStart=/opt/thefehrs-learning-manager/ops/vm/verify-renovate-prs.sh
 TimeoutStartSec=3h
 # Rootless Podman's conmon deliberately survives its parent dying, so a
 # TimeoutStartSec kill (or any other abnormal exit) can leave a container
-# running from this unit - which then holds verify-renovate-prs.sh's flock
-# open via an inherited fd, silently blocking every future run until someone
-# notices. Force-remove anything this unit's own containers left behind,
+# running - which then holds verify-renovate-prs.sh's flock open via an
+# inherited fd, silently blocking every future run until someone notices.
+# The actual Foundry containers run under lm-verify-runner's namespace (see
+# the identity split above), not foundry-verify's, so cleanup has to reach
+# both; force-remove anything either identity's own containers left behind,
 # every time the service stops, regardless of why.
-ExecStopPost=/bin/sh -c 'podman ps -aq --filter "name=foundry-playwright-" | xargs -r podman rm -f'
+ExecStopPost=/bin/sh -c 'runuser -u lm-verify-runner -- podman ps -aq --filter "name=foundry-playwright-" | xargs -r runuser -u lm-verify-runner -- podman rm -f; podman ps -aq --filter "name=foundry-playwright-" | xargs -r podman rm -f'
