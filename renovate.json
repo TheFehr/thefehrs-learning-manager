@@ -5,6 +5,10 @@
     {
       "matchManagers": ["git-submodules"],
       "versioning": "git"
+    },
+    {
+      "matchManagers": ["github-actions"],
+      "automerge": true
     }
   ]
 }
