@@ -1,0 +1,27 @@
+# Install: copy this file to /etc/systemd/system/lm-verify-renovate.timer (a
+# real copy, NOT a symlink into this repo checkout - see lm-verify-renovate.service
+# for why). Re-copy and re-run `systemctl daemon-reload` by hand after any
+# change to this file.
+
+[Unit]
+Description=Verify e2e for open thefehrs-learning-manager Renovate PRs, nightly
+
+[Timer]
+# 22:30 CEST: foundry-playwright's own foundry-verify.timer runs at 20:00 with
+# a 2h TimeoutStartSec, so worst case it's still running until 22:00 - both
+# jobs run Docker/Podman-based Foundry instances on the same container-name
+# pattern (foundry-playwright-<version>) and port, so they can't safely run
+# concurrently on this VM. 22:30 gives a 30min buffer past that worst case.
+# If foundry-verify's own timeout or schedule ever changes, re-check this
+# offset - there's no cross-job lock enforcing the ordering, just the gap.
+#
+# Also ~9h clear of the next weekday's 07:30 CEST push blackout.
+OnCalendar=*-*-* 22:30:00 Europe/Berlin
+RandomizedDelaySec=300
+# Deliberately no Persistent=true, same reasoning as foundry-verify.timer: a
+# missed run should be skipped, not caught up at some arbitrary later time
+# that could land its push inside the Mon/Tue/Thu/Fri 07:30-16:30 CEST
+# blackout this schedule exists to avoid.
+
+[Install]
+WantedBy=timers.target

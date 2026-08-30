@@ -15,9 +15,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e:docker": "bash -c 'set -o pipefail; npm run test:e2e:docker:verbose | grep -v -E \"Browser Log:|Browser Warning:\" | cat -s'",
-    "test:e2e:docker:verbose": "npm run build && rsync -a --delete dist/ e2e/thefehrs-learning-manager/ && PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/snap/bin/chromium PLAYWRIGHT_HTML_REPORT=playwright-report-v14 PLAYWRIGHT_OUTPUT_DIR=test-results-v14 FOUNDRY_VERSION=14 foundry-playwright test --docker",
+    "test:e2e:docker:verbose": "npm run build && rsync -a --delete dist/ e2e/thefehrs-learning-manager/ && PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=${PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH:-/snap/bin/chromium} PLAYWRIGHT_HTML_REPORT=playwright-report-v14 PLAYWRIGHT_OUTPUT_DIR=test-results-v14 FOUNDRY_VERSION=14 foundry-playwright test --docker",
     "test:e2e:docker:v13": "bash -c 'set -o pipefail; npm run test:e2e:docker:v13:verbose | grep -v -E \"Browser Log:|Browser Warning:\" | cat -s'",
-    "test:e2e:docker:v13:verbose": "npm run build && rsync -a --delete dist/ e2e/thefehrs-learning-manager/ && PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=/snap/bin/chromium foundry-playwright test --docker",
+    "test:e2e:docker:v13:verbose": "npm run build && rsync -a --delete dist/ e2e/thefehrs-learning-manager/ && PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH=${PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH:-/snap/bin/chromium} foundry-playwright test --docker",
     "test:e2e:verify": "bash scripts/e2e-verify.sh",
     "release": "release-it",
     "prepare": "husky"
