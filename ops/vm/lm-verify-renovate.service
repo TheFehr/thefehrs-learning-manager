@@ -1,0 +1,46 @@
+# Install: copy this file to /etc/systemd/system/lm-verify-renovate.service
+# (a real copy, NOT a symlink into this repo checkout - see foundry-playwright's
+# ops/vm/foundry-verify.service for why: this unit controls User=/ExecStart=
+# for what runs on the VM, and must only change via a deliberate manual step).
+# Then: systemctl daemon-reload && systemctl enable --now lm-verify-renovate.timer
+#
+# Runs as the same foundry-verify system user as foundry-playwright's own
+# nightly job - it already has rootless Podman, `gh auth login`, the Foundry
+# credentials this repo's e2e suite also needs, and an SSH signing key
+# registered on GitHub. One-time setup specific to this repo:
+#   sudo -u foundry-verify git clone git@github.com:TheFehr/thefehrs-learning-manager.git /opt/thefehrs-learning-manager
+#   sudo -u foundry-verify cp /path/to/foundry-playwright/.env /opt/thefehrs-learning-manager/.env
+# (same FOUNDRY_USERNAME/PASSWORD/ADMIN_KEY/LICENSE_KEY/
+# PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH values - this repo's e2e suite is built
+# on the same foundry-playwright library and needs the same account)
+#
+# No docker-group membership, same reasoning as foundry-verify.service: this
+# job fetches and executes third-party FoundryVTT/module content on every
+# run, and docker-group access is root-equivalent. Containers run rootless
+# via the same podman-docker wrapper already set up for foundry-verify.
+
+[Unit]
+Description=Verify e2e for open thefehrs-learning-manager Renovate PRs
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=foundry-verify
+Group=foundry-verify
+WorkingDirectory=/opt/thefehrs-learning-manager
+ExecStart=/opt/thefehrs-learning-manager/ops/vm/verify-renovate-prs.sh
+# The script stops after its first successful merge (see its comments - a
+# merge rebases every other open PR, invalidating anything else verified
+# this run) and caps failed attempts at MAX_ATTEMPTS_PER_RUN=3, so worst
+# case is 3 failed ~30-35min verify runs in a row. Sized with real margin
+# over that, not for an open-ended hang - a run still going after 3h is
+# stuck, not just slow.
+TimeoutStartSec=3h
+# Rootless Podman's conmon deliberately survives its parent dying, so a
+# TimeoutStartSec kill (or any other abnormal exit) can leave a container
+# running from this unit - which then holds verify-renovate-prs.sh's flock
+# open via an inherited fd, silently blocking every future run until someone
+# notices. Force-remove anything this unit's own containers left behind,
+# every time the service stops, regardless of why.
+ExecStopPost=/bin/sh -c 'podman ps -aq --filter "name=foundry-playwright-" | xargs -r podman rm -f'
