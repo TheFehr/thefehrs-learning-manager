@@ -4,6 +4,17 @@ set -e
 # Ensure we are at the repo root
 cd "$(dirname "$0")/.."
 
+# foundry-playwright >=1.3.2 no longer auto-loads a .env file itself (it now
+# only reads FOUNDRY_USERNAME/PASSWORD/ADMIN_KEY from process.env) - load one
+# here if present, for local/dev runs. No-op when absent (e.g. the VM
+# automation, which exports these directly rather than keeping a .env file).
+if [ -f .env ]; then
+  set -a
+  # shellcheck disable=SC1091
+  . ./.env
+  set +a
+fi
+
 # Check for uncommitted changes (excluding .e2e-verification)
 if ! git diff-index --quiet HEAD -- . ':!.e2e-verification'; then
     echo "❌ Error: Working directory must be clean before running verification."
