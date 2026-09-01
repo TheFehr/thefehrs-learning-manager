@@ -2,6 +2,10 @@
 # (a real copy, NOT a symlink into this repo checkout - see foundry-playwright's
 # ops/vm/foundry-verify.service for why: this unit controls User=/ExecStart=
 # for what runs on the VM, and must only change via a deliberate manual step).
+# ExecStart below points at a root-owned copy of verify-renovate-prs.sh, NOT
+# at the copy inside FV_DIR - see the ExecStart comment for why, and re-copy
+# it there (never symlink) after any change to the script, same as this
+# file itself.
 # Then: systemctl daemon-reload && systemctl enable --now lm-verify-renovate.timer
 #
 # --- Two identities, two checkouts, root as the only thing that touches both ---
@@ -61,6 +65,13 @@
 #   sudo chmod 700 /opt/thefehrs-learning-manager
 #   sudo -u foundry-verify git clone https://github.com/TheFehr/thefehrs-learning-manager.git /opt/thefehrs-learning-manager
 #
+#   # Root-owned copy of the script this unit actually executes (see
+#   # ExecStart below for why it can't be the copy inside FV_DIR).
+#   sudo mkdir -p /opt/lm-verify-renovate
+#   sudo cp /opt/thefehrs-learning-manager/ops/vm/verify-renovate-prs.sh /opt/lm-verify-renovate/
+#   sudo chown -R root:root /opt/lm-verify-renovate
+#   sudo chmod 755 /opt/lm-verify-renovate/verify-renovate-prs.sh
+#
 # No docker-group membership for lm-verify-runner, same reasoning as
 # foundry-verify.service: this job fetches and executes third-party
 # FoundryVTT/module/dependency content on every run, and docker-group access
@@ -76,7 +87,14 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 WorkingDirectory=/opt
-ExecStart=/opt/thefehrs-learning-manager/ops/vm/verify-renovate-prs.sh
+# Deliberately NOT /opt/thefehrs-learning-manager/ops/vm/verify-renovate-prs.sh:
+# that path is inside FV_DIR, which foundry-verify owns. This unit runs as
+# root, so executing a script from a path a lower-privileged identity can
+# write to would let a compromised foundry-verify replace it and gain root
+# on the next timer fire - same reasoning as copying the unit files
+# themselves rather than symlinking into the checkout (see top of this
+# file), just applied to the script too.
+ExecStart=/opt/lm-verify-renovate/verify-renovate-prs.sh
 # The script stops after its first successful merge (see its comments - a
 # merge rebases every other open PR, invalidating anything else verified
 # this run) and caps failed attempts at MAX_ATTEMPTS_PER_RUN=3, so worst
