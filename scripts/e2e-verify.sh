@@ -8,11 +8,27 @@ cd "$(dirname "$0")/.."
 # only reads FOUNDRY_USERNAME/PASSWORD/ADMIN_KEY from process.env) - load one
 # here if present, for local/dev runs. No-op when absent (e.g. the VM
 # automation, which exports these directly rather than keeping a .env file).
+#
+# Deliberately NOT `source`/`.`  - this repo's own npm ci can run before this
+# script (see test:e2e:verify's callers), and a compromised dependency needs
+# only the ability to drop a file named .env in the checkout - no code-exec
+# during install required - to have it blindly executed as shell here,
+# reachable code that also runs after any real credentials are already in
+# this process's environment. Parse it as plain KEY=VALUE data instead: a
+# value is never interpreted, so it can't inject commands regardless of what
+# it contains.
 if [ -f .env ]; then
-  set -a
-  # shellcheck disable=SC1091
-  . ./.env
-  set +a
+  while IFS= read -r line || [ -n "$line" ]; do
+    case "$line" in
+      '' | '#'*) continue ;;
+    esac
+    key="${line%%=*}"
+    value="${line#*=}"
+    case "$key" in
+      '' | *[!A-Za-z0-9_]*) continue ;;
+    esac
+    export "$key=$value"
+  done <.env
 fi
 
 # Check for uncommitted changes (excluding .e2e-verification)

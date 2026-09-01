@@ -4,27 +4,33 @@
 # for what runs on the VM, and must only change via a deliberate manual step).
 # Then: systemctl daemon-reload && systemctl enable --now lm-verify-renovate.timer
 #
-# --- Two identities, deliberately ---
+# --- Two identities, two checkouts, root as the only thing that touches both ---
 # `foundry-verify` is the same credentialed system user as foundry-playwright's
 # own nightly job - it has a repo-scoped `gh` token and an SSH commit-signing
-# key in its $HOME. verify-renovate-prs.sh only ever runs `git
-# fetch`/`push`/`gh pr ...` as this user - plain network operations, never
+# key in its $HOME, and owns FV_DIR (/opt/thefehrs-learning-manager), its own
+# private checkout. verify-renovate-prs.sh only ever runs `git
+# fetch`/`push`/`gh pr ...` there - plain network operations, never
 # candidate-branch code.
 #
 # `lm-verify-runner` is a second, unprivileged system user created
-# specifically for this job. It runs `npm ci`, the build, and the actual
-# Docker/Podman e2e suite - i.e. everything that executes code from a
-# Renovate PR's dependency bump. It has no gh token, no SSH key, and no
-# access to foundry-verify's $HOME, so a compromised dependency's
+# specifically for this job. It runs `git checkout`, `npm ci`, the build, and
+# the actual Docker/Podman e2e suite - i.e. everything that executes code
+# from a Renovate PR's dependency bump - in its own private workdir under its
+# own $HOME. It has no gh token, no SSH key, and no filesystem access to
+# FV_DIR or foundry-verify's $HOME at all, so a compromised dependency's
 # install/postinstall script (CWE-829) has nothing to steal that could push,
-# merge, or forge commits as this identity. It does get the Foundry VTT test
-# credentials the e2e suite needs (never GitHub credentials) - as of
-# foundry-playwright >=1.3.2, the library reads those from process.env
-# directly and no longer needs a .env file in the checkout at all, so this
-# job just gives lm-verify-runner a narrow read-only grant on
-# foundry-playwright's own existing .env (see the setfacl line below) and
-# sources it directly. No copy, nothing to drift when a credential rotates,
-# and no group-shared secret file sitting in this checkout.
+# merge, or forge commits as foundry-verify.
+#
+# This unit runs as root (Type=oneshot, no User=) specifically so
+# verify-renovate-prs.sh can dispatch every actual operation to the correct
+# identity via `runuser -u <identity>`, which itself requires root - it does
+# not authenticate like `su`, so a non-root caller can't use it at all. Root
+# itself never touches git, gh, or npm directly, and never executes anything
+# from a candidate branch: it only copies/chowns small `git bundle` files
+# between FV_DIR and lm-verify-runner's workdir (see verify-renovate-prs.sh
+# for why a bundle, not a shared checkout, is what moves between them - a
+# shared .git would let the untrusted phase plant a hook that later executes
+# as foundry-verify).
 #
 # One-time setup:
 #   sudo useradd --system --create-home --shell /usr/sbin/nologin lm-verify-runner
@@ -36,31 +42,27 @@
 #   sudo -u lm-verify-runner git config --global user.name "lm-verify-runner"
 #   sudo -u lm-verify-runner git config --global user.email "lm-verify-runner@localhost"
 #   # (no signing key for this identity - main has no signature requirement,
-#   # unlike foundry-playwright's repo, so there's nothing to sign)
+#   # unlike foundry-playwright's repo, so there's nothing to sign; and this
+#   # identity's commits never reach GitHub directly anyway - foundry-verify
+#   # re-commits nothing, it fast-forward-merges the runner's own commit in
+#   # from a bundle, so no signing identity is needed here at all)
 #
-#   # Shared group so foundry-verify (push/merge) and lm-verify-runner
-#   # (checkout/build/test) can both read/write the one checkout without
-#   # sharing an identity. setgid propagates the group to files either side
-#   # creates; g+w plus each identity's own `umask 002` keeps them writable
-#   # by both.
-#   sudo groupadd lm-verify-shared
-#   sudo usermod -aG lm-verify-shared foundry-verify
-#   sudo usermod -aG lm-verify-shared lm-verify-runner
+#   # FV_DIR: foundry-verify's own private checkout. lm-verify-runner gets
+#   # NO access to this directory, not even read - the bundle handoff in
+#   # verify-renovate-prs.sh is the only channel between the two identities.
 #   sudo mkdir -p /opt/thefehrs-learning-manager
-#   sudo chown foundry-verify:lm-verify-shared /opt/thefehrs-learning-manager
-#   sudo chmod 2775 /opt/thefehrs-learning-manager
+#   sudo chown foundry-verify:foundry-verify /opt/thefehrs-learning-manager
+#   sudo chmod 700 /opt/thefehrs-learning-manager
 #   sudo -u foundry-verify git clone https://github.com/TheFehr/thefehrs-learning-manager.git /opt/thefehrs-learning-manager
-#   sudo find /opt/thefehrs-learning-manager -type d -exec chmod g+s {} +
-#   sudo chgrp -R lm-verify-shared /opt/thefehrs-learning-manager
-#   sudo chmod -R g+w /opt/thefehrs-learning-manager
 #
 #   # Narrow read-only grant on foundry-playwright's existing .env (owned
 #   # foundry-verify:foundry-verify, mode 600, untouched otherwise) - the
-#   # ONLY access lm-verify-runner gets to it. Requires the `acl` package.
+#   # ONLY access lm-verify-runner gets to anything of foundry-verify's.
+#   # Requires the `acl` package.
 #   sudo apt install -y acl
 #   sudo setfacl -m u:lm-verify-runner:r /opt/foundry-playwright/.env
 #
-# No docker-group membership for either user, same reasoning as
+# No docker-group membership for lm-verify-runner, same reasoning as
 # foundry-verify.service: this job fetches and executes third-party
 # FoundryVTT/module/dependency content on every run, and docker-group access
 # is root-equivalent. Containers run rootless via the same podman-docker
@@ -74,9 +76,7 @@ Wants=network-online.target
 
 [Service]
 Type=oneshot
-User=foundry-verify
-Group=foundry-verify
-WorkingDirectory=/opt/thefehrs-learning-manager
+WorkingDirectory=/opt
 ExecStart=/opt/thefehrs-learning-manager/ops/vm/verify-renovate-prs.sh
 # The script stops after its first successful merge (see its comments - a
 # merge rebases every other open PR, invalidating anything else verified
@@ -89,8 +89,7 @@ TimeoutStartSec=3h
 # TimeoutStartSec kill (or any other abnormal exit) can leave a container
 # running - which then holds verify-renovate-prs.sh's flock open via an
 # inherited fd, silently blocking every future run until someone notices.
-# The actual Foundry containers run under lm-verify-runner's namespace (see
-# the identity split above), not foundry-verify's, so cleanup has to reach
-# both; force-remove anything either identity's own containers left behind,
-# every time the service stops, regardless of why.
-ExecStopPost=/bin/sh -c 'runuser -u lm-verify-runner -- podman ps -aq --filter "name=foundry-playwright-" | xargs -r runuser -u lm-verify-runner -- podman rm -f; podman ps -aq --filter "name=foundry-playwright-" | xargs -r podman rm -f'
+# The actual Foundry containers run under lm-verify-runner's namespace, not
+# foundry-verify's or root's; force-remove anything it left behind, every
+# time the service stops, regardless of why.
+ExecStopPost=/bin/sh -c 'runuser -u lm-verify-runner -- podman ps -aq --filter "name=foundry-playwright-" | xargs -r runuser -u lm-verify-runner -- podman rm -f'
