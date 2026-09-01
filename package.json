@@ -48,6 +48,6 @@
     "{src,tests}/**/*.{ts,js}": "oxlint"
   },
   "engines": {
-    "node": ">=20.19.0"
+    "node": ">=22.9.0"
   }
 }
