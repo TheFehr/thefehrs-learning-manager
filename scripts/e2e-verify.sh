@@ -5,31 +5,17 @@ set -e
 cd "$(dirname "$0")/.."
 
 # foundry-playwright >=1.3.2 no longer auto-loads a .env file itself (it now
-# only reads FOUNDRY_USERNAME/PASSWORD/ADMIN_KEY from process.env) - load one
-# here if present, for local/dev runs. No-op when absent (e.g. the VM
-# automation, which exports these directly rather than keeping a .env file).
-#
-# Deliberately NOT `source`/`.`  - this repo's own npm ci can run before this
-# script (see test:e2e:verify's callers), and a compromised dependency needs
-# only the ability to drop a file named .env in the checkout - no code-exec
-# during install required - to have it blindly executed as shell here,
-# reachable code that also runs after any real credentials are already in
-# this process's environment. Parse it as plain KEY=VALUE data instead: a
-# value is never interpreted, so it can't inject commands regardless of what
-# it contains.
-if [ -f .env ]; then
-  while IFS= read -r line || [ -n "$line" ]; do
-    case "$line" in
-      '' | '#'*) continue ;;
-    esac
-    key="${line%%=*}"
-    value="${line#*=}"
-    case "$key" in
-      '' | *[!A-Za-z0-9_]*) continue ;;
-    esac
-    export "$key=$value"
-  done <.env
-fi
+# only reads FOUNDRY_USERNAME/PASSWORD/ADMIN_KEY from process.env). This
+# script doesn't load one either - deliberately: this repo's own npm ci can
+# run before this script, and a compromised dependency needs only the
+# ability to drop a file named .env in the checkout (no code-exec during
+# install required) to have it read as credentials-adjacent data right after
+# the real ones are loaded. For local dev, use `npm run test:e2e:verify:local`
+# instead of calling this directly - it loads .env via Node's own built-in
+# `--env-file-if-exists` before this script ever runs, so nothing here needs
+# to know .env exists at all. The VM automation exports real credentials
+# into its shell before calling this script, so there's nothing to load here
+# either way.
 
 # Check for uncommitted changes (excluding .e2e-verification)
 if ! git diff-index --quiet HEAD -- . ':!.e2e-verification'; then
