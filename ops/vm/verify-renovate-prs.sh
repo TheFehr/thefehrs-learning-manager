@@ -51,13 +51,14 @@ set -euo pipefail
 # Requires FOUNDRY_USERNAME/PASSWORD/ADMIN_KEY in foundry-playwright's own
 # .env (foundry-verify's account, real credentials - not a disposable test
 # instance). lm-verify-runner is never granted standing access to that file:
-# root copies it into the runner's workdir as a disposable, per-run file,
-# and ONLY right before the one step that actually needs it (after
-# `npm ci`/`generate-types` have already run) - a compromised dependency's
-# lifecycle scripts get no window to read it, since the identity that runs
-# them has no access to Foundry credentials at all until after they're done.
-# Also requires a `gh auth login`'d token with repo scope local to
-# foundry-verify only.
+# root copies it into a fresh mktemp'd directory (never a fixed name inside
+# the candidate-controlled workdir - see the staging step for why) and
+# chowns just that copy to lm-verify-runner, only right before the one step
+# that actually needs it (after `npm ci`/`generate-types` have already run)
+# - a compromised dependency's lifecycle scripts get no window to read it,
+# since the identity that runs them has no access to Foundry credentials at
+# all until after they're done. Also requires a `gh auth login`'d token
+# with repo scope local to foundry-verify only.
 
 REPO="TheFehr/thefehrs-learning-manager"
 FV_DIR="${LM_FV_DIR:-/opt/thefehrs-learning-manager}"
@@ -93,12 +94,24 @@ fi
 # missed. Containers are actually started under lm-verify-runner's rootless
 # Podman namespace, not foundry-verify's or root's, so cleanup has to be
 # dispatched there specifically via runuser - a bare `podman` call here would
-# just operate on root's own (irrelevant, empty) namespace. Runs via EXIT
-# trap rather than as a last step so it still fires if an earlier command
-# aborts the script under `set -e`.
+# just operate on root's own (irrelevant, empty) namespace.
+#
+# Also removes the current candidate's $workdir (a full checkout +
+# node_modules) if one is in flight. The main loop already removes it at
+# every continue/success point, but a crash under `set -e` between creating
+# it and reaching one of those, or a TimeoutStartSec kill, would otherwise
+# skip all of them and leak it - and each leaked workdir brings the next
+# run closer to tripping the disk-usage guard above. Single-quoted so
+# $workdir is read at trap-fire time, not when the trap is registered.
+#
+# Runs via EXIT trap rather than as a last step so all of this still fires
+# if an earlier command aborts the script under `set -e`.
 trap '
   runuser -u "$RUNNER_USER" -- podman system prune -f >/dev/null 2>&1 || true
   rm -f "$HANDOFF_DIR"/*.bundle 2>/dev/null || true
+  if [ -n "${workdir:-}" ]; then
+    runuser -u "$RUNNER_USER" -- rm -rf "$workdir" 2>/dev/null || true
+  fi
 ' EXIT
 
 used_pct=$(df --output=pcent / | tail -1 | tr -dc '0-9')
@@ -193,16 +206,19 @@ else
 
     if [ "$status" -eq 0 ]; then
       # --- root: stage a disposable, per-run copy of the Foundry credentials ---
-      # Not a standing grant - lm-verify-runner has no access to these at
-      # all until this exact moment, right before the one step that
-      # actually needs them. Copied fresh every run rather than handed a
-      # persistent ACL on the canonical file, so there's nothing left to
-      # revoke: this copy only ever exists inside $workdir, which gets
-      # deleted below regardless of outcome.
-      creds_file="$workdir/.env-creds"
+      # In a fresh mktemp -d directory, NOT at a fixed name inside
+      # $workdir: phase A (already finished by this point) is
+      # candidate-controlled, and a fixed path there could have been
+      # pre-planted as a symlink to an arbitrary host file. Root's cp/chown
+      # would then follow it - cp writing credential content to whatever
+      # it points at, chown (no -h) handing ownership of that arbitrary
+      # file to lm-verify-runner. mktemp -d creates an unpredictable path
+      # atomically, after phase A's process has already exited, so there's
+      # no window for it to have pre-planted anything at this exact name.
+      creds_dir=$(mktemp -d)
+      creds_file="$creds_dir/env"
       cp "$FOUNDRY_ENV_SOURCE" "$creds_file"
-      chown "$RUNNER_USER:$RUNNER_USER" "$creds_file"
-      chmod 600 "$creds_file"
+      chown -R "$RUNNER_USER:$RUNNER_USER" "$creds_dir"
 
       # --- lm-verify-runner, phase B: the actual e2e suite, now credentialed ---
       runuser -u "$RUNNER_USER" -- env WORKDIR="$workdir" CREDS="$creds_file" bash -c '
@@ -213,7 +229,8 @@ else
         set +a
         npm run test:e2e:verify
       ' || status=$?
-      shred -u "$creds_file" 2>/dev/null || rm -f "$creds_file"
+      shred -u "$creds_file" 2>/dev/null || true
+      rm -rf "$creds_dir"
     fi
 
     if [ "$status" -ne 0 ]; then
@@ -250,6 +267,18 @@ else
       cd "$WORKDIR"
       git bundle create "$OUT" "$BASE_SHA..HEAD"
     '
+    # Same class of risk as the credential staging above, read-side: refuse
+    # if the candidate replaced this expected path with a symlink, rather
+    # than letting root's cp follow it and copy an arbitrary host file's
+    # content into a bundle that gets chown'd to foundry-verify.
+    if [ -L "$result_local" ]; then
+      echo "[verify-renovate-prs] PR #$pr_number: result path is a symlink, refusing." >&2
+      runuser -u "$RUNNER_USER" -- rm -rf "$workdir"
+      runuser -u foundry-verify -- gh pr comment "$pr_number" --repo "$REPO" --body \
+        "Nightly e2e re-verification produced an unexpected result path and was not pushed - needs a manual look." \
+        || true
+      continue
+    fi
     cp "$result_local" "$in_bundle"
     chown foundry-verify:foundry-verify "$in_bundle"
     runuser -u "$RUNNER_USER" -- rm -rf "$workdir"
