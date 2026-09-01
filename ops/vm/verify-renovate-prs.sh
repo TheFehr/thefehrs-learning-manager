@@ -47,6 +47,16 @@ set -euo pipefail
 REPO="TheFehr/thefehrs-learning-manager"
 REPO_DIR="${LM_REPO_DIR:-/opt/thefehrs-learning-manager}"
 RUNNER_USER="${LM_RUNNER_USER:-lm-verify-runner}"
+RUNNER_GROUP="${LM_RUNNER_GROUP:-lm-verify-shared}"
+# foundry-playwright >=1.3.2 no longer requires (or reads) a .env file at all
+# - it takes FOUNDRY_USERNAME/PASSWORD/ADMIN_KEY from process.env and writes
+# its own short-lived temp file internally, deleted right after the `docker
+# run` call regardless of success or failure. So there's no file for us to
+# sync or hand-maintain here: lm-verify-runner just sources foundry-playwright's
+# own canonical .env directly (see lm-verify-renovate.service for the
+# one-time setfacl grant giving it read access to exactly that one file - no
+# copy, no drift, no group-shared secret file in this checkout at all).
+FOUNDRY_ENV_SOURCE="${FOUNDRY_ENV_SOURCE:-/opt/foundry-playwright/.env}"
 # Repo-owned rather than /tmp: a world-writable, predictable path there is
 # open to a symlink pre-creation attack from another local user; this path is
 # only writable by these two identities (shared group).
@@ -132,15 +142,27 @@ else
     # identity with no gh token, no SSH key, and no access to
     # foundry-verify's $HOME. Values are passed via `env` rather than
     # interpolated into the script text, so a branch name can't inject
-    # anything into the command run as this identity.
+    # anything into the command run as this identity. FOUNDRY_ENV_SOURCE is
+    # just a path, not a secret - the file it points at is only readable by
+    # this identity via the one-time setfacl grant (see
+    # lm-verify-renovate.service), never copied or group-shared.
     verify_status=0
     runuser -u "$RUNNER_USER" -- env REPO_DIR="$REPO_DIR" BRANCH="$branch" BASE_SHA="$before_sha" \
+      FOUNDRY_ENV_SOURCE="$FOUNDRY_ENV_SOURCE" \
       bash -c '
         set -e
         umask 002
         cd "$REPO_DIR"
         git checkout -f -B "$BRANCH" "$BASE_SHA"
+        # Mirrors .github/actions/setup-and-cache: submodules + generated
+        # external types are required for the build and are not part of a
+        # plain checkout/npm ci.
+        git submodule update --init --recursive
         npm ci
+        npm run generate-types
+        set -a
+        . "$FOUNDRY_ENV_SOURCE"
+        set +a
         npm run test:e2e:verify
       ' || verify_status=$?
 

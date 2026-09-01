@@ -18,8 +18,13 @@
 # access to foundry-verify's $HOME, so a compromised dependency's
 # install/postinstall script (CWE-829) has nothing to steal that could push,
 # merge, or forge commits as this identity. It does get the Foundry VTT test
-# credentials the e2e suite needs, via a group-shared .env that holds no
-# GitHub credentials at all.
+# credentials the e2e suite needs (never GitHub credentials) - as of
+# foundry-playwright >=1.3.2, the library reads those from process.env
+# directly and no longer needs a .env file in the checkout at all, so this
+# job just gives lm-verify-runner a narrow read-only grant on
+# foundry-playwright's own existing .env (see the setfacl line below) and
+# sources it directly. No copy, nothing to drift when a credential rotates,
+# and no group-shared secret file sitting in this checkout.
 #
 # One-time setup:
 #   sudo useradd --system --create-home --shell /usr/sbin/nologin lm-verify-runner
@@ -49,14 +54,11 @@
 #   sudo chgrp -R lm-verify-shared /opt/thefehrs-learning-manager
 #   sudo chmod -R g+w /opt/thefehrs-learning-manager
 #
-#   # .env: Foundry VTT test credentials only (FOUNDRY_USERNAME/PASSWORD/
-#   # ADMIN_KEY/LICENSE_KEY/PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH) - same
-#   # values as foundry-playwright's own .env, but never the gh token or SSH
-#   # key, which live only in foundry-verify's $HOME and are never copied
-#   # here. Group-readable so lm-verify-runner can use it too.
-#   sudo cp /opt/foundry-playwright/.env /opt/thefehrs-learning-manager/.env
-#   sudo chown foundry-verify:lm-verify-shared /opt/thefehrs-learning-manager/.env
-#   sudo chmod 640 /opt/thefehrs-learning-manager/.env
+#   # Narrow read-only grant on foundry-playwright's existing .env (owned
+#   # foundry-verify:foundry-verify, mode 600, untouched otherwise) - the
+#   # ONLY access lm-verify-runner gets to it. Requires the `acl` package.
+#   sudo apt install -y acl
+#   sudo setfacl -m u:lm-verify-runner:r /opt/foundry-playwright/.env
 #
 # No docker-group membership for either user, same reasoning as
 # foundry-verify.service: this job fetches and executes third-party
