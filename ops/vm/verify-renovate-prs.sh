@@ -48,11 +48,16 @@ set -euo pipefail
 # directly - every actual operation is dispatched to the correct identity
 # via `runuser`.
 #
-# Requires FOUNDRY_USERNAME/PASSWORD/ADMIN_KEY in a .env readable by
-# lm-verify-runner via a narrow setfacl grant (see lm-verify-renovate.service
-# for why no copy is kept here - foundry-playwright >=1.3.2 only needs these
-# as real environment variables, no .env file in either checkout), and a
-# `gh auth login`'d token with repo scope local to foundry-verify only.
+# Requires FOUNDRY_USERNAME/PASSWORD/ADMIN_KEY in foundry-playwright's own
+# .env (foundry-verify's account, real credentials - not a disposable test
+# instance). lm-verify-runner is never granted standing access to that file:
+# root copies it into the runner's workdir as a disposable, per-run file,
+# and ONLY right before the one step that actually needs it (after
+# `npm ci`/`generate-types` have already run) - a compromised dependency's
+# lifecycle scripts get no window to read it, since the identity that runs
+# them has no access to Foundry credentials at all until after they're done.
+# Also requires a `gh auth login`'d token with repo scope local to
+# foundry-verify only.
 
 REPO="TheFehr/thefehrs-learning-manager"
 FV_DIR="${LM_FV_DIR:-/opt/thefehrs-learning-manager}"
@@ -159,40 +164,62 @@ else
     before_sha=$(runuser -u foundry-verify -- git -C "$FV_DIR" rev-parse "origin/$branch")
     chown "$RUNNER_USER:$RUNNER_USER" "$out_bundle"
 
-    # --- lm-verify-runner: clone the bundle into its own workdir, verify ---
+    # --- lm-verify-runner, phase A: clone, checkout, build - NO credentials ---
     # Everything that executes candidate-branch code happens here, under an
     # identity with no gh token, no SSH key, and no filesystem access to
     # FV_DIR or foundry-verify's $HOME at all - not via a shared .git, not
     # via anything else. Values are passed via `env` rather than
     # interpolated into the script text, so a branch name can't inject
-    # anything into the command run as this identity.
+    # anything into the command run as this identity. Deliberately no
+    # Foundry credentials anywhere in this phase: npm ci and generate-types
+    # run dependency lifecycle scripts, and this identity has nothing worth
+    # stealing until phase B explicitly stages a disposable copy.
     workdir=$(runuser -u "$RUNNER_USER" -- mktemp -d)
-    verify_status=0
-    runuser -u "$RUNNER_USER" -- env WORKDIR="$workdir" BUNDLE="$out_bundle" BASE_SHA="$before_sha" \
-      FOUNDRY_ENV_SOURCE="$FOUNDRY_ENV_SOURCE" \
-      bash -c '
-        set -e
-        umask 077
-        git clone "$BUNDLE" "$WORKDIR"
-        cd "$WORKDIR"
-        git checkout -f -B candidate "$BASE_SHA"
-        # Mirrors .github/actions/setup-and-cache: submodules + generated
-        # external types are required for the build and are not part of a
-        # plain checkout/npm ci.
-        git submodule update --init --recursive
-        npm ci
-        npm run generate-types
-        set -a
-        . "$FOUNDRY_ENV_SOURCE"
-        set +a
-        npm run test:e2e:verify
-      ' || verify_status=$?
+    status=0
+    runuser -u "$RUNNER_USER" -- env WORKDIR="$workdir" BUNDLE="$out_bundle" BASE_SHA="$before_sha" bash -c '
+      set -e
+      umask 077
+      git clone "$BUNDLE" "$WORKDIR"
+      cd "$WORKDIR"
+      git checkout -f -B candidate "$BASE_SHA"
+      # Mirrors .github/actions/setup-and-cache: submodules + generated
+      # external types are required for the build and are not part of a
+      # plain checkout/npm ci.
+      git submodule update --init --recursive
+      npm ci
+      npm run generate-types
+    ' || status=$?
     rm -f "$out_bundle"
 
-    if [ "$verify_status" -ne 0 ]; then
-      echo "[verify-renovate-prs] PR #$pr_number: verify failed (status $verify_status), leaving branch alone."
+    if [ "$status" -eq 0 ]; then
+      # --- root: stage a disposable, per-run copy of the Foundry credentials ---
+      # Not a standing grant - lm-verify-runner has no access to these at
+      # all until this exact moment, right before the one step that
+      # actually needs them. Copied fresh every run rather than handed a
+      # persistent ACL on the canonical file, so there's nothing left to
+      # revoke: this copy only ever exists inside $workdir, which gets
+      # deleted below regardless of outcome.
+      creds_file="$workdir/.env-creds"
+      cp "$FOUNDRY_ENV_SOURCE" "$creds_file"
+      chown "$RUNNER_USER:$RUNNER_USER" "$creds_file"
+      chmod 600 "$creds_file"
+
+      # --- lm-verify-runner, phase B: the actual e2e suite, now credentialed ---
+      runuser -u "$RUNNER_USER" -- env WORKDIR="$workdir" CREDS="$creds_file" bash -c '
+        set -e
+        cd "$WORKDIR"
+        set -a
+        . "$CREDS"
+        set +a
+        npm run test:e2e:verify
+      ' || status=$?
+      shred -u "$creds_file" 2>/dev/null || rm -f "$creds_file"
+    fi
+
+    if [ "$status" -ne 0 ]; then
+      echo "[verify-renovate-prs] PR #$pr_number: verify failed (status $status), leaving branch alone."
       runuser -u foundry-verify -- gh pr comment "$pr_number" --repo "$REPO" --body \
-        "Nightly e2e re-verification failed for this update (exit $verify_status). Needs a manual look before it can merge - see the VM's verify-renovate-prs log for details." \
+        "Nightly e2e re-verification failed for this update (exit $status). Needs a manual look before it can merge - see the VM's verify-renovate-prs log for details." \
         || true
       runuser -u "$RUNNER_USER" -- rm -rf "$workdir"
       continue
@@ -212,26 +239,58 @@ else
     fi
 
     # --- lm-verify-runner: export just the new commit(s) as a result bundle ---
-    runuser -u "$RUNNER_USER" -- env WORKDIR="$workdir" OUT="$in_bundle" BASE_SHA="$before_sha" bash -c '
+    # Written into the runner's own workdir, not directly into HANDOFF_DIR:
+    # HANDOFF_DIR is root-owned mode 700, so lm-verify-runner has no
+    # permission to create anything there directly. Root copies it out
+    # below, mirroring how the candidate bundle crossed in the other
+    # direction.
+    result_local="$workdir/result.bundle"
+    runuser -u "$RUNNER_USER" -- env WORKDIR="$workdir" OUT="$result_local" BASE_SHA="$before_sha" bash -c '
       set -e
       cd "$WORKDIR"
       git bundle create "$OUT" "$BASE_SHA..HEAD"
     '
-    runuser -u "$RUNNER_USER" -- rm -rf "$workdir"
+    cp "$result_local" "$in_bundle"
     chown foundry-verify:foundry-verify "$in_bundle"
+    runuser -u "$RUNNER_USER" -- rm -rf "$workdir"
 
-    # --- Back to foundry-verify: pull the verified commit in, push, merge ---
+    # --- Back to foundry-verify: validate, pull the verified commit in, push ---
     # FV_DIR was never touched by lm-verify-runner, so running git here
-    # carries none of the hook-hijack risk a shared checkout would.
+    # carries none of the hook-hijack risk a shared checkout would. The
+    # bundle's CONTENT still came from an untrusted identity though - a
+    # compromised dependency could have created extra commits during phase
+    # A or B - so refuse to merge unless it's exactly the one expected
+    # .e2e-verification-only commit, before trusting it with a real push.
+    merge_status=0
     runuser -u foundry-verify -- env FV_DIR="$FV_DIR" BUNDLE="$in_bundle" BRANCH="$branch" BASE_SHA="$before_sha" bash -c '
       set -e
       cd "$FV_DIR"
       git checkout -f -B "$BRANCH" "$BASE_SHA"
       git fetch "$BUNDLE" "HEAD:refs/heads/__lm_verified"
+      commit_count=$(git rev-list --count "$BASE_SHA..__lm_verified")
+      if [ "$commit_count" -ne 1 ]; then
+        echo "Refusing to merge: expected exactly 1 new commit, got $commit_count" >&2
+        git branch -D __lm_verified
+        exit 1
+      fi
+      changed_files=$(git diff --name-only "$BASE_SHA" __lm_verified)
+      if [ "$changed_files" != ".e2e-verification" ]; then
+        echo "Refusing to merge: expected only .e2e-verification to change, got: $changed_files" >&2
+        git branch -D __lm_verified
+        exit 1
+      fi
       git merge --ff-only __lm_verified
       git branch -D __lm_verified
-    '
+    ' || merge_status=$?
     rm -f "$in_bundle"
+
+    if [ "$merge_status" -ne 0 ]; then
+      echo "[verify-renovate-prs] PR #$pr_number: result bundle failed validation, refusing to push."
+      runuser -u foundry-verify -- gh pr comment "$pr_number" --repo "$REPO" --body \
+        "Nightly e2e re-verification produced unexpected commit content and was not pushed - needs a manual look." \
+        || true
+      continue
+    fi
 
     if ! runuser -u foundry-verify -- git -C "$FV_DIR" push origin "HEAD:$branch"; then
       echo "[verify-renovate-prs] PR #$pr_number: push rejected (branch moved under us, likely a Renovate rebase) - skipping, will retry next run."

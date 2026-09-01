@@ -48,19 +48,18 @@
 #   # from a bundle, so no signing identity is needed here at all)
 #
 #   # FV_DIR: foundry-verify's own private checkout. lm-verify-runner gets
-#   # NO access to this directory, not even read - the bundle handoff in
-#   # verify-renovate-prs.sh is the only channel between the two identities.
+#   # NO standing access to this directory, or to foundry-playwright's .env -
+#   # not even read. verify-renovate-prs.sh stages the Foundry credentials as
+#   # a disposable per-run copy (root reads foundry-playwright's .env - it
+#   # can read anything - and writes a fresh, shredded-after-use copy into
+#   # lm-verify-runner's own workdir), rather than granting any persistent
+#   # ACL: a compromised dependency's install/postinstall script would
+#   # otherwise have a standing read grant on real Foundry credentials for
+#   # the entire time it runs, well before the step that actually needs them.
 #   sudo mkdir -p /opt/thefehrs-learning-manager
 #   sudo chown foundry-verify:foundry-verify /opt/thefehrs-learning-manager
 #   sudo chmod 700 /opt/thefehrs-learning-manager
 #   sudo -u foundry-verify git clone https://github.com/TheFehr/thefehrs-learning-manager.git /opt/thefehrs-learning-manager
-#
-#   # Narrow read-only grant on foundry-playwright's existing .env (owned
-#   # foundry-verify:foundry-verify, mode 600, untouched otherwise) - the
-#   # ONLY access lm-verify-runner gets to anything of foundry-verify's.
-#   # Requires the `acl` package.
-#   sudo apt install -y acl
-#   sudo setfacl -m u:lm-verify-runner:r /opt/foundry-playwright/.env
 #
 # No docker-group membership for lm-verify-runner, same reasoning as
 # foundry-verify.service: this job fetches and executes third-party
