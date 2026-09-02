@@ -120,7 +120,14 @@ trap '
     runuser -u "$RUNNER_USER" -- rm -rf "$workdir" 2>/dev/null || true
   fi
   if [ -n "${creds_dir:-}" ]; then
-    [ -n "${creds_file:-}" ] && shred -u "$creds_file" 2>/dev/null || true
+    # Only shred a genuine regular file, never follow a symlink here
+    # (shred, like most tools, dereferences by default) - the 750/640
+    # permissions set above already stop lm-verify-runner from replacing
+    # this path with one, but this is a cheap second layer. rm -rf does
+    # not dereference on removal, so it needs no such guard.
+    if [ -n "${creds_file:-}" ] && [ -f "$creds_file" ] && [ ! -L "$creds_file" ]; then
+      shred -u "$creds_file" 2>/dev/null || true
+    fi
     rm -rf "$creds_dir" 2>/dev/null || true
   fi
 ' EXIT
@@ -240,10 +247,23 @@ else
       # KillMode=control-group scope above, its entire process tree -
       # including anything that tried to detach and linger - is guaranteed
       # gone by the time this runs, not just "probably exited".
+      #
+      # Deliberately kept root-owned, read-only for lm-verify-runner - never
+      # `chown`'d to it. Phase B only needs to read this file (via `. `),
+      # never write it; if it had write access to the file or its
+      # containing directory, it could replace $creds_file with a symlink
+      # to an arbitrary host path before the cleanup below runs, and that
+      # cleanup - running as root - would follow it. 750 (group r-x) on the
+      # directory, group-owned by lm-verify-runner's own group, so only it
+      # (not every local user) can traverse in and list the one entry;
+      # actual content access is still gated by the file's own 640 below.
       creds_dir=$(mktemp -d)
       creds_file="$creds_dir/env"
       cp "$FOUNDRY_ENV_SOURCE" "$creds_file"
-      chown -R "$RUNNER_USER:$RUNNER_USER" "$creds_dir"
+      chown root:"$RUNNER_USER" "$creds_dir"
+      chmod 750 "$creds_dir"
+      chown root:"$RUNNER_USER" "$creds_file"
+      chmod 640 "$creds_file"
 
       # --- lm-verify-runner, phase B: the actual e2e suite, now credentialed ---
       # Same KillMode=control-group scope as phase A, so nothing here can
@@ -260,7 +280,10 @@ else
           set +a
           npm run test:e2e:verify
         ' || status=$?
-      shred -u "$creds_file" 2>/dev/null || true
+      # Same symlink guard as the EXIT trap - see its comment.
+      if [ -f "$creds_file" ] && [ ! -L "$creds_file" ]; then
+        shred -u "$creds_file" 2>/dev/null || true
+      fi
       rm -rf "$creds_dir"
     fi
 
