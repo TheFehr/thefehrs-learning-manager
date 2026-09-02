@@ -160,6 +160,21 @@ runuser -u foundry-verify -- env FV_DIR="$FV_DIR" bash -c '
   git pull --ff-only origin main
 '
 
+# Force-removes any lingering foundry-playwright-* container before we
+# delete $workdir. Defense in depth for a real failure mode hit while
+# testing this automation: a container whose /data is a bind mount into
+# $workdir survives an npm/orchestrator error path more often than it
+# should (e.g. https://github.com/TheFehr/foundry-playwright/pull/92 -
+# process.exit() skipping cleanup on failure, since fixed upstream), and
+# deleting $workdir out from under a still-running container leaves it
+# with a dangling "/deleted" mount rather than actually freeing anything.
+# Best-effort: never let a cleanup step abort the script via set -e.
+force_remove_foundry_containers() {
+  runuser -u "$RUNNER_USER" -- bash -c '
+    podman ps -aq --filter "name=foundry-playwright-" | xargs -r podman rm -f
+  ' >/dev/null 2>&1 || true
+}
+
 is_in_push_blackout() {
   local tz_day tz_hm
   tz_day=$(TZ="Europe/Berlin" date +%u)
@@ -309,6 +324,7 @@ else
       runuser -u foundry-verify -- gh pr comment "$pr_number" --repo "$REPO" --body \
         "Nightly e2e re-verification failed for this update (exit $status). Needs a manual look before it can merge - see the VM's verify-renovate-prs log for details." \
         || true
+      force_remove_foundry_containers
       runuser -u "$RUNNER_USER" -- rm -rf "$workdir"
       continue
     fi
@@ -316,12 +332,14 @@ else
     runner_head=$(runuser -u "$RUNNER_USER" -- git -C "$workdir" rev-parse HEAD)
     if [ "$runner_head" = "$before_sha" ]; then
       echo "[verify-renovate-prs] PR #$pr_number: verify passed but produced no commit (hash already matched?), skipping."
+      force_remove_foundry_containers
       runuser -u "$RUNNER_USER" -- rm -rf "$workdir"
       continue
     fi
 
     if is_in_push_blackout; then
       echo "[verify-renovate-prs] PR #$pr_number: verified, but within the push blackout - leaving unpushed for tonight."
+      force_remove_foundry_containers
       runuser -u "$RUNNER_USER" -- rm -rf "$workdir"
       continue
     fi
@@ -344,6 +362,7 @@ else
     # content into a bundle that gets chown'd to foundry-verify.
     if [ -L "$result_local" ]; then
       echo "[verify-renovate-prs] PR #$pr_number: result path is a symlink, refusing." >&2
+      force_remove_foundry_containers
       runuser -u "$RUNNER_USER" -- rm -rf "$workdir"
       runuser -u foundry-verify -- gh pr comment "$pr_number" --repo "$REPO" --body \
         "Nightly e2e re-verification produced an unexpected result path and was not pushed - needs a manual look." \
@@ -352,6 +371,7 @@ else
     fi
     cp "$result_local" "$in_bundle"
     chown foundry-verify:foundry-verify "$in_bundle"
+    force_remove_foundry_containers
     runuser -u "$RUNNER_USER" -- rm -rf "$workdir"
 
     # --- Back to foundry-verify: validate, pull the verified commit in, push ---
