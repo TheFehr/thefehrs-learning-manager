@@ -31,7 +31,13 @@ set -euo pipefail
 # It has no gh token, no SSH key, and no filesystem access to FV_DIR or
 # foundry-verify's $HOME at all - not even read access. A compromised
 # dependency's install/postinstall script (CWE-829) has nothing to steal
-# that could push, merge, or forge commits as foundry-verify.
+# that could push, merge, or forge commits as foundry-verify. Both phases
+# it runs (build, then the credentialed e2e run) execute as a transient
+# systemd scope with KillMode=control-group rather than plain `runuser`,
+# so a lifecycle script that tries to detach and linger past its phase -
+# to still be running (same UID) once the next phase stages credentials -
+# gets killed with everything else in that cgroup when the phase ends,
+# regardless of how it tried to escape its process group.
 #
 # Critically, the two identities never share a working .git directory.
 # Sharing one (even via group permissions, never sharing UIDs) would let a
@@ -181,54 +187,74 @@ else
     # Everything that executes candidate-branch code happens here, under an
     # identity with no gh token, no SSH key, and no filesystem access to
     # FV_DIR or foundry-verify's $HOME at all - not via a shared .git, not
-    # via anything else. Values are passed via `env` rather than
+    # via anything else. Values are passed via `--setenv` rather than
     # interpolated into the script text, so a branch name can't inject
     # anything into the command run as this identity. Deliberately no
     # Foundry credentials anywhere in this phase: npm ci and generate-types
     # run dependency lifecycle scripts, and this identity has nothing worth
     # stealing until phase B explicitly stages a disposable copy.
+    #
+    # Run as a transient systemd scope (KillMode=control-group), not plain
+    # runuser: a compromised dependency's lifecycle script could double-fork
+    # or setsid to detach and keep running as this UID after this phase
+    # returns, then read phase B's staged credentials once they exist -
+    # temporal separation alone only stops code that runs synchronously and
+    # exits. A daemonizing process escapes its process group (reparented to
+    # PID 1) but not the cgroup it started in; systemd kills every process
+    # still in that cgroup when the unit is done, closing that off
+    # regardless of how it tried to detach.
     workdir=$(runuser -u "$RUNNER_USER" -- mktemp -d)
     status=0
-    runuser -u "$RUNNER_USER" -- env WORKDIR="$workdir" BUNDLE="$out_bundle" BASE_SHA="$before_sha" bash -c '
-      set -e
-      umask 077
-      git clone "$BUNDLE" "$WORKDIR"
-      cd "$WORKDIR"
-      git checkout -f -B candidate "$BASE_SHA"
-      # Mirrors .github/actions/setup-and-cache: submodules + generated
-      # external types are required for the build and are not part of a
-      # plain checkout/npm ci.
-      git submodule update --init --recursive
-      npm ci
-      npm run generate-types
-    ' || status=$?
+    systemd-run --uid="$RUNNER_USER" --gid="$RUNNER_USER" --pipe --wait --collect \
+      --property=KillMode=control-group \
+      --setenv=WORKDIR="$workdir" --setenv=BUNDLE="$out_bundle" --setenv=BASE_SHA="$before_sha" \
+      bash -c '
+        set -e
+        umask 077
+        git clone "$BUNDLE" "$WORKDIR"
+        cd "$WORKDIR"
+        git checkout -f -B candidate "$BASE_SHA"
+        # Mirrors .github/actions/setup-and-cache: submodules + generated
+        # external types are required for the build and are not part of a
+        # plain checkout/npm ci.
+        git submodule update --init --recursive
+        npm ci
+        npm run generate-types
+      ' || status=$?
     rm -f "$out_bundle"
 
     if [ "$status" -eq 0 ]; then
       # --- root: stage a disposable, per-run copy of the Foundry credentials ---
       # In a fresh mktemp -d directory, NOT at a fixed name inside
-      # $workdir: phase A (already finished by this point) is
-      # candidate-controlled, and a fixed path there could have been
-      # pre-planted as a symlink to an arbitrary host file. Root's cp/chown
-      # would then follow it - cp writing credential content to whatever
-      # it points at, chown (no -h) handing ownership of that arbitrary
-      # file to lm-verify-runner. mktemp -d creates an unpredictable path
-      # atomically, after phase A's process has already exited, so there's
-      # no window for it to have pre-planted anything at this exact name.
+      # $workdir: phase A is candidate-controlled, and a fixed path there
+      # could have been pre-planted as a symlink to an arbitrary host file.
+      # Root's cp/chown would then follow it - cp writing credential
+      # content to whatever it points at, chown (no -h) handing ownership
+      # of that arbitrary file to lm-verify-runner. mktemp -d creates an
+      # unpredictable path atomically, and since phase A ran as a
+      # KillMode=control-group scope above, its entire process tree -
+      # including anything that tried to detach and linger - is guaranteed
+      # gone by the time this runs, not just "probably exited".
       creds_dir=$(mktemp -d)
       creds_file="$creds_dir/env"
       cp "$FOUNDRY_ENV_SOURCE" "$creds_file"
       chown -R "$RUNNER_USER:$RUNNER_USER" "$creds_dir"
 
       # --- lm-verify-runner, phase B: the actual e2e suite, now credentialed ---
-      runuser -u "$RUNNER_USER" -- env WORKDIR="$workdir" CREDS="$creds_file" bash -c '
-        set -e
-        cd "$WORKDIR"
-        set -a
-        . "$CREDS"
-        set +a
-        npm run test:e2e:verify
-      ' || status=$?
+      # Same KillMode=control-group scope as phase A, so nothing here can
+      # linger past this phase either - relevant since this is the one
+      # phase that actually has the credentials in its environment.
+      systemd-run --uid="$RUNNER_USER" --gid="$RUNNER_USER" --pipe --wait --collect \
+        --property=KillMode=control-group \
+        --setenv=WORKDIR="$workdir" --setenv=CREDS="$creds_file" \
+        bash -c '
+          set -e
+          cd "$WORKDIR"
+          set -a
+          . "$CREDS"
+          set +a
+          npm run test:e2e:verify
+        ' || status=$?
       shred -u "$creds_file" 2>/dev/null || true
       rm -rf "$creds_dir"
     fi
@@ -352,6 +378,11 @@ fi
 # otherwise never be retried, since such a PR no longer matches the
 # verify-candidate query once check-e2e turns green. Cheap and safe: no
 # checkout, no code execution, just a credentialed gh call.
+#
+# Same one-merge-per-run limit as the main loop, for the same reason: a
+# merge changes package-lock.json on main, which makes Renovate rebase
+# every other open PR - enabling auto-merge on a second one in the same run
+# risks it merging against a base that's about to be invalidated.
 stuck_green=$(runuser -u foundry-verify -- gh pr list --repo "$REPO" --author "app/renovate" --state open \
   --json number,mergeable,autoMergeRequest,statusCheckRollup --jq '
     .[] | select(.mergeable == "MERGEABLE") | select(.autoMergeRequest == null) |
@@ -361,8 +392,10 @@ stuck_green=$(runuser -u foundry-verify -- gh pr list --repo "$REPO" --author "a
   ')
 for pr_number in $stuck_green; do
   echo "[verify-renovate-prs] PR #$pr_number: already green but auto-merge not enabled, retrying."
-  runuser -u foundry-verify -- gh pr merge "$pr_number" --repo "$REPO" --auto --squash --delete-branch ||
-    echo "[verify-renovate-prs] PR #$pr_number: retry also failed, will try again next run."
+  if runuser -u foundry-verify -- gh pr merge "$pr_number" --repo "$REPO" --auto --squash --delete-branch; then
+    break
+  fi
+  echo "[verify-renovate-prs] PR #$pr_number: retry also failed, will try again next run."
 done
 
 exit 0
