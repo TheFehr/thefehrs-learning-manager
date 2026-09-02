@@ -87,7 +87,16 @@ MAX_ATTEMPTS_PER_RUN=3
 
 mkdir -p "$HANDOFF_DIR"
 chown root:root "$HANDOFF_DIR"
-chmod 700 "$HANDOFF_DIR"
+# 711, not 700: directory traversal is checked independently of a file's
+# own ownership at every path component, so even after root chowns a
+# bundle inside here to whichever identity needs it, that identity still
+# couldn't open it through a 700 (root-only, no-traverse) directory.
+# --x for group/other allows traversal to an exact, known filename without
+# granting listing (no r) or write (no w) - neither identity can create,
+# rename, or enumerate entries here, only root can; each individual
+# bundle's own permissions (set via chown below) remain the real
+# per-file access control.
+chmod 711 "$HANDOFF_DIR"
 
 exec 200>"$LOCK_FILE"
 if ! flock -n 200; then
@@ -184,8 +193,14 @@ else
 
     # --- foundry-verify: fetch the candidate branch, export it as a bundle ---
     # A bundle is inert packed object data - nothing in it can plant a hook,
-    # unlike handing over a live .git directory would.
-    runuser -u foundry-verify -- env FV_DIR="$FV_DIR" BRANCH="$branch" OUT="$out_bundle" bash -c '
+    # unlike handing over a live .git directory would. Written into
+    # foundry-verify's own scratch file first, not directly into
+    # $out_bundle: HANDOFF_DIR only grants traversal (711), not write, to
+    # non-root - foundry-verify, like lm-verify-runner, has no permission
+    # to create anything there directly. Root copies it in below, the same
+    # pattern already used for the result bundle in the other direction.
+    fv_bundle=$(runuser -u foundry-verify -- mktemp)
+    runuser -u foundry-verify -- env FV_DIR="$FV_DIR" BRANCH="$branch" OUT="$fv_bundle" bash -c '
       set -e
       cd "$FV_DIR"
       git fetch origin "$BRANCH"
@@ -193,7 +208,9 @@ else
       git bundle create "$OUT" verify-candidate
     '
     before_sha=$(runuser -u foundry-verify -- git -C "$FV_DIR" rev-parse "origin/$branch")
+    cp "$fv_bundle" "$out_bundle"
     chown "$RUNNER_USER:$RUNNER_USER" "$out_bundle"
+    runuser -u foundry-verify -- rm -f "$fv_bundle"
 
     # --- lm-verify-runner, phase A: clone, checkout, build - NO credentials ---
     # Everything that executes candidate-branch code happens here, under an
@@ -311,10 +328,10 @@ else
 
     # --- lm-verify-runner: export just the new commit(s) as a result bundle ---
     # Written into the runner's own workdir, not directly into HANDOFF_DIR:
-    # HANDOFF_DIR is root-owned mode 700, so lm-verify-runner has no
-    # permission to create anything there directly. Root copies it out
-    # below, mirroring how the candidate bundle crossed in the other
-    # direction.
+    # HANDOFF_DIR only grants traversal (711), not write, to non-root, so
+    # lm-verify-runner has no permission to create anything there directly.
+    # Root copies it out below, mirroring how the candidate bundle crossed
+    # in the other direction.
     result_local="$workdir/result.bundle"
     runuser -u "$RUNNER_USER" -- env WORKDIR="$workdir" OUT="$result_local" BASE_SHA="$before_sha" bash -c '
       set -e
