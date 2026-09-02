@@ -103,12 +103,13 @@ fi
 # just operate on root's own (irrelevant, empty) namespace.
 #
 # Also removes the current candidate's $workdir (a full checkout +
-# node_modules) if one is in flight. The main loop already removes it at
-# every continue/success point, but a crash under `set -e` between creating
-# it and reaching one of those, or a TimeoutStartSec kill, would otherwise
-# skip all of them and leak it - and each leaked workdir brings the next
-# run closer to tripping the disk-usage guard above. Single-quoted so
-# $workdir is read at trap-fire time, not when the trap is registered.
+# node_modules) and $creds_dir (the disposable Foundry credential copy) if
+# either is in flight. The main loop already removes both at every relevant
+# point, but a crash under `set -e` mid-phase, or a TimeoutStartSec kill,
+# would otherwise skip all of them - leaking $workdir (disk pressure,
+# eventually trips the guard below) and, more seriously, leaving a real
+# credential copy sitting on disk indefinitely. Single-quoted so both are
+# read at trap-fire time, not when the trap is registered.
 #
 # Runs via EXIT trap rather than as a last step so all of this still fires
 # if an earlier command aborts the script under `set -e`.
@@ -117,6 +118,10 @@ trap '
   rm -f "$HANDOFF_DIR"/*.bundle 2>/dev/null || true
   if [ -n "${workdir:-}" ]; then
     runuser -u "$RUNNER_USER" -- rm -rf "$workdir" 2>/dev/null || true
+  fi
+  if [ -n "${creds_dir:-}" ]; then
+    [ -n "${creds_file:-}" ] && shred -u "$creds_file" 2>/dev/null || true
+    rm -rf "$creds_dir" 2>/dev/null || true
   fi
 ' EXIT
 
