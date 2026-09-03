@@ -249,7 +249,18 @@ else
     # regardless of how it tried to detach.
     workdir=$(runuser -u "$RUNNER_USER" -- mktemp -d)
     status=0
-    systemd-run --uid="$RUNNER_USER" --gid="$RUNNER_USER" --pipe --wait --collect \
+    # --user -M "$RUNNER_USER@", not --uid=/--gid=: dispatching to the root
+    # *system* manager via --uid= leaves /proc/self/loginuid unset for the
+    # spawned process, which breaks rootless Podman's --userns=keep-id
+    # identity-mapping of the invoking UID (verified directly on this VM -
+    # it produced a bogus 0:997 mapping instead of identity-mapping 997).
+    # Routing through lm-verify-runner's own (lingering - see
+    # lm-verify-renovate.service's setup notes) user manager instance
+    # instead gives the transient scope a real loginuid matching the
+    # runner's actual UID, and keep-id maps correctly. Confirmed
+    # KillMode=control-group still reaps a detached/disowned process under
+    # this form the same as under --uid=.
+    systemd-run --user -M "${RUNNER_USER}@" --pipe --wait --collect \
       --property=KillMode=control-group \
       --setenv=WORKDIR="$workdir" --setenv=BUNDLE="$out_bundle" --setenv=BASE_SHA="$before_sha" \
       bash -c '
@@ -300,8 +311,11 @@ else
       # --- lm-verify-runner, phase B: the actual e2e suite, now credentialed ---
       # Same KillMode=control-group scope as phase A, so nothing here can
       # linger past this phase either - relevant since this is the one
-      # phase that actually has the credentials in its environment.
-      systemd-run --uid="$RUNNER_USER" --gid="$RUNNER_USER" --pipe --wait --collect \
+      # phase that actually has the credentials in its environment. Same
+      # --user -M form as phase A, for the same loginuid/keep-id reason -
+      # this is the phase that actually starts the real Foundry container,
+      # so a broken UID mapping here would matter even more.
+      systemd-run --user -M "${RUNNER_USER}@" --pipe --wait --collect \
         --property=KillMode=control-group \
         --setenv=WORKDIR="$workdir" --setenv=CREDS="$creds_file" \
         bash -c '
