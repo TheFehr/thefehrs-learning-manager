@@ -112,19 +112,29 @@ fi
 # just operate on root's own (irrelevant, empty) namespace.
 #
 # Also removes the current candidate's $workdir (a full checkout +
-# node_modules) and $creds_dir (the disposable Foundry credential copy) if
-# either is in flight. The main loop already removes both at every relevant
-# point, but a crash under `set -e` mid-phase, or a TimeoutStartSec kill,
-# would otherwise skip all of them - leaking $workdir (disk pressure,
-# eventually trips the guard below) and, more seriously, leaving a real
-# credential copy sitting on disk indefinitely. Single-quoted so both are
-# read at trap-fire time, not when the trap is registered.
+# node_modules), $creds_dir (the disposable Foundry credential copy), and
+# $fv_bundle (foundry-verify's own scratch bundle, written outside
+# HANDOFF_DIR before being copied in - see the candidate-bundle-creation
+# comment below for why) if any is in flight. The main loop already
+# removes all three at every relevant point, but a crash under `set -e`
+# mid-phase, or a TimeoutStartSec kill, would otherwise skip them -
+# leaking disk (eventually trips the guard below) and, more seriously for
+# $creds_dir, leaving a real credential copy sitting on disk indefinitely.
+# Single-quoted so all three are read at trap-fire time, not when the trap
+# is registered.
 #
 # Runs via EXIT trap rather than as a last step so all of this still fires
 # if an earlier command aborts the script under `set -e`.
 trap '
   runuser -u "$RUNNER_USER" -- podman system prune -f >/dev/null 2>&1 || true
   rm -f "$HANDOFF_DIR"/*.bundle 2>/dev/null || true
+  if [ -n "${fv_bundle:-}" ]; then
+    # root, not runuser -u foundry-verify: root bypasses both the file
+    # owner check and /tmp'"'"'s sticky bit for unlink, so a plain rm here
+    # works regardless of whose mktemp created it - same as the
+    # HANDOFF_DIR bundle cleanup just above.
+    rm -f "$fv_bundle" 2>/dev/null || true
+  fi
   if [ -n "${workdir:-}" ]; then
     runuser -u "$RUNNER_USER" -- rm -rf "$workdir" 2>/dev/null || true
   fi
