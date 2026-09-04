@@ -6,15 +6,6 @@ set -euo pipefail
 # on every host this runs on - the VM never had a working chromium at any
 # of the paths a hardcoded PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH could assume.
 # Foundry already runs containerized; the browser runs the same way now.
-#
-# Mounts a sanitized COPY of the checkout, never the checkout itself: this
-# can run against a Renovate candidate branch whose `npm ci` may have
-# executed untrusted lifecycle scripts, and the e2e test files themselves
-# are also candidate-controlled - mounting the live tree directly would
-# hand a modified test read access to anything a compromised dependency
-# planted there (e.g. a fake .env), even though no real credential
-# currently lives in this tree. Excluding .env-shaped files explicitly is
-# cheap insurance against relying on that staying true.
 PLAYWRIGHT_VERSION=$(node -p "require('./package-lock.json').packages['node_modules/@playwright/test'].version")
 IMAGE="mcr.microsoft.com/playwright:v${PLAYWRIGHT_VERSION}-noble"
 
@@ -26,22 +17,20 @@ IMAGE="mcr.microsoft.com/playwright:v${PLAYWRIGHT_VERSION}-noble"
 # own separate handling.
 CONTAINER_NAME="foundry-playwright-e2e-runner"
 
-REPORT_DIR="${PLAYWRIGHT_HTML_REPORT:-playwright-report}"
-RESULTS_DIR="${PLAYWRIGHT_OUTPUT_DIR:-test-results}"
-
-sandbox=$(mktemp -d)
-trap '
-  ec=$?
-  # Copy artifacts back out before the sandbox they live in is destroyed -
-  # a failed run with nothing left to inspect afterward defeats the point
-  # of running verification at all.
-  [ -d "$sandbox/$RESULTS_DIR" ] && rsync -a "$sandbox/$RESULTS_DIR/" "$PWD/$RESULTS_DIR/" 2>/dev/null
-  [ -d "$sandbox/$REPORT_DIR" ] && rsync -a "$sandbox/$REPORT_DIR/" "$PWD/$REPORT_DIR/" 2>/dev/null
-  rm -rf "$sandbox"
-  exit "$ec"
-' EXIT
-
-rsync -a --exclude='.env' --exclude='.env.*' "$PWD/" "$sandbox/"
+# This can run against a Renovate candidate branch whose `npm ci` may have
+# executed untrusted lifecycle scripts, and the e2e test files themselves
+# are also candidate-controlled - mounting the checkout as-is would hand a
+# modified test read access to anything a compromised dependency planted
+# there, e.g. a fake .env (playwright.config.ts loads one if present). No
+# real credential currently lives in this tree, but removing anything
+# .env-shaped closes that off at the source rather than relying on that
+# staying true. An earlier version of this script instead rsync'd the
+# whole checkout into a throwaway sandbox to avoid mutating the tree at
+# all - safer in principle, but this VM's /tmp is a small (3GB) tmpfs, and
+# duplicating node_modules plus full submodule checkouts (dnd5e, tidy-5e)
+# onto it reliably ran it out of space. Deleting the one actually-risky
+# path is cheaper and doesn't have that failure mode.
+rm -f .env .env.*
 
 # host.containers.internal, not --network=host: this container runs
 # candidate-branch test code, and --network=host would join the real host
@@ -55,7 +44,7 @@ rsync -a --exclude='.env' --exclude='.env.*' "$PWD/" "$sandbox/"
 container_foundry_url="${FOUNDRY_URL/127.0.0.1/host.containers.internal}"
 
 podman run --rm --name "$CONTAINER_NAME" --shm-size=1gb \
-  -v "$sandbox:/work" -w /work \
+  -v "$PWD:/work" -w /work \
   -e FOUNDRY_URL="$container_foundry_url" \
   -e PLAYWRIGHT_HTML_REPORT -e PLAYWRIGHT_OUTPUT_DIR \
   -e FOUNDRY_VERSION -e FOUNDRY_SYSTEM_ID \
