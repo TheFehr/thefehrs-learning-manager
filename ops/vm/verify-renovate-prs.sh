@@ -54,22 +54,32 @@ set -euo pipefail
 # directly - every actual operation is dispatched to the correct identity
 # via `runuser`.
 #
-# Requires FOUNDRY_USERNAME/PASSWORD/ADMIN_KEY in foundry-playwright's own
-# .env (foundry-verify's account, real credentials - not a disposable test
-# instance). lm-verify-runner is never granted standing access to that file:
-# root copies it into a fresh mktemp'd directory (never a fixed name inside
-# the candidate-controlled workdir - see the staging step for why) and
-# chowns just that copy to lm-verify-runner, only right before the one step
-# that actually needs it (after `npm ci`/`generate-types` have already run)
-# - a compromised dependency's lifecycle scripts get no window to read it,
-# since the identity that runs them has no access to Foundry credentials at
-# all until after they're done. Also requires a `gh auth login`'d token
-# with repo scope local to foundry-verify only.
+# Requires FOUNDRY_USERNAME/PASSWORD/ADMIN_KEY in
+# /etc/foundry-verify/foundry-verify.env (foundry-verify's account, real
+# credentials - not a disposable test instance). That path, not a .env
+# inside /opt/foundry-playwright, per foundry-playwright#102: that
+# directory is what its own verify-local.ts bind-mounts into a Playwright
+# container, so a credentials file living there would be readable by
+# anything running inside it - same reasoning this script's own
+# run-playwright-docker.sh sandboxing already applies. Root-owned, mode
+# 600, root-readable (this script runs as root - see
+# lm-verify-renovate.service) but not even readable by foundry-verify
+# itself; systemd injects it directly as foundry-verify.service's own
+# environment instead. lm-verify-runner is never granted standing access
+# to this file either way: root copies it into a fresh mktemp'd directory
+# (never a fixed name inside the candidate-controlled workdir - see the
+# staging step for why) and chowns just that copy to lm-verify-runner,
+# only right before the one step that actually needs it (after `npm
+# ci`/`generate-types` have already run) - a compromised dependency's
+# lifecycle scripts get no window to read it, since the identity that runs
+# them has no access to Foundry credentials at all until after they're
+# done. Also requires a `gh auth login`'d token with repo scope local to
+# foundry-verify only.
 
 REPO="TheFehr/thefehrs-learning-manager"
 FV_DIR="${LM_FV_DIR:-/opt/thefehrs-learning-manager}"
 RUNNER_USER="${LM_RUNNER_USER:-lm-verify-runner}"
-FOUNDRY_ENV_SOURCE="${FOUNDRY_ENV_SOURCE:-/opt/foundry-playwright/.env}"
+FOUNDRY_ENV_SOURCE="${FOUNDRY_ENV_SOURCE:-/etc/foundry-verify/foundry-verify.env}"
 # Root-owned scratch space for bundle handoffs - deliberately outside both
 # FV_DIR and lm-verify-runner's home, so neither identity's own directory
 # permissions are involved in the handoff at all.
