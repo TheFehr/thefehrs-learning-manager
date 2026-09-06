@@ -52,14 +52,16 @@
 #   # from a bundle, so no signing identity is needed here at all)
 #
 #   # FV_DIR: foundry-verify's own private checkout. lm-verify-runner gets
-#   # NO standing access to this directory, or to foundry-playwright's .env -
-#   # not even read. verify-renovate-prs.sh stages the Foundry credentials as
-#   # a disposable per-run copy (root reads foundry-playwright's .env - it
-#   # can read anything - and writes a fresh, shredded-after-use copy into
-#   # lm-verify-runner's own workdir), rather than granting any persistent
-#   # ACL: a compromised dependency's install/postinstall script would
-#   # otherwise have a standing read grant on real Foundry credentials for
-#   # the entire time it runs, well before the step that actually needs them.
+#   # NO standing access to this directory, or to
+#   # /etc/foundry-verify/foundry-verify.env (see foundry-verify.service in
+#   # foundry-playwright's own repo for that file's setup) - not even read.
+#   # verify-renovate-prs.sh stages the Foundry credentials as a disposable
+#   # per-run copy (root reads that file - it can read anything root-owned -
+#   # and writes a fresh, shredded-after-use copy into lm-verify-runner's own
+#   # workdir), rather than granting any persistent ACL: a compromised
+#   # dependency's install/postinstall script would otherwise have a
+#   # standing read grant on real Foundry credentials for the entire time it
+#   # runs, well before the step that actually needs them.
 #   sudo mkdir -p /opt/thefehrs-learning-manager
 #   sudo chown foundry-verify:foundry-verify /opt/thefehrs-learning-manager
 #   sudo chmod 700 /opt/thefehrs-learning-manager
