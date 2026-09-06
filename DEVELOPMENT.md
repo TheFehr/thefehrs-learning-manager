@@ -81,5 +81,5 @@ To ensure project stability and type safety, **always** run the following comman
     - Ensure your local FoundryVTT is running and the test world has the module enabled.
     - Run `npm run test:e2e` to execute the Playwright tests.
     - Run `npm run test:e2e:ui` to open the Playwright UI for debugging.
-    - Run `npm run test:e2e:verify` to perform the full verification suite.
+    - Run `npm run test:e2e:verify:local` to perform the full verification suite (loads `.env` via Node's `--env-file-if-exists`; `test:e2e:verify` itself expects credentials already in the environment).
 4.  **Linting**: Run `npm run lint` and `npm run fmt:check` to ensure code style compliance.
