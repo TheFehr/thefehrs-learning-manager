@@ -22,30 +22,53 @@ CONTAINER_NAME="foundry-playwright-e2e-runner"
 # are also candidate-controlled - mounting the checkout as-is would hand a
 # modified test read access to anything a compromised dependency planted
 # there, e.g. a fake .env (playwright.config.ts loads one if present). No
-# real credential currently lives in this tree, but removing anything
-# .env-shaped closes that off at the source rather than relying on that
-# staying true. An earlier version of this script instead rsync'd the
-# whole checkout into a throwaway sandbox to avoid mutating the tree at
-# all - safer in principle, but this VM's /tmp is a small (3GB) tmpfs, and
-# duplicating node_modules plus full submodule checkouts (dnd5e, tidy-5e)
-# onto it reliably ran it out of space. Deleting the one actually-risky
-# path is cheaper and doesn't have that failure mode.
-rm -f .env .env.*
+# real credential currently lives in this tree during the VM pipeline, but
+# closing that off at the source is cheap insurance against relying on
+# that staying true.
+#
+# Overlay /dev/null onto each .env-shaped path INSIDE the container
+# instead of touching the host file at all (matching
+# foundry-playwright's own runPlaywrightInContainer - see its
+# scripts/verify-local.ts). An earlier version of this script instead
+# deleted these paths outright (`rm -f .env .env.*`) - safe for the VM
+# pipeline's fresh, disposable checkouts, but this script also runs
+# against a real local checkout during dev (test:e2e:docker), where .env
+# is a legitimate file with real credentials - that version deleted it
+# with no backup and no way to recover it. Never touching the host file
+# has no such failure mode.
+env_mounts=()
+shopt -s nullglob
+for f in .env .env.*; do
+  env_mounts+=(-v "/dev/null:/work/$f:ro")
+done
+shopt -u nullglob
 
-# host.containers.internal, not --network=host: this container runs
-# candidate-branch test code, and --network=host would join the real host
-# network namespace, exposing every other host-bound service (sshd, etc.)
-# to it - directly against the reason every other identity in this
-# pipeline is this carefully isolated. Podman's rootless pasta backend
-# provides this DNS name for reaching the host's own published ports from
-# an otherwise fully isolated container network namespace (confirmed
-# directly on the target VM) - substitute it into FOUNDRY_URL so the
-# baseURL Playwright actually uses still resolves correctly.
-container_foundry_url="${FOUNDRY_URL/127.0.0.1/host.containers.internal}"
-
-podman run --rm --name "$CONTAINER_NAME" --shm-size=1gb \
+# FOUNDRY_E2E_NETWORK (set by scripts/run-e2e-docker.mjs, which also
+# creates it and joins Foundry's own container to it via buildRunArgs) -
+# not --network=host, and not the published host port via a loopback
+# alias like host.containers.internal. --network=host would join the real
+# host network namespace, exposing every other host-bound service (sshd,
+# etc.) to this candidate-controlled test code - directly against the
+# reason every other identity in this pipeline is this carefully
+# isolated. Reaching the published port from outside the container (even
+# via a loopback alias) instead routes through rootless Podman's userspace
+# pasta translation layer, which is measurably slower under load than
+# direct container-to-container traffic on a shared bridge - see
+# foundry-playwright#110. FOUNDRY_URL is already the container-name-based
+# URL (http://<foundry container name>:30000, its internal port -
+# unrelated to whatever host port it's published on) by the time this
+# script runs; no rewriting needed here.
+# CI=1, not a blanket change to playwright.config.ts's own retries
+# default: this is an automated verification run (no one's watching a
+# terminal to react to a first failure the way local interactive dev
+# usage expects), so it should get the same "retry a flaky failure before
+# giving up" treatment playwright.config.ts already reserves for CI -
+# forbidOnly (fail if a stray .only() was left in) is a reasonable thing
+# to also pick up here, not just an incidental side effect.
+docker run --rm --name "$CONTAINER_NAME" --network "$FOUNDRY_E2E_NETWORK" --shm-size=1gb \
   -v "$PWD:/work" -w /work \
-  -e FOUNDRY_URL="$container_foundry_url" \
-  -e PLAYWRIGHT_HTML_REPORT -e PLAYWRIGHT_OUTPUT_DIR \
+  "${env_mounts[@]}" \
+  -e CI=1 \
+  -e FOUNDRY_URL -e PLAYWRIGHT_HTML_REPORT -e PLAYWRIGHT_OUTPUT_DIR \
   -e FOUNDRY_VERSION -e FOUNDRY_SYSTEM_ID \
   "$IMAGE" npx playwright test

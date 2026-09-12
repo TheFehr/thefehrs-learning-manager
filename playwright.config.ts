@@ -46,6 +46,19 @@ export default defineConfig({
       name: "chromium",
       use: {
         ...devices["Desktop Chrome"],
+        // Without an explicit executablePath (the Docker-based e2e runner
+        // has none - the browser is Microsoft's playwright image's own
+        // bundled binary now, not a host install) and no channel set,
+        // Playwright's own default for headless runs is the separate,
+        // more minimal chromium_headless_shell binary, not full desktop
+        // Chromium - confirmed directly (process list showed
+        // chrome-headless-shell during VM debugging). For a canvas/WebGL-
+        // heavy app like Foundry (PixiJS rendering, drag-and-drop onto the
+        // canvas), that's a real behavioral difference worth pinning
+        // down, not an incidental one - force full Chromium explicitly so
+        // this doesn't silently vary with whether executablePath happens
+        // to be set.
+        channel: "chromium",
         viewport: { width: 1920, height: 1080 },
         launchOptions: {
           executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,
