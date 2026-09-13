@@ -124,53 +124,57 @@ export async function getAvailablePacks(
   type: "Item" | "Actor" = "Item",
   flagToMatch?: string,
 ): Promise<PackInfo[]> {
-  const packs = getGame().packs?.contents || [];
-  const results: PackInfo[] = [];
+  const packs = (getGame().packs?.contents || []).filter(
+    (pack) => pack.metadata.type === type || pack.documentName === type,
+  );
 
-  for (const pack of packs) {
-    if (pack.metadata.type !== type && pack.documentName !== type) continue;
+  // Checking each pack's index is a per-pack async round trip - with
+  // dnd5e's own default compendiums alone (17 Item packs, some with
+  // hundreds of entries) awaiting these one at a time in sequence can take
+  // long enough to trip UI-facing timeouts. None of these checks depend on
+  // each other, so run them concurrently instead.
+  return Promise.all(
+    packs.map(async (pack) => {
+      const id = pack.metadata.id;
+      const label = pack.metadata.label;
+      let isFitting = false;
 
-    const id = pack.metadata.id;
-    const label = pack.metadata.label;
-    let isFitting = false;
+      // A pack is fitting if:
+      // 1. We don't have a flag to match (then any pack of correct type is fitting)
+      // 2. It contains items with the specified flag
+      if (!flagToMatch) {
+        isFitting = true;
+      } else {
+        try {
+          // We only check the index, which is fast
+          const flagPath = `flags.${MODULE_ID}.${flagToMatch}`;
+          const index = await pack.getIndex({ fields: [flagPath] as any });
+          isFitting = index.some((entry: Record<string, unknown>) => {
+            const flagData = FoundryUtils.getProperty(entry, flagPath) || entry[flagPath];
 
-    // A pack is fitting if:
-    // 1. We don't have a flag to match (then any pack of correct type is fitting)
-    // 2. It contains items with the specified flag
-    if (!flagToMatch) {
-      isFitting = true;
-    } else {
-      try {
-        // We only check the index, which is fast
-        const flagPath = `flags.${MODULE_ID}.${flagToMatch}`;
-        const index = await pack.getIndex({ fields: [flagPath] as any });
-        isFitting = index.some((entry: Record<string, unknown>) => {
-          const flagData = FoundryUtils.getProperty(entry, flagPath) || entry[flagPath];
-
-          let hasFittingData = flagData !== undefined && flagData !== null;
-          if (hasFittingData) {
-            if (flagToMatch === "teacherOfferings") {
-              hasFittingData = Array.isArray(flagData) && flagData.length > 0;
-            } else if (flagToMatch === "learningBookBonus") {
-              hasFittingData =
-                typeof flagData === "object" && flagData !== null && "modifier" in flagData;
+            let hasFittingData = flagData !== undefined && flagData !== null;
+            if (hasFittingData) {
+              if (flagToMatch === "teacherOfferings") {
+                hasFittingData = Array.isArray(flagData) && flagData.length > 0;
+              } else if (flagToMatch === "learningBookBonus") {
+                hasFittingData =
+                  typeof flagData === "object" && flagData !== null && "modifier" in flagData;
+              }
             }
-          }
 
-          if (hasFittingData) {
-            Logger.debug(`Found fitting entry ${entry.name} in pack ${id}`);
-          }
-          return hasFittingData;
-        });
-      } catch (err) {
-        Logger.warn(`Failed to check index for pack ${id}:`, true, err);
+            if (hasFittingData) {
+              Logger.debug(`Found fitting entry ${entry.name} in pack ${id}`);
+            }
+            return hasFittingData;
+          });
+        } catch (err) {
+          Logger.warn(`Failed to check index for pack ${id}:`, true, err);
+        }
       }
-    }
 
-    results.push({ id, label, isFitting });
-  }
-
-  return results;
+      return { id, label, isFitting };
+    }),
+  );
 }
 
 const isPlainObject = (obj: unknown): obj is Record<string, unknown> =>
