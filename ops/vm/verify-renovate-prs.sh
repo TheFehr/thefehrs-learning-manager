@@ -415,10 +415,29 @@ else
     # compromised dependency could have created extra commits during phase
     # A or B - so refuse to merge unless it's exactly the one expected
     # .e2e-verification-only commit, before trusting it with a real push.
+    #
+    # The validated change is re-authored as a fresh foundry-verify commit
+    # rather than fast-forwarded in as-is: main enforces a required-signatures
+    # ruleset, and lm-verify-runner deliberately holds no signing key (giving
+    # the identity that executes every candidate install/build script a
+    # standing signing credential would undercut the whole point of keeping
+    # it unprivileged). foundry-verify never runs candidate code either way,
+    # so re-committing this single already-validated, data-only file change
+    # under its own identity (which already has SSH commit signing configured
+    # for the sibling foundry-playwright job) adds no additional trust cost -
+    # only the commit authorship changes, not the verified content.
     merge_status=0
     runuser -u foundry-verify -- env FV_DIR="$FV_DIR" BUNDLE="$in_bundle" BRANCH="$branch" BASE_SHA="$before_sha" bash -c '
       set -e
       cd "$FV_DIR"
+      # BASE_SHA is the raw Renovate candidate commit (pre-verification), so
+      # this checkout brings whatever .husky/ scripts it tracks, plus any
+      # core.hooksPath value local to this checkout, into play. Force hooks
+      # off for every git operation below: a compromised dependency bump
+      # (lint-staged is an open Renovate PR right now) reaching a hook git
+      # actually invokes here would run as foundry-verify, defeating the
+      # entire unprivileged-runner split for no reason tied to this step.
+      git config core.hooksPath /dev/null
       git checkout -f -B "$BRANCH" "$BASE_SHA"
       git fetch "$BUNDLE" "HEAD:refs/heads/__lm_verified"
       commit_count=$(git rev-list --count "$BASE_SHA..__lm_verified")
@@ -433,7 +452,9 @@ else
         git branch -D __lm_verified
         exit 1
       fi
-      git merge --ff-only __lm_verified
+      verified_msg=$(git log -1 --format=%s __lm_verified)
+      git checkout __lm_verified -- .e2e-verification
+      git commit -m "$verified_msg"
       git branch -D __lm_verified
     ' || merge_status=$?
     rm -f "$in_bundle"
