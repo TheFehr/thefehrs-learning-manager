@@ -55,12 +55,23 @@ useBaseWorld(test, {
           { pack: packId },
         );
 
+        // tidy5e-sheet's Classic character sheet doesn't apply under Foundry
+        // v14 (it silently falls back to dnd5e's own default sheet instead,
+        // which uses entirely different markup) - Quadrone is its v14
+        // replacement, while v13 still needs Classic.
+        const isV14 = (game as any).release.generation >= 14;
         const actor = await Actor.create({
           name: actorName,
           type: "character",
           img: "icons/svg/mystery-man.svg",
           system: { currency: { gp: 100 } },
-          flags: { core: { sheetClass: "dnd5e.Tidy5eCharacterSheet" } },
+          flags: {
+            core: {
+              sheetClass: isV14
+                ? "dnd5e.Tidy5eCharacterSheetQuadrone"
+                : "dnd5e.Tidy5eCharacterSheet",
+            },
+          },
         });
 
         const groupActor = await Actor.create({
@@ -150,8 +161,19 @@ test.describe("Project Lifecycle (Happy Path)", () => {
       itemData,
     );
 
+    // The drop re-renders the sheet, which can reset the active tab back to
+    // its default - re-assert Features is active rather than assuming the
+    // pre-drop click (line 128-131) still holds.
+    if (await featuresTab.isVisible()) {
+      await featuresTab.click();
+    }
+
+    // Quadrone (v14) renders item rows as .tidy-table-row /
+    // [data-tidy-sheet-part="item-table-row"], not the Classic sheet's
+    // .item-row/.item-table-row - keep both so this matches whichever sheet
+    // is actually active for the running Foundry version.
     const projectRow = actorSheet
-      .locator(".project-row, .item-row, .item-table-row")
+      .locator(".project-row, .item-row, .item-table-row, [data-tidy-sheet-part='item-table-row']")
       .filter({ hasText: projectName })
       .first();
 
