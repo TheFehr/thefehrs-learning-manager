@@ -287,6 +287,7 @@ globalThis.game = {
   i18n: {
     localize: vi.fn((key: string) => key),
   },
+  release: { generation: 13 },
   user: { isGM: false },
   socket: {
     on: vi.fn(),

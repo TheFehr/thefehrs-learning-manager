@@ -13,6 +13,16 @@ export function getGame(): Game {
 }
 
 /**
+ * Foundry v14 deprecated CONFIG.Dice.rollModes and the `rollMode` option of
+ * Roll#toMessage in favor of CONFIG.ChatMessage.modes / `messageMode`
+ * (removed entirely in v16). v13 only has the old API, so callers must
+ * branch on the actual release rather than assume one shape.
+ */
+export function isV14RollModeApiAvailable(): boolean {
+  return getGame().release.generation >= 14;
+}
+
+/**
  * Safely get the global 'canvas' instance.
  * @throws Error if canvas is not initialized.
  */

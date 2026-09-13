@@ -2,6 +2,7 @@
   import type { SystemRules } from "@/types";
   import { onMount } from "svelte";
   import { Logger } from "@/core/logger.js";
+  import { isV14RollModeApiAvailable } from "@/core/foundry.js";
 
   let { rules = $bindable() } = $props<{ rules: SystemRules }>();
 
@@ -42,7 +43,9 @@
   });
 
   onMount(() => {
-    const customModes = globalThis.CONFIG?.Dice?.rollModes;
+    const customModes = isV14RollModeApiAvailable()
+      ? globalThis.CONFIG?.ChatMessage?.modes
+      : globalThis.CONFIG?.Dice?.rollModes;
     if (customModes && typeof customModes === "object") {
       const updatedModes = { ...rollModes };
       for (const [key, value] of Object.entries(customModes)) {

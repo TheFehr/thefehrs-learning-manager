@@ -100,6 +100,7 @@ describe("ProjectEngine", () => {
           return null;
         }),
       },
+      release: { generation: 13 },
       user: { isGM: true },
     } as any;
   });

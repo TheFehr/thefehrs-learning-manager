@@ -15,7 +15,7 @@ import InstructorSelectionDialog from "@/apps/dialogs/InstructorSelectionDialog.
 import TrainingResolutionDialog from "@/apps/dialogs/TrainingResolutionDialog.svelte";
 import { TabLogic } from "./tab-logic.js";
 
-import { getGame, getUI } from "@/core/foundry.js";
+import { getGame, getUI, isV14RollModeApiAvailable } from "@/core/foundry.js";
 
 export interface InstructorDialogResult {
   instructor: {
@@ -645,13 +645,17 @@ export class ProjectEngine {
         `Training complete: Gained ${progressGained} progress from ${timeSpent} hours (${successCount} successes).`,
       );
     } else {
+      const rollModeValue = rules.rollMode || "gmroll";
+      const rollModeOption = isV14RollModeApiAvailable()
+        ? { messageMode: rollModeValue as ChatMessage.Mode }
+        : { rollMode: rollModeValue as foundry.dice.RollMode };
       for (const r of rolls) {
         await r.toMessage(
           {
             speaker: ChatMessage.getSpeaker({ actor: actor as Actor.Stored }),
             flavor: `${actor.name} tries to learn ${item.name || "Unknown Item"} (DC ${Number(rules.checkDC ?? DEFAULT_DC)})`,
           },
-          { rollMode: (rules.rollMode || "gmroll") as foundry.dice.RollMode },
+          rollModeOption,
         );
       }
     }
