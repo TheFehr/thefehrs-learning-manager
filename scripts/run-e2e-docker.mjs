@@ -11,15 +11,14 @@
 import { execFileSync } from "child_process";
 import fs from "fs";
 import path from "path";
-import dotenv from "dotenv";
 import { DockerFoundryOrchestrator } from "@thefehr/foundry-playwright";
 
-// DockerFoundryOrchestrator.start() (below) needs FOUNDRY_USERNAME/PASSWORD
-// before Playwright even runs, so this can't rely on playwright.config.ts's
-// own dotenv.config() call - that only takes effect once the Playwright
-// process (inside run-playwright-docker.sh's container) starts, well after
-// the Foundry container this script starts first would already have failed.
-dotenv.config();
+// This script never loads .env itself - see scripts/e2e-verify.sh's header
+// comment for why. It only ever reads FOUNDRY_USERNAME/PASSWORD/ADMIN_KEY
+// from process.env, however they got there (the VM automation exports real
+// credentials before this runs; local dev uses `npm run
+// test:e2e:verify:local`, which loads .env via Node's own
+// --env-file-if-exists before this script ever starts).
 
 const version = process.env.FOUNDRY_VERSION || "13";
 const system = process.env.FOUNDRY_SYSTEM_ID || "dnd5e";
