@@ -84,4 +84,75 @@ describe("RulesConfig.svelte", () => {
 
     expect(instance.getRules().nonBulkMethod).toBe("direct");
   });
+
+  it("should append a formula variable when nothing is selected", async () => {
+    instance = mount(RulesConfigWrapper, {
+      target,
+      props: {
+        initialRules: { ...mockRules, checkFormula: "1d20" },
+      },
+    });
+    await tick();
+
+    const helperSelect = target.querySelector(
+      "select[aria-label='Insert variable into Formula']",
+    ) as HTMLSelectElement;
+    expect(helperSelect).not.toBeNull();
+
+    helperSelect.value = "@tutelage";
+    helperSelect.dispatchEvent(new Event("change", { bubbles: true }));
+    await tick();
+    await tick();
+
+    expect(instance.getRules().checkFormula).toBe("1d20@tutelage");
+    // The picker resets so it reads "Insert variable..." again, not the
+    // just-inserted token.
+    expect(helperSelect.value).toBe("");
+  });
+
+  it("should insert a formula variable at the cursor position", async () => {
+    instance = mount(RulesConfigWrapper, {
+      target,
+      props: {
+        initialRules: { ...mockRules, checkFormula: "1d20 + " },
+      },
+    });
+    await tick();
+
+    const formulaInput = target.querySelector("input#rule-formula") as HTMLInputElement;
+    formulaInput.focus();
+    formulaInput.setSelectionRange(5, 5); // right after "1d20 "
+
+    const helperSelect = target.querySelector(
+      "select[aria-label='Insert variable into Formula']",
+    ) as HTMLSelectElement;
+    helperSelect.value = "@abilities.int.mod";
+    helperSelect.dispatchEvent(new Event("change", { bubbles: true }));
+    await tick();
+    await tick();
+
+    expect(instance.getRules().checkFormula).toBe("1d20 @abilities.int.mod+ ");
+  });
+
+  it("should insert a bulk formula variable", async () => {
+    instance = mount(RulesConfigWrapper, {
+      target,
+      props: {
+        initialRules: { ...mockRules, bulkMethod: "mathematical", bulkExpectedFormula: "" },
+      },
+    });
+    await tick();
+
+    const helperSelect = target.querySelector(
+      "select[aria-label='Insert variable into Bulk Expected Formula']",
+    ) as HTMLSelectElement;
+    expect(helperSelect).not.toBeNull();
+
+    helperSelect.value = "@hours";
+    helperSelect.dispatchEvent(new Event("change", { bubbles: true }));
+    await tick();
+    await tick();
+
+    expect(instance.getRules().bulkExpectedFormula).toBe("@hours");
+  });
 });
