@@ -11,24 +11,36 @@ import type { PackInfo } from "@/logic/settings-logic.js";
     notes?: string;
   }>();
 
+  let filterText = $state("");
+
   // Sort packs so that:
   // 1. Fitting packs first (contains relevant items)
   // 2. Selected packs next
   // 3. Alphabetical
-  let displayedPacks = $derived(
+  let sortedPacks = $derived(
     [...availablePacks].sort((a, b) => {
       // Fitting first
       if (a.isFitting !== b.isFitting) return a.isFitting ? -1 : 1;
-      
+
       // Selected next
       const aSelected = allowedCompendiums.includes(a.id);
       const bSelected = allowedCompendiums.includes(b.id);
       if (aSelected !== bSelected) return aSelected ? -1 : 1;
-      
+
       // Alphabetical
       return a.label.localeCompare(b.label);
     })
   );
+
+  let displayedPacks = $derived.by(() => {
+    const query = filterText.trim().toLowerCase();
+    if (!query) return sortedPacks;
+    return sortedPacks.filter(
+      (p) => p.label.toLowerCase().includes(query) || p.id.toLowerCase().includes(query),
+    );
+  });
+
+  let fittingCount = $derived(availablePacks.filter((p) => p.isFitting).length);
 
   function toggleCompendium(id: string) {
     if (allowedCompendiums.includes(id)) {
@@ -37,23 +49,59 @@ import type { PackInfo } from "@/logic/settings-logic.js";
       allowedCompendiums = [...allowedCompendiums, id];
     }
   }
+
+  function selectAllFitting() {
+    const fittingIds = availablePacks.filter((p) => p.isFitting).map((p) => p.id);
+    allowedCompendiums = [...new Set([...allowedCompendiums, ...fittingIds])];
+  }
+
+  function clearSelection() {
+    allowedCompendiums = [];
+  }
 </script>
 
 <section>
   <div class="compendium-header">
     <p class="notes">{notes}</p>
   </div>
+  <div class="compendium-controls">
+    <input
+      type="text"
+      class="compendium-filter"
+      placeholder="Filter compendiums..."
+      bind:value={filterText}
+      aria-label="Filter compendiums"
+    />
+    <button
+      type="button"
+      class="tidy-button small"
+      onclick={selectAllFitting}
+      disabled={fittingCount === 0}
+      title="Select all compendiums that contain relevant items"
+    >
+      Select Fitting ({fittingCount})
+    </button>
+    <button
+      type="button"
+      class="tidy-button small"
+      onclick={clearSelection}
+      disabled={allowedCompendiums.length === 0}
+      title="Deselect all compendiums"
+    >
+      Clear
+    </button>
+  </div>
   <div class="compendium-list">
     {#each displayedPacks as pack (pack.id)}
       <label class="compendium-item" class:is-fitting={pack.isFitting}>
-        <input 
-          type="checkbox" 
+        <input
+          type="checkbox"
           data-pack-id={pack.id}
-          checked={allowedCompendiums.includes(pack.id)} 
-          onchange={() => toggleCompendium(pack.id)} 
+          checked={allowedCompendiums.includes(pack.id)}
+          onchange={() => toggleCompendium(pack.id)}
         />
         <span>
-          {pack.label} 
+          {pack.label}
           {#if pack.isFitting}
             <i class="fas fa-star" title="Contains relevant items" aria-hidden="true"></i>
           {/if}
@@ -62,7 +110,7 @@ import type { PackInfo } from "@/logic/settings-logic.js";
       </label>
     {:else}
       <div class="empty-state">
-        No compendiums available.
+        {filterText ? "No compendiums match your filter." : "No compendiums available."}
       </div>
     {/each}
   </div>
@@ -85,6 +133,17 @@ import type { PackInfo } from "@/logic/settings-logic.js";
 
     .notes {
       margin-bottom: 0;
+    }
+  }
+
+  .compendium-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+
+    .compendium-filter {
+      flex: 1;
     }
   }
 
