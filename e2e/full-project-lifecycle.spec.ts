@@ -103,6 +103,15 @@ test.describe("Full Project Lifecycle (Mass Edit create -> grant -> complete)", 
       timeout: 10000,
     });
 
+    // Close Mass Edit before touching the actor sheet - leaving it open
+    // behind the sheet left the project row stuck reporting as hidden
+    // (matches how a GM would actually work anyway: configure, then close).
+    await page.evaluate((id) => {
+      const app = (foundry.applications.instances as Map<string, any>).get(id);
+      return app?.close();
+    }, appId);
+    await expect(massEditApp).toBeHidden({ timeout: 10000 });
+
     // --- Step 2: grant it to a player by dragging it from the compendium ---
     const itemData = await page.evaluate(
       async ({ packId, projectName }) => {
@@ -129,11 +138,26 @@ test.describe("Full Project Lifecycle (Mass Edit create -> grant -> complete)", 
       .first();
     await expect(actorSheet).toBeVisible({ timeout: 15000 });
 
+    // The project row lives under the Features tab, which is not the sheet's
+    // default active tab on Quadrone (v14) - without this the row exists in
+    // the DOM but stays hidden behind whatever tab is actually active.
+    const featuresTab = actorSheet.getByRole("tab", { name: /Features/i });
+    if (await featuresTab.isVisible()) {
+      await featuresTab.click();
+    }
+
     await simulateFoundryDrop(
       page,
       `:is(.window-app, .sheet.actor, .tidy5e-sheet, foundry-app):has-text("${actorName}")`,
       itemData,
     );
+
+    // The drop re-renders the sheet, which can reset the active tab back to
+    // its default - re-assert Features is active rather than assuming the
+    // pre-drop click still holds.
+    if (await featuresTab.isVisible()) {
+      await featuresTab.click();
+    }
 
     const projectRow = actorSheet
       .locator(".project-row, .item-row, .item-table-row, [data-tidy-sheet-part='item-table-row']")
