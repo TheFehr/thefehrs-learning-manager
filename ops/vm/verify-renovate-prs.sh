@@ -439,7 +439,12 @@ else
       # entire unprivileged-runner split for no reason tied to this step.
       git config core.hooksPath /dev/null
       git checkout -f -B "$BRANCH" "$BASE_SHA"
-      git fetch "$BUNDLE" "HEAD:refs/heads/__lm_verified"
+      # Force-refresh: a prior run that failed after this point (e.g. the
+      # commit below failing to sign) can leave __lm_verified behind, and a
+      # plain (non-forcing) fetch into an existing ref requires it to be a
+      # fast-forward - a stale branch would then reject every later run with
+      # a fetch error before validation even runs, not just this one.
+      git fetch "$BUNDLE" "+HEAD:refs/heads/__lm_verified"
       commit_count=$(git rev-list --count "$BASE_SHA..__lm_verified")
       if [ "$commit_count" -ne 1 ]; then
         echo "Refusing to merge: expected exactly 1 new commit, got $commit_count" >&2
@@ -454,7 +459,11 @@ else
       fi
       verified_msg=$(git log -1 --format=%s __lm_verified)
       git checkout __lm_verified -- .e2e-verification
-      git commit -m "$verified_msg"
+      # Explicit -S (plus gpg.format here, not just relying on it being set
+      # globally) so a missing/broken signing setup fails this commit loudly
+      # right now, instead of producing an unsigned commit that only surfaces
+      # as a confusing mergeStateStatus=BLOCKED later, downstream of the push.
+      git -c gpg.format=ssh commit -S -m "$verified_msg"
       git branch -D __lm_verified
     ' || merge_status=$?
     rm -f "$in_bundle"
