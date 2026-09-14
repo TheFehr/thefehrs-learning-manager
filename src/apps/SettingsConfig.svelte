@@ -6,6 +6,7 @@
   import { saveSettings, getAvailablePacks, type PackInfo } from "@/logic/settings-logic.js";
   import WorldSettingsConfig from "./components/WorldSettingsConfig.svelte";
   import UserPreferencesConfig from "./components/UserPreferencesConfig.svelte";
+  import AutoSaveBanner from "./components/AutoSaveBanner.svelte";
 
   // Auth
   const isGM = !!game.user?.isGM;
@@ -26,6 +27,16 @@
   let availableItemPacks = $state<PackInfo[]>([]);
   let instructorPacks = $state<PackInfo[]>([]);
   let bookPacks = $state<PackInfo[]>([]);
+
+  // Feedback-only: saving still requires an explicit click of Save Settings
+  // below (this form batches several unrelated settings together, so
+  // autosaving every field change - as the per-item/per-actor tabs do - isn't
+  // a good fit here). These just drive the same status banner those tabs use,
+  // for consistent feedback on the manual save action.
+  let isSaving = $state(false);
+  let saveError = $state<string | null>(null);
+  let hasSaved = $state(false);
+
   onMount(async () => {
     if (isGM) {
       const results = await Promise.allSettled([
@@ -56,20 +67,32 @@
   });
 
   async function save() {
-    await saveSettings(
-      rules,
-      timeUnits,
-      teacherCompendiums,
-      bookCompendiums,
-      allowedCompendiums,
-      autoSpend,
-      autoSpendUnits,
-      scanWorldActors,
-    );
+    isSaving = true;
+    saveError = null;
+    try {
+      const success = await saveSettings(
+        rules,
+        timeUnits,
+        teacherCompendiums,
+        bookCompendiums,
+        allowedCompendiums,
+        autoSpend,
+        autoSpendUnits,
+        scanWorldActors,
+      );
+      hasSaved = success;
+      if (!success) {
+        saveError = "Failed to save settings - see notifications for details.";
+      }
+    } finally {
+      isSaving = false;
+    }
   }
 </script>
 
 <div class="thefehrs-settings svelte-settings">
+  <AutoSaveBanner {isSaving} {saveError} {hasSaved} />
+
   {#if isGM}
     <WorldSettingsConfig
       bind:rules
