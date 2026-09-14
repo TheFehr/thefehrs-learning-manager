@@ -3,6 +3,7 @@
   import RulesConfig from "./RulesConfig.svelte";
   import CompendiumConfig from "./CompendiumConfig.svelte";
   import TimeUnitsConfig from "./TimeUnitsConfig.svelte";
+  import TabBar, { type TabDef } from "./TabBar.svelte";
   import { validateSettings, type PackInfo } from "@/logic/settings-logic.js";
   import { TutelageResolverService } from "@/logic/tutelage-resolver.js";
   import { Logger } from "@/core/logger.js";
@@ -29,7 +30,16 @@
     bookPacks: PackInfo[];
   }>();
 
-  let activeTab = $state<"rules" | "compendiums" | "time-units" | "data">("rules");
+  type SettingsTab = "rules" | "compendiums" | "time-units" | "data";
+
+  let activeTab = $state<SettingsTab>("rules");
+
+  const tabs: TabDef<SettingsTab>[] = [
+    { id: "rules", label: "Rules", icon: "fas fa-sliders-h" },
+    { id: "compendiums", label: "Compendiums", icon: "fas fa-box-open" },
+    { id: "time-units", label: "Time Units", icon: "fas fa-clock" },
+    { id: "data", label: "Data", icon: "fas fa-database" },
+  ];
 
   function exportSettings() {
     const data = {
@@ -158,40 +168,7 @@
 </script>
 
 <div class="world-settings">
-  <nav class="settings-tabs">
-    <button
-      type="button"
-      class="tab-btn"
-      class:active={activeTab === "rules"}
-      onclick={() => (activeTab = "rules")}
-    >
-      <i class="fas fa-sliders-h"></i> Rules
-    </button>
-    <button
-      type="button"
-      class="tab-btn"
-      class:active={activeTab === "compendiums"}
-      onclick={() => (activeTab = "compendiums")}
-    >
-      <i class="fas fa-box-open"></i> Compendiums
-    </button>
-    <button
-      type="button"
-      class="tab-btn"
-      class:active={activeTab === "time-units"}
-      onclick={() => (activeTab = "time-units")}
-    >
-      <i class="fas fa-clock"></i> Time Units
-    </button>
-    <button
-      type="button"
-      class="tab-btn"
-      class:active={activeTab === "data"}
-      onclick={() => (activeTab = "data")}
-    >
-      <i class="fas fa-database"></i> Data
-    </button>
-  </nav>
+  <TabBar {tabs} bind:activeTab />
 
   <div class="tab-content">
     {#if activeTab === "rules"}
@@ -262,39 +239,6 @@
     display: flex;
     flex-direction: column;
     gap: 1rem;
-
-    .settings-tabs {
-      display: flex;
-      border-bottom: 2px solid var(--t5e-faint-color, #ccc);
-      flex-shrink: 0;
-      gap: 0;
-
-      .tab-btn {
-        padding: 0.5rem 1.25rem;
-        border: none;
-        border-bottom: 2px solid transparent;
-        background: none;
-        cursor: pointer;
-        font-family: inherit;
-        font-size: 0.9rem;
-        color: var(--t5e-secondary-color, #666);
-        margin-bottom: -2px;
-        display: flex;
-        align-items: center;
-        gap: 0.4rem;
-        transition: color 0.15s;
-
-        &:hover {
-          color: var(--t5e-primary-color, #4a90d9);
-        }
-
-        &.active {
-          color: var(--t5e-primary-color, #4a90d9);
-          border-bottom-color: var(--t5e-primary-color, #4a90d9);
-          font-weight: bold;
-        }
-      }
-    }
 
     .tab-content {
       display: flex;
