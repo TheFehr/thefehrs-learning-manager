@@ -231,6 +231,72 @@ describe("AddEntityDialog.svelte", () => {
     await vi.waitFor(() => expect(onAdded).toHaveBeenCalledWith(fakeDoc));
   });
 
+  it("passes requireCompendiumDestination through as includeWorld=false to getAvailableDestinations", async () => {
+    instance = mount(AddEntityDialog, {
+      target,
+      props: {
+        packIds: ["world.pack"],
+        docType: "Item",
+        defaultItemType: "feat",
+        allEntries,
+        onAdded,
+        onDismiss,
+        requireCompendiumDestination: true,
+      } as any,
+    });
+    await tick();
+
+    expect(logic.getAvailableDestinations).toHaveBeenCalledWith(["world.pack"], false);
+  });
+
+  it("defaults to includeWorld=true when requireCompendiumDestination is not set", async () => {
+    mountDialog();
+    await tick();
+
+    expect(logic.getAvailableDestinations).toHaveBeenCalledWith(["world.pack"], true);
+  });
+
+  it("blocks creation and hides the destination picker when no compendium destination is available", async () => {
+    vi.mocked(logic.getAvailableDestinations).mockReturnValueOnce([]);
+
+    instance = mount(AddEntityDialog, {
+      target,
+      props: {
+        packIds: ["world.pack"],
+        docType: "Item",
+        defaultItemType: "feat",
+        allEntries,
+        onAdded,
+        onDismiss,
+        requireCompendiumDestination: true,
+      } as any,
+    });
+    await tick();
+
+    const createModeBtn = Array.from(target.querySelectorAll("button")).find((b) =>
+      b.textContent?.includes("Create New"),
+    ) as HTMLButtonElement;
+    createModeBtn.click();
+    await tick();
+
+    expect(target.querySelector("select#new-destination")).toBeNull();
+    expect(target.innerHTML).toContain("must be created inside one of the");
+
+    const nameInput = target.querySelector("input#new-name") as HTMLInputElement;
+    nameInput.value = "Brand New";
+    nameInput.dispatchEvent(new Event("input"));
+    await tick();
+
+    const createBtn = Array.from(target.querySelectorAll("button")).find(
+      (b) => b.textContent?.includes("Create") && !b.textContent?.includes("New"),
+    ) as HTMLButtonElement;
+    expect(createBtn?.disabled).toBe(true);
+
+    createBtn.click();
+    await tick();
+    expect(logic.createAndActivateDocument).not.toHaveBeenCalled();
+  });
+
   // --- Dismiss ---
 
   it("calls onDismiss when the dismiss button is clicked", async () => {

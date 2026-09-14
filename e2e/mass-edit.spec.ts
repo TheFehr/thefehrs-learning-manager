@@ -248,6 +248,37 @@ test.describe("Mass Edit App", () => {
     await expect(app.locator(".add-entity-dialog")).toBeHidden({ timeout: 3000 });
   });
 
+  test("Projects tab blocks Create New when no project compendium is unlocked", async ({
+    page,
+  }) => {
+    // Projects (unlike Teachers/Books) can only be granted to a player from a
+    // compendium - lock the only configured project compendium so the
+    // destination list has nothing but the (excluded) World fallback.
+    await page.evaluate(async () => {
+      const pack = (game as any).packs.get("world.me-test-projects");
+      await pack.configure({ locked: true });
+    });
+
+    const app = await openMassEditApp(page);
+    await expect(app.locator(".loading-state")).toBeHidden({ timeout: 15000 });
+
+    await forceClick(app.locator("button", { hasText: "Add / Create Project" }));
+    await expect(app.locator(".add-entity-dialog")).toBeVisible();
+
+    await forceClick(app.locator("button", { hasText: "Create New" }));
+
+    await expect(app.locator("select#new-destination")).toBeHidden();
+    await expect(app.locator(".add-entity-dialog")).toContainText(
+      "must be created inside one of the",
+    );
+
+    await app.locator("input#new-name").fill("Should Not Be Creatable");
+    const createBtn = app.locator(".create-mode button", { hasText: "Create" });
+    await expect(createBtn).toBeDisabled();
+
+    // Re-lock cleanup is unnecessary: useBaseWorld restores a fresh world per test.
+  });
+
   test("creating a new teacher in the world activates and appears in the list", async ({
     page,
   }) => {

@@ -99,7 +99,10 @@ export async function activateDocument(entry: PackIndexEntry): Promise<Item5e | 
   }
 }
 
-export function getAvailableDestinations(packIds: string[]): Array<{ id: string; label: string }> {
+export function getAvailableDestinations(
+  packIds: string[],
+  includeWorld: boolean = true,
+): Array<{ id: string; label: string }> {
   const destinations: Array<{ id: string; label: string }> = [];
   for (const packId of packIds) {
     const pack = getGame().packs?.get(packId);
@@ -107,7 +110,9 @@ export function getAvailableDestinations(packIds: string[]): Array<{ id: string;
       destinations.push({ id: packId, label: (pack as any).metadata.label });
     }
   }
-  destinations.push({ id: "", label: "World" });
+  if (includeWorld) {
+    destinations.push({ id: "", label: "World" });
+  }
   return destinations;
 }
 

@@ -371,4 +371,20 @@ describe("getAvailableDestinations", () => {
     const last = dests[dests.length - 1];
     expect(last).toMatchObject({ id: "", label: "World" });
   });
+
+  it("omits World when includeWorld is false", () => {
+    const pack = makePack({ locked: false });
+    (globalThis as any).game.packs.get = vi.fn().mockReturnValue(pack);
+
+    const dests = getAvailableDestinations(["world.test-pack"], false);
+    expect(dests.some((d) => d.id === "")).toBe(false);
+    expect(dests.some((d) => d.id === "world.test-pack")).toBe(true);
+  });
+
+  it("returns an empty list when includeWorld is false and no packs are unlocked", () => {
+    (globalThis as any).game.packs.get = vi.fn().mockReturnValue(undefined);
+
+    const dests = getAvailableDestinations(["world.pack"], false);
+    expect(dests).toHaveLength(0);
+  });
 });
