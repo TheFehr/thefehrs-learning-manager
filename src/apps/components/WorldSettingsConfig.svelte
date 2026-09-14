@@ -29,6 +29,8 @@
     bookPacks: PackInfo[];
   }>();
 
+  let activeTab = $state<"rules" | "compendiums" | "time-units" | "data">("rules");
+
   function exportSettings() {
     const data = {
       rules,
@@ -156,61 +158,103 @@
 </script>
 
 <div class="world-settings">
-  <div class="header-actions">
+  <nav class="settings-tabs">
     <button
       type="button"
-      class="tidy-button"
-      onclick={exportSettings}
-      title="Export Settings"
+      class="tab-btn"
+      class:active={activeTab === "rules"}
+      onclick={() => (activeTab = "rules")}
     >
-      <i class="fas fa-file-export"></i> Export
+      <i class="fas fa-sliders-h"></i> Rules
     </button>
     <button
       type="button"
-      class="tidy-button"
-      onclick={importSettings}
-      title="Import Settings"
+      class="tab-btn"
+      class:active={activeTab === "compendiums"}
+      onclick={() => (activeTab = "compendiums")}
     >
-      <i class="fas fa-file-import"></i> Import
+      <i class="fas fa-box-open"></i> Compendiums
     </button>
     <button
       type="button"
-      class="tidy-button"
-      onclick={clearCache}
-      title="Clear Tutelage Cache"
+      class="tab-btn"
+      class:active={activeTab === "time-units"}
+      onclick={() => (activeTab = "time-units")}
     >
-      <i class="fas fa-sync"></i> Clear Cache
+      <i class="fas fa-clock"></i> Time Units
     </button>
-  </div>
+    <button
+      type="button"
+      class="tab-btn"
+      class:active={activeTab === "data"}
+      onclick={() => (activeTab = "data")}
+    >
+      <i class="fas fa-database"></i> Data
+    </button>
+  </nav>
 
-  <div class="form-group">
-    <label for="scan-world-actors" style="font-weight: bold;">Scan World Actors for Instructors</label>
-    <div class="form-fields">
-      <input id="scan-world-actors" type="checkbox" bind:checked={scanWorldActors} />
-    </div>
-    <p class="notes">If enabled, the module will scan all actors in the world for teacher offerings. Disabling this can improve performance in very large worlds.</p>
+  <div class="tab-content">
+    {#if activeTab === "rules"}
+      <div class="form-group">
+        <label for="scan-world-actors" style="font-weight: bold;">Scan World Actors for Instructors</label>
+        <div class="form-fields">
+          <input id="scan-world-actors" type="checkbox" bind:checked={scanWorldActors} />
+        </div>
+        <p class="notes">If enabled, the module will scan all actors in the world for teacher offerings. Disabling this can improve performance in very large worlds.</p>
+      </div>
+      <RulesConfig bind:rules />
+    {:else if activeTab === "compendiums"}
+      <h3>Template Compendiums (Items)</h3>
+      <CompendiumConfig bind:allowedCompendiums availablePacks={availableItemPacks} />
+      <hr />
+      <h3>Instructor Compendiums (Actors)</h3>
+      <CompendiumConfig
+        bind:allowedCompendiums={teacherCompendiums}
+        availablePacks={instructorPacks}
+        notes="Compendiums containing actors with Teacher Offerings."
+      />
+      <hr />
+      <h3>Book Compendiums (Items)</h3>
+      <CompendiumConfig
+        bind:allowedCompendiums={bookCompendiums}
+        availablePacks={bookPacks}
+        notes="Compendiums containing items with Learning Book bonuses."
+      />
+    {:else if activeTab === "time-units"}
+      <TimeUnitsConfig bind:timeUnits />
+    {:else if activeTab === "data"}
+      <section class="data-actions">
+        <h3>Settings Data</h3>
+        <div class="data-buttons">
+          <button
+            type="button"
+            class="tidy-button"
+            onclick={exportSettings}
+            title="Export Settings"
+          >
+            <i class="fas fa-file-export"></i> Export
+          </button>
+          <button
+            type="button"
+            class="tidy-button"
+            onclick={importSettings}
+            title="Import Settings"
+          >
+            <i class="fas fa-file-import"></i> Import
+          </button>
+          <button
+            type="button"
+            class="tidy-button"
+            onclick={clearCache}
+            title="Clear Tutelage Cache"
+          >
+            <i class="fas fa-sync"></i> Clear Cache
+          </button>
+        </div>
+        <p class="notes">Export or import the settings on this page (Rules, Compendiums, Time Units) as a JSON file. Clearing the tutelage cache forces instructor bonuses to be recalculated on next use - only needed if those bonuses seem out of date after changing an instructor's data directly.</p>
+      </section>
+    {/if}
   </div>
-
-  <RulesConfig bind:rules />
-  <hr />
-  <h3>Template Compendiums (Items)</h3>
-  <CompendiumConfig bind:allowedCompendiums availablePacks={availableItemPacks} />
-  <hr />
-  <h3>Instructor Compendiums (Actors)</h3>
-  <CompendiumConfig 
-    bind:allowedCompendiums={teacherCompendiums} 
-    availablePacks={instructorPacks} 
-    notes="Compendiums containing actors with Teacher Offerings."
-  />
-  <hr />
-  <h3>Book Compendiums (Items)</h3>
-  <CompendiumConfig 
-    bind:allowedCompendiums={bookCompendiums} 
-    availablePacks={bookPacks} 
-    notes="Compendiums containing items with Learning Book bonuses."
-  />
-  <hr />
-  <TimeUnitsConfig bind:timeUnits />
 </div>
 
 <style lang="scss">
@@ -219,10 +263,51 @@
     flex-direction: column;
     gap: 1rem;
 
-    .header-actions {
+    .settings-tabs {
       display: flex;
-      justify-content: flex-end;
+      border-bottom: 2px solid var(--t5e-faint-color, #ccc);
+      flex-shrink: 0;
+      gap: 0;
+
+      .tab-btn {
+        padding: 0.5rem 1.25rem;
+        border: none;
+        border-bottom: 2px solid transparent;
+        background: none;
+        cursor: pointer;
+        font-family: inherit;
+        font-size: 0.9rem;
+        color: var(--t5e-secondary-color, #666);
+        margin-bottom: -2px;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+        transition: color 0.15s;
+
+        &:hover {
+          color: var(--t5e-primary-color, #4a90d9);
+        }
+
+        &.active {
+          color: var(--t5e-primary-color, #4a90d9);
+          border-bottom-color: var(--t5e-primary-color, #4a90d9);
+          font-weight: bold;
+        }
+      }
+    }
+
+    .tab-content {
+      display: flex;
+      flex-direction: column;
       gap: 0.5rem;
+    }
+  }
+
+  .data-actions {
+    .data-buttons {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 0.5rem;
     }
   }
 

@@ -58,6 +58,16 @@ test.describe("Settings UI", () => {
       .first();
     await expect(customSettingsApp).toBeVisible({ timeout: 20000 });
 
+    // The Rules tab is active by default.
+    await customSettingsApp
+      .locator("#rule-notification-level")
+      .evaluate((el: HTMLSelectElement) => {
+        el.value = "debug";
+        el.dispatchEvent(new Event("change", { bubbles: true }));
+      });
+
+    await forceClick(customSettingsApp.getByRole("button", { name: /^Compendiums$/i }));
+
     const checkboxes = [
       customSettingsApp.locator('input[data-pack-id="world.test-learning-feats"]').first(),
       customSettingsApp.locator('input[data-pack-id="world.test-teachers"]').first(),
@@ -74,13 +84,6 @@ test.describe("Settings UI", () => {
         });
       }
     }
-
-    await customSettingsApp
-      .locator("#rule-notification-level")
-      .evaluate((el: HTMLSelectElement) => {
-        el.value = "debug";
-        el.dispatchEvent(new Event("change", { bubbles: true }));
-      });
 
     await forceClick(customSettingsApp.getByRole("button", { name: /Save Settings/i }));
 
