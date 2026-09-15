@@ -185,9 +185,22 @@ test.describe("Project Lifecycle (Happy Path)", () => {
     // [data-tidy-sheet-part="item-table-row"], not the Classic sheet's
     // .item-row/.item-table-row - keep both so this matches whichever sheet
     // is actually active for the running Foundry version.
+    //
+    // .filter({ visible: true }) is load-bearing, not defensive styling:
+    // confirmed live (under host CPU contention) that tidy5e-sheet can leave
+    // a second element matching this same selector+text in the DOM - a
+    // zero-size (0x0 bounding rect) row that is otherwise
+    // display:flex/visibility:visible/opacity:1 by computed style, ahead of
+    // the real, properly laid-out row in DOM order. A bare .first() locks
+    // onto that zero-size phantom and reports the row as permanently hidden
+    // even though the real row is plainly visible on screen the whole time.
+    // Likely a leftover from tidy5e's own insert transition, but from this
+    // test's side the fix is the same regardless: pick the match that is
+    // actually rendered, not whichever comes first in the DOM.
     const projectRow = actorSheet
       .locator(".project-row, .item-row, .item-table-row, [data-tidy-sheet-part='item-table-row']")
       .filter({ hasText: projectName })
+      .filter({ visible: true })
       .first();
 
     // The drop re-renders the sheet, which can reset the active tab back to
@@ -200,23 +213,13 @@ test.describe("Project Lifecycle (Happy Path)", () => {
     // reliable against an unknown number of resets at an unknown delay - so
     // keep re-clicking Features and re-checking row visibility together
     // until both hold, rather than assuming one re-click settles it.
-    //
-    // scrollIntoViewIfNeeded is folded into this same retry rather than run
-    // as a separate step after: confirmed live that the row can still be
-    // mid-render-storm right after a single toBeVisible check passes (it
-    // toggles hidden/visible repeatedly for well over a minute under host
-    // contention), which left a standalone scrollIntoViewIfNeeded call
-    // racing against that instability and timing out on its own. Retrying
-    // the pair together means a momentary reappearance gets re-verified
-    // instead of trusted.
     await expect(async () => {
       if (await featuresTab.isVisible()) {
         await featuresTab.click();
       }
       await expect(projectRow).toBeVisible({ timeout: 2000 });
-      await projectRow.scrollIntoViewIfNeeded();
-      await expect(projectRow).toBeVisible({ timeout: 2000 });
-    }).toPass({ timeout: 60000, intervals: [500, 1000, 2000] });
+    }).toPass({ timeout: 30000, intervals: [500, 1000, 2000] });
+    await projectRow.scrollIntoViewIfNeeded();
 
     // A plain, un-converted item copy (the failure mode a missing
     // allowedCompendiums registration produces - see the setup comment
