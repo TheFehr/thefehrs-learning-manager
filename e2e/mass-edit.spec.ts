@@ -1,5 +1,5 @@
 import { test, expect, useBaseWorld, disableTour } from "@thefehr/foundry-playwright";
-import { waitForGameReady, forceClick } from "./utils";
+import { waitForGameReady, forceClick, snapshot } from "./utils";
 
 const moduleId = "thefehrs-learning-manager";
 
@@ -123,6 +123,7 @@ test.describe("Mass Edit App", () => {
     await expect(app.locator(".entity-card", { hasText: "ME Test Project" })).toBeVisible({
       timeout: 10000,
     });
+    await snapshot(app, "mass-edit-projects-tab");
   });
 
   test("Projects tab card expands to show editing UI", async ({ page }) => {

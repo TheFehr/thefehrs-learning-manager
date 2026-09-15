@@ -5,7 +5,7 @@ import {
   disableTour,
   simulateFoundryDrop,
 } from "@thefehr/foundry-playwright";
-import { waitForGameReady, forceClick } from "./utils";
+import { waitForGameReady, forceClick, snapshot } from "./utils";
 
 // The other e2e specs each cover one slice of this pipeline in isolation:
 // item-learning-config.spec.ts tests the config UI, mass-edit.spec.ts tests
@@ -163,8 +163,21 @@ test.describe("Full Project Lifecycle (Mass Edit create -> grant -> complete)", 
       .locator(".project-row, .item-row, .item-table-row, [data-tidy-sheet-part='item-table-row']")
       .filter({ hasText: projectName })
       .first();
-    await projectRow.scrollIntoViewIfNeeded();
-    await expect(projectRow).toBeVisible({ timeout: 20000 });
+
+    // Re-clicking Features and re-checking together, retried as a unit: the
+    // drop's own conversion can trigger further hook-driven re-renders after
+    // this point, and confirmed live (project-lifecycle.spec.ts) that the row
+    // can keep toggling hidden/visible for well over a minute under host
+    // contention - a bare scrollIntoViewIfNeeded/toBeVisible pair right after
+    // the drop can race that instability and time out on its own.
+    await expect(async () => {
+      if (await featuresTab.isVisible()) {
+        await featuresTab.click();
+      }
+      await expect(projectRow).toBeVisible({ timeout: 2000 });
+      await projectRow.scrollIntoViewIfNeeded();
+      await expect(projectRow).toBeVisible({ timeout: 2000 });
+    }).toPass({ timeout: 60000, intervals: [500, 1000, 2000] });
     await expect(projectRow).toContainText("0/10");
 
     // --- Step 3: progress it to completion ---
@@ -203,5 +216,24 @@ test.describe("Full Project Lifecycle (Mass Edit create -> grant -> complete)", 
     expect(finalState.found).toBe(true);
     expect(finalState.name).toBe(projectName);
     expect(finalState.isLearningProject).toBe(false);
+
+    // --- Step 4: capture what "done" looks like on the sheet ---
+    // Completion recreates the item (restoring its original name/type), which
+    // can reset the active tab and re-trigger render instability the same
+    // way the drop did earlier - see the retry above for why this is a
+    // single retried unit rather than a bare scroll + visibility check.
+    const completedRow = actorSheet
+      .locator(".project-row, .item-row, .item-table-row, [data-tidy-sheet-part='item-table-row']")
+      .filter({ hasText: projectName })
+      .first();
+    await expect(async () => {
+      if (await featuresTab.isVisible()) {
+        await featuresTab.click();
+      }
+      await expect(completedRow).toBeVisible({ timeout: 2000 });
+      await completedRow.scrollIntoViewIfNeeded();
+      await expect(completedRow).toBeVisible({ timeout: 2000 });
+    }).toPass({ timeout: 60000, intervals: [500, 1000, 2000] });
+    await snapshot(actorSheet, "actor-sheet-project-done");
   });
 });

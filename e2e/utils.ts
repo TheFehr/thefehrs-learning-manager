@@ -182,19 +182,25 @@ export async function snapshot(target: Page | Locator, name: string) {
   // suppression itself here, just brute-force-clear anything tour-shaped
   // right before every capture so screenshots are reliable regardless.
   const page = "page" in target ? target.page() : target;
-  const sweepTours = () =>
+  const sweepOverlays = () =>
     page.evaluate(() => {
       document.querySelectorAll('[class*="tour" i], [id*="tour" i]').forEach((el) => el.remove());
+      // Foundry's own persistent notification banners (e.g. a hardware-
+      // acceleration warning in this headless/software-rendered chromium)
+      // pin to the top of the viewport and bleed into every capture -
+      // same #notifications container clearFoundryOverlays already knew
+      // about, just never actually called from any spec until now.
+      document.querySelectorAll("#notifications .notification").forEach((el) => el.remove());
     });
 
-  // A tour can render on a short delay after a UI action (confirmed live:
-  // it was reliably absent immediately after a tab switch, then present
-  // moments later) rather than being there to sweep immediately - so sweep,
-  // give a delayed trigger a window to fire, then sweep again right before
-  // capturing.
-  await sweepTours();
+  // A tour (or, less commonly, a notification) can render on a short delay
+  // after a UI action (confirmed live for tours: reliably absent
+  // immediately after a tab switch, present moments later) rather than
+  // being there to sweep immediately - so sweep, give a delayed trigger a
+  // window to fire, then sweep again right before capturing.
+  await sweepOverlays();
   await page.waitForTimeout(500);
-  await sweepTours();
+  await sweepOverlays();
   await target.screenshot({ path: `e2e/screenshots/${name}.png` });
 }
 

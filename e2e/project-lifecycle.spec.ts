@@ -5,7 +5,7 @@ import {
   disableTour,
   simulateFoundryDrop,
 } from "@thefehr/foundry-playwright";
-import { waitForGameReady } from "./utils";
+import { waitForGameReady, snapshot } from "./utils";
 
 const moduleId = "thefehrs-learning-manager";
 const actorName = "PC 1";
@@ -35,6 +35,16 @@ useBaseWorld(test, {
         });
         pack = (game as any).packs.get(packId);
 
+        // A real GM-configured source item (via ItemLearningConfig) only ever
+        // has learningModeEnabled + projectData - isLearningProject only gets
+        // set on the *converted copy* that lands on an actor after a real
+        // grant (ProjectLifecycle.initiateProjectFromItem). Setting it here
+        // on the source previously masked allowedCompendiums never being
+        // registered below: the drop hook's compendium check failed, so
+        // Foundry fell back to a plain item copy - which then still carried
+        // isLearningProject/projectData through unmodified, since a plain
+        // copy preserves flags, making the drop look like it had actually
+        // triggered a real conversion when it never did.
         await Item.create(
           {
             name: projectName,
@@ -47,8 +57,8 @@ useBaseWorld(test, {
             },
             flags: {
               [moduleId]: {
-                isLearningProject: true,
-                projectData: { target: 100, requirements: [] },
+                learningModeEnabled: true,
+                projectData: { target: 100, requirements: [], categories: [] },
               },
             },
           },
@@ -83,6 +93,7 @@ useBaseWorld(test, {
         await groupActor.update({ "system.members": [{ actor: actor.id }] });
 
         await (game as any).user.update({ character: actor.id });
+        await (game as any).settings.set(moduleId, "allowedCompendiums", [packId]);
         await (game as any).settings.set(moduleId, "autoSpend", true);
         await (game as any).settings.set(moduleId, "autoSpendUnits", [
           "hour",
@@ -125,15 +136,18 @@ test.describe("Project Lifecycle (Happy Path)", () => {
       };
     }, moduleId);
 
-    await page.evaluate((name) => {
+    const actorSheetId = await page.evaluate(async (name) => {
       const actor = (game as any).actors.getName(name);
-      return actor.sheet.render(true);
+      await actor.sheet.render(true);
+      return actor.sheet.id;
     }, actorName);
 
-    const actorSheet = page
-      .locator(".window-app, .sheet.actor, .tidy5e-sheet, foundry-app")
-      .filter({ hasText: actorName })
-      .first();
+    // Located by Foundry's own assigned application id, not by text: once
+    // the group sheet also opens later in this test, its member list
+    // mentions the actor's name too, which made a text-based filter (even
+    // scoped to what looked like the window title) ambiguously match either
+    // window depending on DOM order.
+    const actorSheet = page.locator(`[id="${actorSheetId}"]`);
     await expect(actorSheet).toBeVisible({ timeout: 15000 });
 
     const featuresTab = actorSheet.getByRole("tab", { name: /Features/i });
@@ -161,13 +175,6 @@ test.describe("Project Lifecycle (Happy Path)", () => {
       itemData,
     );
 
-    // The drop re-renders the sheet, which can reset the active tab back to
-    // its default - re-assert Features is active rather than assuming the
-    // pre-drop click (line 128-131) still holds.
-    if (await featuresTab.isVisible()) {
-      await featuresTab.click();
-    }
-
     // Quadrone (v14) renders item rows as .tidy-table-row /
     // [data-tidy-sheet-part="item-table-row"], not the Classic sheet's
     // .item-row/.item-table-row - keep both so this matches whichever sheet
@@ -177,8 +184,41 @@ test.describe("Project Lifecycle (Happy Path)", () => {
       .filter({ hasText: projectName })
       .first();
 
-    await projectRow.scrollIntoViewIfNeeded();
-    await expect(projectRow).toBeVisible({ timeout: 20000 });
+    // The drop re-renders the sheet, which can reset the active tab back to
+    // its default - confirmed live that this can happen more than once, at
+    // an unpredictable delay (registering allowedCompendiums above means the
+    // drop now actually runs the real initiateProjectFromItem conversion
+    // instead of silently falling through to a plain item copy, and that
+    // conversion's own createEmbeddedDocuments call can trigger further
+    // hook-driven re-renders). A single re-click after a fixed wait isn't
+    // reliable against an unknown number of resets at an unknown delay - so
+    // keep re-clicking Features and re-checking row visibility together
+    // until both hold, rather than assuming one re-click settles it.
+    //
+    // scrollIntoViewIfNeeded is folded into this same retry rather than run
+    // as a separate step after: confirmed live that the row can still be
+    // mid-render-storm right after a single toBeVisible check passes (it
+    // toggles hidden/visible repeatedly for well over a minute under host
+    // contention), which left a standalone scrollIntoViewIfNeeded call
+    // racing against that instability and timing out on its own. Retrying
+    // the pair together means a momentary reappearance gets re-verified
+    // instead of trusted.
+    await expect(async () => {
+      if (await featuresTab.isVisible()) {
+        await featuresTab.click();
+      }
+      await expect(projectRow).toBeVisible({ timeout: 2000 });
+      await projectRow.scrollIntoViewIfNeeded();
+      await expect(projectRow).toBeVisible({ timeout: 2000 });
+    }).toPass({ timeout: 60000, intervals: [500, 1000, 2000] });
+
+    // A plain, un-converted item copy (the failure mode a missing
+    // allowedCompendiums registration produces - see the setup comment
+    // above) would still satisfy the projectRow locator above, since that
+    // only filters by name text. Assert the real conversion actually ran:
+    // renamed with a progress suffix, not just present on the sheet.
+    await expect(projectRow).toContainText("0/100");
+    await snapshot(actorSheet, "actor-sheet-project-new");
 
     await page.evaluate(() => {
       const groupActor = (game as any).actors.find(
@@ -226,5 +266,18 @@ test.describe("Project Lifecycle (Happy Path)", () => {
     }, moduleId);
 
     await expect(projectRow).not.toContainText("0/100", { timeout: 30000 });
+
+    // Locator.screenshot() crops the full-page screenshot to the element's
+    // bounding box - it does not screenshot "through" occlusion. The group
+    // sheet opened above still sits on screen and, being the most recently
+    // focused window, paints on top of the actor sheet at these coordinates -
+    // confirmed live: without this, the captured image was the group sheet's
+    // content, not the actor sheet's, despite actorSheet being the correct
+    // locator. Bring it back to front before capturing.
+    await page.evaluate((id) => {
+      // ApplicationV2's method is bringToFront(), not V1's bringToTop().
+      (foundry.applications.instances as Map<string, any>).get(id)?.bringToFront();
+    }, actorSheetId);
+    await snapshot(actorSheet, "actor-sheet-project-in-progress");
   });
 });
