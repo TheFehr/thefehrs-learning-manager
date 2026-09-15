@@ -1,4 +1,4 @@
-import { expect, type Page, type BrowserContext } from "@playwright/test";
+import { expect, type Page, type Locator, type BrowserContext } from "@playwright/test";
 
 /**
  * Waits until the Foundry game is fully initialized — game.ready is true AND all core
@@ -157,6 +157,45 @@ export async function forceClick(locator: any) {
     el.dispatchEvent(new MouseEvent("mouseup", { bubbles: true, cancelable: true, view: window }));
     el.click();
   });
+}
+
+// Screenshots land under e2e/screenshots/, committed to the repo (each
+// verify run overwrites them in place) rather than under test-results-*/,
+// which is git-ignored and wiped per run - the point here is an
+// auto-updating record of what the UI actually looks like, not a
+// per-run debugging artifact.
+//
+// Deliberately no fullPage option: pass a Locator scoped to the specific
+// window/dialog being documented (e.g. the settings app, not the whole
+// page) rather than defaulting to a full-page capture. Foundry's own UI
+// is a fixed-viewport app with floating windows, not a scrolling
+// document, so "full page" would just capture the whole canvas/sidebar
+// around the thing actually worth showing, not the thing itself.
+export async function snapshot(target: Page | Locator, name: string) {
+  // disableTour() (called in every spec's setupWorld) does not reliably
+  // suppress every Foundry tour - confirmed live: a "Welcome to Foundry
+  // Virtual Tabletop" tour still rendered mid-test and ruined a screenshot
+  // despite it. This repo also has its own unused setupTourKiller/
+  // addTourKillerStyle helpers below with a different, likely-also-wrong
+  // guess at the tourProgress storage shape, and selectors that stop at
+  // ".tour-v13" with nothing for v14 - rather than trying to fix tour
+  // suppression itself here, just brute-force-clear anything tour-shaped
+  // right before every capture so screenshots are reliable regardless.
+  const page = "page" in target ? target.page() : target;
+  const sweepTours = () =>
+    page.evaluate(() => {
+      document.querySelectorAll('[class*="tour" i], [id*="tour" i]').forEach((el) => el.remove());
+    });
+
+  // A tour can render on a short delay after a UI action (confirmed live:
+  // it was reliably absent immediately after a tab switch, then present
+  // moments later) rather than being there to sweep immediately - so sweep,
+  // give a delayed trigger a window to fire, then sweep again right before
+  // capturing.
+  await sweepTours();
+  await page.waitForTimeout(500);
+  await sweepTours();
+  await target.screenshot({ path: `e2e/screenshots/${name}.png` });
 }
 
 export async function ensureEditMode(partyTab: any) {

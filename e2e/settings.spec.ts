@@ -1,5 +1,5 @@
 import { test, expect, useBaseWorld, disableTour } from "@thefehr/foundry-playwright";
-import { forceClick, waitForGameReady } from "./utils";
+import { forceClick, waitForGameReady, snapshot } from "./utils";
 
 const moduleId = "thefehrs-learning-manager";
 
@@ -59,6 +59,8 @@ test.describe("Settings UI", () => {
     await expect(customSettingsApp).toBeVisible({ timeout: 20000 });
 
     // The Rules tab is active by default.
+    await snapshot(customSettingsApp, "settings-rules-tab");
+
     await customSettingsApp
       .locator("#rule-notification-level")
       .evaluate((el: HTMLSelectElement) => {
@@ -69,6 +71,7 @@ test.describe("Settings UI", () => {
     // TabBar buttons now carry role="tab" (proper ARIA tab semantics), not
     // the button's own implicit role - see TabBar.svelte.
     await forceClick(customSettingsApp.getByRole("tab", { name: /^Compendiums$/i }));
+    await snapshot(customSettingsApp, "settings-compendiums-tab");
 
     const checkboxes = [
       customSettingsApp.locator('input[data-pack-id="world.test-learning-feats"]').first(),
