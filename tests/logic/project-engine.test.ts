@@ -575,7 +575,7 @@ describe("ProjectEngine", () => {
       await ProjectEngine.processTraining(activity as any, { skipPrompt: true });
 
       expect(ui.notifications.info).toHaveBeenCalledWith(
-        "Training unsuccessful: Mock failure reason",
+        "Training unsuccessful: Mock failure reason (still at 0/10).",
       );
     });
 

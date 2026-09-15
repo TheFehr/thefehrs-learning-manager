@@ -9,6 +9,8 @@
     isSeparateRoll = true,
     batchThreshold,
     ratio,
+    currentProgress,
+    target,
   }: {
     tuName: string;
     bulkValue: string | number;
@@ -19,10 +21,26 @@
     isSeparateRoll?: boolean;
     batchThreshold: number;
     ratio: number;
+    currentProgress: number;
+    target: number;
   } = $props();
+
+  // Projected totals are estimates for roll-based methods (the actual gain
+  // depends on the roll) and exact for fixed ones - shown the same way in
+  // both cases since the gain values above are already labeled "Expected"
+  // when they are estimates. Capped at target: a roll-based estimate can
+  // overshoot it, and showing e.g. "22/20" here would just be confusing.
+  function projectedTotal(gain: string | number): string {
+    const gainNum = typeof gain === "number" ? gain : parseFloat(gain);
+    if (isNaN(gainNum)) return "unavailable";
+    return `${Math.min(currentProgress + gainNum, target)} / ${target}`;
+  }
 </script>
 
 <div class="training-resolution">
+  <p class="current-progress">
+    Current progress: <strong>{currentProgress} / {target}</strong>
+  </p>
   <p>How would you like to resolve this <strong>{tuName}</strong> session?</p>
 
   <div class="methods">
@@ -32,9 +50,9 @@
         <strong>Bulk Method</strong>
       </div>
       {#if isBulkRoll}
-        Expected progress: <strong>{bulkValue}</strong> (one roll).
+        Expected progress: <strong>{bulkValue}</strong> (one roll) &rarr; projected total: <strong>{projectedTotal(bulkValue)}</strong>.
       {:else}
-        Gaining <strong>{bulkValue}</strong> progress fixed.
+        Gaining <strong>{bulkValue}</strong> progress fixed &rarr; new total: <strong>{projectedTotal(bulkValue)}</strong>.
       {/if}
     </div>
 
@@ -44,7 +62,7 @@
         <strong>Separate Method</strong>
       </div>
       {#if isSeparateRoll}
-        Expected progress: <strong>{separateValue}</strong> across {ratio} rolls.
+        Expected progress: <strong>{separateValue}</strong> across {ratio} rolls &rarr; projected total: <strong>{projectedTotal(separateValue)}</strong>.
         <small>
           {#if chancePercent === "unavailable"}
             Probability unavailable.
@@ -53,7 +71,7 @@
           {/if}
         </small>
       {:else}
-        Gaining <strong>{separateValue}</strong> progress fixed.
+        Gaining <strong>{separateValue}</strong> progress fixed &rarr; new total: <strong>{projectedTotal(separateValue)}</strong>.
       {/if}
       {#if isSeparateRoll && ratio > 5}
         <small class="warning">
@@ -72,6 +90,12 @@
     flex-direction: column;
     gap: 1rem;
     padding: 0.5rem;
+
+    .current-progress {
+      margin: 0;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--t5e-faint-color);
+    }
 
     .methods {
       display: flex;
