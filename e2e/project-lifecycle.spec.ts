@@ -49,7 +49,13 @@ useBaseWorld(test, {
           {
             name: projectName,
             type: "feat",
-            img: "icons/skills/trades/smithing-anvil-silver.webp",
+            // No explicit img: that specific icon 404s under this Foundry
+            // version's bundled icon set (confirmed live - showed up as a
+            // broken image in the actor-sheet screenshots), and there's no
+            // portrait this test actually cares about. Omitting it falls
+            // back to the system's own guaranteed-valid default icon for a
+            // feat item, same as how a project created via the real Mass
+            // Edit UI (full-project-lifecycle.spec.ts) gets one.
             system: {
               description: { value: "A test feat for learning." },
               type: { value: "feat" },
