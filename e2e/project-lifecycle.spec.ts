@@ -287,6 +287,17 @@ test.describe("Project Lifecycle (Happy Path)", () => {
       // ApplicationV2's method is bringToFront(), not V1's bringToTop().
       (foundry.applications.instances as Map<string, any>).get(id)?.bringToFront();
     }, actorSheetId);
+
+    // Expand the row so the screenshot actually shows the progress bar:
+    // ProjectLifecycle.updateItemWithProgress writes a real progress-bar
+    // widget (ProjectUI.generateProgressHtml) into the item's own
+    // description, and tidy5e only renders an item's description when its
+    // row is expanded - collapsed, the row is just the name/uses/time
+    // columns with no progress visible at all.
+    await projectRow.locator(".expand-indicator").click();
+    await expect(actorSheet.locator(".learning-manager-progress-container")).toBeVisible({
+      timeout: 10000,
+    });
     await snapshot(actorSheet, "actor-sheet-project-in-progress");
   });
 });
