@@ -18,7 +18,13 @@
 <div class="thefehrs-mass-edit">
   <TabBar {tabs} bind:activeTab />
 
-  <div class="tab-content">
+  <div
+    class="tab-content"
+    role="tabpanel"
+    id={`tabpanel-${activeTab}`}
+    aria-labelledby={`tab-${activeTab}`}
+    tabindex="0"
+  >
     {#if activeTab === "projects"}
       <ProjectsTab />
     {:else if activeTab === "teachers"}

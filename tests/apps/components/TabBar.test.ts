@@ -24,21 +24,27 @@ describe("TabBar.svelte", () => {
     target.remove();
   });
 
-  it("exposes the active tab to assistive technology via aria-pressed", async () => {
+  it("exposes proper ARIA tab semantics, including the active tab, to assistive technology", async () => {
     instance = mount(TabBar, {
       target,
       props: { tabs, activeTab: "rules" },
     });
     await tick();
 
+    const tabList = target.querySelector(".tab-bar");
+    expect(tabList?.getAttribute("role")).toBe("tablist");
+
     const buttons = target.querySelectorAll("button.tab-btn");
-    expect(buttons[0].getAttribute("aria-pressed")).toBe("true");
-    expect(buttons[1].getAttribute("aria-pressed")).toBe("false");
+    expect(buttons[0].getAttribute("role")).toBe("tab");
+    expect(buttons[0].getAttribute("id")).toBe("tab-rules");
+    expect(buttons[0].getAttribute("aria-controls")).toBe("tabpanel-rules");
+    expect(buttons[0].getAttribute("aria-selected")).toBe("true");
+    expect(buttons[1].getAttribute("aria-selected")).toBe("false");
 
     (buttons[1] as HTMLButtonElement).click();
     await tick();
 
-    expect(buttons[0].getAttribute("aria-pressed")).toBe("false");
-    expect(buttons[1].getAttribute("aria-pressed")).toBe("true");
+    expect(buttons[0].getAttribute("aria-selected")).toBe("false");
+    expect(buttons[1].getAttribute("aria-selected")).toBe("true");
   });
 });

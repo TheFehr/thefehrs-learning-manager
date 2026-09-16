@@ -170,7 +170,13 @@
 <div class="world-settings">
   <TabBar {tabs} bind:activeTab />
 
-  <div class="tab-content">
+  <div
+    class="tab-content"
+    role="tabpanel"
+    id={`tabpanel-${activeTab}`}
+    aria-labelledby={`tab-${activeTab}`}
+    tabindex="0"
+  >
     {#if activeTab === "rules"}
       <div class="form-group">
         <label for="scan-world-actors" style="font-weight: bold;">Scan World Actors for Instructors</label>

@@ -74,6 +74,16 @@ describe("WorldSettingsConfig.svelte", () => {
     const activeBtn = target.querySelector(".tab-btn.active");
     expect(activeBtn?.textContent?.trim()).toContain("Rules");
     expect(target.querySelector("h3")?.textContent).toBe("Global Rules");
+
+    // The tab button and its panel must reference each other by id, not just
+    // look connected visually - aria-controls/aria-labelledby is how a
+    // screen reader actually resolves the relationship.
+    expect(activeBtn?.getAttribute("id")).toBe("tab-rules");
+    expect(activeBtn?.getAttribute("aria-controls")).toBe("tabpanel-rules");
+    const panel = target.querySelector(".tab-content");
+    expect(panel?.getAttribute("role")).toBe("tabpanel");
+    expect(panel?.getAttribute("id")).toBe("tabpanel-rules");
+    expect(panel?.getAttribute("aria-labelledby")).toBe("tab-rules");
   });
 
   it("should show all three compendium pickers on the Compendiums tab", async () => {

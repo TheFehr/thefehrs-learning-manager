@@ -11,19 +11,25 @@
   }>();
 </script>
 
-<nav class="tab-bar">
+<!-- A plain div, not <nav>: <nav> is a landmark element and Svelte's own
+     a11y linter (rightly) rejects giving a non-interactive landmark an
+     interactive role like tablist. -->
+<div class="tab-bar" role="tablist">
   {#each tabs as tab (tab.id)}
     <button
       type="button"
       class="tab-btn"
       class:active={activeTab === tab.id}
-      aria-pressed={activeTab === tab.id}
+      role="tab"
+      id={`tab-${tab.id}`}
+      aria-selected={activeTab === tab.id}
+      aria-controls={`tabpanel-${tab.id}`}
       onclick={() => (activeTab = tab.id)}
     >
       <i class={tab.icon}></i> {tab.label}
     </button>
   {/each}
-</nav>
+</div>
 
 <style lang="scss">
   .tab-bar {

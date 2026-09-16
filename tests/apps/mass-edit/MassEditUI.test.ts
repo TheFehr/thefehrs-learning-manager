@@ -65,6 +65,16 @@ describe("MassEditUI.svelte", () => {
     const activeBtn = target.querySelector(".tab-btn.active");
     expect(activeBtn?.textContent?.trim()).toContain("Projects");
     expect(target.querySelector(".projects-tab")).not.toBeNull();
+
+    // The tab button and its panel must reference each other by id, not just
+    // look connected visually - aria-controls/aria-labelledby is how a
+    // screen reader actually resolves the relationship.
+    expect(activeBtn?.getAttribute("id")).toBe("tab-projects");
+    expect(activeBtn?.getAttribute("aria-controls")).toBe("tabpanel-projects");
+    const panel = target.querySelector(".tab-content");
+    expect(panel?.getAttribute("role")).toBe("tabpanel");
+    expect(panel?.getAttribute("id")).toBe("tabpanel-projects");
+    expect(panel?.getAttribute("aria-labelledby")).toBe("tab-projects");
   });
 
   it("switches to the Teachers tab when clicked", async () => {
