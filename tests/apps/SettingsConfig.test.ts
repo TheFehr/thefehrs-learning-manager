@@ -121,6 +121,30 @@ describe("SettingsConfig.svelte", () => {
     expect(target.innerHTML).toContain("All changes saved");
   });
 
+  it("should clear the saved indicator once a setting changes again", async () => {
+    vi.mocked(settingsLogic.saveSettings).mockResolvedValueOnce(true);
+
+    instance = mount(SettingsConfig, {
+      target,
+      props: {},
+    });
+    await tick();
+
+    const saveBtn = target.querySelector("button.primary") as HTMLButtonElement;
+    saveBtn.click();
+    await tick();
+    await tick();
+
+    expect(target.innerHTML).toContain("All changes saved");
+
+    const scanCheckbox = target.querySelector("#scan-world-actors") as HTMLInputElement;
+    expect(scanCheckbox).not.toBeNull();
+    scanCheckbox.click();
+    await tick();
+
+    expect(target.innerHTML).not.toContain("All changes saved");
+  });
+
   it("should show an error indicator when save fails", async () => {
     vi.mocked(settingsLogic.saveSettings).mockResolvedValueOnce(false);
 

@@ -17,6 +17,7 @@
       type="button"
       class="tab-btn"
       class:active={activeTab === tab.id}
+      aria-pressed={activeTab === tab.id}
       onclick={() => (activeTab = tab.id)}
     >
       <i class={tab.icon}></i> {tab.label}

@@ -37,6 +37,22 @@
   let saveError = $state<string | null>(null);
   let hasSaved = $state(false);
 
+  // Clears the "All changes saved" banner as soon as any bound setting
+  // actually changes, rather than leaving it up (and wrong) until the next
+  // save click. save() itself never mutates these, so this only fires on a
+  // real edit, not as a side effect of saving.
+  $effect(() => {
+    void rules;
+    void timeUnits;
+    void teacherCompendiums;
+    void bookCompendiums;
+    void allowedCompendiums;
+    void scanWorldActors;
+    void autoSpend;
+    void autoSpendUnits;
+    hasSaved = false;
+  });
+
   onMount(async () => {
     if (isGM) {
       const results = await Promise.allSettled([
