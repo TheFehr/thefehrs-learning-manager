@@ -66,7 +66,9 @@ test.describe("Settings UI", () => {
         el.dispatchEvent(new Event("change", { bubbles: true }));
       });
 
-    await forceClick(customSettingsApp.getByRole("button", { name: /^Compendiums$/i }));
+    // TabBar buttons now carry role="tab" (proper ARIA tab semantics), not
+    // the button's own implicit role - see TabBar.svelte.
+    await forceClick(customSettingsApp.getByRole("tab", { name: /^Compendiums$/i }));
 
     const checkboxes = [
       customSettingsApp.locator('input[data-pack-id="world.test-learning-feats"]').first(),
