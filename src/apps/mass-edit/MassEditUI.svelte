@@ -18,20 +18,26 @@
 <div class="thefehrs-mass-edit">
   <TabBar {tabs} bind:activeTab />
 
-  <div
-    class="tab-content"
-    role="tabpanel"
-    id={`tabpanel-${activeTab}`}
-    aria-labelledby={`tab-${activeTab}`}
-    tabindex="0"
-  >
-    {#if activeTab === "projects"}
-      <ProjectsTab />
-    {:else if activeTab === "teachers"}
-      <TeachersTab />
-    {:else}
-      <BooksTab />
-    {/if}
+  <!-- One stable tabpanel wrapper per tab - see WorldSettingsConfig.svelte
+       for why: TabBar's aria-controls on each tab button needs a real
+       element to resolve to at all times, not just while that tab is
+       active. -->
+  <div class="tab-content">
+    <div class="tab-panel" id="tabpanel-projects" role="tabpanel" aria-labelledby="tab-projects" tabindex="0" hidden={activeTab !== "projects"}>
+      {#if activeTab === "projects"}
+        <ProjectsTab />
+      {/if}
+    </div>
+    <div class="tab-panel" id="tabpanel-teachers" role="tabpanel" aria-labelledby="tab-teachers" tabindex="0" hidden={activeTab !== "teachers"}>
+      {#if activeTab === "teachers"}
+        <TeachersTab />
+      {/if}
+    </div>
+    <div class="tab-panel" id="tabpanel-books" role="tabpanel" aria-labelledby="tab-books" tabindex="0" hidden={activeTab !== "books"}>
+      {#if activeTab === "books"}
+        <BooksTab />
+      {/if}
+    </div>
   </div>
 </div>
 
@@ -47,6 +53,19 @@
       overflow: hidden;
       display: flex;
       flex-direction: column;
+
+      /* Each tab's own component (e.g. ProjectsTab) expects to be a direct
+         flex child sized by this container - it sets height: 100% on its
+         own root to drive its internal scroll area. The tabpanel wrapper
+         sits between them now, so it needs to pass that sizing through
+         rather than just shrink-to-fit its content. */
+      .tab-panel {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+      }
     }
   }
 </style>

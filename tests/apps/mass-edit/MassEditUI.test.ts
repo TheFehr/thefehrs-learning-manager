@@ -71,10 +71,19 @@ describe("MassEditUI.svelte", () => {
     // screen reader actually resolves the relationship.
     expect(activeBtn?.getAttribute("id")).toBe("tab-projects");
     expect(activeBtn?.getAttribute("aria-controls")).toBe("tabpanel-projects");
-    const panel = target.querySelector(".tab-content");
+    const panel = target.querySelector("#tabpanel-projects");
     expect(panel?.getAttribute("role")).toBe("tabpanel");
-    expect(panel?.getAttribute("id")).toBe("tabpanel-projects");
     expect(panel?.getAttribute("aria-labelledby")).toBe("tab-projects");
+    expect(panel?.hasAttribute("hidden")).toBe(false);
+
+    // Every tab's aria-controls target must resolve to a real element at all
+    // times, not just while that tab is active - otherwise a screen reader
+    // can't follow the relationship for the tabs a user hasn't clicked yet.
+    for (const tabId of ["teachers", "books"]) {
+      const inactivePanel = target.querySelector(`#tabpanel-${tabId}`);
+      expect(inactivePanel).not.toBeNull();
+      expect(inactivePanel?.hasAttribute("hidden")).toBe(true);
+    }
   });
 
   it("switches to the Teachers tab when clicked", async () => {

@@ -80,10 +80,19 @@ describe("WorldSettingsConfig.svelte", () => {
     // screen reader actually resolves the relationship.
     expect(activeBtn?.getAttribute("id")).toBe("tab-rules");
     expect(activeBtn?.getAttribute("aria-controls")).toBe("tabpanel-rules");
-    const panel = target.querySelector(".tab-content");
+    const panel = target.querySelector("#tabpanel-rules");
     expect(panel?.getAttribute("role")).toBe("tabpanel");
-    expect(panel?.getAttribute("id")).toBe("tabpanel-rules");
     expect(panel?.getAttribute("aria-labelledby")).toBe("tab-rules");
+    expect(panel?.hasAttribute("hidden")).toBe(false);
+
+    // Every tab's aria-controls target must resolve to a real element at all
+    // times, not just while that tab is active - otherwise a screen reader
+    // can't follow the relationship for the tabs a user hasn't clicked yet.
+    for (const tabId of ["compendiums", "time-units", "data"]) {
+      const inactivePanel = target.querySelector(`#tabpanel-${tabId}`);
+      expect(inactivePanel).not.toBeNull();
+      expect(inactivePanel?.hasAttribute("hidden")).toBe(true);
+    }
   });
 
   it("should show all three compendium pickers on the Compendiums tab", async () => {
