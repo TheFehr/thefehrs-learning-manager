@@ -30,16 +30,41 @@
   // both cases since the gain values above are already labeled "Expected"
   // when they are estimates. Capped at target: a roll-based estimate can
   // overshoot it, and showing e.g. "22/20" here would just be confusing.
+  //
+  // currentProgress/target come from persisted item flags (arbitrary JSON),
+  // not a value this component controls - project-engine.ts rejects a
+  // missing or non-positive target before mounting this dialog, but not
+  // Infinity, and currentProgress isn't validated there at all. Number.isFinite
+  // catches both that and NaN (unlike the old isNaN(gainNum) check, which let
+  // an Infinity gain through) - fall back to "unavailable" rather than
+  // silently rendering a concatenated string or NaN.
   function projectedTotal(gain: string | number): string {
     const gainNum = typeof gain === "number" ? gain : parseFloat(gain);
-    if (isNaN(gainNum)) return "unavailable";
+    if (
+      !Number.isFinite(gainNum) ||
+      !Number.isFinite(currentProgress) ||
+      !Number.isFinite(target) ||
+      target <= 0
+    ) {
+      return "unavailable";
+    }
     return `${Math.min(currentProgress + gainNum, target)} / ${target}`;
   }
+
+  // Same validation as projectedTotal, for the raw current-progress line
+  // below - it interpolates currentProgress/target directly rather than
+  // going through that function, so it needs its own guard against the same
+  // malformed persisted values.
+  let progressHeader = $derived(
+    Number.isFinite(currentProgress) && Number.isFinite(target) && target > 0
+      ? `${currentProgress} / ${target}`
+      : "unavailable",
+  );
 </script>
 
 <div class="training-resolution">
   <p class="current-progress">
-    Current progress: <strong>{currentProgress} / {target}</strong>
+    Current progress: <strong>{progressHeader}</strong>
   </p>
   <p>How would you like to resolve this <strong>{tuName}</strong> session?</p>
 

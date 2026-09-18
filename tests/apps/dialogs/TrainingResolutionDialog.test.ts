@@ -126,6 +126,40 @@ describe("TrainingResolutionDialog.svelte", () => {
     expect(text).not.toContain("23 / 20");
   });
 
+  it("shows the projected total as unavailable when currentProgress or target is non-finite", async () => {
+    instance = mount(TrainingResolutionDialog, {
+      target: target!,
+      props: {
+        ...baseProps,
+        isBulkRoll: true,
+        isSeparateRoll: false,
+        currentProgress: NaN,
+      },
+    });
+    await tick();
+
+    const text = target!.textContent || "";
+    expect(text).toContain("unavailable");
+    expect(text).not.toContain("NaN");
+  });
+
+  it("shows the projected total as unavailable when target is Infinity or non-positive", async () => {
+    instance = mount(TrainingResolutionDialog, {
+      target: target!,
+      props: {
+        ...baseProps,
+        isBulkRoll: true,
+        isSeparateRoll: false,
+        target: Infinity,
+      },
+    });
+    await tick();
+
+    const text = target!.textContent || "";
+    expect(text).toContain("unavailable");
+    expect(text).not.toContain("Infinity");
+  });
+
   it("shows a warning when the separate method triggers many rolls", async () => {
     instance = mount(TrainingResolutionDialog, {
       target: target!,
