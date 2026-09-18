@@ -3,6 +3,7 @@
   import RulesConfig from "./RulesConfig.svelte";
   import CompendiumConfig from "./CompendiumConfig.svelte";
   import TimeUnitsConfig from "./TimeUnitsConfig.svelte";
+  import TabBar, { type TabDef } from "./TabBar.svelte";
   import { validateSettings, type PackInfo } from "@/logic/settings-logic.js";
   import { TutelageResolverService } from "@/logic/tutelage-resolver.js";
   import { Logger } from "@/core/logger.js";
@@ -28,6 +29,17 @@
     instructorPacks: PackInfo[];
     bookPacks: PackInfo[];
   }>();
+
+  type SettingsTab = "rules" | "compendiums" | "time-units" | "data";
+
+  let activeTab = $state<SettingsTab>("rules");
+
+  const tabs: TabDef<SettingsTab>[] = [
+    { id: "rules", label: "Rules", icon: "fas fa-sliders-h" },
+    { id: "compendiums", label: "Compendiums", icon: "fas fa-box-open" },
+    { id: "time-units", label: "Time Units", icon: "fas fa-clock" },
+    { id: "data", label: "Data", icon: "fas fa-database" },
+  ];
 
   function exportSettings() {
     const data = {
@@ -156,61 +168,87 @@
 </script>
 
 <div class="world-settings">
-  <div class="header-actions">
-    <button
-      type="button"
-      class="tidy-button"
-      onclick={exportSettings}
-      title="Export Settings"
-    >
-      <i class="fas fa-file-export"></i> Export
-    </button>
-    <button
-      type="button"
-      class="tidy-button"
-      onclick={importSettings}
-      title="Import Settings"
-    >
-      <i class="fas fa-file-import"></i> Import
-    </button>
-    <button
-      type="button"
-      class="tidy-button"
-      onclick={clearCache}
-      title="Clear Tutelage Cache"
-    >
-      <i class="fas fa-sync"></i> Clear Cache
-    </button>
-  </div>
+  <TabBar {tabs} bind:activeTab />
 
-  <div class="form-group">
-    <label for="scan-world-actors" style="font-weight: bold;">Scan World Actors for Instructors</label>
-    <div class="form-fields">
-      <input id="scan-world-actors" type="checkbox" bind:checked={scanWorldActors} />
+  <!-- One stable tabpanel wrapper per tab, not a single wrapper whose id
+       tracks activeTab: TabBar gives every tab button its own aria-controls
+       (tabpanel-rules, tabpanel-compendiums, ...), so each of those ids
+       needs a real element to resolve to at all times - not just while its
+       tab happens to be active. Content stays lazily rendered via the
+       {#if} inside each wrapper; only the wrapper itself is always present. -->
+  <div class="tab-content">
+    <div id="tabpanel-rules" role="tabpanel" aria-labelledby="tab-rules" tabindex="0" hidden={activeTab !== "rules"}>
+      {#if activeTab === "rules"}
+        <div class="form-group">
+          <label for="scan-world-actors" style="font-weight: bold;">Scan World Actors for Instructors</label>
+          <div class="form-fields">
+            <input id="scan-world-actors" type="checkbox" bind:checked={scanWorldActors} />
+          </div>
+          <p class="notes">If enabled, the module will scan all actors in the world for teacher offerings. Disabling this can improve performance in very large worlds.</p>
+        </div>
+        <RulesConfig bind:rules />
+      {/if}
     </div>
-    <p class="notes">If enabled, the module will scan all actors in the world for teacher offerings. Disabling this can improve performance in very large worlds.</p>
+    <div id="tabpanel-compendiums" role="tabpanel" aria-labelledby="tab-compendiums" tabindex="0" hidden={activeTab !== "compendiums"}>
+      {#if activeTab === "compendiums"}
+        <h3>Template Compendiums (Items)</h3>
+        <CompendiumConfig bind:allowedCompendiums availablePacks={availableItemPacks} />
+        <hr />
+        <h3>Instructor Compendiums (Actors)</h3>
+        <CompendiumConfig
+          bind:allowedCompendiums={teacherCompendiums}
+          availablePacks={instructorPacks}
+          notes="Compendiums containing actors with Teacher Offerings."
+        />
+        <hr />
+        <h3>Book Compendiums (Items)</h3>
+        <CompendiumConfig
+          bind:allowedCompendiums={bookCompendiums}
+          availablePacks={bookPacks}
+          notes="Compendiums containing items with Learning Book bonuses."
+        />
+      {/if}
+    </div>
+    <div id="tabpanel-time-units" role="tabpanel" aria-labelledby="tab-time-units" tabindex="0" hidden={activeTab !== "time-units"}>
+      {#if activeTab === "time-units"}
+        <TimeUnitsConfig bind:timeUnits />
+      {/if}
+    </div>
+    <div id="tabpanel-data" role="tabpanel" aria-labelledby="tab-data" tabindex="0" hidden={activeTab !== "data"}>
+      {#if activeTab === "data"}
+        <section class="data-actions">
+          <h3>Settings Data</h3>
+          <div class="data-buttons">
+            <button
+              type="button"
+              class="tidy-button"
+              onclick={exportSettings}
+              title="Export Settings"
+            >
+              <i class="fas fa-file-export"></i> Export
+            </button>
+            <button
+              type="button"
+              class="tidy-button"
+              onclick={importSettings}
+              title="Import Settings"
+            >
+              <i class="fas fa-file-import"></i> Import
+            </button>
+            <button
+              type="button"
+              class="tidy-button"
+              onclick={clearCache}
+              title="Clear Tutelage Cache"
+            >
+              <i class="fas fa-sync"></i> Clear Cache
+            </button>
+          </div>
+          <p class="notes">Export or import the settings on this page (Rules, Compendiums, Time Units) as a JSON file. Clearing the tutelage cache forces instructor bonuses to be recalculated on next use - only needed if those bonuses seem out of date after changing an instructor's data directly.</p>
+        </section>
+      {/if}
+    </div>
   </div>
-
-  <RulesConfig bind:rules />
-  <hr />
-  <h3>Template Compendiums (Items)</h3>
-  <CompendiumConfig bind:allowedCompendiums availablePacks={availableItemPacks} />
-  <hr />
-  <h3>Instructor Compendiums (Actors)</h3>
-  <CompendiumConfig 
-    bind:allowedCompendiums={teacherCompendiums} 
-    availablePacks={instructorPacks} 
-    notes="Compendiums containing actors with Teacher Offerings."
-  />
-  <hr />
-  <h3>Book Compendiums (Items)</h3>
-  <CompendiumConfig 
-    bind:allowedCompendiums={bookCompendiums} 
-    availablePacks={bookPacks} 
-    notes="Compendiums containing items with Learning Book bonuses."
-  />
-  <hr />
-  <TimeUnitsConfig bind:timeUnits />
 </div>
 
 <style lang="scss">
@@ -219,10 +257,18 @@
     flex-direction: column;
     gap: 1rem;
 
-    .header-actions {
+    .tab-content {
       display: flex;
-      justify-content: flex-end;
+      flex-direction: column;
       gap: 0.5rem;
+    }
+  }
+
+  .data-actions {
+    .data-buttons {
+      display: flex;
+      gap: 0.5rem;
+      margin-bottom: 0.5rem;
     }
   }
 

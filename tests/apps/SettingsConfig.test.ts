@@ -76,4 +76,89 @@ describe("SettingsConfig.svelte", () => {
 
     expect(settingsLogic.saveSettings).toHaveBeenCalled();
   });
+
+  it("should show a saving indicator while the save is in flight", async () => {
+    let resolveSave: (v: boolean) => void;
+    vi.mocked(settingsLogic.saveSettings).mockReturnValueOnce(
+      new Promise<boolean>((resolve) => {
+        resolveSave = resolve;
+      }),
+    );
+
+    instance = mount(SettingsConfig, {
+      target,
+      props: {},
+    });
+    await tick();
+
+    const saveBtn = target.querySelector("button.primary") as HTMLButtonElement;
+    saveBtn.click();
+    await tick();
+
+    expect(target.innerHTML).toContain("Saving...");
+
+    resolveSave!(true);
+    await tick();
+  });
+
+  it("should show a saved indicator after a successful save, without autosaving on field changes", async () => {
+    vi.mocked(settingsLogic.saveSettings).mockResolvedValueOnce(true);
+
+    instance = mount(SettingsConfig, {
+      target,
+      props: {},
+    });
+    await tick();
+
+    // No save yet - shouldn't claim anything is saved.
+    expect(target.innerHTML).not.toContain("All changes saved");
+
+    const saveBtn = target.querySelector("button.primary") as HTMLButtonElement;
+    saveBtn.click();
+    await tick();
+    await tick();
+
+    expect(target.innerHTML).toContain("All changes saved");
+  });
+
+  it("should clear the saved indicator once a setting changes again", async () => {
+    vi.mocked(settingsLogic.saveSettings).mockResolvedValueOnce(true);
+
+    instance = mount(SettingsConfig, {
+      target,
+      props: {},
+    });
+    await tick();
+
+    const saveBtn = target.querySelector("button.primary") as HTMLButtonElement;
+    saveBtn.click();
+    await tick();
+    await tick();
+
+    expect(target.innerHTML).toContain("All changes saved");
+
+    const scanCheckbox = target.querySelector("#scan-world-actors") as HTMLInputElement;
+    expect(scanCheckbox).not.toBeNull();
+    scanCheckbox.click();
+    await tick();
+
+    expect(target.innerHTML).not.toContain("All changes saved");
+  });
+
+  it("should show an error indicator when save fails", async () => {
+    vi.mocked(settingsLogic.saveSettings).mockResolvedValueOnce(false);
+
+    instance = mount(SettingsConfig, {
+      target,
+      props: {},
+    });
+    await tick();
+
+    const saveBtn = target.querySelector("button.primary") as HTMLButtonElement;
+    saveBtn.click();
+    await tick();
+    await tick();
+
+    expect(target.innerHTML).toContain("Failed to save settings");
+  });
 });

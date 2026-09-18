@@ -80,6 +80,7 @@
       {allEntries}
       onAdded={handleAdded}
       onDismiss={() => (showAddDialog = false)}
+      requireCompendiumDestination={true}
     />
   {/if}
 

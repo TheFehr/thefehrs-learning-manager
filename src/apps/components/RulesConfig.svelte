@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { SystemRules } from "@/types";
-  import { onMount } from "svelte";
+  import { onMount, tick } from "svelte";
   import { Logger } from "@/core/logger.js";
   import { isV14RollModeApiAvailable } from "@/core/foundry.js";
 
@@ -64,6 +64,55 @@
       ? (value as { label: string }).label
       : String(value);
   }
+
+  interface FormulaVariable {
+    token: string;
+    description: string;
+  }
+
+  const abilityVariables: FormulaVariable[] = [
+    { token: "@abilities.str.mod", description: "Strength modifier" },
+    { token: "@abilities.dex.mod", description: "Dexterity modifier" },
+    { token: "@abilities.con.mod", description: "Constitution modifier" },
+    { token: "@abilities.int.mod", description: "Intelligence modifier" },
+    { token: "@abilities.wis.mod", description: "Wisdom modifier" },
+    { token: "@abilities.cha.mod", description: "Charisma modifier" },
+  ];
+
+  const checkFormulaVariables: FormulaVariable[] = [
+    { token: "@tutelage", description: "Instructor tutelage bonus" },
+    ...abilityVariables,
+  ];
+
+  const bulkFormulaVariables: FormulaVariable[] = [
+    { token: "@hours", description: "Hours spent this session" },
+    { token: "@dc", description: "Configured check DC" },
+    { token: "@tutelage", description: "Instructor tutelage bonus" },
+    ...abilityVariables,
+  ];
+
+  let checkFormulaInput = $state<HTMLInputElement | undefined>();
+  let bulkFormulaInput = $state<HTMLInputElement | undefined>();
+
+  // Inserts at the current cursor position (falling back to the end if the
+  // input never had focus) rather than always appending, so picking a
+  // variable partway through an existing formula doesn't require the GM to
+  // manually cut/paste it into place.
+  async function insertVariable(
+    field: "checkFormula" | "bulkExpectedFormula",
+    token: string,
+    inputEl: HTMLInputElement | undefined,
+  ) {
+    if (!inputEl) return;
+    const current = internalRules[field] ?? "";
+    const start = inputEl.selectionStart ?? current.length;
+    const end = inputEl.selectionEnd ?? current.length;
+    internalRules[field] = current.slice(0, start) + token + current.slice(end);
+    await tick();
+    const cursorPos = start + token.length;
+    inputEl.focus();
+    inputEl.setSelectionRange(cursorPos, cursorPos);
+  }
 </script>
 
 <section>
@@ -113,9 +162,30 @@
     </div>
     <div class="form-group">
       <label for="rule-formula">Formula</label>
-      <input id="rule-formula" type="text" bind:value={internalRules.checkFormula} placeholder="1d20 + @abilities.int.mod + @tutelage" />
+      <input
+        id="rule-formula"
+        type="text"
+        bind:value={internalRules.checkFormula}
+        bind:this={checkFormulaInput}
+        placeholder="1d20 + @abilities.int.mod + @tutelage"
+      />
     </div>
-    <p class="notes">Available variables: @tutelage and roll data attributes (e.g. @abilities.int.mod)</p>
+    <div class="formula-helper">
+      <select
+        aria-label="Insert variable into Formula"
+        onchange={(e) => {
+          const token = e.currentTarget.value;
+          if (token) insertVariable("checkFormula", token, checkFormulaInput);
+          e.currentTarget.value = "";
+        }}
+      >
+        <option value="">Insert variable...</option>
+        {#each checkFormulaVariables as v (v.token)}
+          <option value={v.token}>{v.token} — {v.description}</option>
+        {/each}
+      </select>
+    </div>
+    <p class="notes">Roll data attributes (e.g. @abilities.int.mod) can also be typed directly.</p>
     <div class="form-group">
       <label for="rule-crit">Crit Strategy</label>
       <select id="rule-crit" bind:value={internalRules.critDoubleStrategy}>
@@ -140,9 +210,30 @@
   {#if needsBulkFormula}
     <div class="form-group">
       <label for="rule-bulk-formula">Bulk Expected Formula</label>
-      <input id="rule-bulk-formula" type="text" bind:value={internalRules.bulkExpectedFormula} placeholder="round(@hours * (22 - max(1, @dc - (@abilities.int.mod + @tutelage))) / 20)" />
+      <input
+        id="rule-bulk-formula"
+        type="text"
+        bind:value={internalRules.bulkExpectedFormula}
+        bind:this={bulkFormulaInput}
+        placeholder="round(@hours * (22 - max(1, @dc - (@abilities.int.mod + @tutelage))) / 20)"
+      />
     </div>
-    <p class="notes">Available variables: @hours, @dc, @tutelage and roll data attributes (e.g. @abilities.int.mod)</p>
+    <div class="formula-helper">
+      <select
+        aria-label="Insert variable into Bulk Expected Formula"
+        onchange={(e) => {
+          const token = e.currentTarget.value;
+          if (token) insertVariable("bulkExpectedFormula", token, bulkFormulaInput);
+          e.currentTarget.value = "";
+        }}
+      >
+        <option value="">Insert variable...</option>
+        {#each bulkFormulaVariables as v (v.token)}
+          <option value={v.token}>{v.token} — {v.description}</option>
+        {/each}
+      </select>
+    </div>
+    <p class="notes">Roll data attributes (e.g. @abilities.int.mod) can also be typed directly.</p>
   {/if}
 </section>
 
@@ -170,5 +261,15 @@
     margin-top: -0.25rem;
     margin-bottom: 0.5rem;
     margin-left: 160px;
+  }
+
+  .formula-helper {
+    margin-left: 160px;
+    margin-bottom: 0.5rem;
+
+    select {
+      font-size: 0.8rem;
+      max-width: 100%;
+    }
   }
 </style>

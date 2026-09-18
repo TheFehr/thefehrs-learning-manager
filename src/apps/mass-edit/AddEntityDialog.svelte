@@ -14,6 +14,7 @@
     allEntries,
     onAdded,
     onDismiss,
+    requireCompendiumDestination = false,
   } = $props<{
     packIds: string[];
     docType: "Item" | "Actor";
@@ -21,6 +22,12 @@
     allEntries: PackIndexEntry[];
     onAdded: (doc: Item5e | Actor5e) => void;
     onDismiss: () => void;
+    // Projects specifically can't be granted to a player unless they live in
+    // a compendium (the drag-and-drop grant flow only accepts Compendium
+    // UUIDs) - Teachers and Books have no such restriction (world actors are
+    // valid teachers when scanWorldActors is on, and world items are always
+    // allowed as books), so this defaults to false everywhere else.
+    requireCompendiumDestination?: boolean;
   }>();
 
   let mode = $state<"search" | "create">("search");
@@ -30,7 +37,7 @@
   let isWorking = $state(false);
   let errorMessage = $state<string | null>(null);
 
-  const destinations = $derived(getAvailableDestinations(packIds));
+  const destinations = $derived(getAvailableDestinations(packIds, !requireCompendiumDestination));
 
   const unconfigured = $derived(
     allEntries.filter((e) => !e.learningModeEnabled),
@@ -157,21 +164,29 @@
           oninput={(e) => e.stopPropagation()}
         />
       </div>
-      <div class="form-row">
-        <label for="new-destination">Save to</label>
-        <select id="new-destination" bind:value={newDestination} onchange={(e) => e.stopPropagation()}>
-          {#each destinations as dest (dest.id)}
-            <option value={dest.id}>{dest.label}</option>
-          {/each}
-        </select>
-      </div>
-      {#if destinations.length === 1}
-        <p class="empty-note">No writable compendiums available. Unlock a compendium or use "World".</p>
+      {#if destinations.length === 0}
+        <p class="empty-note">
+          No writable compendium available. A new project must be created inside one of the
+          compendiums configured in Settings so it can later be granted to a player - unlock one
+          there, or use "Search Existing" for an item already in one.
+        </p>
+      {:else}
+        <div class="form-row">
+          <label for="new-destination">Save to</label>
+          <select id="new-destination" bind:value={newDestination} onchange={(e) => e.stopPropagation()}>
+            {#each destinations as dest (dest.id)}
+              <option value={dest.id}>{dest.label}</option>
+            {/each}
+          </select>
+        </div>
+        {#if destinations.length === 1 && !requireCompendiumDestination}
+          <p class="empty-note">No writable compendiums available. Unlock a compendium or use "World".</p>
+        {/if}
       {/if}
       <button
         type="button"
         class="tidy-button primary"
-        disabled={isWorking || !newName.trim()}
+        disabled={isWorking || !newName.trim() || destinations.length === 0}
         onclick={handleCreate}
       >
         {#if isWorking}

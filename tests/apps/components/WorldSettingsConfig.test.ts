@@ -11,6 +11,13 @@ vi.mock("@/logic/tutelage-resolver", () => ({
   },
 }));
 
+function clickTab(target: HTMLElement, label: string) {
+  const btn = Array.from(target.querySelectorAll(".tab-btn")).find((b) =>
+    b.textContent?.includes(label),
+  ) as HTMLButtonElement;
+  btn.click();
+}
+
 describe("WorldSettingsConfig.svelte", () => {
   let target: HTMLElement;
   let instance: any;
@@ -49,27 +56,88 @@ describe("WorldSettingsConfig.svelte", () => {
     vi.restoreAllMocks();
   });
 
-  it("should mount and show header actions", async () => {
+  it("should render all four tab buttons and default to the Rules tab", async () => {
     instance = mount(WorldSettingsConfig, {
       target,
       props: { ...mockProps },
     });
     await tick();
 
-    expect(target.querySelector("button[title='Export Settings']")).not.toBeNull();
-    expect(target.querySelector("button[title='Import Settings']")).not.toBeNull();
-    expect(target.querySelector("button[title='Clear Tutelage Cache']")).not.toBeNull();
+    const tabButtons = target.querySelectorAll(".tab-btn");
+    expect(tabButtons).toHaveLength(4);
+    const labels = Array.from(tabButtons).map((b) => b.textContent?.trim());
+    expect(labels.some((l) => l?.includes("Rules"))).toBe(true);
+    expect(labels.some((l) => l?.includes("Compendiums"))).toBe(true);
+    expect(labels.some((l) => l?.includes("Time Units"))).toBe(true);
+    expect(labels.some((l) => l?.includes("Data"))).toBe(true);
 
-    // Check child components presence via their headings or unique structures
+    const activeBtn = target.querySelector(".tab-btn.active");
+    expect(activeBtn?.textContent?.trim()).toContain("Rules");
+    expect(target.querySelector("h3")?.textContent).toBe("Global Rules");
+
+    // The tab button and its panel must reference each other by id, not just
+    // look connected visually - aria-controls/aria-labelledby is how a
+    // screen reader actually resolves the relationship.
+    expect(activeBtn?.getAttribute("id")).toBe("tab-rules");
+    expect(activeBtn?.getAttribute("aria-controls")).toBe("tabpanel-rules");
+    const panel = target.querySelector("#tabpanel-rules");
+    expect(panel?.getAttribute("role")).toBe("tabpanel");
+    expect(panel?.getAttribute("aria-labelledby")).toBe("tab-rules");
+    expect(panel?.hasAttribute("hidden")).toBe(false);
+
+    // Every tab's aria-controls target must resolve to a real element at all
+    // times, not just while that tab is active - otherwise a screen reader
+    // can't follow the relationship for the tabs a user hasn't clicked yet.
+    for (const tabId of ["compendiums", "time-units", "data"]) {
+      const inactivePanel = target.querySelector(`#tabpanel-${tabId}`);
+      expect(inactivePanel).not.toBeNull();
+      expect(inactivePanel?.hasAttribute("hidden")).toBe(true);
+    }
+  });
+
+  it("should show all three compendium pickers on the Compendiums tab", async () => {
+    instance = mount(WorldSettingsConfig, {
+      target,
+      props: { ...mockProps },
+    });
+    await tick();
+
+    clickTab(target, "Compendiums");
+    await tick();
+
     const headers = Array.from(target.querySelectorAll("h3")).map((h) => h.textContent);
-    expect(headers).toContain("Global Rules");
     expect(headers).toContain("Template Compendiums (Items)");
     expect(headers).toContain("Instructor Compendiums (Actors)");
     expect(headers).toContain("Book Compendiums (Items)");
-    expect(headers).toContain("Time Units");
-
     expect(target.querySelectorAll(".compendium-list")).toHaveLength(3);
-    expect(target.querySelector(".tidy-table")).not.toBeNull(); // From TimeUnitsConfig
+  });
+
+  it("should show the time units table on the Time Units tab", async () => {
+    instance = mount(WorldSettingsConfig, {
+      target,
+      props: { ...mockProps },
+    });
+    await tick();
+
+    clickTab(target, "Time Units");
+    await tick();
+
+    expect(target.querySelector(".tidy-table")).not.toBeNull();
+  });
+
+  it("should show the data action buttons on the Data tab", async () => {
+    instance = mount(WorldSettingsConfig, {
+      target,
+      props: { ...mockProps },
+    });
+    await tick();
+
+    clickTab(target, "Data");
+    await tick();
+
+    expect(target.querySelector("button[title='Export Settings']")).not.toBeNull();
+    expect(target.querySelector("button[title='Import Settings']")).not.toBeNull();
+    expect(target.querySelector("button[title='Clear Tutelage Cache']")).not.toBeNull();
   });
 
   it("should call exportSettings on click", async () => {
@@ -77,6 +145,8 @@ describe("WorldSettingsConfig.svelte", () => {
       target,
       props: { ...mockProps },
     });
+    await tick();
+    clickTab(target, "Data");
     await tick();
 
     const exportBtn = target.querySelector("button[title='Export Settings']") as HTMLButtonElement;
@@ -96,6 +166,8 @@ describe("WorldSettingsConfig.svelte", () => {
       target,
       props: { ...mockProps },
     });
+    await tick();
+    clickTab(target, "Data");
     await tick();
 
     const clearBtn = target.querySelector(
@@ -153,6 +225,8 @@ describe("WorldSettingsConfig.svelte", () => {
         target,
         props: { ...mockProps },
       });
+      await tick();
+      clickTab(target, "Data");
       await tick();
 
       const importBtn = target.querySelector(
@@ -212,6 +286,8 @@ describe("WorldSettingsConfig.svelte", () => {
         },
       });
       await tick();
+      clickTab(target, "Data");
+      await tick();
 
       const importBtn = target.querySelector(
         "button[title='Import Settings']",
@@ -266,6 +342,8 @@ describe("WorldSettingsConfig.svelte", () => {
         props: { ...mockProps },
       });
       await tick();
+      clickTab(target, "Data");
+      await tick();
 
       const importBtn = target.querySelector(
         "button[title='Import Settings']",
@@ -292,6 +370,8 @@ describe("WorldSettingsConfig.svelte", () => {
         props: { ...mockProps },
       });
       await tick();
+      clickTab(target, "Data");
+      await tick();
 
       const importBtn = target.querySelector(
         "button[title='Import Settings']",
@@ -316,6 +396,8 @@ describe("WorldSettingsConfig.svelte", () => {
         target,
         props: { ...mockProps },
       });
+      await tick();
+      clickTab(target, "Data");
       await tick();
 
       const importBtn = target.querySelector(
@@ -344,6 +426,8 @@ describe("WorldSettingsConfig.svelte", () => {
           props: { ...mockProps },
         });
         await tick();
+        clickTab(target, "Data");
+        await tick();
 
         const importBtn = target.querySelector(
           "button[title='Import Settings']",
@@ -369,6 +453,8 @@ describe("WorldSettingsConfig.svelte", () => {
           target,
           props: { ...mockProps },
         });
+        await tick();
+        clickTab(target, "Data");
         await tick();
 
         const importBtn = target.querySelector(
