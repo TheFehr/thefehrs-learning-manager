@@ -138,9 +138,13 @@ describe("TrainingResolutionDialog.svelte", () => {
     });
     await tick();
 
-    const text = target!.textContent || "";
-    expect(text).toContain("unavailable");
-    expect(text).not.toContain("NaN");
+    // Scoped to .methods, not the whole dialog: the current-progress header
+    // above it also renders "unavailable" for these same invalid props, so
+    // asserting against the full dialog text could pass even if
+    // projectedTotal() itself returned something else entirely.
+    const methodsText = target!.querySelector(".methods")?.textContent || "";
+    expect(methodsText).toContain("unavailable");
+    expect(methodsText).not.toContain("NaN");
   });
 
   it("shows the projected total as unavailable when target is Infinity or non-positive", async () => {
@@ -155,9 +159,9 @@ describe("TrainingResolutionDialog.svelte", () => {
     });
     await tick();
 
-    const text = target!.textContent || "";
-    expect(text).toContain("unavailable");
-    expect(text).not.toContain("Infinity");
+    const methodsText = target!.querySelector(".methods")?.textContent || "";
+    expect(methodsText).toContain("unavailable");
+    expect(methodsText).not.toContain("Infinity");
   });
 
   it("shows a warning when the separate method triggers many rolls", async () => {
