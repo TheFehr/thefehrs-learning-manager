@@ -5,7 +5,7 @@ import {
   disableTour,
   simulateFoundryDrop,
 } from "@thefehr/foundry-playwright";
-import { waitForGameReady, forceClick } from "./utils";
+import { waitForGameReady, forceClick, snapshot } from "./utils";
 
 // The other e2e specs each cover one slice of this pipeline in isolation:
 // item-learning-config.spec.ts tests the config UI, mass-edit.spec.ts tests
@@ -152,19 +152,26 @@ test.describe("Full Project Lifecycle (Mass Edit create -> grant -> complete)", 
       itemData,
     );
 
-    // The drop re-renders the sheet, which can reset the active tab back to
-    // its default - re-assert Features is active rather than assuming the
-    // pre-drop click still holds.
-    if (await featuresTab.isVisible()) {
-      await featuresTab.click();
-    }
-
+    // .filter({ visible: true }) is load-bearing - see project-lifecycle.spec.ts
+    // for the confirmed root cause: under host contention, tidy5e-sheet can
+    // leave a zero-size phantom row matching this same selector+text ahead of
+    // the real, laid-out row in DOM order, and a bare .first() locks onto it.
     const projectRow = actorSheet
       .locator(".project-row, .item-row, .item-table-row, [data-tidy-sheet-part='item-table-row']")
       .filter({ hasText: projectName })
+      .filter({ visible: true })
       .first();
+
+    // The drop re-renders the sheet, which can reset the active tab back to
+    // its default - re-assert Features is active rather than assuming the
+    // pre-drop click still holds.
+    await expect(async () => {
+      if (await featuresTab.isVisible()) {
+        await featuresTab.click();
+      }
+      await expect(projectRow).toBeVisible({ timeout: 2000 });
+    }).toPass({ timeout: 30000, intervals: [500, 1000, 2000] });
     await projectRow.scrollIntoViewIfNeeded();
-    await expect(projectRow).toBeVisible({ timeout: 20000 });
     await expect(projectRow).toContainText("0/10");
 
     // --- Step 3: progress it to completion ---
@@ -203,5 +210,23 @@ test.describe("Full Project Lifecycle (Mass Edit create -> grant -> complete)", 
     expect(finalState.found).toBe(true);
     expect(finalState.name).toBe(projectName);
     expect(finalState.isLearningProject).toBe(false);
+
+    // --- Step 4: capture what "done" looks like on the sheet ---
+    // Completion recreates the item (restoring its original name/type), which
+    // can reset the active tab the same way the drop did earlier. Same
+    // .filter({ visible: true }) as projectRow above, for the same reason.
+    const completedRow = actorSheet
+      .locator(".project-row, .item-row, .item-table-row, [data-tidy-sheet-part='item-table-row']")
+      .filter({ hasText: projectName })
+      .filter({ visible: true })
+      .first();
+    await expect(async () => {
+      if (await featuresTab.isVisible()) {
+        await featuresTab.click();
+      }
+      await expect(completedRow).toBeVisible({ timeout: 2000 });
+    }).toPass({ timeout: 30000, intervals: [500, 1000, 2000] });
+    await completedRow.scrollIntoViewIfNeeded();
+    await snapshot(actorSheet, "actor-sheet-project-done");
   });
 });
