@@ -385,8 +385,20 @@
          leading edge for depth, plus the same inset highlight and compact
          corner radius dnd5e uses for its embedded (non-meter-lg) bars. */
       .meter.progress {
-        background: var(--t5e-faint-color);
+        /* dnd5e's own .meter track background is a dark gray
+           (--dnd5e-color-light-gray, confusingly - it's only "light"
+           relative to --dnd5e-color-dark-gray, both are near-black), plus a
+           gold border and inset shadow for depth - --t5e-faint-color looked
+           like a bright, out-of-place pill against this dark theme, since
+           tidy5e only ever uses that token for subtle borders/hover tints,
+           never as a large solid fill. box-sizing: border-box keeps the new
+           border inside the existing 100%/100% absolute box instead of
+           overflowing it. */
+        box-sizing: border-box;
+        background: var(--dnd5e-color-light-gray, #3d3d3d);
+        border: 1px solid var(--dnd5e-color-gold, #9f9275);
         border-radius: 2px;
+        box-shadow: inset 0 0 16px rgba(0, 0, 0, 0.25);
         height: 100%;
         width: 100%;
         position: absolute;
