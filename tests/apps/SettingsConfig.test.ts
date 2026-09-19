@@ -101,6 +101,42 @@ describe("SettingsConfig.svelte", () => {
     await tick();
   });
 
+  it("should disable the save button and ignore repeated clicks while a save is in flight", async () => {
+    let resolveSave: (v: boolean) => void;
+    vi.mocked(settingsLogic.saveSettings).mockReturnValueOnce(
+      new Promise<boolean>((resolve) => {
+        resolveSave = resolve;
+      }),
+    );
+
+    instance = mount(SettingsConfig, {
+      target,
+      props: {},
+    });
+    await tick();
+
+    const saveBtn = target.querySelector("button.primary") as HTMLButtonElement;
+    saveBtn.click();
+    await tick();
+
+    expect(saveBtn.disabled).toBe(true);
+
+    // A second click while the first save is still in flight (e.g. a
+    // double-click, or a slow Settings.set() on the first call) must not
+    // start a second concurrent save - two overlapping writes could
+    // otherwise race, with the older one clobbering a newer edit.
+    saveBtn.click();
+    await tick();
+
+    expect(settingsLogic.saveSettings).toHaveBeenCalledTimes(1);
+
+    resolveSave!(true);
+    await tick();
+    await tick();
+
+    expect(saveBtn.disabled).toBe(false);
+  });
+
   it("should show a saved indicator after a successful save, without autosaving on field changes", async () => {
     vi.mocked(settingsLogic.saveSettings).mockResolvedValueOnce(true);
 

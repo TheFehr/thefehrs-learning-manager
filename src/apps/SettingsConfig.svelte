@@ -83,6 +83,12 @@
   });
 
   async function save() {
+    // A second click reaching here while the first save is still awaiting
+    // Settings.set() would let two in-flight writes race: whichever
+    // resolves last wins, and each captured the scalar state at its own
+    // click time, so an older write finishing after a newer one can
+    // silently clobber a more recent edit with stale values.
+    if (isSaving) return;
     isSaving = true;
     saveError = null;
     try {
@@ -131,7 +137,7 @@
 
 
   <div class="footer-actions">
-    <button type="button" class="tidy-button primary" onclick={save}>
+    <button type="button" class="tidy-button primary" onclick={save} disabled={isSaving}>
       <i class="fas fa-save"></i> Save Settings
     </button>
   </div>
