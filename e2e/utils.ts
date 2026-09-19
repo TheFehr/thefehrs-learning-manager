@@ -201,7 +201,12 @@ export async function snapshot(target: Page | Locator, name: string) {
   await sweepOverlays();
   await page.waitForTimeout(500);
   await sweepOverlays();
-  await target.screenshot({ path: `e2e/screenshots/${name}.png` });
+  // CSS transitions (e.g. a progress bar's width transition) can otherwise
+  // get captured mid-animation, producing a slightly different image on an
+  // otherwise-identical run - animations: "disabled" freezes them to their
+  // end state for just this capture, so byte differences between runs
+  // actually mean something changed instead of being timing noise.
+  await target.screenshot({ path: `e2e/screenshots/${name}.png`, animations: "disabled" });
 }
 
 export async function ensureEditMode(partyTab: any) {
