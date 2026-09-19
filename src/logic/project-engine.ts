@@ -506,6 +506,8 @@ export class ProjectEngine {
                   isSeparateRoll,
                   batchThreshold: ProjectEngine.BATCH_THRESHOLD,
                   ratio: tu.ratio,
+                  currentProgress: projectDataFlags.progress || 0,
+                  target: projectDataFlags.target || 0,
                 },
               });
             } else {
@@ -637,12 +639,18 @@ export class ProjectEngine {
 
     // Chat messages and notifications
     const rules = Settings.get("rules");
+    // Toasts are transient and easy to miss, so the gain alone ("Gained 3
+    // progress") isn't enough context to judge how much that actually
+    // matters - always pair it with the resulting total against target.
+    const totalLabel = newState.projectData.isCompleted
+      ? "Project complete!"
+      : `Now at ${newState.projectData.progress}/${newState.projectData.target}.`;
     if (rolls.length > ProjectEngine.BATCH_THRESHOLD) {
       const successCount = rolls.filter(
         (r) => (r.total || 0) >= Number(rules.checkDC ?? DEFAULT_DC),
       ).length;
       getUI()?.notifications?.info(
-        `Training complete: Gained ${progressGained} progress from ${timeSpent} hours (${successCount} successes).`,
+        `Training complete: Gained ${progressGained} progress from ${timeSpent} hours (${successCount} successes). ${totalLabel}`,
       );
     } else {
       const rollModeValue = rules.rollMode || "gmroll";
@@ -662,10 +670,14 @@ export class ProjectEngine {
 
     if (progressGained === 0) {
       const msg =
-        reasons.length > 0 ? `Training unsuccessful: ${reasons[0]}` : "Training unsuccessful.";
+        reasons.length > 0
+          ? `Training unsuccessful: ${reasons[0]} (still at ${newState.projectData.progress}/${newState.projectData.target}).`
+          : `Training unsuccessful (still at ${newState.projectData.progress}/${newState.projectData.target}).`;
       getUI()?.notifications?.info(msg);
     } else if (rolls.length <= ProjectEngine.BATCH_THRESHOLD) {
-      getUI()?.notifications?.info(`Training complete: Gained ${progressGained} progress.`);
+      getUI()?.notifications?.info(
+        `Training complete: Gained ${progressGained} progress. ${totalLabel}`,
+      );
     }
 
     return true;
