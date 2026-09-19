@@ -359,6 +359,11 @@
         white-space: nowrap;
       }
 
+      /* Value/max/separator sit centered directly over the bar rather than
+         as a separate line above it, matching dnd5e's own meter convention
+         (e.g. the HP meter's .label) - text-shadow keeps them legible
+         against the gradient underneath, same as dnd5e's own .label .value/
+         .max treatment. */
       .progress-container {
         display: flex;
         justify-content: center;
@@ -367,11 +372,21 @@
         position: relative;
         z-index: 1;
         height: 100%;
+
+        .value,
+        .max {
+          text-shadow: 0 0 4px var(--dnd5e-color-gold, #9f9275);
+        }
       }
 
+      /* Mirrors dnd5e's own .meter.progress::before treatment (its actual
+         HP/resource bars) rather than a flat single-color fill: a gradient
+         that shifts from blue toward maroon as it fills, darkened on the
+         leading edge for depth, plus the same inset highlight and compact
+         corner radius dnd5e uses for its embedded (non-meter-lg) bars. */
       .meter.progress {
         background: var(--t5e-faint-color);
-        border-radius: 7px;
+        border-radius: 2px;
         height: 100%;
         width: 100%;
         position: absolute;
@@ -380,13 +395,16 @@
         overflow: hidden;
 
         &::before {
+          --bar-color-2: color-mix(in oklab, var(--dnd5e-color-blue, cornflowerblue), var(--dnd5e-color-maroon, #741b2b) var(--bar-percentage));
+          --bar-color-1: color-mix(in oklab, var(--bar-color-2), black 33%);
           content: "";
           position: absolute;
           top: 0;
           left: 0;
           height: 100%;
           width: var(--bar-percentage);
-          background: var(--t5e-primary-accent-color, var(--t5e-color-primary-accent, #4f5af7));
+          background: linear-gradient(to right, var(--bar-color-1), var(--bar-color-2));
+          box-shadow: inset 0 1px 0 1px var(--dnd5e-highlight-40, rgba(255, 255, 255, 0.2));
           transition: width 0.4s ease;
         }
       }
