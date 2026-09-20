@@ -3,6 +3,7 @@
   import type {MemberMappedData} from "@/apps/party-tab.js";
   import type {ProjectMappedData} from "@/logic/project-item.js";
   import {PartyTabLogic} from "@/logic/party-tab-logic.js";
+  import {withProgressSuffix} from "@/logic/party-tab-pending.js";
 
   let {members: membersProp, isGM, actor} = $props<{
     members: MemberMappedData[];
@@ -38,6 +39,7 @@
             p.progress = Math.max(0, Math.min(newProgress, max));
             // Update percentage for the bar
             p.progressPercentage = max > 0 ? Math.min(100, Math.round((p.progress / max) * 100)) : 0;
+            p.name = withProgressSuffix(p.name, p.progress, max);
         }
     }
     PartyTabLogic.updateProgress(memberUuid, project, newProgress, isGM, actor);
@@ -54,6 +56,7 @@
             // Update percentage for the bar
             const max = p.maxProgress || 0;
             p.progressPercentage = max > 0 ? Math.min(100, Math.round((p.progress / max) * 100)) : 0;
+            p.name = withProgressSuffix(p.name, p.progress, max);
         }
     }
     PartyTabLogic.updateTarget(memberUuid, project, newTarget, isGM, actor);

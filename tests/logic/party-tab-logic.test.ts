@@ -5,6 +5,7 @@ import { TabLogic } from "../../src/logic/tab-logic";
 import { ActorProxy } from "../../src/logic/actor-proxy";
 import { ProjectEngine } from "../../src/logic/project-engine";
 import { FoundryUtils } from "../../src/core/foundry-utils";
+import { PartyTabPending } from "../../src/logic/party-tab-pending";
 
 vi.mock("@/core/settings");
 vi.mock("@/logic/tab-logic");
@@ -18,6 +19,7 @@ describe("PartyTabLogic", () => {
 
   beforeEach(() => {
     vi.resetAllMocks();
+    PartyTabPending.clear();
     originalFoundry = (globalThis as any).foundry;
 
     // Mock Settings.get
@@ -193,6 +195,39 @@ describe("PartyTabLogic", () => {
 
       expect(ui.notifications.error).toHaveBeenCalled();
     });
+
+    // Regression coverage for thefehrs-learning-manager#131's e2e failure:
+    // this write is deliberately silent (no forced re-render), but
+    // LearningManager.renderSvelte remounts the Party tab's Svelte component
+    // fresh on every render of its parent sheet rather than doing a
+    // props-only update - a remount landing before this write's flag change
+    // lands would otherwise read stale data with nothing left to correct it.
+    // See PartyTabPending's own comment for the full mechanism.
+    it("records the new progress in PartyTabPending so a remount mid-write doesn't read stale data", async () => {
+      const mockProjectData = { progress: 5, target: 10, isCompleted: false };
+      const mockItem = {
+        id: "item1",
+        getFlag: vi.fn().mockReturnValue(mockProjectData),
+        name: "Test",
+      };
+      const mockActor = {
+        uuid: "Actor.actor1",
+        items: { get: vi.fn().mockReturnValue(mockItem) },
+      };
+      (globalThis as any).fromUuid = vi.fn().mockResolvedValue(mockActor);
+
+      await PartyTabLogic.updateProgress("Actor.actor1", { id: "item1" } as any, 8, true);
+
+      // Simulate a fresh read (e.g. from a remounted component) that still
+      // sees the pre-write flag data - the pending edit should win.
+      expect(
+        PartyTabPending.resolve("Actor.actor1", "item1", {
+          progress: 5,
+          target: 10,
+          name: "Test (5/10)",
+        }),
+      ).toEqual({ progress: 8, target: 10, name: "Test (8/10)" });
+    });
   });
 
   describe("updateTarget", () => {
@@ -211,6 +246,31 @@ describe("PartyTabLogic", () => {
         expect.anything(),
         false,
       );
+    });
+
+    // See the matching updateProgress test above for why this matters.
+    it("records the new target in PartyTabPending so a remount mid-write doesn't read stale data", async () => {
+      const mockProjectData = { progress: 5, target: 10 };
+      const mockItem = {
+        id: "item1",
+        getFlag: vi.fn().mockReturnValue(mockProjectData),
+        name: "Test",
+      };
+      const mockActor = {
+        uuid: "Actor.actor1",
+        items: { get: vi.fn().mockReturnValue(mockItem) },
+      };
+      (globalThis as any).fromUuid = vi.fn().mockResolvedValue(mockActor);
+
+      await PartyTabLogic.updateTarget("Actor.actor1", { id: "item1" } as any, 20, true);
+
+      expect(
+        PartyTabPending.resolve("Actor.actor1", "item1", {
+          progress: 5,
+          target: 10,
+          name: "Test (5/10)",
+        }),
+      ).toEqual({ progress: 5, target: 20, name: "Test (5/20)" });
     });
 
     it("should handle errors gracefully during updateTarget", async () => {

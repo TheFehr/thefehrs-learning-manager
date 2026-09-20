@@ -1,6 +1,7 @@
 import { Settings } from "@/core/settings.js";
 import { Logger } from "@/core/logger.js";
 import { ActorProxy } from "./actor-proxy.js";
+import { PartyTabPending } from "./party-tab-pending.js";
 import { TabLogic } from "./tab-logic.js";
 import { ProjectEngine } from "./project-engine.js";
 import { FoundryUtils } from "@/core/foundry-utils.js";
@@ -180,6 +181,9 @@ export class PartyTabLogic {
         if (!projectData) return;
 
         projectData.progress = Math.max(0, Math.min(newProgress, projectData.target || 0));
+        // See PartyTabPending's own comment for why this is needed even
+        // though the UI also does its own optimistic local update.
+        PartyTabPending.setProgress(targetActor.uuid!, item.id!, projectData.progress);
         if (
           projectData.target &&
           projectData.target > 0 &&
@@ -236,6 +240,9 @@ export class PartyTabLogic {
         const oldTarget = projectData.target;
         projectData.target = Math.max(0, newTarget);
         Logger.debug(`updateTarget: Setting target to ${projectData.target} for ${item.name}`);
+        // See PartyTabPending's own comment for why this is needed even
+        // though the UI also does its own optimistic local update.
+        PartyTabPending.setTarget(targetActor.uuid!, item.id!, projectData.target);
 
         if (oldTarget !== projectData.target) {
           if (

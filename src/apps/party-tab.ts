@@ -6,6 +6,7 @@ import type { PartyMemberData } from "@dnd5e/data/actor/_types.mjs";
 import { MODULE_ID } from "@/global.js";
 import { getGame } from "@/core/foundry.js";
 import type { ProjectMappedData } from "@/logic/project-item.js";
+import { PartyTabPending } from "@/logic/party-tab-pending.js";
 
 export interface MemberMappedData {
   id: string;
@@ -56,9 +57,25 @@ export class PartyTab {
           : (actualActor.items as unknown as Item5e[]).find((i) => i.id === p.id);
 
       const isLearnedReward = !!(item as Item5e | undefined)?.getFlag(MODULE_ID, "isLearnedReward");
+
+      // Overlay any GM manual edit that's been written but not yet picked up
+      // by this read - see PartyTabPending's own comment for why this can't
+      // just rely on the Svelte component's own local optimistic state.
+      const { progress, target, name } = PartyTabPending.resolve(proxy.uuid, p.id, {
+        progress: p.progress,
+        target: p.target,
+        name: p.name,
+      });
+      const percentage = target > 0 ? Math.min(100, Math.round((progress / target) * 100)) : 0;
+
       return {
         ...p,
-        canAbort: (p.progress === 0 && !isLearnedReward) || !!getGame().user?.isGM,
+        name,
+        progress,
+        target,
+        maxProgress: target,
+        progressPercentage: percentage,
+        canAbort: (progress === 0 && !isLearnedReward) || !!getGame().user?.isGM,
         isItemBased: true,
       };
     });
