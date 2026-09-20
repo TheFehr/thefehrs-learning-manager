@@ -5,7 +5,7 @@ import {
   disableTour,
   simulateFoundryDrop,
 } from "@thefehr/foundry-playwright";
-import { waitForGameReady, snapshot, ensureEditMode } from "./utils";
+import { waitForGameReady, snapshot, ensureEditMode, activateBlankScene } from "./utils";
 
 const moduleId = "thefehrs-learning-manager";
 const actorName = "PC 1";
@@ -21,6 +21,7 @@ useBaseWorld(test, {
   setupWorld: async ({ page }) => {
     await waitForGameReady(page);
     await disableTour(page);
+    await activateBlankScene(page);
 
     await page.evaluate(
       async ({ moduleId, actorName, projectName, packId }) => {

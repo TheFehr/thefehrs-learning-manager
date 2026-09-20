@@ -209,6 +209,29 @@ export async function snapshot(target: Page | Locator, name: string) {
   await target.screenshot({ path: `e2e/screenshots/${name}.png`, animations: "disabled" });
 }
 
+// Foundry's default "no active scene" canvas backdrop (the FVTT/d20
+// watermark) sits behind every app window's translucent chrome, and its own
+// rendering carries real byte-level noise between otherwise-identical runs
+// (confirmed live: same test run 5x back-to-back produced 5 different
+// screenshot hashes, up to a 9/255 channel diff on ~0.25% of pixels,
+// concentrated on the watermark itself - not a compression or animation
+// artifact, since animations: "disabled" in snapshot() already rules that
+// out). Activating a scene with no background image replaces that watermark
+// with a flat canvas, which eliminates the noise (confirmed live: 5
+// back-to-back runs with this active produced byte-identical screenshots).
+// Call this from setupWorld, alongside disableTour(), in any spec that
+// takes screenshots - it's a no-op past the first call since the scene
+// persists in the world's base backup.
+export async function activateBlankScene(page: Page) {
+  await page.evaluate(async () => {
+    const scenes = (game as any).scenes;
+    const scene =
+      scenes.getName("E2E Blank") ??
+      (await (Scene as any).create({ name: "E2E Blank", background: { src: null } }));
+    if (!scene.active) await scene.activate();
+  });
+}
+
 export async function ensureEditMode(partyTab: any) {
   const toggleBtn = partyTab.locator(".toggle-progress-edit");
   const unlockIcon = toggleBtn.locator(".fa-unlock");

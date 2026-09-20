@@ -1,5 +1,5 @@
 import { test, expect, useBaseWorld, disableTour } from "@thefehr/foundry-playwright";
-import { waitForGameReady, forceClick, snapshot } from "./utils";
+import { waitForGameReady, forceClick, snapshot, activateBlankScene } from "./utils";
 
 const moduleId = "thefehrs-learning-manager";
 
@@ -12,6 +12,7 @@ useBaseWorld(test, {
   setupWorld: async ({ page }) => {
     await waitForGameReady(page);
     await disableTour(page);
+    await activateBlankScene(page);
 
     await page.evaluate(async (mid) => {
       // Create compendiums for each type

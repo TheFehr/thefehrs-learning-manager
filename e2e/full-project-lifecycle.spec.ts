@@ -5,7 +5,7 @@ import {
   disableTour,
   simulateFoundryDrop,
 } from "@thefehr/foundry-playwright";
-import { waitForGameReady, forceClick, snapshot } from "./utils";
+import { waitForGameReady, forceClick, snapshot, activateBlankScene } from "./utils";
 
 // The other e2e specs each cover one slice of this pipeline in isolation:
 // item-learning-config.spec.ts tests the config UI, mass-edit.spec.ts tests
@@ -29,6 +29,7 @@ useBaseWorld(test, {
   setupWorld: async ({ page }) => {
     await waitForGameReady(page);
     await disableTour(page);
+    await activateBlankScene(page);
 
     await page.evaluate(
       async ({ moduleId, actorName, packId }) => {
