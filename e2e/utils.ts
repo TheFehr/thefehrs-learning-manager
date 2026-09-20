@@ -181,15 +181,30 @@ export async function confirmInitiateProjectDialog(
     // Locator.fill() doesn't reliably deliver one on every browser/input
     // combination (matches the same established caveat this file's other
     // onchange-bound inputs work around, just for Svelte's own two-way
-    // binding instead of a manual event handler).
+    // binding instead of a manual event handler). The dialog's own content
+    // mounts asynchronously (DialogV2 only attaches config.content once its
+    // own render() resolves - see promptInitiateProject's comment), so
+    // confirm the value actually landed rather than a one-shot set: a
+    // locator resolving to the input doesn't guarantee Svelte's own
+    // reactive wiring has settled yet.
     const progressInput = dialog.locator(".initiate-progress-input");
     await progressInput.evaluate((el: HTMLInputElement, value: string) => {
       el.value = value;
       el.dispatchEvent(new Event("input", { bubbles: true }));
     }, String(options.progress));
+    await expect(progressInput).toHaveValue(String(options.progress), { timeout: 5000 });
   }
+  const completeCheckbox = dialog.locator(".initiate-mark-complete");
   if (options.markComplete) {
-    await forceClick(dialog.locator(".initiate-mark-complete"));
+    await forceClick(completeCheckbox);
+    await expect(completeCheckbox).toBeChecked({ timeout: 5000 });
+  } else {
+    // Explicit, not just an absence of interaction: confirms the box is
+    // genuinely unchecked before submitting, so a stray checked default
+    // (getValues() forces progress to target when this is true) fails loud
+    // and points straight at the checkbox instead of surfacing as a
+    // confusing wrong-progress assertion several steps later.
+    await expect(completeCheckbox).not.toBeChecked({ timeout: 5000 });
   }
 
   await forceClick(dialog.getByRole("button", { name: /^Add$/i }));

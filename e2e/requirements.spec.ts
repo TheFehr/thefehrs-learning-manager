@@ -1,5 +1,5 @@
 import { test, expect, useBaseWorld, disableTour } from "@thefehr/foundry-playwright";
-import { waitForGameReady } from "./utils";
+import { waitForGameReady, confirmInitiateProjectDialog } from "./utils";
 
 const moduleId = "thefehrs-learning-manager";
 
@@ -120,6 +120,7 @@ test.describe("Project Requirements", () => {
       },
       { actorId: setupData.actorId, itemUuid: setupData.itemUuid },
     );
+    await confirmInitiateProjectDialog(page);
 
     await page.waitForFunction(
       ({ actorId }) => {
