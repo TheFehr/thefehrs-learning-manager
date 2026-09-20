@@ -9,6 +9,7 @@ import type { ProjectFlagData, ProjectMappedData } from "./project-item.js";
 import type { MemberMappedData } from "@/apps/party-tab.js";
 import { isActor5e, type Item5e, type Actor5e } from "@/types.js";
 import AbortProjectDialog from "@/apps/dialogs/AbortProjectDialog.svelte";
+import CompleteProjectDialog from "@/apps/dialogs/CompleteProjectDialog.svelte";
 import GrantTimeDialog from "@/apps/dialogs/GrantTimeDialog.svelte";
 import { mount, unmount } from "svelte";
 import { getGame, getUI } from "@/core/foundry.js";
@@ -278,6 +279,128 @@ export class PartyTabLogic {
         Logger.error(`Failed to manually update target for "${item.name}":`, true, err);
       }
     }
+  }
+
+  /**
+   * Orchestrates marking a project complete directly, regardless of its
+   * current progress - the only prior ways to finish a project were the
+   * indirect side effects of dragging progress up to target or target down
+   * to progress via the manual-edit controls.
+   */
+  static async completeProject(
+    memberUuid: string,
+    project: ProjectMappedData,
+    confirmFn?: () => Promise<boolean>,
+    isGM?: boolean,
+    _parentActor?: Actor,
+  ) {
+    if (!isGM) return;
+    try {
+      const normalizedUuid = this.normalizeActorUuid(memberUuid);
+      const targetActor = (await fromUuid(normalizedUuid)) as Actor5e | undefined;
+      if (!targetActor) return;
+
+      const item = targetActor.items.get(project.id);
+      if (!item) return;
+
+      const projectData = FoundryUtils.deepClone(
+        (item.getFlag("thefehrs-learning-manager", "projectData") as ProjectFlagData) || {},
+      );
+      if (!projectData || !projectData.target || projectData.target <= 0) {
+        getUI()?.notifications?.warn(
+          `Cannot complete "${item.name}": it has no valid target to complete against.`,
+        );
+        return;
+      }
+
+      const projectName = project.name || "Unknown Project";
+      const confirmed = confirmFn
+        ? await confirmFn()
+        : await this.showCompleteConfirm(projectName, targetActor.name || "Unknown Actor");
+      if (!confirmed) return;
+
+      projectData.progress = projectData.target;
+      // Matches the completion branch updateProgress/updateTarget already
+      // take when an edit happens to land on/past target: update the
+      // item's own progress display first (render: true, unlike the silent
+      // manual-edit path - completion always renders), then hand off to
+      // completeProject for the actual type/flag conversion.
+      await ProjectEngine.updateItemWithProgress(
+        item as unknown as Item5e,
+        projectData,
+        "GM Manual Edit",
+        true,
+      );
+      await ProjectEngine.completeProject(item as unknown as Item5e);
+    } catch (err) {
+      Logger.error(`Failed to complete project:`, true, err);
+    }
+  }
+
+  /**
+   * Internal helper to show completion confirmation dialog.
+   */
+  private static async showCompleteConfirm(
+    projectName: string,
+    actorName: string,
+  ): Promise<boolean> {
+    return new Promise<boolean>((resolve) => {
+      let settled = false;
+      const container = document.createElement("div");
+      let svelteInstance: any = mount(CompleteProjectDialog, {
+        target: container,
+        props: {
+          projectName,
+          actorName,
+        },
+      });
+
+      const dialog = new foundry.applications.api.DialogV2({
+        window: {
+          title: "Complete Project",
+          contentClasses: ["thefehrs-learning-manager-dialog"],
+        },
+        content: container,
+        buttons: [
+          {
+            action: "yes",
+            icon: "fas fa-check",
+            label: "Yes",
+            default: true,
+            callback: () => {
+              if (settled) return;
+              settled = true;
+              resolve(true);
+            },
+          },
+          {
+            action: "no",
+            icon: "fas fa-times",
+            label: "No",
+            callback: () => {
+              if (settled) return;
+              settled = true;
+              resolve(false);
+            },
+          },
+        ],
+        position: {
+          width: 400,
+        },
+        close: () => {
+          if (svelteInstance) {
+            unmount(svelteInstance);
+            svelteInstance = null;
+          }
+          if (!settled) {
+            settled = true;
+            resolve(false);
+          }
+        },
+      });
+
+      dialog.render({ force: true });
+    });
   }
 
   /**

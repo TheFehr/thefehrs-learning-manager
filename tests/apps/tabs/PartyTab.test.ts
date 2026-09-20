@@ -13,6 +13,7 @@ vi.mock("@/logic/party-tab-logic", () => ({
     updateProgress: vi.fn(),
     updateTarget: vi.fn(),
     deleteProject: vi.fn(),
+    completeProject: vi.fn(),
   },
 }));
 
@@ -176,6 +177,31 @@ describe("PartyTab.svelte", () => {
     deleteBtn.click();
 
     expect(PartyTabLogic.deleteProject).toHaveBeenCalledWith(
+      "Actor.actor1",
+      expect.objectContaining({ id: "proj1" }),
+      undefined,
+      true,
+      mockActor,
+    );
+  });
+
+  it("should trigger completeProject when clicking the complete button in edit mode", async () => {
+    instance = mount(PartyTab, {
+      target,
+      props: mockProps as any,
+    });
+    await tick();
+
+    // Toggle edit mode
+    const toggleBtn = target.querySelector(".toggle-progress-edit") as HTMLButtonElement;
+    toggleBtn.click();
+    await tick();
+
+    const completeBtn = target.querySelector(".complete-project") as HTMLButtonElement;
+    expect(completeBtn).not.toBeNull();
+    completeBtn.click();
+
+    expect(PartyTabLogic.completeProject).toHaveBeenCalledWith(
       "Actor.actor1",
       expect.objectContaining({ id: "proj1" }),
       undefined,

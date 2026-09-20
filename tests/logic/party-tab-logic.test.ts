@@ -305,6 +305,116 @@ describe("PartyTabLogic", () => {
     });
   });
 
+  describe("completeProject", () => {
+    it("should complete the project directly when confirmed, regardless of current progress", async () => {
+      const mockProjectData = { progress: 3, target: 10, isCompleted: false };
+      const mockItem = {
+        id: "item1",
+        name: "Test",
+        getFlag: vi.fn().mockReturnValue(mockProjectData),
+      };
+      const mockActor = { name: "Actor", items: { get: vi.fn().mockReturnValue(mockItem) } };
+      (globalThis as any).fromUuid = vi.fn().mockResolvedValue(mockActor);
+
+      const confirmFn = vi.fn().mockResolvedValue(true);
+      await PartyTabLogic.completeProject(
+        "Actor.actor1",
+        { id: "item1", name: "Test", progress: 3 } as any,
+        confirmFn,
+        true,
+      );
+
+      expect(confirmFn).toHaveBeenCalled();
+      expect(ProjectEngine.updateItemWithProgress).toHaveBeenCalledWith(
+        mockItem,
+        expect.objectContaining({ progress: 10, target: 10 }),
+        "GM Manual Edit",
+        true,
+      );
+      expect(ProjectEngine.completeProject).toHaveBeenCalledWith(mockItem);
+    });
+
+    it("should not complete the project if cancelled", async () => {
+      const mockProjectData = { progress: 3, target: 10, isCompleted: false };
+      const mockItem = {
+        id: "item1",
+        name: "Test",
+        getFlag: vi.fn().mockReturnValue(mockProjectData),
+      };
+      const mockActor = { name: "Actor", items: { get: vi.fn().mockReturnValue(mockItem) } };
+      (globalThis as any).fromUuid = vi.fn().mockResolvedValue(mockActor);
+
+      const confirmFn = vi.fn().mockResolvedValue(false);
+      await PartyTabLogic.completeProject(
+        "Actor.actor1",
+        { id: "item1", name: "Test", progress: 3 } as any,
+        confirmFn,
+        true,
+      );
+
+      expect(ProjectEngine.updateItemWithProgress).not.toHaveBeenCalled();
+      expect(ProjectEngine.completeProject).not.toHaveBeenCalled();
+    });
+
+    it("should do nothing if NOT GM", async () => {
+      const confirmFn = vi.fn();
+      await PartyTabLogic.completeProject(
+        "Actor.actor1",
+        { id: "item1", name: "Test" } as any,
+        confirmFn,
+        false,
+      );
+      expect(confirmFn).not.toHaveBeenCalled();
+      expect(ProjectEngine.completeProject).not.toHaveBeenCalled();
+    });
+
+    it("should warn and do nothing if the project has no valid target", async () => {
+      const mockProjectData = { progress: 3, target: 0, isCompleted: false };
+      const mockItem = {
+        id: "item1",
+        name: "Test",
+        getFlag: vi.fn().mockReturnValue(mockProjectData),
+      };
+      const mockActor = { name: "Actor", items: { get: vi.fn().mockReturnValue(mockItem) } };
+      (globalThis as any).fromUuid = vi.fn().mockResolvedValue(mockActor);
+
+      const confirmFn = vi.fn();
+      await PartyTabLogic.completeProject(
+        "Actor.actor1",
+        { id: "item1", name: "Test" } as any,
+        confirmFn,
+        true,
+      );
+
+      expect(confirmFn).not.toHaveBeenCalled();
+      expect(ProjectEngine.completeProject).not.toHaveBeenCalled();
+      expect(ui.notifications.warn).toHaveBeenCalledWith(expect.stringContaining("valid target"));
+    });
+
+    it("should handle errors gracefully", async () => {
+      const mockProjectData = { progress: 3, target: 10, isCompleted: false };
+      const mockItem = {
+        id: "item1",
+        name: "Test",
+        getFlag: vi.fn().mockReturnValue(mockProjectData),
+      };
+      const mockActor = { name: "Actor", items: { get: vi.fn().mockReturnValue(mockItem) } };
+      (globalThis as any).fromUuid = vi.fn().mockResolvedValue(mockActor);
+
+      vi.mocked(ProjectEngine.updateItemWithProgress).mockRejectedValue(new Error("Update failed"));
+      const confirmFn = vi.fn().mockResolvedValue(true);
+
+      await expect(
+        PartyTabLogic.completeProject(
+          "Actor.actor1",
+          { id: "item1", name: "Test" } as any,
+          confirmFn,
+          true,
+        ),
+      ).resolves.not.toThrow();
+    });
+  });
+
   describe("deleteProject", () => {
     it("should delete item if confirmed", async () => {
       const mockItem = { delete: vi.fn() };

@@ -139,4 +139,74 @@ test.describe("GM Administrative Controls (Party Tab)", () => {
       expect(exists).toBe(false);
     }).toPass({ timeout: 10000 });
   });
+
+  // Every prior way to finish a project was an indirect side effect of the
+  // progress/target edit controls (drag progress up to target, or target
+  // down to progress) - this exercises the direct "Complete Project"
+  // button/confirmation-dialog path instead.
+  test("GM can complete a project directly via the Complete Project button", async ({
+    page,
+    deprecationTracker,
+  }) => {
+    deprecationTracker.registerIgnore("Deprecated since Version DnD5e");
+
+    await page.evaluate(async () => {
+      const groupActor = (game as any).actors.getName("Test Group");
+      return groupActor.sheet.render(true);
+    });
+
+    await page.waitForTimeout(2000);
+
+    const groupSheet = page
+      .locator(".window-app, .application, .sheet")
+      .filter({ hasText: /Test Group/i })
+      .first();
+    await expect(groupSheet).toBeVisible({ timeout: 30000 });
+
+    const tabButton = groupSheet.getByRole("tab", { name: /Group Learning/i });
+    await forceClick(tabButton);
+
+    const partyTab = groupSheet.locator(".thefehrs-party-tab").first();
+    await expect(partyTab).toBeVisible({ timeout: 15000 });
+
+    await ensureEditMode(partyTab);
+
+    const projectRow = partyTab
+      .locator(".project-row")
+      .filter({ hasText: "GM Override Project" })
+      .first();
+
+    const completeBtn = projectRow.locator("button[aria-label='Complete Project']");
+    await forceClick(completeBtn);
+
+    const dialog = page
+      .locator(".window-app, .application")
+      .filter({ hasText: /Complete Project/i })
+      .first();
+    await expect(dialog).toBeVisible({ timeout: 10000 });
+    await forceClick(dialog.getByRole("button", { name: /Yes/i }));
+
+    await expect(async () => {
+      const state = await page.evaluate((moduleId) => {
+        const actor = (game as any).actors.getName("PC 4");
+        const project = actor.items.find((i: any) => i.name.includes("GM Override Project"));
+        return {
+          found: !!project,
+          isLearningProject: project?.getFlag(moduleId, "isLearningProject"),
+          isLearnedReward: project?.getFlag(moduleId, "isLearnedReward"),
+          progress: project?.getFlag(moduleId, "projectData")?.progress,
+          target: project?.getFlag(moduleId, "projectData")?.target,
+        };
+      }, moduleId);
+      expect(state.found).toBe(true);
+      expect(state.isLearningProject).toBe(false);
+      expect(state.isLearnedReward).toBe(true);
+      expect(state.target).toBe(100);
+      expect(state.progress).toBe(100);
+    }).toPass({ timeout: 15000 });
+
+    // Completion sets isCompleted, and the Party tab filters completed
+    // projects out of each member's list entirely (see src/apps/party-tab.ts).
+    await expect(projectRow).toBeHidden({ timeout: 15000 });
+  });
 });

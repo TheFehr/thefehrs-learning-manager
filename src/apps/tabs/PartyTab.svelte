@@ -65,6 +65,10 @@
   function deleteProject(memberUuid: string, project: ProjectMappedData) {
     PartyTabLogic.deleteProject(memberUuid, project, undefined, isGM, actor);
   }
+
+  function completeProject(memberUuid: string, project: ProjectMappedData) {
+    PartyTabLogic.completeProject(memberUuid, project, undefined, isGM, actor);
+  }
 </script>
 
 <div class="party-learning-container thefehrs-party-tab">
@@ -148,7 +152,7 @@
                     <div
                             class="tidy-table-header-cell"
                             data-tidy-sheet-part="table-header-cell"
-                            style="--tidy-table-column-width: 40px;"
+                            style="--tidy-table-column-width: 76px;"
                     ></div>
                 </header>
 
@@ -224,8 +228,20 @@
                                 <div
                                         class="tidy-table-cell"
                                         data-tidy-sheet-part="table-cell"
-                                        style="--tidy-table-column-width: 40px; display: flex; justify-content: center; align-items: center;"
+                                        style="--tidy-table-column-width: 76px; display: flex; justify-content: center; align-items: center; gap: 4px;"
                                 >
+                                    {#if isGM && isEditMode}
+                                        <button
+                                                type="button"
+                                                class="complete-project party-edit-control tidy-button small"
+                                                title="Complete Project"
+                                                aria-label="Complete Project"
+                                                onclick={() => completeProject(member.uuid, project)}
+                                                style="min-width: 2rem; padding: 2px 4px; color: var(--t5e-color-success, #2e7d32);"
+                                        >
+                                            <i class="fas fa-flag-checkered"></i>
+                                        </button>
+                                    {/if}
                                     {#if project.canAbort && isEditMode}
                                         <button
                                                 type="button"
