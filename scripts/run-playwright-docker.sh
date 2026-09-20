@@ -15,7 +15,11 @@ IMAGE="mcr.microsoft.com/playwright:v${PLAYWRIGHT_VERSION}-noble"
 # credentialless identity as everything else phase B runs) still gets this
 # container cleaned up via that existing mechanism instead of needing its
 # own separate handling.
-CONTAINER_NAME="foundry-playwright-e2e-runner"
+# Project-scoped for the same reason run-e2e-docker.mjs scopes its own
+# container/network names - see its comment. npm propagates
+# npm_package_name through this whole process chain (confirmed live), so
+# the fallback only matters if this script is ever invoked bare.
+CONTAINER_NAME="foundry-playwright-e2e-runner-${npm_package_name:-foundry-playwright}"
 
 # This can run against a Renovate candidate branch whose `npm ci` may have
 # executed untrusted lifecycle scripts, and the e2e test files themselves

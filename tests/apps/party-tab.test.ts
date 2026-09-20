@@ -84,4 +84,45 @@ describe("PartyTab", () => {
     expect(m.projects[0].progressPercentage).toBe(50);
     expect(m.projects[0].guidanceType).toBe("Tier 1");
   });
+
+  it("should exclude completed projects from the member's project list", () => {
+    // Regression coverage for the bug where ActorProxy.getMappedProjects()
+    // never populated isCompleted, making this filter a silent no-op -
+    // completed rewards stayed visible in the Party tab indefinitely.
+    const actor = new Actor() as any;
+    actor.id = "actor1";
+    actor.name = "Test Actor";
+    actor.items = [
+      {
+        id: "item1",
+        name: "In Progress Item",
+        getFlag: vi.fn().mockImplementation((scope, key) => {
+          if (key === "isLearningProject") return true;
+          if (key === "projectData") return { progress: 5, target: 10 };
+          return null;
+        }),
+      },
+      {
+        id: "item2",
+        name: "Completed Item",
+        getFlag: vi.fn().mockImplementation((scope, key) => {
+          if (key === "isLearnedReward") return true;
+          if (key === "projectData") return { progress: 10, target: 10, isCompleted: true };
+          return null;
+        }),
+      },
+    ];
+    vi.mocked(game.actors.get).mockReturnValue(actor);
+
+    const partyActor = {
+      system: {
+        members: [{ actorId: "actor1" }],
+      },
+    } as any;
+
+    const data = PartyTab.getData(partyActor);
+    const m = data.members[0];
+    expect(m.projects).toHaveLength(1);
+    expect(m.projects[0].name).toBe("In Progress Item");
+  });
 });

@@ -45,6 +45,7 @@ describe("ActorProxy", () => {
       guidanceType: "Tier 1",
       progressPercentage: 10,
       isSelfStudy: false,
+      isCompleted: false,
     });
   });
 
@@ -79,6 +80,7 @@ describe("ActorProxy", () => {
       guidanceType: "Tier 1",
       progressPercentage: 10,
       isSelfStudy: false,
+      isCompleted: false,
     });
   });
 
@@ -118,6 +120,7 @@ describe("ActorProxy", () => {
       guidanceType: "Tier 1",
       progressPercentage: 42,
       isSelfStudy: false,
+      isCompleted: false,
     });
   });
 
@@ -151,7 +154,35 @@ describe("ActorProxy", () => {
       guidanceType: "Self-Study",
       progressPercentage: 50,
       isSelfStudy: true,
+      isCompleted: false,
     });
+  });
+
+  it("getMappedProjects should map a completed project's isCompleted flag through", () => {
+    // PartyTab.mapMemberData filters on `!p.isCompleted` to drop completed
+    // rewards from the Party tab - that filter only works if this mapping
+    // actually populates the field. Regression coverage for the bug where
+    // it was referenced downstream but never set here, silently making
+    // that filter a no-op.
+    const mockActor = {
+      items: [
+        {
+          id: "item1",
+          name: "Completed Project",
+          getFlag: vi.fn().mockImplementation((scope, key) => {
+            if (key === "isLearnedReward") return true;
+            if (key === "projectData") return { progress: 100, target: 100, isCompleted: true };
+            return null;
+          }),
+        },
+      ],
+    } as any;
+
+    const proxy = new ActorProxy(mockActor);
+    const projects = proxy.getMappedProjects();
+
+    expect(projects).toHaveLength(1);
+    expect(projects[0].isCompleted).toBe(true);
   });
 
   it("getMappedProjects should handle zero target to avoid division by zero", () => {

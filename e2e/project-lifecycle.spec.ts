@@ -5,7 +5,7 @@ import {
   disableTour,
   simulateFoundryDrop,
 } from "@thefehr/foundry-playwright";
-import { waitForGameReady, snapshot } from "./utils";
+import { waitForGameReady, snapshot, ensureEditMode } from "./utils";
 
 const moduleId = "thefehrs-learning-manager";
 const actorName = "PC 1";
@@ -299,5 +299,171 @@ test.describe("Project Lifecycle (Happy Path)", () => {
       timeout: 10000,
     });
     await snapshot(actorSheet, "actor-sheet-project-in-progress");
+  });
+
+  // Every other e2e path that earns progress goes through a different route
+  // than this one: the happy-path test above uses the Group Learning
+  // "Distribute Time" dialog + handleAutoTrainSignal, and
+  // full-project-lifecycle.spec.ts calls ProjectEngine.updateItemWithProgress/
+  // completeProject directly. Neither touches PartyTabLogic.updateProgress or
+  // the .update-project-progress control itself, so a regression there
+  // (including its own completion-at-target branch) would go undetected end
+  // to end - see issue #131.
+  test("GM can manually edit progress via the Party tab, including completion", async ({
+    page,
+    deprecationTracker,
+  }) => {
+    deprecationTracker.registerIgnore("Deprecated since Version DnD5e");
+
+    const actorSheetId = await page.evaluate(async (name) => {
+      const actor = (game as any).actors.getName(name);
+      await actor.sheet.render(true);
+      return actor.sheet.id;
+    }, actorName);
+
+    const actorSheet = page.locator(`[id="${actorSheetId}"]`);
+    await expect(actorSheet).toBeVisible({ timeout: 15000 });
+
+    const featuresTab = actorSheet.getByRole("tab", { name: /Features/i });
+    if (await featuresTab.isVisible()) {
+      await featuresTab.click();
+    }
+
+    const itemData = await page.evaluate(
+      async ({ packId, projectName }) => {
+        const pack = (game as any).packs.get(packId);
+        const index = await pack.getIndex();
+        const entry = index.find((e: any) => e.name === projectName);
+        if (!entry) throw new Error(`Project ${projectName} not found in ${packId}`);
+        return {
+          type: "Item",
+          uuid: `Compendium.${packId}.Item.${entry._id}`,
+        };
+      },
+      { packId, projectName },
+    );
+
+    await simulateFoundryDrop(
+      page,
+      `:is(.window-app, .sheet.actor, .tidy5e-sheet, foundry-app):has-text("${actorName}")`,
+      itemData,
+    );
+
+    // Same selector/retry pattern as the happy-path test above - see its
+    // comments for why both the visibility filter and the re-click loop are
+    // load-bearing, not defensive styling.
+    const projectRow = actorSheet
+      .locator(".project-row, .item-row, .item-table-row, [data-tidy-sheet-part='item-table-row']")
+      .filter({ hasText: projectName })
+      .filter({ visible: true })
+      .first();
+
+    await expect(async () => {
+      if (await featuresTab.isVisible()) {
+        await featuresTab.click();
+      }
+      await expect(projectRow).toBeVisible({ timeout: 2000 });
+    }).toPass({ timeout: 30000, intervals: [500, 1000, 2000] });
+    await expect(projectRow).toContainText("0/100");
+
+    // --- Open the group sheet's Party tab (the "Group Learning" tab) and unlock manual edit mode ---
+    await page.evaluate(() => {
+      const groupActor = (game as any).actors.find(
+        (a: any) => a.name === "Test Group" && a.type === "group",
+      );
+      return groupActor.sheet.render(true);
+    });
+
+    const groupSheet = page
+      .locator(".window-app, .sheet.actor, .tidy5e-sheet, foundry-app, .application")
+      .filter({ hasText: "Test Group" })
+      .first();
+    await expect(groupSheet).toBeVisible({ timeout: 15000 });
+
+    const groupLearningTab = groupSheet.getByRole("tab", { name: /Group Learning/i });
+    await groupLearningTab.click();
+
+    await ensureEditMode(groupSheet);
+
+    // The member's project row lives in a dedicated per-actor table section
+    // in the main content area (data-tidy-section-key="actor-<id>"), not in
+    // the sidebar's .actor-container list (that's just the avatar/name/bank
+    // summary) - filtering by the actor's own name on the wrapping .tidy-table
+    // section reaches the right one without needing the actor's raw id.
+    const memberSection = groupSheet.locator(".tidy-table", { hasText: actorName });
+    const memberProjectRow = memberSection.locator(".project-row", { hasText: projectName });
+    const progressInput = memberProjectRow.locator(".update-project-progress");
+    await expect(progressInput).toBeVisible({ timeout: 10000 });
+
+    // --- Below target: PartyTabLogic.updateProgress's "silent" branch (no item re-render) ---
+    // Set the value directly rather than via a real click+type, matching
+    // settings.spec.ts's established pattern for native onchange-bound
+    // inputs elsewhere in this repo's e2e suite - Playwright's own .fill()
+    // does not reliably fire a plain "change" event on every browser/input
+    // combination the way a real user's blur does.
+    await progressInput.evaluate((el: HTMLInputElement) => {
+      el.value = "42";
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+
+    await expect(async () => {
+      const progress = await page.evaluate(
+        async ({ actorName, projectName, moduleId }) => {
+          const actor = (game as any).actors.getName(actorName);
+          const item = actor.items.find((i: any) => i.name.includes(projectName));
+          return item?.getFlag(moduleId, "projectData")?.progress;
+        },
+        { actorName, projectName, moduleId },
+      );
+      expect(progress).toBe(42);
+    }).toPass({ timeout: 15000 });
+
+    // The silent branch deliberately does not re-render the item/sheet (to
+    // avoid flicker/scroll loss - see PartyTabLogic.updateProgress), so the
+    // row's own optimistic local state is the only UI signal available here.
+    await expect(memberProjectRow).toContainText("42");
+
+    // --- At target: PartyTabLogic.updateProgress's completion branch ---
+    // A document update on the member's item can trigger a full re-render of
+    // the group sheet independently of the "silent"/render flag above (that
+    // flag governs the item's own chat card, not this sheet) - confirmed
+    // live: the previous update above left the row/input in place, but by
+    // the time this step runs isEditMode has been reset back to locked,
+    // replacing the input with the read-only span. Re-establish edit mode
+    // and re-locate the input fresh rather than assuming the reference from
+    // before the first update still resolves to a live element.
+    await expect(async () => {
+      await ensureEditMode(groupSheet);
+      await expect(progressInput).toBeVisible({ timeout: 2000 });
+    }).toPass({ timeout: 20000, intervals: [500, 1000, 2000] });
+
+    await progressInput.evaluate((el: HTMLInputElement) => {
+      el.value = "100";
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+
+    await expect(async () => {
+      const state = await page.evaluate(
+        async ({ actorName, projectName, moduleId }) => {
+          const actor = (game as any).actors.getName(actorName);
+          const item = actor.items.find((i: any) => i.name === projectName);
+          return {
+            found: !!item,
+            isLearningProject: item?.getFlag(moduleId, "isLearningProject"),
+            isLearnedReward: item?.getFlag(moduleId, "isLearnedReward"),
+          };
+        },
+        { actorName, projectName, moduleId },
+      );
+      expect(state.found).toBe(true);
+      expect(state.isLearningProject).toBe(false);
+      expect(state.isLearnedReward).toBe(true);
+    }).toPass({ timeout: 20000 });
+
+    // Completion sets isCompleted on the project data, and the Party tab
+    // filters completed projects out of each member's list entirely (see
+    // src/apps/party-tab.ts) - the row should disappear once the sheet
+    // re-renders for the completion-triggered item update.
+    await expect(memberProjectRow).toBeHidden({ timeout: 15000 });
   });
 });
