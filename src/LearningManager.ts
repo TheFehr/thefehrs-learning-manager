@@ -218,7 +218,34 @@ export class LearningManager {
               return;
             }
 
-            await ProjectEngine.initiateProjectFromItem(targetActor, item5e);
+            let initialProgress = 0;
+            let markComplete = false;
+
+            // Only the GM gets prompted - a player dropping an eligible item
+            // onto their own sheet keeps today's instant "starts at 0"
+            // behavior, since the starting-progress/already-complete shortcut
+            // is a GM bookkeeping tool (e.g. backfilling a project a PC has
+            // already made headway on), not something a player should self-serve.
+            if (getGame().user?.isGM) {
+              const target = projectFlagData?.target ?? 0;
+              const result = await ProjectEngine.promptInitiateProject(
+                item5e.name ?? "Unknown Item",
+                targetActor.name ?? "Unknown Actor",
+                target,
+              );
+              if (!result) return;
+              initialProgress = result.progress;
+              markComplete = result.markComplete;
+            }
+
+            const createdItem = await ProjectEngine.initiateProjectFromItem(
+              targetActor,
+              item5e,
+              initialProgress,
+            );
+            if (markComplete && createdItem) {
+              await ProjectEngine.completeProject(createdItem);
+            }
           })
           .catch((err) => {
             Logger.error(

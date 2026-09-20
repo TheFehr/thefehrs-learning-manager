@@ -13,7 +13,11 @@ export class ProjectLifecycle {
    * Stashes an item as a learning project.
    * Wipes Active Effects and Activities, then appends the isLearningProject flag.
    */
-  static async initiateProjectFromItem(actor: Actor, rewardDoc: Item): Promise<Item5e | null> {
+  static async initiateProjectFromItem(
+    actor: Actor,
+    rewardDoc: Item,
+    initialProgress = 0,
+  ): Promise<Item5e | null> {
     const itemData = rewardDoc.toObject();
     const stashedEffects = itemData.effects || [];
     const stashedActivities = FoundryUtils.deepClone(itemData.system.activities || {});
@@ -32,6 +36,8 @@ export class ProjectLifecycle {
       return null;
     }
 
+    const progress = Math.max(0, Math.min(initialProgress, target));
+
     const stashedRequirements = rewardDoc.getFlag(Settings.ID, "projectData")?.requirements ?? [];
     const stashedCategories = rewardDoc.getFlag(Settings.ID, "projectData")?.categories ?? [];
     const stashedFollowUp = rewardDoc.getFlag(Settings.ID, "projectData")?.followUpProjectId ?? "";
@@ -40,7 +46,7 @@ export class ProjectLifecycle {
 
     // Prepare item data for stashing
     const projectData: ProjectFlagData = {
-      progress: 0,
+      progress,
       target: target,
       tutelageId: "",
       isLearnedReward: false,
@@ -57,11 +63,11 @@ export class ProjectLifecycle {
       stashedSourceUuid,
     };
 
-    const progressHtml = ProjectUI.generateProgressHtml(0, target, tutelageName);
+    const progressHtml = ProjectUI.generateProgressHtml(progress, target, tutelageName);
 
     const updateData = {
       ...itemData,
-      name: `${stashedName} (0/${target})`,
+      name: `${stashedName} (${progress}/${target})`,
       type: "feat",
       effects: [],
       system: FoundryUtils.mergeObject(itemData.system || {}, {

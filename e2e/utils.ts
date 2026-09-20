@@ -159,6 +159,43 @@ export async function forceClick(locator: any) {
   });
 }
 
+// A GM dropping an eligible item onto a PC's sheet now gets prompted for a
+// starting progress (or to mark the project already complete) instead of
+// always silently starting at 0 - every e2e spec that drops a project item
+// runs as the Gamemaster user, so every one of them now hits this dialog.
+// Defaults to confirming with no changes (starting progress 0, not marked
+// complete), matching the pre-dialog behavior those specs were written
+// against - pass options to exercise the other paths explicitly.
+export async function confirmInitiateProjectDialog(
+  page: Page,
+  options: { progress?: number; markComplete?: boolean } = {},
+) {
+  const dialog = page
+    .locator(".window-app, .application")
+    .filter({ hasText: "Add Project" })
+    .first();
+  await expect(dialog).toBeVisible({ timeout: 10000 });
+
+  if (options.progress !== undefined) {
+    // Svelte's bind:value listens for the input's own "input" event -
+    // Locator.fill() doesn't reliably deliver one on every browser/input
+    // combination (matches the same established caveat this file's other
+    // onchange-bound inputs work around, just for Svelte's own two-way
+    // binding instead of a manual event handler).
+    const progressInput = dialog.locator(".initiate-progress-input");
+    await progressInput.evaluate((el: HTMLInputElement, value: string) => {
+      el.value = value;
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+    }, String(options.progress));
+  }
+  if (options.markComplete) {
+    await forceClick(dialog.locator(".initiate-mark-complete"));
+  }
+
+  await forceClick(dialog.getByRole("button", { name: /^Add$/i }));
+  await expect(dialog).toBeHidden({ timeout: 10000 });
+}
+
 // Screenshots land under e2e/screenshots/, committed to the repo (each
 // verify run overwrites them in place) rather than under test-results-*/,
 // which is git-ignored and wiped per run - the point here is an

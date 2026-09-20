@@ -28,6 +28,8 @@ vi.mock("@/core/logger", () => ({
 vi.mock("@/logic/project-engine", () => ({
   ProjectEngine: {
     initiateProjectFromItem: vi.fn(),
+    promptInitiateProject: vi.fn().mockResolvedValue({ progress: 0, markComplete: false }),
+    completeProject: vi.fn(),
     processTraining: vi.fn(),
     syncAllProjectActivities: vi.fn(),
     getActivitiesData: vi.fn().mockReturnValue([]),
@@ -67,6 +69,13 @@ describe("LearningManager", () => {
     } else {
       (window as any).event = originalWindowEvent;
     }
+
+    // Pre-existing gap: several tests set game.user.isGM directly (a plain
+    // object mutation, not a vi mock) with nothing resetting it afterward -
+    // confirmed live this let an earlier true leak into and mask a bug in
+    // a later, unrelated test. Reset explicitly rather than relying on
+    // whichever test happens to run last to leave it at the default.
+    game.user.isGM = false;
   };
 
   beforeAll(() => {
@@ -306,7 +315,7 @@ describe("LearningManager", () => {
   });
 
   describe("dropActorSheetData hook", () => {
-    it("should initiate project when dropped on Group Sheet member", async () => {
+    const setUpMemberDrop = () => {
       const groupActor = { type: "group", id: "group1" } as any;
       const memberActor = { type: "character", id: "member1", getFlag: vi.fn() } as any;
       const data = { type: "Item", uuid: "Compendium.pack.Item.123" };
@@ -336,10 +345,21 @@ describe("LearningManager", () => {
       item.name = "Test Item";
       item.system = {}; // Added to pass if (item && "system" in item)
       item.getFlag = vi.fn().mockImplementation((scope, key) => {
-        if (key === "projectData") return { requirements: [] };
+        if (key === "projectData") return { requirements: [], target: 10 };
         return null;
       });
       globalThis.fromUuid = vi.fn().mockResolvedValue(item);
+
+      return { groupActor, memberActor, data, item };
+    };
+
+    it("prompts the GM and passes the chosen starting progress through", async () => {
+      game.user.isGM = true;
+      const { groupActor, memberActor, data, item } = setUpMemberDrop();
+      vi.mocked(ProjectEngine.promptInitiateProject).mockResolvedValue({
+        progress: 4,
+        markComplete: false,
+      });
 
       LearningManager.init();
       const dropHook = vi.mocked(Hooks.on).mock.calls.find((c) => c[0] === "dropActorSheetData");
@@ -348,7 +368,61 @@ describe("LearningManager", () => {
       const mockSheet = { activeTab: "any-tab" };
       await dropHook![1](groupActor, mockSheet, data, (window as any).event);
       await new Promise((resolve) => setTimeout(resolve, 0));
-      expect(ProjectEngine.initiateProjectFromItem).toHaveBeenCalledWith(memberActor, item);
+
+      expect(ProjectEngine.promptInitiateProject).toHaveBeenCalledWith(
+        "Test Item",
+        "Unknown Actor",
+        10,
+      );
+      expect(ProjectEngine.initiateProjectFromItem).toHaveBeenCalledWith(memberActor, item, 4);
+      expect(ProjectEngine.completeProject).not.toHaveBeenCalled();
+    });
+
+    it("completes the project immediately if the GM checks 'mark as already complete'", async () => {
+      game.user.isGM = true;
+      const { groupActor, data } = setUpMemberDrop();
+      const createdItem = { id: "created1" };
+      vi.mocked(ProjectEngine.promptInitiateProject).mockResolvedValue({
+        progress: 10,
+        markComplete: true,
+      });
+      vi.mocked(ProjectEngine.initiateProjectFromItem).mockResolvedValue(createdItem as any);
+
+      LearningManager.init();
+      const dropHook = vi.mocked(Hooks.on).mock.calls.find((c) => c[0] === "dropActorSheetData");
+      const mockSheet = { activeTab: "any-tab" };
+      await dropHook![1](groupActor, mockSheet, data, (window as any).event);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(ProjectEngine.completeProject).toHaveBeenCalledWith(createdItem);
+    });
+
+    it("does not create a project if the GM cancels the dialog", async () => {
+      game.user.isGM = true;
+      const { groupActor, data } = setUpMemberDrop();
+      vi.mocked(ProjectEngine.promptInitiateProject).mockResolvedValue(null);
+
+      LearningManager.init();
+      const dropHook = vi.mocked(Hooks.on).mock.calls.find((c) => c[0] === "dropActorSheetData");
+      const mockSheet = { activeTab: "any-tab" };
+      await dropHook![1](groupActor, mockSheet, data, (window as any).event);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(ProjectEngine.initiateProjectFromItem).not.toHaveBeenCalled();
+    });
+
+    it("skips the prompt and starts at 0 for a non-GM player", async () => {
+      game.user.isGM = false;
+      const { groupActor, memberActor, data, item } = setUpMemberDrop();
+
+      LearningManager.init();
+      const dropHook = vi.mocked(Hooks.on).mock.calls.find((c) => c[0] === "dropActorSheetData");
+      const mockSheet = { activeTab: "any-tab" };
+      await dropHook![1](groupActor, mockSheet, data, (window as any).event);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(ProjectEngine.promptInitiateProject).not.toHaveBeenCalled();
+      expect(ProjectEngine.initiateProjectFromItem).toHaveBeenCalledWith(memberActor, item, 0);
     });
 
     it("should return false when dropped on Group Sheet but member cannot be resolved", async () => {

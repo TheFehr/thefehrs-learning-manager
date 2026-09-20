@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { mount } from "svelte";
 import { ProjectEngine } from "../../src/logic/project-engine";
 import { Settings } from "../../src/core/settings";
 import { TabLogic } from "../../src/logic/tab-logic";
@@ -179,6 +180,63 @@ describe("ProjectEngine", () => {
       expect(ui.notifications.error).toHaveBeenCalledWith(
         expect.stringContaining("Cannot create project"),
       );
+    });
+  });
+
+  describe("promptInitiateProject", () => {
+    // DialogV2 only actually attaches config.content to the DOM once
+    // render() resolves - promptInitiateProject mounts the Svelte dialog
+    // into that live node afterward (see its own comment for why: passing
+    // a pre-mounted container directly gets reduced to a dead HTML string).
+    // Mimic that here by having the mocked render() populate the expected
+    // root div, then flush a macrotask so the .then(...) mount step actually
+    // runs before "clicking" a button - matching the real async ordering,
+    // not just synchronously invoking the callback inline with render().
+    const mockRenderWithRoot = () => {
+      let capturedDialog: any;
+      vi.spyOn(foundry.applications.api.DialogV2.prototype, "render").mockImplementation(
+        async function (this: any) {
+          capturedDialog = this;
+          const root = document.createElement("div");
+          root.className = "ude-initiate-project-dialog-root";
+          this.element.appendChild(root);
+          return this;
+        },
+      );
+      return () => capturedDialog;
+    };
+
+    it("resolves with the dialog's chosen values when the GM confirms", async () => {
+      vi.mocked(mount).mockReturnValue({
+        getValues: () => ({ progress: 6, markComplete: false }),
+      } as any);
+      const getDialog = mockRenderWithRoot();
+
+      const resultPromise = ProjectEngine.promptInitiateProject("Test Item", "PC 1", 10);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      expect(mount).toHaveBeenCalled();
+      getDialog()
+        ._data.buttons.find((b: any) => b.action === "add")
+        .callback();
+
+      expect(await resultPromise).toEqual({ progress: 6, markComplete: false });
+    });
+
+    it("resolves null when the GM cancels", async () => {
+      vi.mocked(mount).mockReturnValue({
+        getValues: () => ({ progress: 6, markComplete: false }),
+      } as any);
+      const getDialog = mockRenderWithRoot();
+
+      const resultPromise = ProjectEngine.promptInitiateProject("Test Item", "PC 1", 10);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+
+      getDialog()
+        ._data.buttons.find((b: any) => b.action === "cancel")
+        .callback();
+
+      expect(await resultPromise).toBeNull();
     });
   });
 
