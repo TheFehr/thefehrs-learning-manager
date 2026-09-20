@@ -37,6 +37,15 @@
   let saveError = $state<string | null>(null);
   let hasSaved = $state(false);
 
+  // Plain (non-$state) counter: bumped whenever a setting actually changes,
+  // so save() can tell whether an edit landed after it captured its
+  // snapshot. Deliberately not reactive state - it's only ever read
+  // imperatively inside save(), never rendered, and incrementing a $state
+  // value from within the very $effect that also reads it to increment
+  // would make that read a tracked dependency of the same effect, re-firing
+  // it every time it changes itself.
+  let saveRevision = 0;
+
   // Clears the "All changes saved" banner as soon as any bound setting
   // actually changes, rather than leaving it up (and wrong) until the next
   // save click. save() itself never mutates these, so this only fires on a
@@ -51,6 +60,7 @@
     void autoSpend;
     void autoSpendUnits;
     hasSaved = false;
+    saveRevision++;
   });
 
   onMount(async () => {
@@ -83,6 +93,13 @@
   });
 
   async function save() {
+    // A second click reaching here while the first save is still awaiting
+    // Settings.set() would let two in-flight writes race: whichever
+    // resolves last wins, and each captured the scalar state at its own
+    // click time, so an older write finishing after a newer one can
+    // silently clobber a more recent edit with stale values.
+    if (isSaving) return;
+    const revisionAtSave = saveRevision;
     isSaving = true;
     saveError = null;
     try {
@@ -96,7 +113,14 @@
         autoSpendUnits,
         scanWorldActors,
       );
-      hasSaved = success;
+      // Only claim "saved" if nothing changed while this save was in
+      // flight - an edit made during the save already cleared hasSaved via
+      // the $effect above (bumping saveRevision along with it), and this
+      // save's own snapshot doesn't reflect that edit, so it must not
+      // overwrite that false with a stale true once it resolves.
+      if (saveRevision === revisionAtSave) {
+        hasSaved = success;
+      }
       if (!success) {
         saveError = "Failed to save settings - see notifications for details.";
       }
@@ -131,7 +155,7 @@
 
 
   <div class="footer-actions">
-    <button type="button" class="tidy-button primary" onclick={save}>
+    <button type="button" class="tidy-button primary" onclick={save} disabled={isSaving}>
       <i class="fas fa-save"></i> Save Settings
     </button>
   </div>
