@@ -23,15 +23,27 @@ import { DockerFoundryOrchestrator } from "@thefehr/foundry-playwright";
 const version = process.env.FOUNDRY_VERSION || "13";
 const system = process.env.FOUNDRY_SYSTEM_ID || "dnd5e";
 
-// Shared network so the Playwright-in-Docker runner (run-playwright-docker.sh)
-// can reach Foundry by container name directly, instead of --network=host
+// npm sets this for any script in an `npm run ...` chain (confirmed live),
+// which this always is - only falls back when invoked bare outside npm.
+// Scoping every name below by it is required, not cosmetic: this exact
+// naming scheme is shared across several of the user's Foundry projects on
+// this same dev machine, all built from the same script template. A
+// same-named container/network here collided with an unrelated project's
+// own concurrent run and got force-stopped by an agent that assumed
+// anything matching the name was its own - see the docker-container-id
+// memory note for the incident this scoping is meant to prevent.
+const PROJECT_ID = process.env.npm_package_name || "foundry-playwright";
+
+// Network so the Playwright-in-Docker runner (run-playwright-docker.sh) can
+// reach Foundry by container name directly, instead of --network=host
 // (exposes every other host-bound service to candidate-controlled test
 // code) or the published host port (extra userspace-routing latency under
-// rootless Podman's pasta - see foundry-playwright#110). Fixed name, not
-// per-run unique: this pipeline is already single-flight (flock-protected
-// upstream), and podman/docker network create is idempotent with --ignore.
-const NETWORK_NAME = "foundry-e2e-net";
-const CONTAINER_NAME = `foundry-playwright-e2e-${version}`;
+// rootless Podman's pasta - see foundry-playwright#110). Not per-run unique
+// beyond the project scoping above: this pipeline is already single-flight
+// *within one project* (flock-protected upstream), and podman/docker
+// network create is idempotent with --ignore.
+const NETWORK_NAME = `foundry-e2e-net-${PROJECT_ID}`;
+const CONTAINER_NAME = `foundry-playwright-e2e-${PROJECT_ID}-${version}`;
 
 const tmpDataDir = path.join(
   process.cwd(),
