@@ -137,6 +137,43 @@ describe("SettingsConfig.svelte", () => {
     expect(saveBtn.disabled).toBe(false);
   });
 
+  it("should not report success if a setting is edited while that save is still in flight", async () => {
+    let resolveSave: (v: boolean) => void;
+    vi.mocked(settingsLogic.saveSettings).mockReturnValueOnce(
+      new Promise<boolean>((resolve) => {
+        resolveSave = resolve;
+      }),
+    );
+
+    instance = mount(SettingsConfig, {
+      target,
+      props: {},
+    });
+    await tick();
+
+    const saveBtn = target.querySelector("button.primary") as HTMLButtonElement;
+    saveBtn.click();
+    await tick();
+
+    // Edit a setting while the save above is still pending - this clears
+    // hasSaved via the $effect, same as any other edit. Once the pending
+    // save resolves (as a success, captured before this edit happened), it
+    // must not clobber that back to a stale "saved" claim - the edit made
+    // here was never part of what that save actually sent.
+    const scanCheckbox = target.querySelector("#scan-world-actors") as HTMLInputElement;
+    expect(scanCheckbox).not.toBeNull();
+    scanCheckbox.click();
+    await tick();
+
+    expect(target.innerHTML).not.toContain("All changes saved");
+
+    resolveSave!(true);
+    await tick();
+    await tick();
+
+    expect(target.innerHTML).not.toContain("All changes saved");
+  });
+
   it("should show a saved indicator after a successful save, without autosaving on field changes", async () => {
     vi.mocked(settingsLogic.saveSettings).mockResolvedValueOnce(true);
 
