@@ -95,6 +95,12 @@ export class ActorProxy {
           guidanceType: tutelageName,
           progressPercentage: projectData.progressPercentage ?? percentage,
           isSelfStudy: !projectData.lastInstructorName,
+          // Included so PartyTab.mapMemberData's `.filter((p) => !p.isCompleted)`
+          // can actually drop completed rewards from the Party tab's list - the
+          // filter already referenced this field (ProjectMappedData extends
+          // ProjectFlagData, which declares it), but this mapping never
+          // populated it, so that filter was silently a no-op.
+          isCompleted: !!projectData.isCompleted,
         };
       });
   }
