@@ -6,6 +6,7 @@ import { ActorProxy } from "../../src/logic/actor-proxy";
 import { ProjectEngine } from "../../src/logic/project-engine";
 import { FoundryUtils } from "../../src/core/foundry-utils";
 import { PartyTabPending } from "../../src/logic/party-tab-pending";
+import { PartyTabCompletionLock } from "../../src/logic/party-tab-completion-lock";
 
 vi.mock("@/core/settings");
 vi.mock("@/logic/tab-logic");
@@ -20,6 +21,7 @@ describe("PartyTabLogic", () => {
   beforeEach(() => {
     vi.resetAllMocks();
     PartyTabPending.clear();
+    PartyTabCompletionLock.clear();
     originalFoundry = (globalThis as any).foundry;
 
     // Mock Settings.get
@@ -468,6 +470,125 @@ describe("PartyTabLogic", () => {
           true,
         ),
       ).resolves.not.toThrow();
+    });
+
+    // The lock is acquired synchronously (before any await), so this holds
+    // regardless of whether the second call comes from a rapid second
+    // click on the same component instance or - since the lock lives at
+    // module scope, not component $state - from a fresh instance mounted
+    // after a mid-flight remount. See PartyTabCompletionLock's own comment.
+    it("blocks a second completeProject call for the same project while the first is in flight", async () => {
+      const mockProjectData = { progress: 3, target: 10, isCompleted: false };
+      const mockItem = {
+        id: "item1",
+        name: "Test",
+        getFlag: vi.fn().mockReturnValue(mockProjectData),
+      };
+      const mockActor = { name: "Actor", items: { get: vi.fn().mockReturnValue(mockItem) } };
+      (globalThis as any).fromUuid = vi.fn().mockResolvedValue(mockActor);
+
+      const confirmFn = vi.fn().mockResolvedValue(true);
+      const project = { id: "item1", name: "Test", progress: 3 } as any;
+
+      const first = PartyTabLogic.completeProject("Actor.actor1", project, confirmFn, true);
+      const second = PartyTabLogic.completeProject("Actor.actor1", project, confirmFn, true);
+      await Promise.all([first, second]);
+
+      expect(confirmFn).toHaveBeenCalledTimes(1);
+      expect(ProjectEngine.completeProject).toHaveBeenCalledTimes(1);
+    });
+
+    it("releases the lock once completion finishes, allowing a later call through", async () => {
+      const mockProjectData = { progress: 3, target: 10, isCompleted: false };
+      const mockItem = {
+        id: "item1",
+        name: "Test",
+        getFlag: vi.fn().mockReturnValue(mockProjectData),
+      };
+      const mockActor = { name: "Actor", items: { get: vi.fn().mockReturnValue(mockItem) } };
+      (globalThis as any).fromUuid = vi.fn().mockResolvedValue(mockActor);
+
+      const confirmFn = vi.fn().mockResolvedValue(true);
+      const project = { id: "item1", name: "Test", progress: 3 } as any;
+
+      await PartyTabLogic.completeProject("Actor.actor1", project, confirmFn, true);
+      await PartyTabLogic.completeProject("Actor.actor1", project, confirmFn, true);
+
+      expect(confirmFn).toHaveBeenCalledTimes(2);
+    });
+
+    it("releases the lock if the confirmation is cancelled, allowing a retry", async () => {
+      const mockProjectData = { progress: 3, target: 10, isCompleted: false };
+      const mockItem = {
+        id: "item1",
+        name: "Test",
+        getFlag: vi.fn().mockReturnValue(mockProjectData),
+      };
+      const mockActor = { name: "Actor", items: { get: vi.fn().mockReturnValue(mockItem) } };
+      (globalThis as any).fromUuid = vi.fn().mockResolvedValue(mockActor);
+
+      const confirmFn = vi.fn().mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+      const project = { id: "item1", name: "Test", progress: 3 } as any;
+
+      await PartyTabLogic.completeProject("Actor.actor1", project, confirmFn, true);
+      await PartyTabLogic.completeProject("Actor.actor1", project, confirmFn, true);
+
+      expect(ProjectEngine.completeProject).toHaveBeenCalledTimes(1);
+    });
+
+    it("releases the lock if the write fails, allowing a retry", async () => {
+      const mockProjectData = { progress: 3, target: 10, isCompleted: false };
+      const mockItem = {
+        id: "item1",
+        name: "Test",
+        getFlag: vi.fn().mockReturnValue(mockProjectData),
+      };
+      const mockActor = { name: "Actor", items: { get: vi.fn().mockReturnValue(mockItem) } };
+      (globalThis as any).fromUuid = vi.fn().mockResolvedValue(mockActor);
+
+      vi.mocked(ProjectEngine.updateItemWithProgress)
+        .mockRejectedValueOnce(new Error("Update failed"))
+        .mockResolvedValueOnce(undefined);
+      const confirmFn = vi.fn().mockResolvedValue(true);
+      const project = { id: "item1", name: "Test", progress: 3 } as any;
+
+      await PartyTabLogic.completeProject("Actor.actor1", project, confirmFn, true);
+      await PartyTabLogic.completeProject("Actor.actor1", project, confirmFn, true);
+
+      expect(ProjectEngine.completeProject).toHaveBeenCalledTimes(1);
+    });
+
+    // showCompleteConfirm's dialog.render() is async - if its render
+    // pipeline rejects, nothing else would ever settle that promise (no
+    // button click, no close event), which without a rejection handler
+    // would leave this call - and the completion lock it holds - hanging
+    // forever.
+    it("resolves and releases the lock if the confirmation dialog fails to render", async () => {
+      const mockProjectData = { progress: 3, target: 10, isCompleted: false };
+      const mockItem = {
+        id: "item1",
+        name: "Test",
+        getFlag: vi.fn().mockReturnValue(mockProjectData),
+      };
+      const mockActor = { name: "Actor", items: { get: vi.fn().mockReturnValue(mockItem) } };
+      (globalThis as any).fromUuid = vi.fn().mockResolvedValue(mockActor);
+
+      vi.spyOn(foundry.applications.api.DialogV2.prototype, "render").mockRejectedValue(
+        new Error("render failed"),
+      );
+
+      const project = { id: "item1", name: "Test", progress: 3 } as any;
+
+      await expect(
+        PartyTabLogic.completeProject("Actor.actor1", project, undefined, true),
+      ).resolves.not.toThrow();
+      expect(ProjectEngine.completeProject).not.toHaveBeenCalled();
+
+      // A legitimate retry must not be blocked by a lock the failed render
+      // never released.
+      const confirmFn = vi.fn().mockResolvedValue(true);
+      await PartyTabLogic.completeProject("Actor.actor1", project, confirmFn, true);
+      expect(confirmFn).toHaveBeenCalled();
     });
   });
 

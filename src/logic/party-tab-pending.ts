@@ -68,19 +68,26 @@ export const PartyTabPending = {
    * indefinitely - resolve() only ever clears an entry once a fresh read
    * confirms it, which never happens for a write that's never going to
    * land.
+   *
+   * Takes the value the failing call itself set, and only clears if the
+   * stored value still matches it: two overlapping edits for the same
+   * field can interleave (the older call fails *after* a newer call has
+   * already overwritten the pending value), and an unconditional clear
+   * would wipe out that newer, still-legitimate pending edit too -
+   * reintroducing the exact race this module exists to prevent.
    */
-  clearProgress(actorUuid: string, itemId: string) {
+  clearProgress(actorUuid: string, itemId: string, expectedValue: number) {
     const k = key(actorUuid, itemId);
     const entry = pending.get(k);
-    if (!entry) return;
+    if (!entry || entry.progress !== expectedValue) return;
     delete entry.progress;
     if (entry.progress === undefined && entry.target === undefined) pending.delete(k);
   },
 
-  clearTarget(actorUuid: string, itemId: string) {
+  clearTarget(actorUuid: string, itemId: string, expectedValue: number) {
     const k = key(actorUuid, itemId);
     const entry = pending.get(k);
-    if (!entry) return;
+    if (!entry || entry.target !== expectedValue) return;
     delete entry.target;
     if (entry.progress === undefined && entry.target === undefined) pending.delete(k);
   },

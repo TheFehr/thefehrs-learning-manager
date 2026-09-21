@@ -2,6 +2,7 @@ import { Settings } from "@/core/settings.js";
 import { Logger } from "@/core/logger.js";
 import { ActorProxy } from "./actor-proxy.js";
 import { PartyTabPending } from "./party-tab-pending.js";
+import { PartyTabCompletionLock } from "./party-tab-completion-lock.js";
 import { TabLogic } from "./tab-logic.js";
 import { ProjectEngine } from "./project-engine.js";
 import { FoundryUtils } from "@/core/foundry-utils.js";
@@ -175,16 +176,21 @@ export class PartyTabLogic {
 
     const item = targetActor.items.get(project.id);
     if (item) {
+      // Declared outside the try so the catch block below can tell
+      // PartyTabPending.clearProgress exactly which value this call itself
+      // set, rather than blindly clearing whatever is currently pending.
+      let clampedProgress: number | undefined;
       try {
         const projectData = FoundryUtils.deepClone(
           (item.getFlag("thefehrs-learning-manager", "projectData") as ProjectFlagData) || {},
         );
         if (!projectData) return;
 
-        projectData.progress = Math.max(0, Math.min(newProgress, projectData.target || 0));
+        clampedProgress = Math.max(0, Math.min(newProgress, projectData.target || 0));
+        projectData.progress = clampedProgress;
         // See PartyTabPending's own comment for why this is needed even
         // though the UI also does its own optimistic local update.
-        PartyTabPending.setProgress(targetActor.uuid!, item.id!, projectData.progress);
+        PartyTabPending.setProgress(targetActor.uuid!, item.id!, clampedProgress);
         if (
           projectData.target &&
           projectData.target > 0 &&
@@ -212,7 +218,9 @@ export class PartyTabLogic {
         // The optimistic pending value was recorded above on the assumption
         // the write below would land - since it didn't, leaving it in place
         // would overlay a value that's never going to be confirmed.
-        PartyTabPending.clearProgress(targetActor.uuid!, item.id!);
+        if (clampedProgress !== undefined) {
+          PartyTabPending.clearProgress(targetActor.uuid!, item.id!, clampedProgress);
+        }
         Logger.error(`Failed to manually update progress for "${item.name}":`, true, err);
       }
     }
@@ -235,6 +243,9 @@ export class PartyTabLogic {
 
     const item = targetActor.items.get(project.id);
     if (item) {
+      // See updateProgress's matching declaration for why this needs to
+      // live outside the try.
+      let clampedTarget: number | undefined;
       try {
         const projectData = FoundryUtils.deepClone(
           (item.getFlag("thefehrs-learning-manager", "projectData") as ProjectFlagData) || {
@@ -243,11 +254,12 @@ export class PartyTabLogic {
           },
         );
         const oldTarget = projectData.target;
-        projectData.target = Math.max(0, newTarget);
+        clampedTarget = Math.max(0, newTarget);
+        projectData.target = clampedTarget;
         Logger.debug(`updateTarget: Setting target to ${projectData.target} for ${item.name}`);
         // See PartyTabPending's own comment for why this is needed even
         // though the UI also does its own optimistic local update.
-        PartyTabPending.setTarget(targetActor.uuid!, item.id!, projectData.target);
+        PartyTabPending.setTarget(targetActor.uuid!, item.id!, clampedTarget);
 
         if (oldTarget !== projectData.target) {
           if (
@@ -281,7 +293,9 @@ export class PartyTabLogic {
         );
       } catch (err) {
         // See updateProgress's matching catch block for why this is needed.
-        PartyTabPending.clearTarget(targetActor.uuid!, item.id!);
+        if (clampedTarget !== undefined) {
+          PartyTabPending.clearTarget(targetActor.uuid!, item.id!, clampedTarget);
+        }
         Logger.error(`Failed to manually update target for "${item.name}":`, true, err);
       }
     }
@@ -301,6 +315,13 @@ export class PartyTabLogic {
     _parentActor?: Actor,
   ) {
     if (!isGM) return;
+    // Acquired synchronously, before any await, so a second call for the
+    // same project - whether from a rapid second click on the same
+    // component instance or from a fresh instance after a mid-flight
+    // remount - can't slip in ahead of the lock. See
+    // PartyTabCompletionLock's own comment for why this can't live as
+    // component $state instead.
+    if (!PartyTabCompletionLock.tryAcquire(memberUuid, project.id)) return;
     try {
       const normalizedUuid = this.normalizeActorUuid(memberUuid);
       const targetActor = (await fromUuid(normalizedUuid)) as Actor5e | undefined;
@@ -340,6 +361,8 @@ export class PartyTabLogic {
       await ProjectEngine.completeProject(item as unknown as Item5e);
     } catch (err) {
       Logger.error(`Failed to complete project:`, true, err);
+    } finally {
+      PartyTabCompletionLock.release(memberUuid, project.id);
     }
   }
 
@@ -360,6 +383,17 @@ export class PartyTabLogic {
           actorName,
         },
       });
+
+      const cleanup = () => {
+        if (svelteInstance) {
+          unmount(svelteInstance);
+          svelteInstance = null;
+        }
+        if (!settled) {
+          settled = true;
+          resolve(false);
+        }
+      };
 
       const dialog = new foundry.applications.api.DialogV2({
         window: {
@@ -394,18 +428,18 @@ export class PartyTabLogic {
           width: 400,
         },
         close: () => {
-          if (svelteInstance) {
-            unmount(svelteInstance);
-            svelteInstance = null;
-          }
-          if (!settled) {
-            settled = true;
-            resolve(false);
-          }
+          cleanup();
         },
       });
 
-      dialog.render({ force: true });
+      // dialog.render() is async - if its render pipeline rejects, nothing
+      // else here would ever settle this promise (no button click, no
+      // close event), leaving the caller's await hanging indefinitely and
+      // (for completeProject specifically) its completion lock held forever.
+      dialog.render({ force: true }).catch((err: unknown) => {
+        Logger.error("Failed to render Complete Project confirmation dialog:", true, err);
+        cleanup();
+      });
     });
   }
 

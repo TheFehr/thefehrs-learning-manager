@@ -148,7 +148,7 @@ describe("PartyTabPending", () => {
       }),
     ).toEqual({ progress: 7, target: 10, name: "Feat (7/10)" });
 
-    PartyTabPending.clearProgress("Actor.e", "item-e");
+    PartyTabPending.clearProgress("Actor.e", "item-e", 7);
 
     expect(
       PartyTabPending.resolve("Actor.e", "item-e", {
@@ -170,7 +170,7 @@ describe("PartyTabPending", () => {
       }),
     ).toEqual({ progress: 3, target: 20, name: "Feat (3/20)" });
 
-    PartyTabPending.clearTarget("Actor.f", "item-f");
+    PartyTabPending.clearTarget("Actor.f", "item-f", 20);
 
     expect(
       PartyTabPending.resolve("Actor.f", "item-f", {
@@ -185,7 +185,7 @@ describe("PartyTabPending", () => {
     PartyTabPending.setProgress("Actor.g", "item-g", 7);
     PartyTabPending.setTarget("Actor.g", "item-g", 20);
 
-    PartyTabPending.clearProgress("Actor.g", "item-g");
+    PartyTabPending.clearProgress("Actor.g", "item-g", 7);
 
     expect(
       PartyTabPending.resolve("Actor.g", "item-g", {
@@ -197,7 +197,27 @@ describe("PartyTabPending", () => {
   });
 
   it("clearing a field with nothing pending is a no-op", () => {
-    expect(() => PartyTabPending.clearProgress("Actor.none2", "item-none2")).not.toThrow();
-    expect(() => PartyTabPending.clearTarget("Actor.none2", "item-none2")).not.toThrow();
+    expect(() => PartyTabPending.clearProgress("Actor.none2", "item-none2", 5)).not.toThrow();
+    expect(() => PartyTabPending.clearTarget("Actor.none2", "item-none2", 5)).not.toThrow();
+  });
+
+  // The whole point of the value check: an older write's failure must not
+  // clobber a newer, still-legitimate pending edit for the same field.
+  it("does not clear a pending field if a newer edit has already overwritten it", () => {
+    PartyTabPending.setProgress("Actor.h", "item-h", 5);
+    // A second, newer edit for the same field overwrites the pending value.
+    PartyTabPending.setProgress("Actor.h", "item-h", 9);
+
+    // The *older* write's own catch handler tries to clear its own value (5),
+    // which no longer matches what's actually stored (9) - must be a no-op.
+    PartyTabPending.clearProgress("Actor.h", "item-h", 5);
+
+    expect(
+      PartyTabPending.resolve("Actor.h", "item-h", {
+        progress: 3,
+        target: 10,
+        name: "Feat (3/10)",
+      }),
+    ).toEqual({ progress: 9, target: 10, name: "Feat (9/10)" });
   });
 });
