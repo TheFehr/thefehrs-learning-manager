@@ -13,7 +13,7 @@ vi.mock("@/logic/party-tab-logic", () => ({
     updateProgress: vi.fn(),
     updateTarget: vi.fn(),
     deleteProject: vi.fn(),
-    completeProject: vi.fn(),
+    completeProject: vi.fn().mockResolvedValue(undefined),
   },
 }));
 
@@ -208,5 +208,51 @@ describe("PartyTab.svelte", () => {
       true,
       mockActor,
     );
+  });
+
+  // The confirmation dialog PartyTabLogic.completeProject shows isn't modal,
+  // so the button stays clickable while it's open - without a guard, two
+  // rapid clicks start two independent completion flows on the same
+  // project, and ProjectLifecycle.completeProject's own isLearningProject
+  // check (before its first await) can't tell them apart, risking two
+  // completed reward items.
+  it("ignores a second click on Complete Project while the first is still in flight", async () => {
+    let resolveFirst: () => void = () => {};
+    vi.mocked(PartyTabLogic.completeProject).mockReturnValueOnce(
+      new Promise((resolve) => {
+        resolveFirst = () => resolve(undefined);
+      }),
+    );
+
+    instance = mount(PartyTab, {
+      target,
+      props: mockProps as any,
+    });
+    await tick();
+
+    const toggleBtn = target.querySelector(".toggle-progress-edit") as HTMLButtonElement;
+    toggleBtn.click();
+    await tick();
+
+    const completeBtn = target.querySelector(".complete-project") as HTMLButtonElement;
+    completeBtn.click();
+    await tick();
+
+    expect(completeBtn.disabled).toBe(true);
+    completeBtn.click();
+    completeBtn.click();
+    await tick();
+
+    expect(PartyTabLogic.completeProject).toHaveBeenCalledTimes(1);
+
+    resolveFirst();
+    await tick();
+    await tick();
+
+    expect(completeBtn.disabled).toBe(false);
+    completeBtn.click();
+    await tick();
+
+    expect(PartyTabLogic.completeProject).toHaveBeenCalledTimes(2);
   });
 });

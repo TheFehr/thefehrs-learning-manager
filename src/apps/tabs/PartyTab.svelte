@@ -66,8 +66,26 @@
     PartyTabLogic.deleteProject(memberUuid, project, undefined, isGM, actor);
   }
 
+  // completeProject's confirmation dialog isn't modal, so the underlying
+  // sheet (and this button) stays interactive while it's open - without
+  // this guard, a second click before the first dialog is dismissed starts
+  // a second independent completion flow, and ProjectLifecycle.completeProject's
+  // own isLearningProject check happens before its first await, so both
+  // could pass it and each create a completed reward item.
+  let completingProjects = $state<Record<string, boolean>>({});
+
+  function completionKey(memberUuid: string, projectId: string): string {
+    return `${memberUuid}:${projectId}`;
+  }
+
   function completeProject(memberUuid: string, project: ProjectMappedData) {
-    PartyTabLogic.completeProject(memberUuid, project, undefined, isGM, actor);
+    const key = completionKey(memberUuid, project.id);
+    if (completingProjects[key]) return;
+    completingProjects = { ...completingProjects, [key]: true };
+    PartyTabLogic.completeProject(memberUuid, project, undefined, isGM, actor).finally(() => {
+      const { [key]: _removed, ...rest } = completingProjects;
+      completingProjects = rest;
+    });
   }
 </script>
 
@@ -236,6 +254,7 @@
                                                 class="complete-project party-edit-control tidy-button small"
                                                 title="Complete Project"
                                                 aria-label="Complete Project"
+                                                disabled={completingProjects[completionKey(member.uuid, project.id)]}
                                                 onclick={() => completeProject(member.uuid, project)}
                                                 style="min-width: 2rem; padding: 2px 4px; color: var(--t5e-color-success, #2e7d32);"
                                         >

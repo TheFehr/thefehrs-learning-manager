@@ -209,6 +209,10 @@ export class PartyTabLogic {
           );
         }
       } catch (err) {
+        // The optimistic pending value was recorded above on the assumption
+        // the write below would land - since it didn't, leaving it in place
+        // would overlay a value that's never going to be confirmed.
+        PartyTabPending.clearProgress(targetActor.uuid!, item.id!);
         Logger.error(`Failed to manually update progress for "${item.name}":`, true, err);
       }
     }
@@ -276,6 +280,8 @@ export class PartyTabLogic {
           false,
         );
       } catch (err) {
+        // See updateProgress's matching catch block for why this is needed.
+        PartyTabPending.clearTarget(targetActor.uuid!, item.id!);
         Logger.error(`Failed to manually update target for "${item.name}":`, true, err);
       }
     }

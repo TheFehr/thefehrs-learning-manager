@@ -38,7 +38,12 @@ function key(actorUuid: string, itemId: string): string {
  * caller (ActorProxy.getMappedProjects() doesn't include it).
  */
 export function withProgressSuffix(name: string, progress: number, target: number): string {
-  return `${name.replace(/\s*\(\d+\/\d+\)$/, "")} (${progress}/${target})`;
+  // Manual edits always submit integers, but progress can already be
+  // fractional from the training path (ProjectEngine's progressGained is
+  // ratio * a fractional multiplier, persisted with no rounding) - an
+  // integer-only pattern here would fail to strip a name like "Feat
+  // (4.5/10)", leaving a stray old suffix behind a new one.
+  return `${name.replace(/\s*\(\d+(?:\.\d+)?\/\d+(?:\.\d+)?\)$/, "")} (${progress}/${target})`;
 }
 
 export const PartyTabPending = {
@@ -55,6 +60,29 @@ export const PartyTabPending = {
   setTarget(actorUuid: string, itemId: string, target: number) {
     const k = key(actorUuid, itemId);
     pending.set(k, { ...pending.get(k), target });
+  },
+
+  /**
+   * Clears a pending edit that never landed (the write it was recorded
+   * for failed) rather than leaving it to overlay every future read
+   * indefinitely - resolve() only ever clears an entry once a fresh read
+   * confirms it, which never happens for a write that's never going to
+   * land.
+   */
+  clearProgress(actorUuid: string, itemId: string) {
+    const k = key(actorUuid, itemId);
+    const entry = pending.get(k);
+    if (!entry) return;
+    delete entry.progress;
+    if (entry.progress === undefined && entry.target === undefined) pending.delete(k);
+  },
+
+  clearTarget(actorUuid: string, itemId: string) {
+    const k = key(actorUuid, itemId);
+    const entry = pending.get(k);
+    if (!entry) return;
+    delete entry.target;
+    if (entry.progress === undefined && entry.target === undefined) pending.delete(k);
   },
 
   /**

@@ -36,7 +36,13 @@ export class ProjectLifecycle {
       return null;
     }
 
-    const progress = Math.max(0, Math.min(initialProgress, target));
+    // Svelte's bind:value on a type="number" input yields undefined when the
+    // field is cleared (e.g. the GM emptied it before clicking Add on
+    // InitiateProjectDialog without retyping a value) - Math.min/max propagate
+    // that straight through to NaN rather than clamping it, which would
+    // otherwise persist "NaN" into projectData.progress and the item's name.
+    const safeInitialProgress = Number.isFinite(initialProgress) ? initialProgress : 0;
+    const progress = Math.max(0, Math.min(safeInitialProgress, target));
 
     const stashedRequirements = rewardDoc.getFlag(Settings.ID, "projectData")?.requirements ?? [];
     const stashedCategories = rewardDoc.getFlag(Settings.ID, "projectData")?.categories ?? [];

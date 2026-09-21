@@ -196,6 +196,36 @@ describe("PartyTabLogic", () => {
       expect(ui.notifications.error).toHaveBeenCalled();
     });
 
+    // The pending value is recorded before the write it's standing in for,
+    // on the assumption that write will land - if it never does, resolve()
+    // would otherwise overlay that unpersisted value on every future read
+    // forever, since it only ever clears an entry once a fresh read
+    // confirms it (which can't happen for a write that failed).
+    it("clears the pending progress edit if the write fails", async () => {
+      const mockProjectData = { progress: 5, target: 10, isCompleted: false };
+      const mockItem = {
+        id: "item1",
+        getFlag: vi.fn().mockReturnValue(mockProjectData),
+        name: "Test",
+      };
+      const mockActor = {
+        uuid: "Actor.actor1",
+        items: { get: vi.fn().mockReturnValue(mockItem) },
+      };
+      (globalThis as any).fromUuid = vi.fn().mockResolvedValue(mockActor);
+      vi.mocked(ProjectEngine.updateItemWithProgress).mockRejectedValue(new Error("Update failed"));
+
+      await PartyTabLogic.updateProgress("Actor.actor1", { id: "item1" } as any, 8, true);
+
+      expect(
+        PartyTabPending.resolve("Actor.actor1", "item1", {
+          progress: 5,
+          target: 10,
+          name: "Test (5/10)",
+        }),
+      ).toEqual({ progress: 5, target: 10, name: "Test (5/10)" });
+    });
+
     // Regression coverage for thefehrs-learning-manager#131's e2e failure:
     // this write is deliberately silent (no forced re-render), but
     // LearningManager.renderSvelte remounts the Party tab's Svelte component
@@ -286,6 +316,32 @@ describe("PartyTabLogic", () => {
       ).resolves.not.toThrow();
 
       expect(ui.notifications.error).toHaveBeenCalled();
+    });
+
+    // See updateProgress's matching test above for why this matters.
+    it("clears the pending target edit if the write fails", async () => {
+      const mockProjectData = { progress: 5, target: 10 };
+      const mockItem = {
+        id: "item1",
+        getFlag: vi.fn().mockReturnValue(mockProjectData),
+        name: "Test",
+      };
+      const mockActor = {
+        uuid: "Actor.actor1",
+        items: { get: vi.fn().mockReturnValue(mockItem) },
+      };
+      (globalThis as any).fromUuid = vi.fn().mockResolvedValue(mockActor);
+      vi.mocked(ProjectEngine.updateItemWithProgress).mockRejectedValue(new Error("Update failed"));
+
+      await PartyTabLogic.updateTarget("Actor.actor1", { id: "item1" } as any, 20, true);
+
+      expect(
+        PartyTabPending.resolve("Actor.actor1", "item1", {
+          progress: 5,
+          target: 10,
+          name: "Test (5/10)",
+        }),
+      ).toEqual({ progress: 5, target: 10, name: "Test (5/10)" });
     });
 
     it("should complete project if target is lowered below current progress", async () => {
