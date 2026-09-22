@@ -5,7 +5,13 @@ import {
   disableTour,
   simulateFoundryDrop,
 } from "@thefehr/foundry-playwright";
-import { waitForGameReady, forceClick, snapshot } from "./utils";
+import {
+  waitForGameReady,
+  forceClick,
+  snapshot,
+  activateBlankScene,
+  confirmInitiateProjectDialog,
+} from "./utils";
 
 // The other e2e specs each cover one slice of this pipeline in isolation:
 // item-learning-config.spec.ts tests the config UI, mass-edit.spec.ts tests
@@ -29,6 +35,7 @@ useBaseWorld(test, {
   setupWorld: async ({ page }) => {
     await waitForGameReady(page);
     await disableTour(page);
+    await activateBlankScene(page);
 
     await page.evaluate(
       async ({ moduleId, actorName, packId }) => {
@@ -151,6 +158,7 @@ test.describe("Full Project Lifecycle (Mass Edit create -> grant -> complete)", 
       `:is(.window-app, .sheet.actor, .tidy5e-sheet, foundry-app):has-text("${actorName}")`,
       itemData,
     );
+    await confirmInitiateProjectDialog(page);
 
     // .filter({ visible: true }) is load-bearing - see project-lifecycle.spec.ts
     // for the confirmed root cause: under host contention, tidy5e-sheet can

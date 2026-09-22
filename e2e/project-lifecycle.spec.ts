@@ -5,7 +5,13 @@ import {
   disableTour,
   simulateFoundryDrop,
 } from "@thefehr/foundry-playwright";
-import { waitForGameReady, snapshot, ensureEditMode } from "./utils";
+import {
+  waitForGameReady,
+  snapshot,
+  ensureEditMode,
+  activateBlankScene,
+  confirmInitiateProjectDialog,
+} from "./utils";
 
 const moduleId = "thefehrs-learning-manager";
 const actorName = "PC 1";
@@ -21,6 +27,7 @@ useBaseWorld(test, {
   setupWorld: async ({ page }) => {
     await waitForGameReady(page);
     await disableTour(page);
+    await activateBlankScene(page);
 
     await page.evaluate(
       async ({ moduleId, actorName, projectName, packId }) => {
@@ -180,6 +187,7 @@ test.describe("Project Lifecycle (Happy Path)", () => {
       `:is(.window-app, .sheet.actor, .tidy5e-sheet, foundry-app):has-text("${actorName}")`,
       itemData,
     );
+    await confirmInitiateProjectDialog(page);
 
     // Quadrone (v14) renders item rows as .tidy-table-row /
     // [data-tidy-sheet-part="item-table-row"], not the Classic sheet's
@@ -348,6 +356,7 @@ test.describe("Project Lifecycle (Happy Path)", () => {
       `:is(.window-app, .sheet.actor, .tidy5e-sheet, foundry-app):has-text("${actorName}")`,
       itemData,
     );
+    await confirmInitiateProjectDialog(page);
 
     // Same selector/retry pattern as the happy-path test above - see its
     // comments for why both the visibility filter and the re-click loop are
@@ -465,5 +474,128 @@ test.describe("Project Lifecycle (Happy Path)", () => {
     // src/apps/party-tab.ts) - the row should disappear once the sheet
     // re-renders for the completion-triggered item update.
     await expect(memberProjectRow).toBeHidden({ timeout: 15000 });
+  });
+
+  // The drop dialog exists specifically so a GM can backfill a project a PC
+  // has already made headway on, instead of it always silently starting at
+  // 0 - this exercises that starting-progress path end to end.
+  test("GM can set a starting progress when dropping a project onto a PC", async ({
+    page,
+    deprecationTracker,
+  }) => {
+    deprecationTracker.registerIgnore("Deprecated since Version DnD5e");
+
+    const actorSheetId = await page.evaluate(async (name) => {
+      const actor = (game as any).actors.getName(name);
+      await actor.sheet.render(true);
+      return actor.sheet.id;
+    }, actorName);
+
+    const actorSheet = page.locator(`[id="${actorSheetId}"]`);
+    await expect(actorSheet).toBeVisible({ timeout: 15000 });
+
+    const featuresTab = actorSheet.getByRole("tab", { name: /Features/i });
+    if (await featuresTab.isVisible()) {
+      await featuresTab.click();
+    }
+
+    const itemData = await page.evaluate(
+      async ({ packId, projectName }) => {
+        const pack = (game as any).packs.get(packId);
+        const index = await pack.getIndex();
+        const entry = index.find((e: any) => e.name === projectName);
+        if (!entry) throw new Error(`Project ${projectName} not found in ${packId}`);
+        return {
+          type: "Item",
+          uuid: `Compendium.${packId}.Item.${entry._id}`,
+        };
+      },
+      { packId, projectName },
+    );
+
+    await simulateFoundryDrop(
+      page,
+      `:is(.window-app, .sheet.actor, .tidy5e-sheet, foundry-app):has-text("${actorName}")`,
+      itemData,
+    );
+    await confirmInitiateProjectDialog(page, { progress: 30 });
+
+    await expect(async () => {
+      const state = await page.evaluate(
+        async ({ actorName, projectName, moduleId }) => {
+          const actor = (game as any).actors.getName(actorName);
+          const item = actor.items.find((i: any) => i.name.includes(projectName));
+          return {
+            found: !!item,
+            progress: item?.getFlag(moduleId, "projectData")?.progress,
+          };
+        },
+        { actorName, projectName, moduleId },
+      );
+      expect(state.found).toBe(true);
+      expect(state.progress).toBe(30);
+    }).toPass({ timeout: 15000 });
+  });
+
+  // Same dialog, but choosing "mark as already complete" - covers backfilling
+  // a project the PC has effectively already finished.
+  test("GM can mark a project already complete when dropping it onto a PC", async ({
+    page,
+    deprecationTracker,
+  }) => {
+    deprecationTracker.registerIgnore("Deprecated since Version DnD5e");
+
+    const actorSheetId = await page.evaluate(async (name) => {
+      const actor = (game as any).actors.getName(name);
+      await actor.sheet.render(true);
+      return actor.sheet.id;
+    }, actorName);
+
+    const actorSheet = page.locator(`[id="${actorSheetId}"]`);
+    await expect(actorSheet).toBeVisible({ timeout: 15000 });
+
+    const featuresTab = actorSheet.getByRole("tab", { name: /Features/i });
+    if (await featuresTab.isVisible()) {
+      await featuresTab.click();
+    }
+
+    const itemData = await page.evaluate(
+      async ({ packId, projectName }) => {
+        const pack = (game as any).packs.get(packId);
+        const index = await pack.getIndex();
+        const entry = index.find((e: any) => e.name === projectName);
+        if (!entry) throw new Error(`Project ${projectName} not found in ${packId}`);
+        return {
+          type: "Item",
+          uuid: `Compendium.${packId}.Item.${entry._id}`,
+        };
+      },
+      { packId, projectName },
+    );
+
+    await simulateFoundryDrop(
+      page,
+      `:is(.window-app, .sheet.actor, .tidy5e-sheet, foundry-app):has-text("${actorName}")`,
+      itemData,
+    );
+    await confirmInitiateProjectDialog(page, { markComplete: true });
+
+    await expect(async () => {
+      const state = await page.evaluate(
+        async ({ actorName, projectName, moduleId }) => {
+          const actor = (game as any).actors.getName(actorName);
+          const item = actor.items.find((i: any) => i.name.includes(projectName));
+          return {
+            found: !!item,
+            isLearningProject: item?.getFlag(moduleId, "isLearningProject"),
+            isLearnedReward: item?.getFlag(moduleId, "isLearnedReward"),
+          };
+        },
+        { actorName, projectName, moduleId },
+      );
+      expect(state.found).toBe(true);
+      expect(state.isLearningProject).toBe(false);
+      expect(state.isLearnedReward).toBe(true);
+    }).toPass({ timeout: 20000 });
   });
 });

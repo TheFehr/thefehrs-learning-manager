@@ -1,0 +1,10 @@
+# Chains to the personal global pre-push hook. Husky's own prepare script
+# sets core.hooksPath to .husky/_ for this repo, which silently overrides
+# ~/.gitconfig's core.hooksPath=~/.git-hooks and, with no .husky/pre-push
+# file of its own, skipped the push-time restriction that hook enforces
+# (Mon/Tue/Thu/Fri 07:30-16:30 - see ~/.git-hooks/pre-push for the full
+# logic). Guarded so a clone without that personal hook installed (a CI
+# runner, another contributor) just no-ops instead of failing.
+if [ -x "$HOME/.git-hooks/pre-push" ]; then
+  "$HOME/.git-hooks/pre-push" "$@"
+fi

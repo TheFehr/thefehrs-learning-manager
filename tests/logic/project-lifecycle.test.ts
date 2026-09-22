@@ -118,6 +118,91 @@ describe("ProjectLifecycle", () => {
       expect(ActivityManager.injectActivities).toHaveBeenCalled();
     });
 
+    it("should seed the project with a given starting progress, clamped to target", async () => {
+      const result = await ProjectLifecycle.initiateProjectFromItem(mockActor, mockItem, 4);
+
+      expect(result).toBeDefined();
+      expect(mockActor.createEmbeddedDocuments).toHaveBeenCalledWith("Item", [
+        expect.objectContaining({
+          name: "Source Item (4/10)",
+          flags: expect.objectContaining({
+            "thefehrs-learning-manager": expect.objectContaining({
+              projectData: expect.objectContaining({ progress: 4 }),
+            }),
+          }),
+        }),
+      ]);
+
+      // Over-target and negative starting values both clamp into range.
+      const overResult = await ProjectLifecycle.initiateProjectFromItem(mockActor, mockItem, 999);
+      expect(overResult).toBeDefined();
+      expect(mockActor.createEmbeddedDocuments).toHaveBeenLastCalledWith("Item", [
+        expect.objectContaining({
+          name: "Source Item (10/10)",
+          flags: expect.objectContaining({
+            "thefehrs-learning-manager": expect.objectContaining({
+              projectData: expect.objectContaining({ progress: 10 }),
+            }),
+          }),
+        }),
+      ]);
+
+      const negativeResult = await ProjectLifecycle.initiateProjectFromItem(
+        mockActor,
+        mockItem,
+        -5,
+      );
+      expect(negativeResult).toBeDefined();
+      expect(mockActor.createEmbeddedDocuments).toHaveBeenLastCalledWith("Item", [
+        expect.objectContaining({
+          name: "Source Item (0/10)",
+          flags: expect.objectContaining({
+            "thefehrs-learning-manager": expect.objectContaining({
+              projectData: expect.objectContaining({ progress: 0 }),
+            }),
+          }),
+        }),
+      ]);
+    });
+
+    // Svelte's bind:value on a type="number" input yields undefined when
+    // the field is cleared (InitiateProjectDialog, GM clicks Add without
+    // retyping a value) - Math.min/max propagate that straight to NaN
+    // rather than clamping it, which would otherwise persist "NaN" into
+    // projectData.progress and the item's own name.
+    it("treats a non-finite starting progress as 0 instead of persisting NaN", async () => {
+      const result = await ProjectLifecycle.initiateProjectFromItem(
+        mockActor,
+        mockItem,
+        undefined as unknown as number,
+      );
+
+      expect(result).toBeDefined();
+      expect(mockActor.createEmbeddedDocuments).toHaveBeenCalledWith("Item", [
+        expect.objectContaining({
+          name: "Source Item (0/10)",
+          flags: expect.objectContaining({
+            "thefehrs-learning-manager": expect.objectContaining({
+              projectData: expect.objectContaining({ progress: 0 }),
+            }),
+          }),
+        }),
+      ]);
+
+      const nanResult = await ProjectLifecycle.initiateProjectFromItem(mockActor, mockItem, NaN);
+      expect(nanResult).toBeDefined();
+      expect(mockActor.createEmbeddedDocuments).toHaveBeenLastCalledWith("Item", [
+        expect.objectContaining({
+          name: "Source Item (0/10)",
+          flags: expect.objectContaining({
+            "thefehrs-learning-manager": expect.objectContaining({
+              projectData: expect.objectContaining({ progress: 0 }),
+            }),
+          }),
+        }),
+      ]);
+    });
+
     it("should return null if target is invalid", async () => {
       mockItem._projectData = { target: 0 };
       const result = await ProjectLifecycle.initiateProjectFromItem(mockActor, mockItem);

@@ -159,6 +159,58 @@ export async function forceClick(locator: any) {
   });
 }
 
+// A GM dropping an eligible item onto a PC's sheet now gets prompted for a
+// starting progress (or to mark the project already complete) instead of
+// always silently starting at 0 - every e2e spec that drops a project item
+// runs as the Gamemaster user, so every one of them now hits this dialog.
+// Defaults to confirming with no changes (starting progress 0, not marked
+// complete), matching the pre-dialog behavior those specs were written
+// against - pass options to exercise the other paths explicitly.
+export async function confirmInitiateProjectDialog(
+  page: Page,
+  options: { progress?: number; markComplete?: boolean } = {},
+) {
+  const dialog = page
+    .locator(".window-app, .application")
+    .filter({ hasText: "Add Project" })
+    .first();
+  await expect(dialog).toBeVisible({ timeout: 10000 });
+
+  if (options.progress !== undefined) {
+    // Svelte's bind:value listens for the input's own "input" event -
+    // Locator.fill() doesn't reliably deliver one on every browser/input
+    // combination (matches the same established caveat this file's other
+    // onchange-bound inputs work around, just for Svelte's own two-way
+    // binding instead of a manual event handler). The dialog's own content
+    // mounts asynchronously (DialogV2 only attaches config.content once its
+    // own render() resolves - see promptInitiateProject's comment), so
+    // confirm the value actually landed rather than a one-shot set: a
+    // locator resolving to the input doesn't guarantee Svelte's own
+    // reactive wiring has settled yet.
+    const progressInput = dialog.locator(".initiate-progress-input");
+    await progressInput.evaluate((el: HTMLInputElement, value: string) => {
+      el.value = value;
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+    }, String(options.progress));
+    await expect(progressInput).toHaveValue(String(options.progress), { timeout: 5000 });
+  }
+  const completeCheckbox = dialog.locator(".initiate-mark-complete");
+  if (options.markComplete) {
+    await forceClick(completeCheckbox);
+    await expect(completeCheckbox).toBeChecked({ timeout: 5000 });
+  } else {
+    // Explicit, not just an absence of interaction: confirms the box is
+    // genuinely unchecked before submitting, so a stray checked default
+    // (getValues() forces progress to target when this is true) fails loud
+    // and points straight at the checkbox instead of surfacing as a
+    // confusing wrong-progress assertion several steps later.
+    await expect(completeCheckbox).not.toBeChecked({ timeout: 5000 });
+  }
+
+  await forceClick(dialog.getByRole("button", { name: /^Add$/i }));
+  await expect(dialog).toBeHidden({ timeout: 10000 });
+}
+
 // Screenshots land under e2e/screenshots/, committed to the repo (each
 // verify run overwrites them in place) rather than under test-results-*/,
 // which is git-ignored and wiped per run - the point here is an
@@ -207,6 +259,29 @@ export async function snapshot(target: Page | Locator, name: string) {
   // end state for just this capture, so byte differences between runs
   // actually mean something changed instead of being timing noise.
   await target.screenshot({ path: `e2e/screenshots/${name}.png`, animations: "disabled" });
+}
+
+// Foundry's default "no active scene" canvas backdrop (the FVTT/d20
+// watermark) sits behind every app window's translucent chrome, and its own
+// rendering carries real byte-level noise between otherwise-identical runs
+// (confirmed live: same test run 5x back-to-back produced 5 different
+// screenshot hashes, up to a 9/255 channel diff on ~0.25% of pixels,
+// concentrated on the watermark itself - not a compression or animation
+// artifact, since animations: "disabled" in snapshot() already rules that
+// out). Activating a scene with no background image replaces that watermark
+// with a flat canvas, which eliminates the noise (confirmed live: 5
+// back-to-back runs with this active produced byte-identical screenshots).
+// Call this from setupWorld, alongside disableTour(), in any spec that
+// takes screenshots - it's a no-op past the first call since the scene
+// persists in the world's base backup.
+export async function activateBlankScene(page: Page) {
+  await page.evaluate(async () => {
+    const scenes = (game as any).scenes;
+    const scene =
+      scenes.getName("E2E Blank") ??
+      (await (Scene as any).create({ name: "E2E Blank", background: { src: null } }));
+    if (!scene.active) await scene.activate();
+  });
 }
 
 export async function ensureEditMode(partyTab: any) {

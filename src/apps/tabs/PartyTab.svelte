@@ -3,6 +3,7 @@
   import type {MemberMappedData} from "@/apps/party-tab.js";
   import type {ProjectMappedData} from "@/logic/project-item.js";
   import {PartyTabLogic} from "@/logic/party-tab-logic.js";
+  import {withProgressSuffix} from "@/logic/party-tab-pending.js";
 
   let {members: membersProp, isGM, actor} = $props<{
     members: MemberMappedData[];
@@ -38,6 +39,7 @@
             p.progress = Math.max(0, Math.min(newProgress, max));
             // Update percentage for the bar
             p.progressPercentage = max > 0 ? Math.min(100, Math.round((p.progress / max) * 100)) : 0;
+            p.name = withProgressSuffix(p.name, p.progress, max);
         }
     }
     PartyTabLogic.updateProgress(memberUuid, project, newProgress, isGM, actor);
@@ -54,6 +56,7 @@
             // Update percentage for the bar
             const max = p.maxProgress || 0;
             p.progressPercentage = max > 0 ? Math.min(100, Math.round((p.progress / max) * 100)) : 0;
+            p.name = withProgressSuffix(p.name, p.progress, max);
         }
     }
     PartyTabLogic.updateTarget(memberUuid, project, newTarget, isGM, actor);
@@ -61,6 +64,28 @@
 
   function deleteProject(memberUuid: string, project: ProjectMappedData) {
     PartyTabLogic.deleteProject(memberUuid, project, undefined, isGM, actor);
+  }
+
+  // completeProject's confirmation dialog isn't modal, so the underlying
+  // sheet (and this button) stays interactive while it's open - without
+  // this guard, a second click before the first dialog is dismissed starts
+  // a second independent completion flow, and ProjectLifecycle.completeProject's
+  // own isLearningProject check happens before its first await, so both
+  // could pass it and each create a completed reward item.
+  let completingProjects = $state<Record<string, boolean>>({});
+
+  function completionKey(memberUuid: string, projectId: string): string {
+    return `${memberUuid}:${projectId}`;
+  }
+
+  function completeProject(memberUuid: string, project: ProjectMappedData) {
+    const key = completionKey(memberUuid, project.id);
+    if (completingProjects[key]) return;
+    completingProjects = { ...completingProjects, [key]: true };
+    PartyTabLogic.completeProject(memberUuid, project, undefined, isGM, actor).finally(() => {
+      const { [key]: _removed, ...rest } = completingProjects;
+      completingProjects = rest;
+    });
   }
 </script>
 
@@ -145,7 +170,7 @@
                     <div
                             class="tidy-table-header-cell"
                             data-tidy-sheet-part="table-header-cell"
-                            style="--tidy-table-column-width: 40px;"
+                            style="--tidy-table-column-width: 76px;"
                     ></div>
                 </header>
 
@@ -221,8 +246,21 @@
                                 <div
                                         class="tidy-table-cell"
                                         data-tidy-sheet-part="table-cell"
-                                        style="--tidy-table-column-width: 40px; display: flex; justify-content: center; align-items: center;"
+                                        style="--tidy-table-column-width: 76px; display: flex; justify-content: center; align-items: center; gap: 4px;"
                                 >
+                                    {#if isGM && isEditMode}
+                                        <button
+                                                type="button"
+                                                class="complete-project party-edit-control tidy-button small"
+                                                title="Complete Project"
+                                                aria-label="Complete Project"
+                                                disabled={completingProjects[completionKey(member.uuid, project.id)]}
+                                                onclick={() => completeProject(member.uuid, project)}
+                                                style="min-width: 2rem; padding: 2px 4px; color: var(--t5e-color-success, #2e7d32);"
+                                        >
+                                            <i class="fas fa-flag-checkered"></i>
+                                        </button>
+                                    {/if}
                                     {#if project.canAbort && isEditMode}
                                         <button
                                                 type="button"

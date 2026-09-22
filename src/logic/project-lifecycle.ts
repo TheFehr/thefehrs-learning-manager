@@ -13,7 +13,11 @@ export class ProjectLifecycle {
    * Stashes an item as a learning project.
    * Wipes Active Effects and Activities, then appends the isLearningProject flag.
    */
-  static async initiateProjectFromItem(actor: Actor, rewardDoc: Item): Promise<Item5e | null> {
+  static async initiateProjectFromItem(
+    actor: Actor,
+    rewardDoc: Item,
+    initialProgress = 0,
+  ): Promise<Item5e | null> {
     const itemData = rewardDoc.toObject();
     const stashedEffects = itemData.effects || [];
     const stashedActivities = FoundryUtils.deepClone(itemData.system.activities || {});
@@ -32,6 +36,14 @@ export class ProjectLifecycle {
       return null;
     }
 
+    // Svelte's bind:value on a type="number" input yields undefined when the
+    // field is cleared (e.g. the GM emptied it before clicking Add on
+    // InitiateProjectDialog without retyping a value) - Math.min/max propagate
+    // that straight through to NaN rather than clamping it, which would
+    // otherwise persist "NaN" into projectData.progress and the item's name.
+    const safeInitialProgress = Number.isFinite(initialProgress) ? initialProgress : 0;
+    const progress = Math.max(0, Math.min(safeInitialProgress, target));
+
     const stashedRequirements = rewardDoc.getFlag(Settings.ID, "projectData")?.requirements ?? [];
     const stashedCategories = rewardDoc.getFlag(Settings.ID, "projectData")?.categories ?? [];
     const stashedFollowUp = rewardDoc.getFlag(Settings.ID, "projectData")?.followUpProjectId ?? "";
@@ -40,7 +52,7 @@ export class ProjectLifecycle {
 
     // Prepare item data for stashing
     const projectData: ProjectFlagData = {
-      progress: 0,
+      progress,
       target: target,
       tutelageId: "",
       isLearnedReward: false,
@@ -57,11 +69,11 @@ export class ProjectLifecycle {
       stashedSourceUuid,
     };
 
-    const progressHtml = ProjectUI.generateProgressHtml(0, target, tutelageName);
+    const progressHtml = ProjectUI.generateProgressHtml(progress, target, tutelageName);
 
     const updateData = {
       ...itemData,
-      name: `${stashedName} (0/${target})`,
+      name: `${stashedName} (${progress}/${target})`,
       type: "feat",
       effects: [],
       system: FoundryUtils.mergeObject(itemData.system || {}, {

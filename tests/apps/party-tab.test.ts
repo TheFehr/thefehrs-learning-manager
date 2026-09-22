@@ -1,10 +1,12 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { PartyTab } from "../../src/apps/party-tab";
 import { Settings } from "../../src/core/settings";
+import { PartyTabPending } from "../../src/logic/party-tab-pending";
 
 describe("PartyTab", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    PartyTabPending.clear();
 
     vi.spyOn(Settings, "get").mockImplementation((key) => {
       if (key === "timeUnits") {
@@ -124,5 +126,56 @@ describe("PartyTab", () => {
     const m = data.members[0];
     expect(m.projects).toHaveLength(1);
     expect(m.projects[0].name).toBe("In Progress Item");
+  });
+
+  // Regression coverage for thefehrs-learning-manager#131's e2e failure:
+  // LearningManager.renderSvelte remounts the Party tab's Svelte component
+  // fresh on every render of its parent sheet (not a props-only update), so
+  // a remount landing between a GM's manual progress edit and that write
+  // actually landing would otherwise call getData() and read the item's
+  // still-stale flag data, with the edit's own "silent" write leaving
+  // nothing to correct it afterward. PartyTabPending overlays a pending
+  // edit onto exactly this kind of fresh read - see its own comment.
+  it("overlays a pending PartyTabPending edit onto a fresh read that hasn't caught up yet", () => {
+    const actor = new Actor() as any;
+    actor.id = "actor1";
+    actor.name = "Test Actor";
+    actor.uuid = "Actor.actor1";
+    actor.items = [
+      {
+        id: "item1",
+        name: "Learning Item",
+        getFlag: vi.fn().mockImplementation((scope, key) => {
+          if (key === "isLearningProject") return true;
+          // Still the pre-write value - simulates a remount landing before
+          // the GM's manual edit's silent write has confirmed.
+          if (key === "projectData") return { progress: 5, target: 10 };
+          return null;
+        }),
+      },
+    ];
+    vi.mocked(game.actors.get).mockReturnValue(actor);
+
+    PartyTabPending.setProgress("Actor.actor1", "item1", 8);
+
+    const partyActor = { system: { members: [{ actorId: "actor1" }] } } as any;
+    const data = PartyTab.getData(partyActor);
+
+    expect(data.members[0].projects[0].progress).toBe(8);
+    expect(data.members[0].projects[0].progressPercentage).toBe(80);
+    // The item's displayed name bakes in "(progress/target)" (see
+    // ProjectLifecycle.updateItemWithProgress) - the overlay needs to keep
+    // that in sync too, since it's what a GM actually sees confirm an edit.
+    expect(data.members[0].projects[0].name).toBe("Learning Item (8/10)");
+
+    // Once a read actually confirms the write landed, the pending entry
+    // clears and stops overriding subsequent reads.
+    actor.items[0].getFlag = vi.fn().mockImplementation((scope, key) => {
+      if (key === "isLearningProject") return true;
+      if (key === "projectData") return { progress: 8, target: 10 };
+      return null;
+    });
+    const confirmed = PartyTab.getData(partyActor);
+    expect(confirmed.members[0].projects[0].progress).toBe(8);
   });
 });

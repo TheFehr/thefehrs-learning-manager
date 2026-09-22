@@ -13,6 +13,7 @@ import { mount, unmount } from "svelte";
 import { TutelageResolverService } from "./tutelage-resolver.js";
 import InstructorSelectionDialog from "@/apps/dialogs/InstructorSelectionDialog.svelte";
 import TrainingResolutionDialog from "@/apps/dialogs/TrainingResolutionDialog.svelte";
+import InitiateProjectDialog from "@/apps/dialogs/InitiateProjectDialog.svelte";
 import { TabLogic } from "./tab-logic.js";
 
 import { getGame, getUI, isV14RollModeApiAvailable } from "@/core/foundry.js";
@@ -71,8 +72,115 @@ export class ProjectEngine {
   /**
    * Forwards call to ProjectLifecycle
    */
-  static async initiateProjectFromItem(actor: Actor, rewardDoc: Item): Promise<Item5e | null> {
-    return await ProjectLifecycle.initiateProjectFromItem(actor, rewardDoc);
+  static async initiateProjectFromItem(
+    actor: Actor,
+    rewardDoc: Item,
+    initialProgress = 0,
+  ): Promise<Item5e | null> {
+    return await ProjectLifecycle.initiateProjectFromItem(actor, rewardDoc, initialProgress);
+  }
+
+  /**
+   * Prompts the GM for a starting progress value (or immediate completion)
+   * when initiating a project via drop, rather than always silently
+   * starting at 0 - useful for backfilling a project a PC has already made
+   * headway on, or one they've effectively already finished. Returns null
+   * if the GM cancels.
+   */
+  static async promptInitiateProject(
+    itemName: string,
+    actorName: string,
+    target: number,
+  ): Promise<{ progress: number; markComplete: boolean } | null> {
+    return new Promise((resolve) => {
+      let settled = false;
+      // DialogV2.content only accepts a HTML *string* or a bare <div> it
+      // immediately reduces to one via .innerHTML (see its own source
+      // comment: "the element will get stringified, so any listeners...
+      // will not carry forward") - passing a pre-mounted Svelte container
+      // directly (the AbortProjectDialog/CompleteProjectDialog pattern)
+      // only works for those because their content is static display text
+      // with no interactive elements. This one has real form controls, so
+      // it needs the same render-then-mount-into-the-live-DOM approach the
+      // instructor-selection dialog above already uses: pass an empty
+      // placeholder root as a string, then mount into the *live* node
+      // dialog.render() actually produced.
+      let dialogInstance: { getValues: () => { progress: number; markComplete: boolean } } | null =
+        null;
+
+      const cleanup = () => {
+        if (dialogInstance) {
+          unmount(dialogInstance as unknown as object);
+          dialogInstance = null;
+        }
+      };
+
+      const dialog = new foundry.applications.api.DialogV2({
+        window: {
+          title: "Add Project",
+          contentClasses: ["thefehrs-learning-manager-dialog"],
+        },
+        content: '<div class="ude-initiate-project-dialog-root"></div>',
+        buttons: [
+          {
+            action: "add",
+            icon: "fas fa-check",
+            label: "Add",
+            default: true,
+            callback: () => {
+              if (settled) return;
+              settled = true;
+              resolve(dialogInstance?.getValues() ?? { progress: 0, markComplete: false });
+            },
+          },
+          {
+            action: "cancel",
+            icon: "fas fa-times",
+            label: "Cancel",
+            callback: () => {
+              if (settled) return;
+              settled = true;
+              resolve(null);
+            },
+          },
+        ],
+        position: {
+          width: 400,
+        },
+        close: () => {
+          cleanup();
+          if (!settled) {
+            settled = true;
+            resolve(null);
+          }
+        },
+      });
+
+      dialog
+        .render({ force: true })
+        .then(() => {
+          const root = dialog.element.querySelector(".ude-initiate-project-dialog-root");
+          if (root) {
+            dialogInstance = mount(InitiateProjectDialog, {
+              target: root,
+              props: { itemName, actorName, target },
+            }) as unknown as { getValues: () => { progress: number; markComplete: boolean } };
+          } else {
+            if (!settled) {
+              settled = true;
+              resolve(null);
+            }
+            dialog.close();
+          }
+        })
+        .catch((err: unknown) => {
+          Logger.error("ProjectEngine | Error rendering initiate project dialog:", true, err);
+          if (!settled) {
+            settled = true;
+            resolve(null);
+          }
+        });
+    });
   }
 
   /**
