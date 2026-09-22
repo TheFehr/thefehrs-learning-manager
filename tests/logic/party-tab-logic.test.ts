@@ -180,6 +180,40 @@ describe("PartyTabLogic", () => {
       expect(ProjectEngine.completeProject).toHaveBeenCalledWith(mockItem);
     });
 
+    // Reaching target via a manual progress edit isn't the only way to
+    // trigger completion - completeProject (the dedicated button) and
+    // updateTarget's own completion branch can too. All three coordinate
+    // through the same PartyTabCompletionLock so two of them can't both
+    // pass ProjectLifecycle.completeProject's own early isLearningProject
+    // check for the same project.
+    it("does not complete the project if something else already holds the completion lock", async () => {
+      const mockProjectData = { progress: 5, target: 10, isCompleted: false };
+      const mockItem = {
+        id: "item1",
+        getFlag: vi.fn().mockReturnValue(mockProjectData),
+        name: "Test",
+      };
+      const mockActor = {
+        uuid: "Actor.actor1",
+        items: { get: vi.fn().mockReturnValue(mockItem) },
+      };
+      (globalThis as any).fromUuid = vi.fn().mockResolvedValue(mockActor);
+
+      expect(PartyTabCompletionLock.tryAcquire("Actor.actor1", "item1")).toBe(true);
+
+      await PartyTabLogic.updateProgress("Actor.actor1", { id: "item1" } as any, 10, true);
+
+      expect(ProjectEngine.completeProject).not.toHaveBeenCalled();
+      // Falls back to a silent (non-completing) update instead of just
+      // dropping the progress edit on the floor.
+      expect(ProjectEngine.updateItemWithProgress).toHaveBeenCalledWith(
+        mockItem,
+        expect.objectContaining({ progress: 10 }),
+        "GM Manual Edit",
+        false,
+      );
+    });
+
     it("should handle errors gracefully during updateProgress", async () => {
       const mockProjectData = { progress: 5, target: 10, isCompleted: false };
       const mockItem = {
@@ -355,6 +389,33 @@ describe("PartyTabLogic", () => {
       await PartyTabLogic.updateTarget("Actor.actor1", { id: "item1" } as any, 10, true);
 
       expect(ProjectEngine.completeProject).toHaveBeenCalledWith(mockItem);
+    });
+
+    // See updateProgress's matching test for why this coordination matters.
+    it("does not complete the project if something else already holds the completion lock", async () => {
+      const mockProjectData = { progress: 15, target: 20 };
+      const mockItem = {
+        id: "item1",
+        getFlag: vi.fn().mockReturnValue(mockProjectData),
+        name: "Test",
+      };
+      const mockActor = {
+        uuid: "Actor.actor1",
+        items: { get: vi.fn().mockReturnValue(mockItem) },
+      };
+      (globalThis as any).fromUuid = vi.fn().mockResolvedValue(mockActor);
+
+      expect(PartyTabCompletionLock.tryAcquire("Actor.actor1", "item1")).toBe(true);
+
+      await PartyTabLogic.updateTarget("Actor.actor1", { id: "item1" } as any, 10, true);
+
+      expect(ProjectEngine.completeProject).not.toHaveBeenCalled();
+      expect(ProjectEngine.updateItemWithProgress).toHaveBeenCalledWith(
+        mockItem,
+        expect.objectContaining({ target: 10 }),
+        "GM Manual Edit",
+        false,
+      );
     });
 
     it("should do nothing if NOT GM", async () => {

@@ -197,14 +197,34 @@ export class PartyTabLogic {
           projectData.progress >= projectData.target &&
           !projectData.isCompleted
         ) {
-          // Completion ALWAYS renders because it changes item types/recreates
-          await ProjectEngine.updateItemWithProgress(
-            item as unknown as Item5e,
-            projectData,
-            "GM Manual Edit",
-            true,
-          );
-          await ProjectEngine.completeProject(item as unknown as Item5e);
+          // Coordinates with PartyTabLogic.completeProject's own lock (and
+          // updateTarget's matching branch below) - this reaching target
+          // isn't the only way to trigger completion, and two of these
+          // paths racing for the same project could otherwise both pass
+          // ProjectLifecycle.completeProject's own early isLearningProject
+          // check. If something else is already completing it, just
+          // persist the raw progress silently and let that one finish.
+          if (PartyTabCompletionLock.tryAcquire(targetActor.uuid!, item.id!)) {
+            try {
+              // Completion ALWAYS renders because it changes item types/recreates
+              await ProjectEngine.updateItemWithProgress(
+                item as unknown as Item5e,
+                projectData,
+                "GM Manual Edit",
+                true,
+              );
+              await ProjectEngine.completeProject(item as unknown as Item5e);
+            } finally {
+              PartyTabCompletionLock.release(targetActor.uuid!, item.id!);
+            }
+          } else {
+            await ProjectEngine.updateItemWithProgress(
+              item as unknown as Item5e,
+              projectData,
+              "GM Manual Edit",
+              false,
+            );
+          }
         } else {
           // Normal manual update is SILENT to avoid flickering/scroll loss
           await ProjectEngine.updateItemWithProgress(
@@ -268,13 +288,30 @@ export class PartyTabLogic {
             projectData.progress !== undefined &&
             projectData.progress >= projectData.target
           ) {
-            await ProjectEngine.updateItemWithProgress(
-              item as unknown as Item5e,
-              projectData,
-              "GM Manual Edit",
-              true,
-            );
-            await ProjectEngine.completeProject(item as unknown as Item5e);
+            // See updateProgress's matching branch for why this coordinates
+            // with the shared completion lock.
+            if (PartyTabCompletionLock.tryAcquire(targetActor.uuid!, item.id!)) {
+              try {
+                await ProjectEngine.updateItemWithProgress(
+                  item as unknown as Item5e,
+                  projectData,
+                  "GM Manual Edit",
+                  true,
+                );
+                await ProjectEngine.completeProject(item as unknown as Item5e);
+              } finally {
+                PartyTabCompletionLock.release(targetActor.uuid!, item.id!);
+              }
+            } else {
+              // Something else is already completing this project - just
+              // persist the raw target silently and let that one finish.
+              await ProjectEngine.updateItemWithProgress(
+                item as unknown as Item5e,
+                projectData,
+                "GM Manual Edit",
+                false,
+              );
+            }
             return;
           }
 
