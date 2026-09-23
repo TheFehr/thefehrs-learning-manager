@@ -35,6 +35,7 @@ export function createBaseActivityTemplate(): Omit<
     } as unknown as ConsumptionData5e,
     description: {
       chatFlavor: "",
+      value: "",
     },
     duration: {
       value: "",
