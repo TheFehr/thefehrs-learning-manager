@@ -26,6 +26,7 @@ export class ActivityManager {
         sort: 0,
         description: {
           chatFlavor: `Training for ${tu.name}`,
+          value: "",
         },
         flags: {
           "thefehrs-learning-manager": {
@@ -46,6 +47,7 @@ export class ActivityManager {
       sort: 100,
       description: {
         chatFlavor: "Spending all available training time",
+        value: "",
       },
       flags: {
         "thefehrs-learning-manager": {
