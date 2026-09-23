@@ -93,6 +93,32 @@ describe("ProjectTreeView.svelte", () => {
     expect(target.textContent).toContain("Child Project");
   });
 
+  it("does not expose the mouse-only drag handle as a focusable control", async () => {
+    const mockForest = [
+      {
+        uuid: "root1",
+        name: "Root Project",
+        img: "root.png",
+        item: { sheet: { render: vi.fn() } },
+        children: [],
+        parentId: null,
+        depth: 0,
+      },
+    ];
+
+    vi.mocked(TreeLogic.buildProjectTree).mockResolvedValue(mockForest as any);
+
+    instance = mount(ProjectTreeView, { target });
+    await tick();
+    await tick();
+    await tick();
+
+    const dragHandle = target.querySelector(".node-drag-handle");
+    expect(dragHandle?.getAttribute("aria-hidden")).toBe("true");
+    expect(dragHandle?.getAttribute("role")).toBeNull();
+    expect(dragHandle?.getAttribute("tabindex")).toBeNull();
+  });
+
   it("should filter nodes based on search query", async () => {
     const mockForest = [
       {
