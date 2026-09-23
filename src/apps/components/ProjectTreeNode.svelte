@@ -132,7 +132,13 @@
         {/each}
     </div>
 
-    <div class="node-drag-handle" draggable="true" ondragstart={onDragStart} role="button" aria-label="Drag handle" tabindex="0">
+    <!-- Mouse-only reparenting affordance: dragging this onto another node
+         calls the same TreeLogic.reparentProject as "Add Follow-up" below,
+         which is the keyboard-operable equivalent. role="button"/tabindex
+         here would put a focusable stop in the tab order that Enter/Space
+         can't activate - a false affordance - so this stays out of the
+         accessibility tree entirely. -->
+    <div class="node-drag-handle" draggable="true" ondragstart={onDragStart} aria-hidden="true">
         <i class="fas fa-grip-vertical"></i>
     </div>
 
