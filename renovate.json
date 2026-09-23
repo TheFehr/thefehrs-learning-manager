@@ -12,6 +12,11 @@
     {
       "matchManagers": ["github-actions"],
       "automerge": true
+    },
+    {
+      "matchManagers": ["npm"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "groupName": "npm non-major dependencies"
     }
   ]
 }

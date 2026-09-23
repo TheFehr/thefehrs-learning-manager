@@ -206,12 +206,21 @@ is_in_push_blackout() {
 # branch means Renovate itself will force-push a rebase - nothing for us to
 # verify until that happens), with `test` green but `check-e2e` red - i.e.
 # blocked purely on a stale hash, not a real breakage.
+#
+# Oldest-first (sort_by createdAt), not gh pr list's own default (newest
+# first): this script only ever fully processes one real candidate per run
+# before breaking (see the cascade-invalidation comment below), so newest-
+# first meant a steady stream of new Renovate PRs could perpetually outrace
+# older ones - confirmed live, PR #78 sat unprocessed for 5+ months while
+# newer PRs kept winning the race. Oldest-first guarantees forward progress
+# through the backlog even if new PRs keep arriving faster than one/night.
 candidates=$(runuser -u foundry-verify -- gh pr list --repo "$REPO" --author "app/renovate" --state open \
-  --json number,headRefName,mergeable,statusCheckRollup --jq '
-    .[] | select(.mergeable == "MERGEABLE") |
-    select([.statusCheckRollup[] | select(.name == "test") | .conclusion] == ["SUCCESS"]) |
-    select([.statusCheckRollup[] | select(.name == "check-e2e") | .conclusion] == ["FAILURE"]) |
-    "\(.number)\t\(.headRefName)"
+  --json number,headRefName,mergeable,createdAt,statusCheckRollup --jq '
+    [.[] | select(.mergeable == "MERGEABLE") |
+      select([.statusCheckRollup[] | select(.name == "test") | .conclusion] == ["SUCCESS"]) |
+      select([.statusCheckRollup[] | select(.name == "check-e2e") | .conclusion] == ["FAILURE"])] |
+    sort_by(.createdAt) |
+    .[] | "\(.number)\t\(.headRefName)"
   ')
 
 if [ -z "$candidates" ]; then
@@ -512,12 +521,17 @@ fi
 # merge changes package-lock.json on main, which makes Renovate rebase
 # every other open PR - enabling auto-merge on a second one in the same run
 # risks it merging against a base that's about to be invalidated.
+# Oldest-first here too, for the same reason as the main candidates query
+# above, even though this path is cheap (no build/e2e cost) - consistent
+# ordering, and no reason to let a newer PR jump ahead of an older one for
+# the one merge-slot this loop can also spend tonight.
 stuck_green=$(runuser -u foundry-verify -- gh pr list --repo "$REPO" --author "app/renovate" --state open \
-  --json number,mergeable,autoMergeRequest,statusCheckRollup --jq '
-    .[] | select(.mergeable == "MERGEABLE") | select(.autoMergeRequest == null) |
-    select([.statusCheckRollup[] | select(.name == "test") | .conclusion] == ["SUCCESS"]) |
-    select([.statusCheckRollup[] | select(.name == "check-e2e") | .conclusion] == ["SUCCESS"]) |
-    .number
+  --json number,mergeable,autoMergeRequest,createdAt,statusCheckRollup --jq '
+    [.[] | select(.mergeable == "MERGEABLE") | select(.autoMergeRequest == null) |
+      select([.statusCheckRollup[] | select(.name == "test") | .conclusion] == ["SUCCESS"]) |
+      select([.statusCheckRollup[] | select(.name == "check-e2e") | .conclusion] == ["SUCCESS"])] |
+    sort_by(.createdAt) |
+    .[] | .number
   ')
 for pr_number in $stuck_green; do
   echo "[verify-renovate-prs] PR #$pr_number: already green but auto-merge not enabled, retrying."
