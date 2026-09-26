@@ -7,16 +7,25 @@
 Description=Verify e2e for open thefehrs-learning-manager Renovate PRs, nightly
 
 [Timer]
-# 22:30 CEST: foundry-playwright's own foundry-verify.timer runs at 20:00 with
-# a 2h TimeoutStartSec, so worst case it's still running until 22:00 - both
-# jobs run Docker/Podman-based Foundry instances on the same container-name
-# pattern (foundry-playwright-<version>) and port, so they can't safely run
-# concurrently on this VM. 22:30 gives a 30min buffer past that worst case.
-# If foundry-verify's own timeout or schedule ever changes, re-check this
-# offset - there's no cross-job lock enforcing the ordering, just the gap.
+# 15:00 CEST (moved from 22:30 on 2026-09-26, after this VM's RAM/vCPU bump
+# from 6GB/2vCPU to 16GB/6vCPU): both jobs run Docker/Podman-based Foundry
+# instances on the same container-name pattern (foundry-playwright-<version>)
+# and port, so they can't safely run concurrently on this VM no matter how
+# much CPU/RAM is available - this is a naming/port collision, not a
+# resource contention problem the hardware bump could fix. A real e2e run
+# takes ~1.5h in practice, but this job's own TimeoutStartSec is 3h (see
+# lm-verify-renovate.service) - 15:00 means even that worst case (e.g. three
+# candidates in a row each running the full suite before failing, as
+# actually happened 2026-09-25) ends by ~18:00, still hours clear of
+# foundry-verify.timer's 20:00 start, without needing to shrink the timeout.
+# There's no cross-job lock enforcing this, just the gap - if
+# foundry-verify's own schedule, worst-case runtime, or this job's own
+# TimeoutStartSec ever changes, re-check that the two still can't overlap.
 #
-# Also ~9h clear of the next weekday's 07:30 CEST push blackout.
-OnCalendar=*-*-* 22:30:00 Europe/Berlin
+# Not verified against this host's own backup-job CPU peaks the way
+# foundry-verify's 20:00 slot was - re-check if runs start flaking around
+# this time specifically.
+OnCalendar=*-*-* 15:00:00 Europe/Berlin
 RandomizedDelaySec=300
 # Deliberately no Persistent=true, same reasoning as foundry-verify.timer: a
 # missed run should be skipped, not caught up at some arbitrary later time
