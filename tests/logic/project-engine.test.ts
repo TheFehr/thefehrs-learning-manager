@@ -593,6 +593,78 @@ describe("ProjectEngine", () => {
       );
     });
 
+    describe("roll message flavor", () => {
+      const runWithRolls = async (itemName: string, stashedName?: string) => {
+        const actor = new Actor() as any;
+        actor.name = "Illazora";
+        actor.flags = { [MODULE_ID]: { bank: { total: 100 } } };
+        actor.system.currency = { gp: 10, sp: 0, cp: 0 };
+
+        const item = new Item() as any;
+        item.actor = actor;
+        item.name = itemName;
+        item.system = { description: { value: "" } };
+        item.getFlag = vi.fn().mockReturnValue({
+          target: 250,
+          progress: 192,
+          tutelageId: "",
+          stashedName,
+        });
+
+        // Separate rolls need the interactive prompt, so run one non-bulk session
+        // per roll against the same (stale-named) item, as repeated clicks would.
+        const rolls = [{ toMessage: vi.fn() }, { toMessage: vi.fn() }, { toMessage: vi.fn() }];
+
+        vi.mocked(Settings.get).mockImplementation((key) => {
+          if (key === "timeUnits") return [{ id: "hour", name: "Hour", ratio: 1, isBulk: false }];
+          if (key === "guidanceTiers") return guidanceTiers;
+          if (key === "rules")
+            return {
+              nonBulkMethod: "roll",
+              rollMode: "gmroll",
+              checkDC: 10,
+            } as any;
+          return null;
+        });
+
+        const activity = {
+          item,
+          flags: { [MODULE_ID]: { timeUnitId: "hour" } },
+        };
+        for (const roll of rolls) {
+          vi.mocked(TabLogic.computeProgress).mockResolvedValueOnce({
+            progressGained: 1,
+            roll: roll as any,
+          });
+          await ProjectEngine.processTraining(activity as any, {
+            skipPrompt: true,
+          });
+        }
+        return rolls;
+      };
+
+      it("omits the stale progress suffix from every roll's flavor", async () => {
+        const rolls = await runWithRolls("Charisma Score Increase (9→10) (192/250)");
+
+        for (const roll of rolls) {
+          expect(roll.toMessage).toHaveBeenCalledTimes(1);
+          const flavor = roll.toMessage.mock.calls[0][0].flavor as string;
+          expect(flavor).toBe("Illazora tries to learn Charisma Score Increase (9→10) (DC 10)");
+          expect(flavor).not.toContain("192/250");
+        }
+      });
+
+      it("prefers the stashed base name when available", async () => {
+        const rolls = await runWithRolls("Feat (192/250)", "Original Feat");
+
+        for (const roll of rolls) {
+          expect(roll.toMessage.mock.calls[0][0].flavor).toBe(
+            "Illazora tries to learn Original Feat (DC 10)",
+          );
+        }
+      });
+    });
+
     it("should notify user with reason on failed training", async () => {
       const actor = new Actor() as any;
       actor.flags = {

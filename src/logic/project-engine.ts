@@ -765,11 +765,18 @@ export class ProjectEngine {
       const rollModeOption = isV14RollModeApiAvailable()
         ? { messageMode: rollModeValue as ChatMessage.Mode }
         : { rollMode: rollModeValue as foundry.dice.RollMode };
+      // item.name carries a "(progress/target)" suffix that goes stale as soon as
+      // the item is updated, so show the base name instead.
+      const baseName = (
+        newState.projectData.stashedName ||
+        (item.name || "").replace(/\s*\(\d+(?:\.\d+)?\/\d+(?:\.\d+)?\)$/, "") ||
+        "Unknown Item"
+      ).trim();
       for (const r of rolls) {
         await r.toMessage(
           {
             speaker: ChatMessage.getSpeaker({ actor: actor as Actor.Stored }),
-            flavor: `${actor.name} tries to learn ${item.name || "Unknown Item"} (DC ${Number(rules.checkDC ?? DEFAULT_DC)})`,
+            flavor: `${actor.name} tries to learn ${baseName} (DC ${Number(rules.checkDC ?? DEFAULT_DC)})`,
           },
           rollModeOption,
         );
