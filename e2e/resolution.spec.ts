@@ -131,4 +131,61 @@ test.describe("Training Resolution Choice", () => {
       page.getByText(/Training complete: Gained .* progress from 40 hours/i),
     ).toBeVisible({ timeout: 20000 });
   });
+
+  test("separate roll messages don't carry a stale progress suffix in the item name", async ({
+    page,
+  }) => {
+    await page.evaluate(async (moduleId) => {
+      await (game as any).settings.set(moduleId, "rules", {
+        ...(game as any).settings.get(moduleId, "rules"),
+        nonBulkMethod: "roll",
+        bulkMethod: "roll",
+        // Always succeeds, so every roll adds progress and the item name changes.
+        checkFormula: "1d20 + 100",
+        checkDC: 10,
+      });
+    }, moduleId);
+
+    const baselineIds = await page.evaluate(() =>
+      (game as any).messages.contents.map((m: any) => m.id),
+    );
+
+    await page.evaluate(async () => {
+      const actor = (game as any).actors.getName("PC 2");
+      const project = actor.items.find((i: any) => i.name.includes("Bulk Training Project"));
+      const activities =
+        project.system.activities.contents || Object.values(project.system.activities);
+      activities.find((a: any) => a.name.includes("Day")).use();
+    });
+
+    const dialog = page
+      .locator(".thefehrs-learning-manager-dialog, .instructor-selection, .dialog, dialog")
+      .last();
+    await expect(dialog).toBeVisible({ timeout: 20000 });
+    await dialog.getByRole("button", { name: /Roll separately/i }).click();
+
+    // Day = 10 hours = 10 separate rolls (below the batch threshold), plus the item card.
+    await page.waitForFunction(
+      (ids) => (game as any).messages.contents.filter((m: any) => !ids.includes(m.id)).length >= 11,
+      baselineIds,
+      { timeout: 20000 },
+    );
+
+    const result = await page.evaluate((ids) => {
+      const actor = (game as any).actors.getName("PC 2");
+      const project = actor.items.find((i: any) => i.name.includes("Bulk Training Project"));
+      const flavors = (game as any).messages.contents
+        .filter((m: any) => !ids.includes(m.id) && m.rolls?.length)
+        .map((m: any) => m.flavor as string);
+      return { itemName: project.name as string, flavors };
+    }, baselineIds);
+
+    // The item name did get a progress suffix, so a flavor built from it would be stale.
+    expect(result.itemName).toMatch(/\(\d+(?:\.\d+)?\/\d+\)$/);
+    expect(result.flavors).toHaveLength(10);
+    for (const flavor of result.flavors) {
+      expect(flavor).toContain("tries to learn Bulk Training Project (DC 10)");
+      expect(flavor).not.toMatch(/\(\d+(?:\.\d+)?\/\d+\)/);
+    }
+  });
 });
