@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+reviews:
+  auto_review:
+    # Machine-generated PRs (the submodule release bump): nothing to review.
+    ignore_title_keywords:
+      - "[automated]"
+    ignore_usernames:
+      - "thefehr-automation-bot[bot]"

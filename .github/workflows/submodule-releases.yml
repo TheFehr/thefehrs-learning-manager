@@ -84,7 +84,7 @@ jobs:
         with:
           token: ${{ steps.generate_token.outputs.token }}
           commit-message: "chore: update submodules to latest releases"
-          title: "chore: update submodules to latest releases"
+          title: "chore: update submodules to latest releases [automated]"
           body: |
             ## Summary
             Submodules moved to their latest released tags:
