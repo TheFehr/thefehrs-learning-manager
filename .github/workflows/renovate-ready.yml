@@ -17,6 +17,11 @@ jobs:
   notify:
     if: github.event.workflow_run.event == 'pull_request' && github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
+    # CI and the e2e check can finish close together; serialize per head commit
+    # so both runs cannot read the comments before either has posted.
+    concurrency:
+      group: renovate-ready-${{ github.repository }}-${{ github.event.workflow_run.head_sha }}
+      cancel-in-progress: false
     permissions:
       pull-requests: write
     env:
@@ -32,15 +37,27 @@ jobs:
           pr=$(gh api "repos/$REPO/commits/$HEAD_SHA/pulls" --jq '[.[] | select(.state == "open")][0].number // empty')
           [ -n "$pr" ] || { echo "No open PR for $HEAD_SHA"; exit 0; }
 
-          info=$(gh pr view "$pr" --repo "$REPO" --json author,headRefOid,mergeStateStatus)
-          [ "$(jq -r .author.login <<<"$info")" = "app/renovate" ] || { echo "Not a Renovate PR"; exit 0; }
-          [ "$(jq -r .headRefOid <<<"$info")" = "$HEAD_SHA" ] || { echo "Stale run, head moved"; exit 0; }
-
-          state=$(jq -r .mergeStateStatus <<<"$info")
+          # GitHub can briefly report UNKNOWN while it computes the merge state;
+          # retry a few times, rechecking the head each time.
+          state=""
+          for attempt in 1 2 3 4; do
+            info=$(gh pr view "$pr" --repo "$REPO" --json author,headRefOid,mergeStateStatus)
+            [ "$(jq -r .author.login <<<"$info")" = "app/renovate" ] || { echo "Not a Renovate PR"; exit 0; }
+            [ "$(jq -r .headRefOid <<<"$info")" = "$HEAD_SHA" ] || { echo "Stale run, head moved"; exit 0; }
+            state=$(jq -r .mergeStateStatus <<<"$info")
+            if [ "$state" = "UNKNOWN" ] && [ "$attempt" -lt 4 ]; then
+              sleep 10
+              continue
+            fi
+            break
+          done
           [ "$state" = "CLEAN" ] || { echo "Not merge-ready yet ($state)"; exit 0; }
 
           marker="<!-- renovate-ready:$HEAD_SHA -->"
-          if gh pr view "$pr" --repo "$REPO" --json comments --jq '.comments[].body' | grep -qF "$marker"; then
+          # Separate assignment so a failed query aborts the job instead of
+          # reading as "marker not found" and posting a duplicate.
+          comments=$(gh pr view "$pr" --repo "$REPO" --json comments --jq '.comments[].body')
+          if grep -qF "$marker" <<<"$comments"; then
             echo "Already notified for $HEAD_SHA"
             exit 0
           fi
