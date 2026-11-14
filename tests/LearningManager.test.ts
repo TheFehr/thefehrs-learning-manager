@@ -287,5 +287,38 @@ describe("LearningManager", () => {
       expect(result).toBe(false);
       // If it didn't return early, it means it proceeded with mockActor
     });
+
+    it("should add items without a learning config normally, without opening the dialog", async () => {
+      LearningManager.init();
+      const callback = (Hooks.on as any).mock.calls.find(
+        (c: any) => c[0] === "dropActorSheetData",
+      )[1];
+
+      const createEmbeddedDocuments = vi.fn().mockResolvedValue([]);
+      const mockActor = { name: "Actor", type: "character", createEmbeddedDocuments };
+      const mockData = { type: "Item", uuid: "Compendium.world.items.123" };
+
+      const plainFeat = {
+        name: "Plain Feat",
+        system: {},
+        getFlag: vi.fn().mockReturnValue(undefined),
+        toObject: () => ({ _id: "abc", folder: "f1", name: "Plain Feat", type: "feat" }),
+      };
+      (globalThis as any).fromUuid = vi.fn().mockResolvedValue(plainFeat);
+      const promptSpy = vi.fn();
+      (ProjectEngine as any).promptInitiateProject = promptSpy;
+
+      (Settings.get as any).mockReturnValue(["world.items"]);
+
+      const result = await callback(mockActor, {}, mockData);
+      expect(result).toBe(false);
+      await vi.waitFor(() => expect(createEmbeddedDocuments).toHaveBeenCalledTimes(1));
+
+      expect(createEmbeddedDocuments).toHaveBeenCalledWith("Item", [
+        { name: "Plain Feat", type: "feat" },
+      ]);
+      expect(promptSpy).not.toHaveBeenCalled();
+      expect(ProjectEngine.initiateProjectFromItem).not.toHaveBeenCalled();
+    });
   });
 });

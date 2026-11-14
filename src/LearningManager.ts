@@ -210,6 +210,18 @@ export class LearningManager {
 
             const item5e = item as Item5e;
             const projectFlagData = projectData(item5e);
+
+            // The hook had to return false synchronously (the item isn't loaded
+            // yet), so items without a learning config must be added manually
+            // instead of triggering the learning setup dialog.
+            if (!projectFlagData || !((projectFlagData.target ?? 0) > 0)) {
+              const itemData = item5e.toObject() as Record<string, unknown>;
+              delete itemData._id;
+              delete itemData.folder;
+              await targetActor.createEmbeddedDocuments("Item", [itemData] as never);
+              return;
+            }
+
             const requirements = projectFlagData?.requirements || [];
             const { eligible, reason } = TabLogic.meetsRequirements(targetActor, requirements);
 

@@ -8,7 +8,7 @@ useBaseWorld(test, {
   systemId: "dnd5e",
   moduleId: ["thefehrs-learning-manager", "tidy5e-sheet"],
   adminPassword: "admin",
-  backupName: "fp-base-requirements",
+  backupName: "fp-base-requirements-v2",
   setupWorld: async ({ page }) => {
     await waitForGameReady(page);
     await disableTour(page);
@@ -48,6 +48,8 @@ useBaseWorld(test, {
         },
         { pack: packId },
       );
+
+      await Item.create({ name: "Plain Feat", type: "feat" }, { pack: packId });
 
       await Actor.create({
         name: "Weak Actor",
@@ -140,5 +142,46 @@ test.describe("Project Requirements", () => {
       { actorId: setupData.actorId, moduleId },
     );
     expect(finalCheck).toBe(true);
+  });
+
+  test("items without a learning config are added directly, without the learning dialog", async ({
+    page,
+  }) => {
+    const setupData = await page.evaluate(async () => {
+      const pack = (game as any).packs.get("world.test-requirements");
+      const index = await pack.getIndex();
+      const item = await pack.getDocument(index.getName("Plain Feat")._id);
+      const actor = (game as any).actors.getName("Weak Actor");
+      return { actorId: actor.id, itemUuid: item.uuid };
+    });
+
+    await page.evaluate(async ({ actorId, itemUuid }) => {
+      const actor = (game as any).actors.get(actorId);
+      Hooks.call("dropActorSheetData", actor, null, { type: "Item", uuid: itemUuid });
+    }, setupData);
+
+    await page.waitForFunction(
+      ({ actorId }) =>
+        (game as any).actors.get(actorId).items.some((i: any) => i.name === "Plain Feat"),
+      { actorId: setupData.actorId },
+      { timeout: 10000 },
+    );
+
+    const result = await page.evaluate(
+      ({ actorId, moduleId }) => {
+        const item = (game as any).actors
+          .get(actorId)
+          .items.find((i: any) => i.name === "Plain Feat");
+        return {
+          isProject: !!item.getFlag(moduleId, "isLearningProject"),
+          dialogOpen: [...document.querySelectorAll(".window-app, .application")].some((el) =>
+            el.textContent?.includes("Add Project"),
+          ),
+        };
+      },
+      { actorId: setupData.actorId, moduleId },
+    );
+    expect(result.isProject).toBe(false);
+    expect(result.dialogOpen).toBe(false);
   });
 });
