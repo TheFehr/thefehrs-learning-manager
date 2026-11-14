@@ -80,6 +80,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Create or update the PR
+        id: cpr
         uses: peter-evans/create-pull-request@3ffccacd46053766916f087ce41d627c0b8cf2d1 # v8
         with:
           token: ${{ steps.generate_token.outputs.token }}
@@ -97,3 +98,12 @@ jobs:
           base: main
           delete-branch: true
           sign-commits: true
+
+      # main requires up-to-date branches, so any other merge makes this PR
+      # behind again; auto-merge keeps it queued instead of racing that.
+      - name: Enable auto-merge
+        if: steps.cpr.outputs.pull-request-number
+        env:
+          GH_TOKEN: ${{ steps.generate_token.outputs.token }}
+          PR_NUMBER: ${{ steps.cpr.outputs.pull-request-number }}
+        run: gh pr merge --auto --squash "$PR_NUMBER" --repo "$GITHUB_REPOSITORY"
