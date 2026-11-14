@@ -7,7 +7,9 @@
   "packageRules": [
     {
       "matchManagers": ["git-submodules"],
-      "versioning": "git"
+      "versioning": "git",
+      "groupName": "submodule digests",
+      "schedule": ["before 6am on monday"]
     },
     {
       "matchManagers": ["github-actions"],
