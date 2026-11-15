@@ -56,6 +56,23 @@ describe("DocumentUtils", () => {
       );
     });
 
+    it("should use ForcedDeletion instead of -= when Foundry provides it", async () => {
+      class ForcedDeletion {}
+      const original = (globalThis as any).foundry.data;
+      (globalThis as any).foundry.data = { ...original, operators: { ForcedDeletion } };
+      try {
+        const result = await DocumentUtils.unsetFlagsSilently(mockDoc, ["key1"]);
+
+        expect(result).toBe(true);
+        const [updateData, options] = mockDoc.update.mock.calls[0];
+        expect(updateData[`flags.${MODULE_ID}.key1`]).toBeInstanceOf(ForcedDeletion);
+        expect(Object.keys(updateData)).toEqual([`flags.${MODULE_ID}.key1`]);
+        expect(options).toEqual({ render: false });
+      } finally {
+        (globalThis as any).foundry.data = original;
+      }
+    });
+
     it("should return false if document is invalid", async () => {
       const result = await DocumentUtils.unsetFlagsSilently(undefined, ["key"]);
       expect(result).toBe(false);
