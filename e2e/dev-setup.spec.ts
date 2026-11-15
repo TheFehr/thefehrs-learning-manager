@@ -3,6 +3,7 @@
  * when foundry_data_dev/Data/worlds/<WORLD_ID> doesn't exist yet.
  */
 import { test } from "@playwright/test";
+import { pinnedPackages } from "./utils";
 import { foundrySetup } from "@thefehr/foundry-playwright";
 
 const WORLD_ID = process.env.FOUNDRY_DEV_WORLD ?? "dev-world";
@@ -17,6 +18,7 @@ test("setup dev world", async ({ page }) => {
     worldId: WORLD_ID,
     systemId: "dnd5e",
     moduleId: MODULES,
+    ...pinnedPackages,
     adminPassword: ADMIN_PASSWORD,
     version: FOUNDRY_VERSION,
     createWorld: true,

@@ -1,5 +1,20 @@
 import { expect, type Page, type Locator, type BrowserContext } from "@playwright/test";
 
+// The newest dnd5e and Tidy5e releases are not always compatible with each other
+// (Tidy5e declares which dnd5e range it supports), and an unpinned world installs
+// whatever is newest. On Foundry 14 pin both to a known-compatible pair; bump them
+// together, within the range Tidy5e declares for dnd5e.
+const isFoundry14 = (process.env.FOUNDRY_VERSION ?? "").startsWith("14");
+export const pinnedPackages = isFoundry14
+  ? {
+      systemManifest:
+        "https://github.com/foundryvtt/dnd5e/releases/download/release-6.0.6/system.json",
+      moduleManifest: [
+        "https://github.com/kgar/foundry-vtt-tidy-5e-sheets/releases/download/v14.4.2/module.json",
+      ],
+    }
+  : {};
+
 /**
  * Waits until the Foundry game is fully initialized — game.ready is true AND all core
  * document collections (items, packs, actors) are available. Use this at the start of
