@@ -131,6 +131,33 @@ export class LearningManager {
     CONFIG.DND5E.featureTypes[LearningFeatType] = {
       label: "In-Progress Learning",
     };
+
+    // Lets the drop hook tell, synchronously, whether a compendium item has a
+    // learning config (see isPlainCompendiumItem).
+    const indexFields = (CONFIG.Item as { compendiumIndexFields?: string[] } | undefined)
+      ?.compendiumIndexFields;
+    if (Array.isArray(indexFields) && !indexFields.includes(LearningManager.TARGET_INDEX_FIELD)) {
+      indexFields.push(LearningManager.TARGET_INDEX_FIELD);
+    }
+  }
+
+  private static readonly TARGET_INDEX_FIELD = `flags.${LearningManager.ID}.projectData.target`;
+
+  /**
+   * True only when the compendium's index is known to carry the learning target
+   * and the item has none. Anything uncertain returns false, which keeps the
+   * async path.
+   */
+  private static isPlainCompendiumItem(uuid: string, packId: string): boolean {
+    const pack = (globalThis as { game?: Game }).game?.packs?.get(packId) as
+      | { indexed?: boolean; indexFields?: Set<string> }
+      | undefined;
+    if (!pack?.indexed || !pack.indexFields?.has(LearningManager.TARGET_INDEX_FIELD)) return false;
+    const entry = fromUuidSync(uuid as `Item.${string}`) as {
+      flags?: Record<string, { projectData?: { target?: number } } | undefined>;
+    } | null;
+    if (!entry) return false;
+    return !((entry.flags?.[LearningManager.ID]?.projectData?.target ?? 0) > 0);
   }
 
   private static registerHooks() {
@@ -157,7 +184,7 @@ export class LearningManager {
 
     Hooks.on(
       "dropActorSheetData",
-      (actor: Actor, sheet: unknown, data: any, _event?: DragEvent) => {
+      (actor: Actor, _sheet: unknown, data: any, _event?: DragEvent) => {
         if (!data || data.type !== "Item" || !data.uuid) return true;
 
         const uuid = data.uuid as string;
@@ -169,6 +196,9 @@ export class LearningManager {
         const allowed = Settings.get("allowedCompendiums");
 
         if (!allowed.includes(packId)) return true;
+
+        // No learning config: leave the drop to the system's own handling.
+        if (LearningManager.isPlainCompendiumItem(uuid, packId)) return true;
 
         let targetActor = actor;
 
@@ -211,19 +241,10 @@ export class LearningManager {
             const item5e = item as Item5e;
             const projectFlagData = projectData(item5e);
 
-            // The hook had to return false synchronously (the item isn't loaded
-            // yet), so items without a learning config are handed back to the
-            // sheet's normal drop handling instead of triggering the learning
-            // setup dialog.
+            // Fallback for when the compendium index could not answer
+            // synchronously: items without a learning config are added
+            // directly instead of triggering the learning setup dialog.
             if (!projectFlagData || !((projectFlagData.target ?? 0) > 0)) {
-              const dropSheet = sheet as {
-                _onDropItem?: (event: DragEvent, item: Item5e) => Promise<unknown>;
-              } | null;
-              if (targetActor === actor && _event && typeof dropSheet?._onDropItem === "function") {
-                await dropSheet._onDropItem(_event, item5e);
-                return;
-              }
-              // Group-sheet drops onto a member (or no usable sheet): add directly.
               const itemData = item5e.toObject() as Record<string, unknown>;
               delete itemData._id;
               delete itemData.folder;

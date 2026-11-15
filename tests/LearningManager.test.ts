@@ -321,34 +321,42 @@ describe("LearningManager", () => {
       expect(ProjectEngine.initiateProjectFromItem).not.toHaveBeenCalled();
     });
 
-    it("should hand items without a learning config back to the sheet's own drop handling", async () => {
-      LearningManager.init();
-      const callback = (Hooks.on as any).mock.calls.find(
-        (c: any) => c[0] === "dropActorSheetData",
-      )[1];
+    describe("synchronous compendium index check", () => {
+      const field = "flags.thefehrs-learning-manager.projectData.target";
+      const drop = { type: "Item", uuid: "Compendium.world.items.123" };
+      let callback: any;
 
-      const createEmbeddedDocuments = vi.fn();
-      const mockActor = { name: "Actor", type: "character", createEmbeddedDocuments };
-      const onDropItem = vi.fn().mockResolvedValue(undefined);
-      const event = {} as DragEvent;
-      const plainFeat = {
-        name: "Plain Feat",
-        system: {},
-        getFlag: vi.fn().mockReturnValue(undefined),
-        toObject: () => ({ name: "Plain Feat", type: "feat" }),
+      const setup = (pack: unknown, entry: unknown) => {
+        LearningManager.init();
+        callback = (Hooks.on as any).mock.calls.find((c: any) => c[0] === "dropActorSheetData")[1];
+        (Settings.get as any).mockReturnValue(["world.items"]);
+        (globalThis as any).game = {
+          ...(globalThis as any).game,
+          packs: { get: vi.fn().mockReturnValue(pack) },
+        };
+        (globalThis as any).fromUuidSync = vi.fn().mockReturnValue(entry);
+        (globalThis as any).fromUuid = vi.fn().mockResolvedValue(null);
       };
-      (globalThis as any).fromUuid = vi.fn().mockResolvedValue(plainFeat);
-      (Settings.get as any).mockReturnValue(["world.items"]);
+      const actor = { name: "Actor", type: "character" };
 
-      const result = await callback(
-        mockActor,
-        { _onDropItem: onDropItem },
-        { type: "Item", uuid: "Compendium.world.items.123" },
-        event,
-      );
-      expect(result).toBe(false);
-      await vi.waitFor(() => expect(onDropItem).toHaveBeenCalledWith(event, plainFeat));
-      expect(createEmbeddedDocuments).not.toHaveBeenCalled();
+      it("lets the system handle items whose index shows no learning config", () => {
+        setup({ indexed: true, indexFields: new Set([field]) }, { flags: {} });
+        expect(callback(actor, {}, drop)).toBe(true);
+        expect((globalThis as any).fromUuid).not.toHaveBeenCalled();
+      });
+
+      it("keeps handling items whose index shows a learning target", () => {
+        setup(
+          { indexed: true, indexFields: new Set([field]) },
+          { flags: { "thefehrs-learning-manager": { projectData: { target: 5 } } } },
+        );
+        expect(callback(actor, {}, drop)).toBe(false);
+      });
+
+      it("keeps the async path when the index lacks the learning field", () => {
+        setup({ indexed: true, indexFields: new Set() }, { flags: {} });
+        expect(callback(actor, {}, drop)).toBe(false);
+      });
     });
   });
 });
