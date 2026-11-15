@@ -1,0 +1,109 @@
+name: Update Submodule Releases
+
+# Pins each submodule to its latest *released* tag (not branch HEAD) and opens
+# one PR when any of them moved. Replaces Renovate's git-submodules manager,
+# which can only follow branch commits.
+#
+# Uses a GitHub App token (secrets CLIENT_ID and APP_PRIVATE_KEY): commits
+# created through the API as the App are signed by GitHub (main requires
+# signed commits), and PRs opened with an App token trigger the required
+# checks, which the default GITHUB_TOKEN would not.
+
+on:
+  schedule:
+    - cron: "0 4 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Every run writes the same branch, so runs must not overlap.
+concurrency:
+  group: submodule-releases
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate Token
+        id: generate_token
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+        with:
+          client-id: ${{ secrets.CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          persist-credentials: false
+          token: ${{ steps.generate_token.outputs.token }}
+
+      - name: Point submodules at their latest release tags
+        id: bump
+        run: |
+          set -euo pipefail
+          declare -A patterns=(
+            [externals/dnd5e]='^release-[0-9]+[.][0-9]+[.][0-9]+$'
+            [externals/tidy-5e]='^v[0-9]+[.][0-9]+[.][0-9]+$'
+          )
+          summary=""
+          for path in "${!patterns[@]}"; do
+            url=$(git config -f .gitmodules --get "submodule.$path.url")
+            # Peeled (^{}) lines carry the commit for annotated tags and win over the tag object.
+            latest=$(git ls-remote --tags "$url" | awk -v re="${patterns[$path]}" '
+              { n = $2; sub("refs/tags/", "", n)
+                peeled = (n ~ /\^\{\}$/); sub(/\^\{\}$/, "", n)
+                if (n ~ re && (peeled || !(n in sha))) sha[n] = $1 }
+              END { for (n in sha) print n, sha[n] }' | sort -V -k1,1 | tail -1)
+            [ -n "$latest" ] || { echo "::error::No release tag found for $path"; exit 1; }
+            name=${latest% *}
+            sha=${latest#* }
+            cur=$(git rev-parse "HEAD:$path")
+            if [ "$cur" = "$sha" ]; then
+              echo "$path already at $name"
+              continue
+            fi
+            # Check the submodule out at the release commit so the change is a
+            # real working-tree change for the PR step to pick up.
+            git submodule update --init --filter=blob:none -- "$path"
+            git -C "$path" fetch --depth=1 origin "$sha"
+            git -C "$path" checkout -q "$sha"
+            summary+="- \`$path\`: \`${cur:0:9}\` -> \`$name\` (\`${sha:0:9}\`)"$'\n'
+          done
+          {
+            echo "summary<<EOF_SUMMARY"
+            printf '%s' "$summary"
+            echo "EOF_SUMMARY"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Create or update the PR
+        id: cpr
+        uses: peter-evans/create-pull-request@3ffccacd46053766916f087ce41d627c0b8cf2d1 # v8
+        with:
+          token: ${{ steps.generate_token.outputs.token }}
+          commit-message: "chore: update submodules to latest releases"
+          title: "chore: update submodules to latest releases [automated]"
+          body: |
+            ## Summary
+            Submodules moved to their latest released tags:
+
+            ${{ steps.bump.outputs.summary }}
+          add-paths: |
+            externals/dnd5e
+            externals/tidy-5e
+          branch: chore/submodule-releases
+          base: main
+          delete-branch: true
+          sign-commits: true
+
+      # main requires up-to-date branches, so any other merge makes this PR
+      # behind again; auto-merge keeps it queued instead of racing that.
+      - name: Enable auto-merge
+        if: steps.cpr.outputs.pull-request-number
+        env:
+          GH_TOKEN: ${{ steps.generate_token.outputs.token }}
+          PR_NUMBER: ${{ steps.cpr.outputs.pull-request-number }}
+        run: gh pr merge --auto --squash "$PR_NUMBER" --repo "$GITHUB_REPOSITORY"

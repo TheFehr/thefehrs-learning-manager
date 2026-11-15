@@ -49,11 +49,11 @@ export class ItemConfigLogic {
       if (book) {
         updateData[`flags.${MODULE_ID}.learningBookBonus`] = book;
       } else {
-        updateData[`flags.${MODULE_ID}.-=learningBookBonus`] = null;
+        DocumentUtils.markFlagForDeletion(updateData, "learningBookBonus");
       }
     } else {
-      updateData[`flags.${MODULE_ID}.-=projectData`] = null;
-      updateData[`flags.${MODULE_ID}.-=learningBookBonus`] = null;
+      DocumentUtils.markFlagForDeletion(updateData, "projectData");
+      DocumentUtils.markFlagForDeletion(updateData, "learningBookBonus");
     }
 
     return await DocumentUtils.updateSilently(item, updateData);

@@ -11,6 +11,7 @@ import {
   ensureEditMode,
   activateBlankScene,
   confirmInitiateProjectDialog,
+  pinnedPackages,
 } from "./utils";
 
 const moduleId = "thefehrs-learning-manager";
@@ -22,6 +23,7 @@ useBaseWorld(test, {
   worldId: "test-world",
   systemId: "dnd5e",
   moduleId: ["thefehrs-learning-manager", "tidy5e-sheet"],
+  ...pinnedPackages,
   adminPassword: "admin",
   backupName: "fp-base-lifecycle",
   setupWorld: async ({ page }) => {

@@ -11,6 +11,7 @@ import {
   snapshot,
   activateBlankScene,
   confirmInitiateProjectDialog,
+  pinnedPackages,
 } from "./utils";
 
 // The other e2e specs each cover one slice of this pipeline in isolation:
@@ -30,6 +31,7 @@ useBaseWorld(test, {
   worldId: "test-world",
   systemId: "dnd5e",
   moduleId: ["thefehrs-learning-manager", "tidy5e-sheet"],
+  ...pinnedPackages,
   adminPassword: "admin",
   backupName: "fp-base-full-lifecycle",
   setupWorld: async ({ page }) => {

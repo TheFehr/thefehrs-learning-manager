@@ -58,6 +58,22 @@ export class DocumentUtils {
    * @param keys The flag keys to remove.
    * @returns A promise that resolves to `true` if the update succeeded, otherwise `false`.
    */
+  /**
+   * Adds an update entry that deletes one of this module's flags. Foundry 14
+   * deprecates the `-=key: null` syntax in favour of `ForcedDeletion` (removed
+   * in 16), but `ForcedDeletion` does not exist on Foundry 13.
+   */
+  static markFlagForDeletion(updateData: Record<string, unknown>, key: string): void {
+    const ForcedDeletion = (
+      foundry as unknown as { data?: { operators?: { ForcedDeletion?: new () => unknown } } }
+    ).data?.operators?.ForcedDeletion;
+    if (ForcedDeletion) {
+      updateData[`flags.${MODULE_ID}.${key}`] = new ForcedDeletion();
+    } else {
+      updateData[`flags.${MODULE_ID}.-=${key}`] = null;
+    }
+  }
+
   static async unsetFlagsSilently(
     doc: {
       update: (
@@ -81,7 +97,7 @@ export class DocumentUtils {
     try {
       const updateData: Record<string, unknown> = {};
       for (const key of keys) {
-        updateData[`flags.${MODULE_ID}.-=${key}`] = null;
+        DocumentUtils.markFlagForDeletion(updateData, key);
       }
 
       await doc.update(updateData, { render: false });
