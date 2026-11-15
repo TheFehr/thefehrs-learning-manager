@@ -1,5 +1,5 @@
 import { test, expect, useBaseWorld, disableTour } from "@thefehr/foundry-playwright";
-import { waitForGameReady } from "./utils";
+import { waitForGameReady, pinnedPackages } from "./utils";
 
 const moduleId = "thefehrs-learning-manager";
 
@@ -7,6 +7,7 @@ useBaseWorld(test, {
   worldId: "test-world",
   systemId: "dnd5e",
   moduleId: ["thefehrs-learning-manager", "tidy5e-sheet"],
+  ...pinnedPackages,
   adminPassword: "admin",
   backupName: "fp-base-item-config",
   setupWorld: async ({ page }) => {

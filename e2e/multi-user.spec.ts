@@ -6,7 +6,7 @@ import {
   loginAs,
   waitForReady,
 } from "@thefehr/foundry-playwright";
-import { waitForGameReady } from "./utils";
+import { waitForGameReady, pinnedPackages } from "./utils";
 
 const moduleId = "thefehrs-learning-manager";
 
@@ -14,6 +14,7 @@ useBaseWorld(test, {
   worldId: "test-world",
   systemId: "dnd5e",
   moduleId: ["thefehrs-learning-manager", "tidy5e-sheet"],
+  ...pinnedPackages,
   adminPassword: "admin",
   backupName: "fp-base-multi-user",
   setupWorld: async ({ page }) => {
