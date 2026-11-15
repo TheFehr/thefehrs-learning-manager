@@ -157,7 +157,7 @@ export class LearningManager {
 
     Hooks.on(
       "dropActorSheetData",
-      (actor: Actor, _sheet: unknown, data: any, _event?: DragEvent) => {
+      (actor: Actor, sheet: unknown, data: any, _event?: DragEvent) => {
         if (!data || data.type !== "Item" || !data.uuid) return true;
 
         const uuid = data.uuid as string;
@@ -212,9 +212,18 @@ export class LearningManager {
             const projectFlagData = projectData(item5e);
 
             // The hook had to return false synchronously (the item isn't loaded
-            // yet), so items without a learning config must be added manually
-            // instead of triggering the learning setup dialog.
+            // yet), so items without a learning config are handed back to the
+            // sheet's normal drop handling instead of triggering the learning
+            // setup dialog.
             if (!projectFlagData || !((projectFlagData.target ?? 0) > 0)) {
+              const dropSheet = sheet as {
+                _onDropItem?: (event: DragEvent, item: Item5e) => Promise<unknown>;
+              } | null;
+              if (targetActor === actor && _event && typeof dropSheet?._onDropItem === "function") {
+                await dropSheet._onDropItem(_event, item5e);
+                return;
+              }
+              // Group-sheet drops onto a member (or no usable sheet): add directly.
               const itemData = item5e.toObject() as Record<string, unknown>;
               delete itemData._id;
               delete itemData.folder;

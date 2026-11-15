@@ -320,5 +320,35 @@ describe("LearningManager", () => {
       expect(promptSpy).not.toHaveBeenCalled();
       expect(ProjectEngine.initiateProjectFromItem).not.toHaveBeenCalled();
     });
+
+    it("should hand items without a learning config back to the sheet's own drop handling", async () => {
+      LearningManager.init();
+      const callback = (Hooks.on as any).mock.calls.find(
+        (c: any) => c[0] === "dropActorSheetData",
+      )[1];
+
+      const createEmbeddedDocuments = vi.fn();
+      const mockActor = { name: "Actor", type: "character", createEmbeddedDocuments };
+      const onDropItem = vi.fn().mockResolvedValue(undefined);
+      const event = {} as DragEvent;
+      const plainFeat = {
+        name: "Plain Feat",
+        system: {},
+        getFlag: vi.fn().mockReturnValue(undefined),
+        toObject: () => ({ name: "Plain Feat", type: "feat" }),
+      };
+      (globalThis as any).fromUuid = vi.fn().mockResolvedValue(plainFeat);
+      (Settings.get as any).mockReturnValue(["world.items"]);
+
+      const result = await callback(
+        mockActor,
+        { _onDropItem: onDropItem },
+        { type: "Item", uuid: "Compendium.world.items.123" },
+        event,
+      );
+      expect(result).toBe(false);
+      await vi.waitFor(() => expect(onDropItem).toHaveBeenCalledWith(event, plainFeat));
+      expect(createEmbeddedDocuments).not.toHaveBeenCalled();
+    });
   });
 });
