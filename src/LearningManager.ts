@@ -97,6 +97,7 @@ export class LearningManager {
 
   static async ready() {
     Logger.debug("Initialized");
+    await LearningManager.ensureIndexed();
     try {
       await migrateData();
     } catch (err) {
@@ -113,6 +114,11 @@ export class LearningManager {
           } catch (err) {
             Logger.error("Failed to sync activities after time unit change:", true, err);
           }
+        },
+      },
+      allowedCompendiums: {
+        onChange: () => {
+          void LearningManager.ensureIndexed();
         },
       },
       teacherCompendiums: {
@@ -133,7 +139,7 @@ export class LearningManager {
     };
 
     // Lets the drop hook tell, synchronously, whether a compendium item has a
-    // learning config (see isPlainCompendiumItem).
+    // learning config (see classifyCompendiumItem).
     const indexFields = (CONFIG.Item as { compendiumIndexFields?: string[] } | undefined)
       ?.compendiumIndexFields;
     if (Array.isArray(indexFields) && !indexFields.includes(LearningManager.TARGET_INDEX_FIELD)) {
@@ -143,21 +149,42 @@ export class LearningManager {
 
   private static readonly TARGET_INDEX_FIELD = `flags.${LearningManager.ID}.projectData.target`;
 
+  /** Packs whose index is confirmed to carry TARGET_INDEX_FIELD. */
+  private static readonly indexedPacks = new Set<string>();
+
   /**
-   * True only when the compendium's index is known to carry the learning target
-   * and the item has none. Anything uncertain returns false, which keeps the
-   * async path.
+   * Makes sure every allowed compendium's index carries the learning target, so
+   * the drop hook can answer synchronously.
    */
-  private static isPlainCompendiumItem(uuid: string, packId: string): boolean {
-    const pack = (globalThis as { game?: Game }).game?.packs?.get(packId) as
-      | { indexed?: boolean; indexFields?: Set<string> }
-      | undefined;
-    if (!pack?.indexed || !pack.indexFields?.has(LearningManager.TARGET_INDEX_FIELD)) return false;
+  static async ensureIndexed() {
+    const allowed = (Settings.get("allowedCompendiums") as string[] | undefined) ?? [];
+    await Promise.all(
+      allowed.map(async (packId) => {
+        if (LearningManager.indexedPacks.has(packId)) return;
+        const pack = (globalThis as { game?: Game }).game?.packs?.get(packId) as
+          | { getIndex?: (o: { fields: string[] }) => Promise<unknown> }
+          | undefined;
+        if (typeof pack?.getIndex !== "function") return;
+        try {
+          await pack.getIndex({ fields: [LearningManager.TARGET_INDEX_FIELD] });
+          LearningManager.indexedPacks.add(packId);
+        } catch (err) {
+          Logger.error(`Failed to index compendium ${packId}:`, false, err);
+        }
+      }),
+    );
+  }
+
+  private static classifyCompendiumItem(
+    uuid: string,
+    packId: string,
+  ): "learning" | "plain" | "unknown" {
+    if (!LearningManager.indexedPacks.has(packId)) return "unknown";
     const entry = fromUuidSync(uuid as `Item.${string}`) as {
       flags?: Record<string, { projectData?: { target?: number } } | undefined>;
     } | null;
-    if (!entry) return false;
-    return !((entry.flags?.[LearningManager.ID]?.projectData?.target ?? 0) > 0);
+    if (!entry) return "unknown";
+    return (entry.flags?.[LearningManager.ID]?.projectData?.target ?? 0) > 0 ? "learning" : "plain";
   }
 
   private static registerHooks() {
@@ -197,8 +224,15 @@ export class LearningManager {
 
         if (!allowed.includes(packId)) return true;
 
+        const kind = LearningManager.classifyCompendiumItem(uuid, packId);
         // No learning config: leave the drop to the system's own handling.
-        if (LearningManager.isPlainCompendiumItem(uuid, packId)) return true;
+        if (kind === "plain") return true;
+        if (kind === "unknown") {
+          getUI()?.notifications?.warn(
+            "Downtime Engine | The learning index is still loading. Please drop the item again in a moment.",
+          );
+          return false;
+        }
 
         let targetActor = actor;
 
@@ -241,16 +275,9 @@ export class LearningManager {
             const item5e = item as Item5e;
             const projectFlagData = projectData(item5e);
 
-            // Fallback for when the compendium index could not answer
-            // synchronously: items without a learning config are added
-            // directly instead of triggering the learning setup dialog.
-            if (!projectFlagData || !((projectFlagData.target ?? 0) > 0)) {
-              const itemData = item5e.toObject() as Record<string, unknown>;
-              delete itemData._id;
-              delete itemData.folder;
-              await targetActor.createEmbeddedDocuments("Item", [itemData] as never);
-              return;
-            }
+            // The index said this was a learning item; nothing to do if it no
+            // longer is (e.g. edited since the index was built).
+            if (!projectFlagData || !((projectFlagData.target ?? 0) > 0)) return;
 
             const requirements = projectFlagData?.requirements || [];
             const { eligible, reason } = TabLogic.meetsRequirements(targetActor, requirements);

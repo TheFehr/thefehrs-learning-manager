@@ -6,7 +6,7 @@ import { TutelageResolverService } from "@/logic/tutelage-resolver";
 import { Socket } from "@/core/socket";
 import { migrateData } from "@/migrations/migration";
 import { registerMigrationSettings } from "@/migrations/migration-registration";
-import { getGame } from "@/core/foundry";
+import { getGame, getUI } from "@/core/foundry";
 
 vi.mock("@/migrations/migration", () => ({
   migrateData: vi.fn(),
@@ -176,6 +176,18 @@ describe("LearningManager", () => {
       expect(ProjectEngine.processTraining).toHaveBeenCalledWith(mockActivity);
     });
 
+    const markIndexed = async (packId = "world.items", target = 10) => {
+      (globalThis as any).game = {
+        ...(globalThis as any).game,
+        packs: { get: vi.fn().mockReturnValue({ getIndex: vi.fn().mockResolvedValue({}) }) },
+      };
+      (Settings.get as any).mockReturnValue([packId]);
+      await LearningManager.ensureIndexed();
+      (globalThis as any).fromUuidSync = vi.fn().mockReturnValue({
+        flags: { "thefehrs-learning-manager": { projectData: { target } } },
+      });
+    };
+
     it("should register dropActorSheetData", async () => {
       LearningManager.init();
       const call = (Hooks.on as any).mock.calls.find((c: any) => c[0] === "dropActorSheetData");
@@ -220,7 +232,7 @@ describe("LearningManager", () => {
         },
       });
 
-      (Settings.get as any).mockReturnValue(["world.items"]);
+      await markIndexed();
 
       const result = await callback(mockGroupActor, {}, mockData, mockEvent);
       expect(result).toBe(false);
@@ -258,7 +270,7 @@ describe("LearningManager", () => {
         system: {},
       });
 
-      (Settings.get as any).mockReturnValue(["world.items"]);
+      await markIndexed();
 
       const result = await callback(mockGroupActor, {}, mockData, mockEvent);
       expect(result).toBe(false);
@@ -288,74 +300,40 @@ describe("LearningManager", () => {
       // If it didn't return early, it means it proceeded with mockActor
     });
 
-    it("should add items without a learning config normally, without opening the dialog", async () => {
-      LearningManager.init();
-      const callback = (Hooks.on as any).mock.calls.find(
-        (c: any) => c[0] === "dropActorSheetData",
-      )[1];
-
-      const createEmbeddedDocuments = vi.fn().mockResolvedValue([]);
-      const mockActor = { name: "Actor", type: "character", createEmbeddedDocuments };
-      const mockData = { type: "Item", uuid: "Compendium.world.items.123" };
-
-      const plainFeat = {
-        name: "Plain Feat",
-        system: {},
-        getFlag: vi.fn().mockReturnValue(undefined),
-        toObject: () => ({ _id: "abc", folder: "f1", name: "Plain Feat", type: "feat" }),
-      };
-      (globalThis as any).fromUuid = vi.fn().mockResolvedValue(plainFeat);
-      const promptSpy = vi.fn();
-      (ProjectEngine as any).promptInitiateProject = promptSpy;
-
-      (Settings.get as any).mockReturnValue(["world.items"]);
-
-      const result = await callback(mockActor, {}, mockData);
-      expect(result).toBe(false);
-      await vi.waitFor(() => expect(createEmbeddedDocuments).toHaveBeenCalledTimes(1));
-
-      expect(createEmbeddedDocuments).toHaveBeenCalledWith("Item", [
-        { name: "Plain Feat", type: "feat" },
-      ]);
-      expect(promptSpy).not.toHaveBeenCalled();
-      expect(ProjectEngine.initiateProjectFromItem).not.toHaveBeenCalled();
-    });
-
     describe("synchronous compendium index check", () => {
-      const field = "flags.thefehrs-learning-manager.projectData.target";
-      const drop = { type: "Item", uuid: "Compendium.world.items.123" };
-      let callback: any;
-
-      const setup = (pack: unknown, entry: unknown) => {
-        LearningManager.init();
-        callback = (Hooks.on as any).mock.calls.find((c: any) => c[0] === "dropActorSheetData")[1];
-        (Settings.get as any).mockReturnValue(["world.items"]);
-        (globalThis as any).game = {
-          ...(globalThis as any).game,
-          packs: { get: vi.fn().mockReturnValue(pack) },
-        };
-        (globalThis as any).fromUuidSync = vi.fn().mockReturnValue(entry);
-        (globalThis as any).fromUuid = vi.fn().mockResolvedValue(null);
-      };
       const actor = { name: "Actor", type: "character" };
+      const dropOn = (packId: string) => ({ type: "Item", uuid: `Compendium.${packId}.123` });
+      const hook = () => {
+        LearningManager.init();
+        return (Hooks.on as any).mock.calls.find((c: any) => c[0] === "dropActorSheetData")[1];
+      };
 
-      it("lets the system handle items whose index shows no learning config", () => {
-        setup({ indexed: true, indexFields: new Set([field]) }, { flags: {} });
-        expect(callback(actor, {}, drop)).toBe(true);
+      it("lets the system handle items whose index shows no learning config", async () => {
+        const callback = hook();
+        await markIndexed("world.plain");
+        (globalThis as any).fromUuidSync = vi.fn().mockReturnValue({ flags: {} });
+        (globalThis as any).fromUuid = vi.fn();
+        expect(callback(actor, {}, dropOn("world.plain"))).toBe(true);
         expect((globalThis as any).fromUuid).not.toHaveBeenCalled();
       });
 
-      it("keeps handling items whose index shows a learning target", () => {
-        setup(
-          { indexed: true, indexFields: new Set([field]) },
-          { flags: { "thefehrs-learning-manager": { projectData: { target: 5 } } } },
-        );
-        expect(callback(actor, {}, drop)).toBe(false);
+      it("keeps handling items whose index shows a learning target", async () => {
+        const callback = hook();
+        await markIndexed("world.learn", 5);
+        (globalThis as any).fromUuid = vi.fn().mockResolvedValue(null);
+        expect(callback(actor, {}, dropOn("world.learn"))).toBe(false);
       });
 
-      it("keeps the async path when the index lacks the learning field", () => {
-        setup({ indexed: true, indexFields: new Set() }, { flags: {} });
-        expect(callback(actor, {}, drop)).toBe(false);
+      it("warns and creates nothing when the index is not confirmed yet", () => {
+        const callback = hook();
+        (Settings.get as any).mockReturnValue(["world.fresh"]);
+        (globalThis as any).fromUuidSync = vi.fn().mockReturnValue({ flags: {} });
+        (globalThis as any).fromUuid = vi.fn();
+        const warn = vi.fn();
+        (getUI as any).mockReturnValue({ notifications: { warn } });
+        expect(callback(actor, {}, dropOn("world.fresh"))).toBe(false);
+        expect(warn).toHaveBeenCalled();
+        expect((globalThis as any).fromUuid).not.toHaveBeenCalled();
       });
     });
   });
