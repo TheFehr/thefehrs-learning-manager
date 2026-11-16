@@ -156,7 +156,18 @@ export class LearningManager {
    * Makes sure every allowed compendium's index carries the learning target, so
    * the drop hook can answer synchronously.
    */
-  static async ensureIndexed() {
+  static ensureIndexed(): Promise<void> {
+    // One run at a time, so repeated drops while the index is unconfirmed
+    // don't spawn duplicate requests.
+    LearningManager.indexing ??= LearningManager.indexAllowedPacks().finally(() => {
+      LearningManager.indexing = null;
+    });
+    return LearningManager.indexing;
+  }
+
+  private static indexing: Promise<void> | null = null;
+
+  private static async indexAllowedPacks() {
     const allowed = (Settings.get("allowedCompendiums") as string[] | undefined) ?? [];
     await Promise.all(
       allowed.map(async (packId) => {
@@ -228,6 +239,8 @@ export class LearningManager {
         // No learning config: leave the drop to the system's own handling.
         if (kind === "plain") return true;
         if (kind === "unknown") {
+          // Retry in the background so the next drop can succeed.
+          void LearningManager.ensureIndexed();
           getUI()?.notifications?.warn(
             "Downtime Engine | The learning index is still loading. Please drop the item again in a moment.",
           );

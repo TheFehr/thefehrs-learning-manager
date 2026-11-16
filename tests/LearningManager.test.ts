@@ -324,16 +324,33 @@ describe("LearningManager", () => {
         expect(callback(actor, {}, dropOn("world.learn"))).toBe(false);
       });
 
-      it("warns and creates nothing when the index is not confirmed yet", () => {
+      it("warns, creates nothing and retries indexing when the index is not confirmed yet", async () => {
         const callback = hook();
+        const getIndex = vi.fn().mockRejectedValueOnce(new Error("offline")).mockResolvedValue({});
+        (globalThis as any).game = {
+          ...(globalThis as any).game,
+          packs: { get: vi.fn().mockReturnValue({ getIndex }) },
+        };
         (Settings.get as any).mockReturnValue(["world.fresh"]);
         (globalThis as any).fromUuidSync = vi.fn().mockReturnValue({ flags: {} });
         (globalThis as any).fromUuid = vi.fn();
         const warn = vi.fn();
         (getUI as any).mockReturnValue({ notifications: { warn } });
+
+        // First drop: unconfirmed, so it warns and starts indexing (which fails once).
         expect(callback(actor, {}, dropOn("world.fresh"))).toBe(false);
         expect(warn).toHaveBeenCalled();
         expect((globalThis as any).fromUuid).not.toHaveBeenCalled();
+        await vi.waitFor(() => expect(getIndex).toHaveBeenCalledTimes(1));
+        await LearningManager.ensureIndexed();
+
+        // Second drop: still unconfirmed after the failure, so it retries.
+        expect(callback(actor, {}, dropOn("world.fresh"))).toBe(false);
+        await vi.waitFor(() => expect(getIndex).toHaveBeenCalledTimes(2));
+        await LearningManager.ensureIndexed();
+
+        // Third drop: confirmed, entry has no learning config -> system handles it.
+        expect(callback(actor, {}, dropOn("world.fresh"))).toBe(true);
       });
     });
   });
