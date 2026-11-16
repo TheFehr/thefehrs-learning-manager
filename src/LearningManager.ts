@@ -97,7 +97,11 @@ export class LearningManager {
 
   static async ready() {
     Logger.debug("Initialized");
-    await LearningManager.ensureIndexed();
+    try {
+      await LearningManager.ensureIndexed();
+    } catch (err) {
+      Logger.error("Failed to index compendiums:", false, err);
+    }
     try {
       await migrateData();
     } catch (err) {

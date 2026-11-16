@@ -131,6 +131,15 @@ describe("LearningManager", () => {
       await LearningManager.ready();
       expect(migrateData).toHaveBeenCalled();
     });
+
+    it("should still run migrateData when indexing throws", async () => {
+      vi.mocked(migrateData).mockClear();
+      (Settings.get as any).mockImplementationOnce(() => {
+        throw new Error("settings unavailable");
+      });
+      await expect(LearningManager.ready()).resolves.toBeUndefined();
+      expect(migrateData).toHaveBeenCalled();
+    });
   });
 
   describe("registerSocketListeners", () => {
