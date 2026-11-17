@@ -9,7 +9,7 @@ useBaseWorld(test, {
   moduleId: ["thefehrs-learning-manager", "tidy5e-sheet"],
   ...pinnedPackages,
   adminPassword: "admin",
-  backupName: "fp-base-requirements",
+  backupName: "fp-base-requirements-v2",
   setupWorld: async ({ page }) => {
     await waitForGameReady(page);
     await disableTour(page);
@@ -49,6 +49,8 @@ useBaseWorld(test, {
         },
         { pack: packId },
       );
+
+      await Item.create({ name: "Plain Feat", type: "feat" }, { pack: packId });
 
       await Actor.create({
         name: "Weak Actor",
@@ -141,5 +143,53 @@ test.describe("Project Requirements", () => {
       { actorId: setupData.actorId, moduleId },
     );
     expect(finalCheck).toBe(true);
+  });
+
+  test("items without a learning config are left to dnd5e, without the learning dialog", async ({
+    page,
+  }) => {
+    const setupData = await page.evaluate(async () => {
+      const pack = (game as any).packs.get("world.test-requirements");
+      const index = await pack.getIndex();
+      const item = await pack.getDocument(index.getName("Plain Feat")._id);
+      const actor = (game as any).actors.getName("Weak Actor");
+      return { actorId: actor.id, itemUuid: item.uuid };
+    });
+
+    // A plain item must be left to dnd5e: the hook returns true (not cancelled),
+    // so no learning project is created and no dialog opens. Calling the hook
+    // directly never runs dnd5e's own drop handling, so nothing is added here.
+    // Until the compendium index is confirmed the hook cancels and asks for a
+    // retry, so wait for that to settle first.
+    await page.waitForFunction(
+      ({ actorId, itemUuid }) =>
+        Hooks.call("dropActorSheetData", (game as any).actors.get(actorId), null, {
+          type: "Item",
+          uuid: itemUuid,
+        }) === true,
+      setupData,
+      { timeout: 10000 },
+    );
+
+    const result = await page.evaluate(
+      ({ actorId, itemUuid, moduleId }) => {
+        const actor = (game as any).actors.get(actorId);
+        const allowed = Hooks.call("dropActorSheetData", actor, null, {
+          type: "Item",
+          uuid: itemUuid,
+        });
+        return {
+          allowed,
+          hasProject: actor.items.some((i: any) => i.getFlag(moduleId, "isLearningProject")),
+          dialogOpen: [...document.querySelectorAll(".window-app, .application")].some((el) =>
+            el.textContent?.includes("Add Project"),
+          ),
+        };
+      },
+      { actorId: setupData.actorId, itemUuid: setupData.itemUuid, moduleId },
+    );
+    expect(result.allowed).toBe(true);
+    expect(result.hasProject).toBe(false);
+    expect(result.dialogOpen).toBe(false);
   });
 });

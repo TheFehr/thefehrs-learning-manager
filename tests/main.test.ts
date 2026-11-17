@@ -315,7 +315,7 @@ describe("LearningManager", () => {
   });
 
   describe("dropActorSheetData hook", () => {
-    const setUpMemberDrop = () => {
+    const setUpMemberDrop = async () => {
       const groupActor = { type: "group", id: "group1" } as any;
       const memberActor = { type: "character", id: "member1", getFlag: vi.fn() } as any;
       const data = { type: "Item", uuid: "Compendium.pack.Item.123" };
@@ -350,12 +350,21 @@ describe("LearningManager", () => {
       });
       globalThis.fromUuid = vi.fn().mockResolvedValue(item);
 
+      // The drop hook decides from the compendium index, which must be confirmed first.
+      (game as any).packs = {
+        get: vi.fn().mockReturnValue({ getIndex: vi.fn().mockResolvedValue({}) }),
+      };
+      await LearningManager.ensureIndexed();
+      (globalThis as any).fromUuidSync = vi.fn().mockReturnValue({
+        flags: { "thefehrs-learning-manager": { projectData: { target: 10 } } },
+      });
+
       return { groupActor, memberActor, data, item };
     };
 
     it("prompts the GM and passes the chosen starting progress through", async () => {
       game.user.isGM = true;
-      const { groupActor, memberActor, data, item } = setUpMemberDrop();
+      const { groupActor, memberActor, data, item } = await setUpMemberDrop();
       vi.mocked(ProjectEngine.promptInitiateProject).mockResolvedValue({
         progress: 4,
         markComplete: false,
@@ -380,7 +389,7 @@ describe("LearningManager", () => {
 
     it("completes the project immediately if the GM checks 'mark as already complete'", async () => {
       game.user.isGM = true;
-      const { groupActor, data } = setUpMemberDrop();
+      const { groupActor, data } = await setUpMemberDrop();
       const createdItem = { id: "created1" };
       vi.mocked(ProjectEngine.promptInitiateProject).mockResolvedValue({
         progress: 10,
@@ -399,7 +408,7 @@ describe("LearningManager", () => {
 
     it("does not create a project if the GM cancels the dialog", async () => {
       game.user.isGM = true;
-      const { groupActor, data } = setUpMemberDrop();
+      const { groupActor, data } = await setUpMemberDrop();
       vi.mocked(ProjectEngine.promptInitiateProject).mockResolvedValue(null);
 
       LearningManager.init();
@@ -413,7 +422,7 @@ describe("LearningManager", () => {
 
     it("skips the prompt and starts at 0 for a non-GM player", async () => {
       game.user.isGM = false;
-      const { groupActor, memberActor, data, item } = setUpMemberDrop();
+      const { groupActor, memberActor, data, item } = await setUpMemberDrop();
 
       LearningManager.init();
       const dropHook = vi.mocked(Hooks.on).mock.calls.find((c) => c[0] === "dropActorSheetData");

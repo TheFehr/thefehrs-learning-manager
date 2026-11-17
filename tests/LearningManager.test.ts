@@ -6,7 +6,7 @@ import { TutelageResolverService } from "@/logic/tutelage-resolver";
 import { Socket } from "@/core/socket";
 import { migrateData } from "@/migrations/migration";
 import { registerMigrationSettings } from "@/migrations/migration-registration";
-import { getGame } from "@/core/foundry";
+import { getGame, getUI } from "@/core/foundry";
 
 vi.mock("@/migrations/migration", () => ({
   migrateData: vi.fn(),
@@ -131,6 +131,15 @@ describe("LearningManager", () => {
       await LearningManager.ready();
       expect(migrateData).toHaveBeenCalled();
     });
+
+    it("should still run migrateData when indexing throws", async () => {
+      vi.mocked(migrateData).mockClear();
+      (Settings.get as any).mockImplementationOnce(() => {
+        throw new Error("settings unavailable");
+      });
+      await expect(LearningManager.ready()).resolves.toBeUndefined();
+      expect(migrateData).toHaveBeenCalled();
+    });
   });
 
   describe("registerSocketListeners", () => {
@@ -176,6 +185,18 @@ describe("LearningManager", () => {
       expect(ProjectEngine.processTraining).toHaveBeenCalledWith(mockActivity);
     });
 
+    const markIndexed = async (packId = "world.items", target = 10) => {
+      (globalThis as any).game = {
+        ...(globalThis as any).game,
+        packs: { get: vi.fn().mockReturnValue({ getIndex: vi.fn().mockResolvedValue({}) }) },
+      };
+      (Settings.get as any).mockReturnValue([packId]);
+      await LearningManager.ensureIndexed();
+      (globalThis as any).fromUuidSync = vi.fn().mockReturnValue({
+        flags: { "thefehrs-learning-manager": { projectData: { target } } },
+      });
+    };
+
     it("should register dropActorSheetData", async () => {
       LearningManager.init();
       const call = (Hooks.on as any).mock.calls.find((c: any) => c[0] === "dropActorSheetData");
@@ -220,7 +241,7 @@ describe("LearningManager", () => {
         },
       });
 
-      (Settings.get as any).mockReturnValue(["world.items"]);
+      await markIndexed();
 
       const result = await callback(mockGroupActor, {}, mockData, mockEvent);
       expect(result).toBe(false);
@@ -258,7 +279,7 @@ describe("LearningManager", () => {
         system: {},
       });
 
-      (Settings.get as any).mockReturnValue(["world.items"]);
+      await markIndexed();
 
       const result = await callback(mockGroupActor, {}, mockData, mockEvent);
       expect(result).toBe(false);
@@ -286,6 +307,60 @@ describe("LearningManager", () => {
       const result = await callback(mockActor, {}, mockData);
       expect(result).toBe(false);
       // If it didn't return early, it means it proceeded with mockActor
+    });
+
+    describe("synchronous compendium index check", () => {
+      const actor = { name: "Actor", type: "character" };
+      const dropOn = (packId: string) => ({ type: "Item", uuid: `Compendium.${packId}.123` });
+      const hook = () => {
+        LearningManager.init();
+        return (Hooks.on as any).mock.calls.find((c: any) => c[0] === "dropActorSheetData")[1];
+      };
+
+      it("lets the system handle items whose index shows no learning config", async () => {
+        const callback = hook();
+        await markIndexed("world.plain");
+        (globalThis as any).fromUuidSync = vi.fn().mockReturnValue({ flags: {} });
+        (globalThis as any).fromUuid = vi.fn();
+        expect(callback(actor, {}, dropOn("world.plain"))).toBe(true);
+        expect((globalThis as any).fromUuid).not.toHaveBeenCalled();
+      });
+
+      it("keeps handling items whose index shows a learning target", async () => {
+        const callback = hook();
+        await markIndexed("world.learn", 5);
+        (globalThis as any).fromUuid = vi.fn().mockResolvedValue(null);
+        expect(callback(actor, {}, dropOn("world.learn"))).toBe(false);
+      });
+
+      it("warns, creates nothing and retries indexing when the index is not confirmed yet", async () => {
+        const callback = hook();
+        const getIndex = vi.fn().mockRejectedValueOnce(new Error("offline")).mockResolvedValue({});
+        (globalThis as any).game = {
+          ...(globalThis as any).game,
+          packs: { get: vi.fn().mockReturnValue({ getIndex }) },
+        };
+        (Settings.get as any).mockReturnValue(["world.fresh"]);
+        (globalThis as any).fromUuidSync = vi.fn().mockReturnValue({ flags: {} });
+        (globalThis as any).fromUuid = vi.fn();
+        const warn = vi.fn();
+        (getUI as any).mockReturnValue({ notifications: { warn } });
+
+        // First drop: unconfirmed, so it warns and starts indexing (which fails once).
+        expect(callback(actor, {}, dropOn("world.fresh"))).toBe(false);
+        expect(warn).toHaveBeenCalled();
+        expect((globalThis as any).fromUuid).not.toHaveBeenCalled();
+        await vi.waitFor(() => expect(getIndex).toHaveBeenCalledTimes(1));
+        await LearningManager.ensureIndexed();
+
+        // Second drop: still unconfirmed after the failure, so it retries.
+        expect(callback(actor, {}, dropOn("world.fresh"))).toBe(false);
+        await vi.waitFor(() => expect(getIndex).toHaveBeenCalledTimes(2));
+        await LearningManager.ensureIndexed();
+
+        // Third drop: confirmed, entry has no learning config -> system handles it.
+        expect(callback(actor, {}, dropOn("world.fresh"))).toBe(true);
+      });
     });
   });
 });
