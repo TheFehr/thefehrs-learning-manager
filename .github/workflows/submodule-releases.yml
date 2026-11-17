@@ -1,7 +1,8 @@
 name: Update Submodule Releases
 
 # Pins each submodule to its latest *released* tag (not branch HEAD) and opens
-# one PR when any of them moved. Replaces Renovate's git-submodules manager,
+# one PR when any of them moved. dnd5e is capped to the range the chosen Tidy5e
+# release declares, so the two always move as a compatible pair. Replaces Renovate's git-submodules manager,
 # which can only follow branch commits.
 #
 # Uses a GitHub App token (secrets CLIENT_ID and APP_PRIVATE_KEY): commits
@@ -11,7 +12,7 @@ name: Update Submodule Releases
 
 on:
   schedule:
-    - cron: "0 4 * * 1"
+    - cron: "0 4,16 * * *"
   workflow_dispatch:
 
 permissions:
@@ -41,30 +42,62 @@ jobs:
           persist-credentials: false
           token: ${{ steps.generate_token.outputs.token }}
 
-      - name: Point submodules at their latest release tags
+      - name: Point submodules at their latest compatible release tags
         id: bump
         run: |
           set -euo pipefail
-          declare -A patterns=(
-            [externals/dnd5e]='^release-[0-9]+[.][0-9]+[.][0-9]+$'
-            [externals/tidy-5e]='^v[0-9]+[.][0-9]+[.][0-9]+$'
-          )
-          summary=""
-          for path in "${!patterns[@]}"; do
-            url=$(git config -f .gitmodules --get "submodule.$path.url")
-            # Peeled (^{}) lines carry the commit for annotated tags and win over the tag object.
-            latest=$(git ls-remote --tags "$url" | awk -v re="${patterns[$path]}" '
+          TIDY=externals/tidy-5e
+          DND5E=externals/dnd5e
+
+          # "name sha" lines for every tag of a remote matching a regex, oldest first.
+          # Peeled (^{}) lines carry the commit for annotated tags and win over the tag object.
+          tags() {
+            git ls-remote --tags "$1" | awk -v re="$2" '
               { n = $2; sub("refs/tags/", "", n)
                 peeled = (n ~ /\^\{\}$/); sub(/\^\{\}$/, "", n)
                 if (n ~ re && (peeled || !(n in sha))) sha[n] = $1 }
-              END { for (n in sha) print n, sha[n] }' | sort -V -k1,1 | tail -1)
-            [ -n "$latest" ] || { echo "::error::No release tag found for $path"; exit 1; }
-            name=${latest% *}
-            sha=${latest#* }
+              END { for (n in sha) print n, sha[n] }' | sort -V -k1,1
+          }
+
+          # True when version $1 lies within [$2, $3]; an "x" in the maximum is a wildcard
+          # ("6.1.x" admits every 6.1.*).
+          in_range() {
+            local v=$1 min=$2 max=${3//x/9999}
+            [ "$(printf '%s\n%s\n' "$min" "$v" | sort -V | head -1)" = "$min" ] &&
+              [ "$(printf '%s\n%s\n' "$v" "$max" | sort -V | head -1)" = "$v" ]
+          }
+
+          tidy_url=$(git config -f .gitmodules --get "submodule.$TIDY.url")
+          dnd5e_url=$(git config -f .gitmodules --get "submodule.$DND5E.url")
+
+          # Tidy5e decides which dnd5e it supports, so pick it first and then take the
+          # newest dnd5e inside the range its release declares.
+          tidy=$(tags "$tidy_url" '^v[0-9]+[.][0-9]+[.][0-9]+$' | tail -1)
+          [ -n "$tidy" ] || { echo "::error::No release tag found for $TIDY"; exit 1; }
+          tidy_name=${tidy% *}
+          tidy_sha=${tidy#* }
+          manifest="${tidy_url%.git}/releases/download/$tidy_name/module.json"
+          range=$(curl -fsSL "$manifest" | jq -r '
+            .relationships.systems[]? | select(.id == "dnd5e")
+            | "\(.compatibility.minimum // .compatibility.verified) \(.compatibility.maximum // .compatibility.verified)"')
+          [ -n "$range" ] || { echo "::error::$tidy_name declares no dnd5e compatibility range"; exit 1; }
+          min=${range% *}
+          max=${range#* }
+          echo "$tidy_name supports dnd5e $min to $max"
+
+          dnd5e=""
+          while read -r name sha; do
+            if in_range "${name#release-}" "$min" "$max"; then dnd5e="$name $sha"; fi
+          done < <(tags "$dnd5e_url" '^release-[0-9]+[.][0-9]+[.][0-9]+$')
+          [ -n "$dnd5e" ] || { echo "::error::No dnd5e release within $min to $max"; exit 1; }
+
+          summary=""
+          bump() {
+            local path=$1 name=$2 sha=$3 cur
             cur=$(git rev-parse "HEAD:$path")
             if [ "$cur" = "$sha" ]; then
               echo "$path already at $name"
-              continue
+              return
             fi
             # Check the submodule out at the release commit so the change is a
             # real working-tree change for the PR step to pick up.
@@ -72,7 +105,9 @@ jobs:
             git -C "$path" fetch --depth=1 origin "$sha"
             git -C "$path" checkout -q "$sha"
             summary+="- \`$path\`: \`${cur:0:9}\` -> \`$name\` (\`${sha:0:9}\`)"$'\n'
-          done
+          }
+          bump "$TIDY" "$tidy_name" "$tidy_sha"
+          bump "$DND5E" "${dnd5e% *}" "${dnd5e#* }"
           {
             echo "summary<<EOF_SUMMARY"
             printf '%s' "$summary"
