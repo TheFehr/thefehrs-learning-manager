@@ -1,17 +1,30 @@
 import { expect, type Page, type Locator, type BrowserContext } from "@playwright/test";
 
-// The newest dnd5e and Tidy5e releases are not always compatible with each other
-// (Tidy5e declares which dnd5e range it supports), and an unpinned world installs
-// whatever is newest. On Foundry 14 pin both to a known-compatible pair; bump them
-// together, within the range Tidy5e declares for dnd5e.
+// On Foundry 14 the world runs against the dnd5e and Tidy5e versions the submodules
+// in externals/ are checked out at. scripts/run-e2e-docker.mjs reads them, seeds the
+// exact Tidy5e release into the data directory and passes the versions in through
+// the environment, so there is nothing to bump here.
 const isFoundry14 = (process.env.FOUNDRY_VERSION ?? "").startsWith("14");
-export const pinnedPackages = isFoundry14
+
+function requiredEnv(name: string): string {
+  const value = process.env[name];
+  if (!value) {
+    throw new Error(
+      `${name} is not set. Run the e2e suite through "npm run test:e2e:docker" (or the verify script), which pins the versions from the submodules in externals/.`,
+    );
+  }
+  return value;
+}
+
+export const pinnedVersions = isFoundry14
+  ? { dnd5e: requiredEnv("E2E_DND5E_VERSION"), tidy5e: requiredEnv("E2E_TIDY5E_VERSION") }
+  : undefined;
+
+// Only dnd5e goes through a manifest (its release manifests are version-specific).
+// Tidy5e is already in the data directory and is activated by moduleId alone.
+export const pinnedPackages = pinnedVersions
   ? {
-      systemManifest:
-        "https://github.com/foundryvtt/dnd5e/releases/download/release-6.0.6/system.json",
-      moduleManifest: [
-        "https://github.com/kgar/foundry-vtt-tidy-5e-sheets/releases/download/v14.4.2/module.json",
-      ],
+      systemManifest: `https://github.com/foundryvtt/dnd5e/releases/download/release-${pinnedVersions.dnd5e}/system.json`,
     }
   : {};
 
