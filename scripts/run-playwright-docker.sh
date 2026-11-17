@@ -75,4 +75,5 @@ docker run --rm --name "$CONTAINER_NAME" --network "$FOUNDRY_E2E_NETWORK" --shm-
   -e CI=1 \
   -e FOUNDRY_URL -e PLAYWRIGHT_HTML_REPORT -e PLAYWRIGHT_OUTPUT_DIR \
   -e FOUNDRY_VERSION -e FOUNDRY_SYSTEM_ID \
+  -e E2E_DND5E_VERSION -e E2E_TIDY5E_VERSION \
   "$IMAGE" npx playwright test
