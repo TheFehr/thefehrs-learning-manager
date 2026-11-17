@@ -145,7 +145,7 @@ test.describe("Project Requirements", () => {
     expect(finalCheck).toBe(true);
   });
 
-  test("items without a learning config are added directly, without the learning dialog", async ({
+  test("items without a learning config are left to dnd5e, without the learning dialog", async ({
     page,
   }) => {
     const setupData = await page.evaluate(async () => {
@@ -156,33 +156,40 @@ test.describe("Project Requirements", () => {
       return { actorId: actor.id, itemUuid: item.uuid };
     });
 
-    await page.evaluate(async ({ actorId, itemUuid }) => {
-      const actor = (game as any).actors.get(actorId);
-      Hooks.call("dropActorSheetData", actor, null, { type: "Item", uuid: itemUuid });
-    }, setupData);
-
+    // A plain item must be left to dnd5e: the hook returns true (not cancelled),
+    // so no learning project is created and no dialog opens. Calling the hook
+    // directly never runs dnd5e's own drop handling, so nothing is added here.
+    // Until the compendium index is confirmed the hook cancels and asks for a
+    // retry, so wait for that to settle first.
     await page.waitForFunction(
-      ({ actorId }) =>
-        (game as any).actors.get(actorId).items.some((i: any) => i.name === "Plain Feat"),
-      { actorId: setupData.actorId },
+      ({ actorId, itemUuid }) =>
+        Hooks.call("dropActorSheetData", (game as any).actors.get(actorId), null, {
+          type: "Item",
+          uuid: itemUuid,
+        }) === true,
+      setupData,
       { timeout: 10000 },
     );
 
     const result = await page.evaluate(
-      ({ actorId, moduleId }) => {
-        const item = (game as any).actors
-          .get(actorId)
-          .items.find((i: any) => i.name === "Plain Feat");
+      ({ actorId, itemUuid, moduleId }) => {
+        const actor = (game as any).actors.get(actorId);
+        const allowed = Hooks.call("dropActorSheetData", actor, null, {
+          type: "Item",
+          uuid: itemUuid,
+        });
         return {
-          isProject: !!item.getFlag(moduleId, "isLearningProject"),
+          allowed,
+          hasProject: actor.items.some((i: any) => i.getFlag(moduleId, "isLearningProject")),
           dialogOpen: [...document.querySelectorAll(".window-app, .application")].some((el) =>
             el.textContent?.includes("Add Project"),
           ),
         };
       },
-      { actorId: setupData.actorId, moduleId },
+      { actorId: setupData.actorId, itemUuid: setupData.itemUuid, moduleId },
     );
-    expect(result.isProject).toBe(false);
+    expect(result.allowed).toBe(true);
+    expect(result.hasProject).toBe(false);
     expect(result.dialogOpen).toBe(false);
   });
 });
