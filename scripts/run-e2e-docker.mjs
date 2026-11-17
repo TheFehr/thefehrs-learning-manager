@@ -12,6 +12,7 @@ import { execFileSync } from "child_process";
 import fs from "fs";
 import path from "path";
 import { DockerFoundryOrchestrator } from "@thefehr/foundry-playwright";
+import { readPins, seedZip } from "./e2e-pins.mjs";
 
 // This script never loads .env itself - see scripts/e2e-verify.sh's header
 // comment for why. It only ever reads FOUNDRY_USERNAME/PASSWORD/ADMIN_KEY
@@ -64,6 +65,30 @@ if (fs.existsSync(e2ePath)) {
       fs.cpSync(itemPath, modulesDir, { recursive: true });
     }
   }
+}
+
+// Foundry 14 runs against the dnd5e / Tidy5e versions the submodules in externals/
+// are checked out at (see scripts/e2e-pins.mjs). Tidy5e is seeded straight from its
+// release zip so the version is exact; dnd5e is installed by e2e/utils.ts from its
+// version-specific manifest. The versions reach Playwright through the environment.
+if (version.startsWith("14")) {
+  const pins = readPins();
+  const tidyDir = path.join(tmpDataDir, "Data", "modules", "tidy5e-sheet");
+  await seedZip(
+    `https://github.com/kgar/foundry-vtt-tidy-5e-sheets/releases/download/v${pins.tidy5e}/module.zip`,
+    tidyDir,
+  );
+  const seeded = JSON.parse(fs.readFileSync(path.join(tidyDir, "module.json"), "utf8"));
+  if (seeded.id !== "tidy5e-sheet" || seeded.version !== pins.tidy5e) {
+    throw new Error(
+      `Seeded Tidy5e is ${seeded.id}@${seeded.version}, expected tidy5e-sheet@${pins.tidy5e}.`,
+    );
+  }
+  process.env.E2E_DND5E_VERSION = pins.dnd5e;
+  process.env.E2E_TIDY5E_VERSION = pins.tidy5e;
+  console.log(
+    `[run-e2e-docker] Pinned from submodules: dnd5e ${pins.dnd5e}, Tidy5e ${pins.tidy5e}`,
+  );
 }
 
 // --ignore (no-op if it already exists) is Podman-specific; real Docker's

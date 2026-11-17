@@ -24,8 +24,11 @@ jobs:
 
           # Function to calculate hash (MUST match scripts/e2e-verify.sh)
           calculate_hash() {
-              git ls-files -z -- src/ e2e/ public/ scripts/ package.json package-lock.json playwright.config.ts vite.config.ts tsconfig*.json .tool-versions ':!e2e/screenshots' | \
-              xargs -0 sha256sum | \
+              { \
+                  git ls-files -z -- src/ e2e/ public/ scripts/ package.json package-lock.json playwright.config.ts vite.config.ts tsconfig*.json .tool-versions ':!e2e/screenshots' | \
+                  xargs -0 sha256sum; \
+                  git ls-tree HEAD externals/dnd5e externals/tidy-5e; \
+              } | \
               LC_ALL=C sort | \
               sha256sum | \
               cut -d ' ' -f 1
