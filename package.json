@@ -34,7 +34,7 @@
     "happy-dom": "^20.8.3",
     "husky": "^9.1.7",
     "lint-staged": "^17.0.0",
-    "oxfmt": "^0.78.0",
+    "oxfmt": "^0.79.0",
     "oxlint": "^1.60.0",
     "release-it": "^21.0.0",
     "sass-embedded": "^1.97.3",
