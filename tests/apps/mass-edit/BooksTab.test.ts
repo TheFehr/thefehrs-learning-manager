@@ -5,7 +5,9 @@ import * as logic from "@/apps/mass-edit/mass-edit-logic.js";
 
 vi.unmock("svelte");
 
-vi.mock("@/apps/mass-edit/mass-edit-logic.js", () => ({
+vi.mock("@/apps/mass-edit/mass-edit-logic.js", async (importOriginal) => ({
+  isProjectItem: (await importOriginal<typeof import("@/apps/mass-edit/mass-edit-logic.js")>())
+    .isProjectItem,
   loadBooksIndex: vi.fn(),
   loadConfiguredDocuments: vi.fn(),
   getAvailableDestinations: vi.fn().mockReturnValue([{ id: "", label: "World" }]),

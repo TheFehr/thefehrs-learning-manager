@@ -7,6 +7,7 @@ import {
   activateDocument,
   createAndActivateDocument,
   getAvailableDestinations,
+  isProjectItem,
 } from "@/apps/mass-edit/mass-edit-logic.js";
 import { MODULE_ID } from "@/global.js";
 import { ActorsCollection } from "../../setup.js";
@@ -386,5 +387,32 @@ describe("getAvailableDestinations", () => {
 
     const dests = getAvailableDestinations(["world.pack"], false);
     expect(dests).toHaveLength(0);
+  });
+});
+
+describe("isProjectItem", () => {
+  function makeItem(flags: Record<string, unknown>, type = "loot", featType?: string) {
+    return {
+      type,
+      system: { type: { value: featType } },
+      getFlag: (_scope: string, key: string) => flags[key],
+    } as any;
+  }
+
+  it("treats lifecycle-flagged items as projects", () => {
+    expect(isProjectItem(makeItem({ isLearningProject: true }))).toBe(true);
+    expect(isProjectItem(makeItem({ isLearnedReward: true }))).toBe(true);
+  });
+
+  it("treats items with a positive project target as projects", () => {
+    expect(isProjectItem(makeItem({ projectData: { target: 5 } }))).toBe(true);
+  });
+
+  it("treats items without project markers as books", () => {
+    expect(isProjectItem(makeItem({}))).toBe(false);
+    expect(isProjectItem(makeItem({ learningBookBonus: { modifier: 2, categories: [] } }))).toBe(
+      false,
+    );
+    expect(isProjectItem(makeItem({ projectData: { target: 0 } }))).toBe(false);
   });
 });

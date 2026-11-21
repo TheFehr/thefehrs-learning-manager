@@ -4,10 +4,9 @@
   import { MODULE_ID } from "@/global.js";
   import type { Item5e } from "@/types.js";
   import type { PackIndexEntry } from "./mass-edit-logic.js";
-  import { loadBooksIndex, loadConfiguredDocuments } from "./mass-edit-logic.js";
+  import { loadBooksIndex, loadConfiguredDocuments, isProjectItem } from "./mass-edit-logic.js";
   import ItemLearningConfig from "@/apps/tabs/ItemLearningConfig.svelte";
   import AddEntityDialog from "./AddEntityDialog.svelte";
-  import { LearningFeatType } from "@/logic/project-item.js";
 
   let loading = $state(true);
   let docs = $state<Item5e[]>([]);
@@ -17,21 +16,11 @@
 
   const bookCompendiums = Settings.get("bookCompendiums");
 
-  // Projects and learned rewards share the learningModeEnabled flag; they are not books.
-  function isBook(item: Item5e): boolean {
-    const isProject =
-      !!item.getFlag(MODULE_ID, "isLearningProject") ||
-      !!item.getFlag(MODULE_ID, "isLearnedReward") ||
-      (item.type === "feat" &&
-        (item.system as unknown as { type?: { value: string } }).type?.value === LearningFeatType);
-    return !isProject;
-  }
-
   onMount(async () => {
     try {
       const entries = await loadBooksIndex();
       allEntries = entries;
-      docs = (await loadConfiguredDocuments<Item5e>(entries)).filter(isBook);
+      docs = (await loadConfiguredDocuments<Item5e>(entries)).filter((d) => !isProjectItem(d));
     } catch (e) {
       console.error("[BooksTab] Failed to load books:", e);
     } finally {

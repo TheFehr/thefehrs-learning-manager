@@ -2,6 +2,7 @@ import { MODULE_ID } from "@/global.js";
 import { Settings } from "@/core/settings.js";
 import { Logger } from "@/core/logger.js";
 import { getGame } from "@/core/foundry.js";
+import { LearningFeatType } from "@/logic/project-item.js";
 import type { Item5e, Actor5e } from "@/types.js";
 
 export interface PackIndexEntry {
@@ -158,4 +159,17 @@ export async function loadTeachersIndex(): Promise<PackIndexEntry[]> {
 export async function loadBooksIndex(): Promise<PackIndexEntry[]> {
   const packIds = Settings.get("bookCompendiums");
   return buildPackIndex(packIds, "Item");
+}
+
+// Projects and books share the learningModeEnabled flag, and a compendium can be
+// configured as both. Every item is classified into exactly one of the two tabs.
+export function isProjectItem(item: Item5e): boolean {
+  const projectData = item.getFlag(MODULE_ID, "projectData") as { target?: number } | undefined;
+  return (
+    !!item.getFlag(MODULE_ID, "isLearningProject") ||
+    !!item.getFlag(MODULE_ID, "isLearnedReward") ||
+    (item.type === "feat" &&
+      (item.system as unknown as { type?: { value: string } }).type?.value === LearningFeatType) ||
+    (projectData?.target ?? 0) > 0
+  );
 }
