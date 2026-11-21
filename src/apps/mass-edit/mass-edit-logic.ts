@@ -175,7 +175,7 @@ export function isProjectItem(item: Item5e): boolean {
   );
 }
 
-function getPackId(uuid: string | undefined): string {
+function getPackId(uuid: string | null | undefined): string {
   const segments = (uuid ?? "").split(".");
   return segments[0] === "Compendium" && segments.length >= 3
     ? `${segments[1]}.${segments[2]}`
