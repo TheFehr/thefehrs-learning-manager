@@ -15,6 +15,7 @@
     onAdded,
     onDismiss,
     requireCompendiumDestination = false,
+    markAsProject = false,
   } = $props<{
     packIds: string[];
     docType: "Item" | "Actor";
@@ -28,6 +29,9 @@
     // valid teachers when scanWorldActors is on, and world items are always
     // allowed as books), so this defaults to false everywhere else.
     requireCompendiumDestination?: boolean;
+    // Persists isProjectTemplate so the item stays in the Projects tab even in a
+    // compendium that is also configured for books.
+    markAsProject?: boolean;
   }>();
 
   let mode = $state<"search" | "create">("search");
@@ -58,7 +62,7 @@
   async function handleActivate(entry: PackIndexEntry) {
     isWorking = true;
     errorMessage = null;
-    const doc = await activateDocument(entry);
+    const doc = await activateDocument(entry, markAsProject);
     isWorking = false;
     if (doc) {
       onAdded(doc);
@@ -75,7 +79,13 @@
     }
     isWorking = true;
     errorMessage = null;
-    const doc = await createAndActivateDocument(docType, name, defaultItemType, newDestination);
+    const doc = await createAndActivateDocument(
+      docType,
+      name,
+      defaultItemType,
+      newDestination,
+      markAsProject,
+    );
     isWorking = false;
     if (doc) {
       onAdded(doc);

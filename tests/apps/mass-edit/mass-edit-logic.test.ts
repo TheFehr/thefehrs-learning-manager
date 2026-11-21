@@ -408,6 +408,10 @@ describe("isProjectItem", () => {
     expect(isProjectItem(makeItem({ isLearnedReward: true }))).toBe(true);
   });
 
+  it("treats project templates as projects", () => {
+    expect(isProjectItem(makeItem({ isProjectTemplate: true }))).toBe(true);
+  });
+
   it("treats items with a positive project target as projects", () => {
     expect(isProjectItem(makeItem({ projectData: { target: 5 } }))).toBe(true);
   });
@@ -446,5 +450,41 @@ describe("getItemTab", () => {
     setPacks(["w.both"], ["w.both"]);
     expect(getItemTab(item("w.both", { projectData: { target: 3 } }))).toBe("projects");
     expect(getItemTab(item("w.both", { learningBookBonus: { modifier: 1 } }))).toBe("books");
+  });
+});
+
+describe("markAsProject", () => {
+  it("sets isProjectTemplate when activating from the Projects tab", async () => {
+    const setFlag = vi.fn().mockResolvedValue(undefined);
+    const pack = makePack({ getDocument: vi.fn().mockResolvedValue({ setFlag }) });
+    (globalThis as any).game.packs.get = vi.fn().mockReturnValue(pack);
+    const entry = {
+      _id: "a",
+      name: "A",
+      packId: "world.test-pack",
+      uuid: "u",
+      learningModeEnabled: false,
+    };
+
+    await activateDocument(entry, true);
+
+    expect(setFlag).toHaveBeenCalledWith(MODULE_ID, "isProjectTemplate", true);
+  });
+
+  it("does not set isProjectTemplate by default", async () => {
+    const setFlag = vi.fn().mockResolvedValue(undefined);
+    const pack = makePack({ getDocument: vi.fn().mockResolvedValue({ setFlag }) });
+    (globalThis as any).game.packs.get = vi.fn().mockReturnValue(pack);
+    const entry = {
+      _id: "a",
+      name: "A",
+      packId: "world.test-pack",
+      uuid: "u",
+      learningModeEnabled: false,
+    };
+
+    await activateDocument(entry);
+
+    expect(setFlag).not.toHaveBeenCalledWith(MODULE_ID, "isProjectTemplate", true);
   });
 });

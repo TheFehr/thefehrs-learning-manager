@@ -81,6 +81,7 @@
       onAdded={handleAdded}
       onDismiss={() => (showAddDialog = false)}
       requireCompendiumDestination={true}
+      markAsProject={true}
     />
   {/if}
 

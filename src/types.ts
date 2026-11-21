@@ -183,6 +183,7 @@ declare module "fvtt-types/configuration" {
         projectData?: ProjectFlagData;
         isLearningProject?: boolean;
         isLearnedReward?: boolean;
+        isProjectTemplate?: boolean;
         stashedType?: string;
         stashedEffects?: unknown[];
         stashedActivities?: object;

@@ -226,6 +226,7 @@ describe("AddEntityDialog.svelte", () => {
         "Brand New",
         "feat",
         expect.any(String),
+        false,
       ),
     );
     await vi.waitFor(() => expect(onAdded).toHaveBeenCalledWith(fakeDoc));

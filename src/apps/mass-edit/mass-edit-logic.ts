@@ -88,11 +88,15 @@ export async function loadConfiguredDocuments<T>(entries: PackIndexEntry[]): Pro
   return docs;
 }
 
-export async function activateDocument(entry: PackIndexEntry): Promise<Item5e | Actor5e | null> {
+export async function activateDocument(
+  entry: PackIndexEntry,
+  markAsProject = false,
+): Promise<Item5e | Actor5e | null> {
   const doc = await loadFullDocument<Item5e | Actor5e>(entry);
   if (!doc) return null;
   try {
     await (doc as any).setFlag(MODULE_ID, "learningModeEnabled", true);
+    if (markAsProject) await (doc as any).setFlag(MODULE_ID, "isProjectTemplate", true);
     return doc;
   } catch (err) {
     Logger.error(`Mass Edit | Failed to activate "${entry.name}":`, true, err);
@@ -122,6 +126,7 @@ export async function createAndActivateDocument(
   name: string,
   itemType: string | undefined,
   packId: string,
+  markAsProject = false,
 ): Promise<Item5e | Actor5e | null> {
   try {
     const data: Record<string, unknown> = { name };
@@ -136,6 +141,7 @@ export async function createAndActivateDocument(
     if (!doc) return null;
 
     await (doc as any).setFlag(MODULE_ID, "learningModeEnabled", true);
+    if (markAsProject) await (doc as any).setFlag(MODULE_ID, "isProjectTemplate", true);
     return doc;
   } catch (err) {
     Logger.error(`Mass Edit | Failed to create "${name}":`, true, err);
@@ -169,6 +175,7 @@ export function isProjectItem(item: Item5e): boolean {
   return (
     !!item.getFlag(MODULE_ID, "isLearningProject") ||
     !!item.getFlag(MODULE_ID, "isLearnedReward") ||
+    !!item.getFlag(MODULE_ID, "isProjectTemplate") ||
     (item.type === "feat" &&
       (item.system as unknown as { type?: { value: string } }).type?.value === LearningFeatType) ||
     (projectData?.target ?? 0) > 0
