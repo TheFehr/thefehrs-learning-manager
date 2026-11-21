@@ -88,6 +88,14 @@ export async function loadConfiguredDocuments<T>(entries: PackIndexEntry[]): Pro
   return docs;
 }
 
+// Both flags are written in a single document write so activation either fully
+// succeeds or leaves the document untouched.
+function buildActivationFlags(markAsProject: boolean): Record<string, boolean> {
+  return markAsProject
+    ? { learningModeEnabled: true, isProjectTemplate: true }
+    : { learningModeEnabled: true };
+}
+
 export async function activateDocument(
   entry: PackIndexEntry,
   markAsProject = false,
@@ -95,8 +103,7 @@ export async function activateDocument(
   const doc = await loadFullDocument<Item5e | Actor5e>(entry);
   if (!doc) return null;
   try {
-    await (doc as any).setFlag(MODULE_ID, "learningModeEnabled", true);
-    if (markAsProject) await (doc as any).setFlag(MODULE_ID, "isProjectTemplate", true);
+    await (doc as any).update({ flags: { [MODULE_ID]: buildActivationFlags(markAsProject) } });
     return doc;
   } catch (err) {
     Logger.error(`Mass Edit | Failed to activate "${entry.name}":`, true, err);
@@ -129,7 +136,10 @@ export async function createAndActivateDocument(
   markAsProject = false,
 ): Promise<Item5e | Actor5e | null> {
   try {
-    const data: Record<string, unknown> = { name };
+    const data: Record<string, unknown> = {
+      name,
+      flags: { [MODULE_ID]: buildActivationFlags(markAsProject) },
+    };
     if (itemType) data.type = itemType;
     if (itemType === "feat") data.system = { type: { value: LearningFeatType } };
 
@@ -140,8 +150,6 @@ export async function createAndActivateDocument(
     const doc = (await DocClass.create(data, options)) as Item5e | Actor5e;
     if (!doc) return null;
 
-    await (doc as any).setFlag(MODULE_ID, "learningModeEnabled", true);
-    if (markAsProject) await (doc as any).setFlag(MODULE_ID, "isProjectTemplate", true);
     return doc;
   } catch (err) {
     Logger.error(`Mass Edit | Failed to create "${name}":`, true, err);

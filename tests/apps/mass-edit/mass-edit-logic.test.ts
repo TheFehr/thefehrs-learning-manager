@@ -278,8 +278,8 @@ describe("loadConfiguredDocuments", () => {
 
 describe("activateDocument", () => {
   it("sets the learningModeEnabled flag and returns the document", async () => {
-    const setFlag = vi.fn().mockResolvedValue(undefined);
-    const doc = { id: "doc-1", name: "Spell", setFlag };
+    const update = vi.fn().mockResolvedValue(undefined);
+    const doc = { id: "doc-1", name: "Spell", update };
     const pack = makePack({ getDocument: vi.fn().mockResolvedValue(doc) });
     (globalThis as any).game.packs.get = vi.fn().mockReturnValue(pack);
 
@@ -292,7 +292,8 @@ describe("activateDocument", () => {
     };
     const result = await activateDocument(entry);
 
-    expect(setFlag).toHaveBeenCalledWith(MODULE_ID, "learningModeEnabled", true);
+    expect(update).toHaveBeenCalledTimes(1);
+    expect(update).toHaveBeenCalledWith({ flags: { [MODULE_ID]: { learningModeEnabled: true } } });
     expect(result).toBe(doc);
   });
 
@@ -316,30 +317,35 @@ describe("createAndActivateDocument", () => {
   });
 
   it("creates an Item in a compendium pack and activates it", async () => {
-    const setFlag = vi.fn().mockResolvedValue(undefined);
-    const newDoc = { id: "new-1", name: "New Feat", setFlag };
+    const newDoc = { id: "new-1", name: "New Feat" };
     const mockCreate = vi.fn().mockResolvedValue(newDoc);
     (globalThis as any).CONFIG.Item = { documentClass: { create: mockCreate } };
 
     const result = await createAndActivateDocument("Item", "New Feat", "feat", "world.pack");
 
     expect(mockCreate).toHaveBeenCalledWith(
-      { name: "New Feat", type: "feat", system: { type: { value: "learning-project" } } },
+      {
+        name: "New Feat",
+        type: "feat",
+        system: { type: { value: "learning-project" } },
+        flags: { [MODULE_ID]: { learningModeEnabled: true } },
+      },
       { pack: "world.pack" },
     );
-    expect(setFlag).toHaveBeenCalledWith(MODULE_ID, "learningModeEnabled", true);
     expect(result).toBe(newDoc);
   });
 
   it("creates an Actor in the world when packId is empty", async () => {
-    const setFlag = vi.fn().mockResolvedValue(undefined);
-    const newActor = { id: "new-npc", name: "New NPC", setFlag };
+    const newActor = { id: "new-npc", name: "New NPC" };
     const mockCreate = vi.fn().mockResolvedValue(newActor);
     (globalThis as any).CONFIG.Actor = { documentClass: { create: mockCreate } };
 
     await createAndActivateDocument("Actor", "New NPC", "npc", "");
 
-    expect(mockCreate).toHaveBeenCalledWith({ name: "New NPC", type: "npc" }, {});
+    expect(mockCreate).toHaveBeenCalledWith(
+      { name: "New NPC", type: "npc", flags: { [MODULE_ID]: { learningModeEnabled: true } } },
+      {},
+    );
   });
 
   it("returns null when create throws", async () => {
@@ -455,8 +461,8 @@ describe("getItemTab", () => {
 
 describe("markAsProject", () => {
   it("sets isProjectTemplate when activating from the Projects tab", async () => {
-    const setFlag = vi.fn().mockResolvedValue(undefined);
-    const pack = makePack({ getDocument: vi.fn().mockResolvedValue({ setFlag }) });
+    const update = vi.fn().mockResolvedValue(undefined);
+    const pack = makePack({ getDocument: vi.fn().mockResolvedValue({ update }) });
     (globalThis as any).game.packs.get = vi.fn().mockReturnValue(pack);
     const entry = {
       _id: "a",
@@ -468,12 +474,15 @@ describe("markAsProject", () => {
 
     await activateDocument(entry, true);
 
-    expect(setFlag).toHaveBeenCalledWith(MODULE_ID, "isProjectTemplate", true);
+    expect(update).toHaveBeenCalledTimes(1);
+    expect(update).toHaveBeenCalledWith({
+      flags: { [MODULE_ID]: { learningModeEnabled: true, isProjectTemplate: true } },
+    });
   });
 
   it("does not set isProjectTemplate by default", async () => {
-    const setFlag = vi.fn().mockResolvedValue(undefined);
-    const pack = makePack({ getDocument: vi.fn().mockResolvedValue({ setFlag }) });
+    const update = vi.fn().mockResolvedValue(undefined);
+    const pack = makePack({ getDocument: vi.fn().mockResolvedValue({ update }) });
     (globalThis as any).game.packs.get = vi.fn().mockReturnValue(pack);
     const entry = {
       _id: "a",
@@ -485,6 +494,17 @@ describe("markAsProject", () => {
 
     await activateDocument(entry);
 
-    expect(setFlag).not.toHaveBeenCalledWith(MODULE_ID, "isProjectTemplate", true);
+    expect(update).toHaveBeenCalledWith({ flags: { [MODULE_ID]: { learningModeEnabled: true } } });
+  });
+
+  it("includes both flags in the creation data when marking as project", async () => {
+    const mockCreate = vi.fn().mockResolvedValue({ id: "n" });
+    (globalThis as any).CONFIG.Item = { documentClass: { create: mockCreate } };
+
+    await createAndActivateDocument("Item", "P", "feat", "world.pack", true);
+
+    expect(mockCreate.mock.calls[0][0].flags).toEqual({
+      [MODULE_ID]: { learningModeEnabled: true, isProjectTemplate: true },
+    });
   });
 });
