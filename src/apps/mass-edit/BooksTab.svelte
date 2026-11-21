@@ -4,7 +4,7 @@
   import { MODULE_ID } from "@/global.js";
   import type { Item5e } from "@/types.js";
   import type { PackIndexEntry } from "./mass-edit-logic.js";
-  import { loadBooksIndex, loadConfiguredDocuments } from "./mass-edit-logic.js";
+  import { loadBooksIndex, loadConfiguredDocuments, getItemTab } from "./mass-edit-logic.js";
   import ItemLearningConfig from "@/apps/tabs/ItemLearningConfig.svelte";
   import AddEntityDialog from "./AddEntityDialog.svelte";
 
@@ -20,7 +20,7 @@
     try {
       const entries = await loadBooksIndex();
       allEntries = entries;
-      docs = await loadConfiguredDocuments<Item5e>(entries);
+      docs = (await loadConfiguredDocuments<Item5e>(entries)).filter((d) => getItemTab(d) === "books");
     } catch (e) {
       console.error("[BooksTab] Failed to load books:", e);
     } finally {

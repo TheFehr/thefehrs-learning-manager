@@ -2,6 +2,7 @@ import { MODULE_ID } from "@/global.js";
 import { Settings } from "@/core/settings.js";
 import { Logger } from "@/core/logger.js";
 import { getGame } from "@/core/foundry.js";
+import { LearningFeatType } from "@/logic/project-item.js";
 import type { Item5e, Actor5e } from "@/types.js";
 
 export interface PackIndexEntry {
@@ -87,11 +88,22 @@ export async function loadConfiguredDocuments<T>(entries: PackIndexEntry[]): Pro
   return docs;
 }
 
-export async function activateDocument(entry: PackIndexEntry): Promise<Item5e | Actor5e | null> {
+// Both flags are written in a single document write so activation either fully
+// succeeds or leaves the document untouched.
+function buildActivationFlags(markAsProject: boolean): Record<string, boolean> {
+  return markAsProject
+    ? { learningModeEnabled: true, isProjectTemplate: true }
+    : { learningModeEnabled: true };
+}
+
+export async function activateDocument(
+  entry: PackIndexEntry,
+  markAsProject = false,
+): Promise<Item5e | Actor5e | null> {
   const doc = await loadFullDocument<Item5e | Actor5e>(entry);
   if (!doc) return null;
   try {
-    await (doc as any).setFlag(MODULE_ID, "learningModeEnabled", true);
+    await (doc as any).update({ flags: { [MODULE_ID]: buildActivationFlags(markAsProject) } });
     return doc;
   } catch (err) {
     Logger.error(`Mass Edit | Failed to activate "${entry.name}":`, true, err);
@@ -121,10 +133,15 @@ export async function createAndActivateDocument(
   name: string,
   itemType: string | undefined,
   packId: string,
+  markAsProject = false,
 ): Promise<Item5e | Actor5e | null> {
   try {
-    const data: Record<string, unknown> = { name };
+    const data: Record<string, unknown> = {
+      name,
+      flags: { [MODULE_ID]: buildActivationFlags(markAsProject) },
+    };
     if (itemType) data.type = itemType;
+    if (itemType === "feat") data.system = { type: { value: LearningFeatType } };
 
     const options: Record<string, unknown> = {};
     if (packId) options.pack = packId;
@@ -133,7 +150,6 @@ export async function createAndActivateDocument(
     const doc = (await DocClass.create(data, options)) as Item5e | Actor5e;
     if (!doc) return null;
 
-    await (doc as any).setFlag(MODULE_ID, "learningModeEnabled", true);
     return doc;
   } catch (err) {
     Logger.error(`Mass Edit | Failed to create "${name}":`, true, err);
@@ -158,4 +174,37 @@ export async function loadTeachersIndex(): Promise<PackIndexEntry[]> {
 export async function loadBooksIndex(): Promise<PackIndexEntry[]> {
   const packIds = Settings.get("bookCompendiums");
   return buildPackIndex(packIds, "Item");
+}
+
+// Projects and books share the learningModeEnabled flag, and a compendium can be
+// configured as both. Every item is classified into exactly one of the two tabs.
+export function isProjectItem(item: Item5e): boolean {
+  const projectData = item.getFlag(MODULE_ID, "projectData") as { target?: number } | undefined;
+  return (
+    !!item.getFlag(MODULE_ID, "isLearningProject") ||
+    !!item.getFlag(MODULE_ID, "isLearnedReward") ||
+    !!item.getFlag(MODULE_ID, "isProjectTemplate") ||
+    (item.type === "feat" &&
+      (item.system as unknown as { type?: { value: string } }).type?.value === LearningFeatType) ||
+    (projectData?.target ?? 0) > 0
+  );
+}
+
+function getPackId(uuid: string | null | undefined): string {
+  const segments = (uuid ?? "").split(".");
+  return segments[0] === "Compendium" && segments.length >= 3
+    ? `${segments[1]}.${segments[2]}`
+    : "";
+}
+
+// A pack configured for only one of the two kinds decides the tab on its own, so
+// freshly created or activated items stay put. Only items from a pack configured
+// as both are told apart by their project markers.
+export function getItemTab(item: Item5e): "projects" | "books" {
+  const packId = getPackId(item.uuid);
+  const inProjects = Settings.get("allowedCompendiums").includes(packId);
+  const inBooks = Settings.get("bookCompendiums").includes(packId);
+  if (inProjects && !inBooks) return "projects";
+  if (inBooks && !inProjects) return "books";
+  return isProjectItem(item) ? "projects" : "books";
 }

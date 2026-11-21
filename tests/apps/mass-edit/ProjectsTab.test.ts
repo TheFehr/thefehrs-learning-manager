@@ -6,7 +6,9 @@ import { MODULE_ID } from "@/global.js";
 
 vi.unmock("svelte");
 
-vi.mock("@/apps/mass-edit/mass-edit-logic.js", () => ({
+vi.mock("@/apps/mass-edit/mass-edit-logic.js", async (importOriginal) => ({
+  getItemTab: (await importOriginal<typeof import("@/apps/mass-edit/mass-edit-logic.js")>())
+    .getItemTab,
   loadProjectsIndex: vi.fn(),
   loadConfiguredDocuments: vi.fn(),
   getAvailableDestinations: vi.fn().mockReturnValue([{ id: "", label: "World" }]),
