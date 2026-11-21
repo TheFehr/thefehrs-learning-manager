@@ -4,7 +4,7 @@
   import { MODULE_ID } from "@/global.js";
   import type { Item5e } from "@/types.js";
   import type { PackIndexEntry } from "./mass-edit-logic.js";
-  import { loadProjectsIndex, loadConfiguredDocuments, isProjectItem } from "./mass-edit-logic.js";
+  import { loadProjectsIndex, loadConfiguredDocuments, getItemTab } from "./mass-edit-logic.js";
   import ItemLearningConfig from "@/apps/tabs/ItemLearningConfig.svelte";
   import AddEntityDialog from "./AddEntityDialog.svelte";
 
@@ -20,7 +20,7 @@
     try {
       const entries = await loadProjectsIndex();
       allEntries = entries;
-      docs = (await loadConfiguredDocuments<Item5e>(entries)).filter(isProjectItem);
+      docs = (await loadConfiguredDocuments<Item5e>(entries)).filter((d) => getItemTab(d) === "projects");
     } catch (e) {
       console.error("[ProjectsTab] Failed to load projects:", e);
     } finally {

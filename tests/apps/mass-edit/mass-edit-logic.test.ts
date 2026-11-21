@@ -8,9 +8,13 @@ import {
   createAndActivateDocument,
   getAvailableDestinations,
   isProjectItem,
+  getItemTab,
 } from "@/apps/mass-edit/mass-edit-logic.js";
 import { MODULE_ID } from "@/global.js";
+import { Settings } from "@/core/settings.js";
 import { ActorsCollection } from "../../setup.js";
+
+vi.mock("@/core/settings.js", () => ({ Settings: { get: vi.fn().mockReturnValue([]) } }));
 
 const FLAG_PATH = `flags.${MODULE_ID}.learningModeEnabled`;
 
@@ -320,7 +324,7 @@ describe("createAndActivateDocument", () => {
     const result = await createAndActivateDocument("Item", "New Feat", "feat", "world.pack");
 
     expect(mockCreate).toHaveBeenCalledWith(
-      { name: "New Feat", type: "feat" },
+      { name: "New Feat", type: "feat", system: { type: { value: "learning-project" } } },
       { pack: "world.pack" },
     );
     expect(setFlag).toHaveBeenCalledWith(MODULE_ID, "learningModeEnabled", true);
@@ -414,5 +418,33 @@ describe("isProjectItem", () => {
       false,
     );
     expect(isProjectItem(makeItem({ projectData: { target: 0 } }))).toBe(false);
+  });
+});
+
+describe("getItemTab", () => {
+  const item = (packId: string, flags: Record<string, unknown> = {}) =>
+    ({
+      type: "loot",
+      uuid: `Compendium.${packId}.Item.x`,
+      system: { type: {} },
+      getFlag: (_s: string, key: string) => flags[key],
+    }) as any;
+
+  function setPacks(projects: string[], books: string[]) {
+    (Settings.get as any).mockImplementation((key: string) =>
+      key === "allowedCompendiums" ? projects : key === "bookCompendiums" ? books : [],
+    );
+  }
+
+  it("uses the pack when it is configured for only one kind", () => {
+    setPacks(["w.projects"], ["w.books"]);
+    expect(getItemTab(item("w.projects"))).toBe("projects");
+    expect(getItemTab(item("w.books", { isLearningProject: true }))).toBe("books");
+  });
+
+  it("uses the project markers when the pack is configured as both", () => {
+    setPacks(["w.both"], ["w.both"]);
+    expect(getItemTab(item("w.both", { projectData: { target: 3 } }))).toBe("projects");
+    expect(getItemTab(item("w.both", { learningBookBonus: { modifier: 1 } }))).toBe("books");
   });
 });

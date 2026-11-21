@@ -126,6 +126,7 @@ export async function createAndActivateDocument(
   try {
     const data: Record<string, unknown> = { name };
     if (itemType) data.type = itemType;
+    if (itemType === "feat") data.system = { type: { value: LearningFeatType } };
 
     const options: Record<string, unknown> = {};
     if (packId) options.pack = packId;
@@ -172,4 +173,23 @@ export function isProjectItem(item: Item5e): boolean {
       (item.system as unknown as { type?: { value: string } }).type?.value === LearningFeatType) ||
     (projectData?.target ?? 0) > 0
   );
+}
+
+function getPackId(uuid: string | undefined): string {
+  const segments = (uuid ?? "").split(".");
+  return segments[0] === "Compendium" && segments.length >= 3
+    ? `${segments[1]}.${segments[2]}`
+    : "";
+}
+
+// A pack configured for only one of the two kinds decides the tab on its own, so
+// freshly created or activated items stay put. Only items from a pack configured
+// as both are told apart by their project markers.
+export function getItemTab(item: Item5e): "projects" | "books" {
+  const packId = getPackId(item.uuid);
+  const inProjects = Settings.get("allowedCompendiums").includes(packId);
+  const inBooks = Settings.get("bookCompendiums").includes(packId);
+  if (inProjects && !inBooks) return "projects";
+  if (inBooks && !inProjects) return "books";
+  return isProjectItem(item) ? "projects" : "books";
 }
