@@ -16,11 +16,20 @@
 
   const allowedCompendiums = Settings.get("allowedCompendiums");
 
+  // A compendium can be both a project and a book compendium; books share the
+  // learningModeEnabled flag but are not projects.
+  function isProject(item: Item5e): boolean {
+    const hasBookBonus = !!item.getFlag(MODULE_ID, "learningBookBonus");
+    const isMarkedProject =
+      !!item.getFlag(MODULE_ID, "isLearningProject") || !!item.getFlag(MODULE_ID, "isLearnedReward");
+    return isMarkedProject || !hasBookBonus;
+  }
+
   onMount(async () => {
     try {
       const entries = await loadProjectsIndex();
       allEntries = entries;
-      docs = await loadConfiguredDocuments<Item5e>(entries);
+      docs = (await loadConfiguredDocuments<Item5e>(entries)).filter(isProject);
     } catch (e) {
       console.error("[ProjectsTab] Failed to load projects:", e);
     } finally {
