@@ -28,6 +28,7 @@
     "@sveltejs/vite-plugin-svelte": "^7.0.0",
     "@thefehr/foundry-playwright": "^1.8.4",
     "@vitest/coverage-v8": "4.1.12",
+    "conventional-commits-parser": "7.1.4",
     "dotenv": "^18.0.0",
     "happy-dom": "^21.0.0",
     "husky": "^9.1.7",

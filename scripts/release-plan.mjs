@@ -11,25 +11,29 @@
 // release on its own and cannot raise the bump above what releasable commits set.
 import { execFileSync } from "node:child_process";
 import { pathToFileURL } from "node:url";
+import { CommitParser } from "conventional-commits-parser";
 
 const RANK = { patch: 1, minor: 2, major: 3 };
 const BUMP_BY_TYPE = { feat: "minor", fix: "patch", perf: "patch" };
-const HEADER = /^(?<type>[a-z]+)(?:\((?<scope>[^)]*)\))?(?<bang>!)?:\s/i;
+const parser = new CommitParser({
+  headerPattern: /^(\w*)(?:\(([^)]*)\))?(!)?: (.*)$/,
+  headerCorrespondence: ["type", "scope", "breaking", "subject"],
+  noteKeywords: ["BREAKING CHANGE", "BREAKING-CHANGE"],
+});
 
 export function isDependencyCommit({ author, subject }) {
   if (/\[bot\]|renovate/i.test(author)) return true;
-  const scope = HEADER.exec(subject)?.groups?.scope?.toLowerCase();
+  const scope = parser.parse(subject).scope?.toLowerCase();
   return scope === "deps" || scope === "deps-dev";
 }
 
 // Returns "major" | "minor" | "patch", or null when the commit is not releasable.
 export function classifyCommit(commit) {
   if (isDependencyCommit(commit)) return null;
-  const header = HEADER.exec(commit.subject);
-  if (!header) return null;
-  const breaking = !!header.groups.bang || /^BREAKING[ -]CHANGE:/m.test(commit.body ?? "");
-  if (breaking) return "major";
-  return BUMP_BY_TYPE[header.groups.type.toLowerCase()] ?? null;
+  const parsed = parser.parse(`${commit.subject}\n\n${commit.body ?? ""}`);
+  if (!parsed.type) return null;
+  if (parsed.breaking || parsed.notes.length > 0) return "major";
+  return BUMP_BY_TYPE[parsed.type.toLowerCase()] ?? null;
 }
 
 export function bumpVersion(version, kind) {
