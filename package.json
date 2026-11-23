@@ -20,13 +20,11 @@
     "test:e2e:docker:v13:verbose": "npm run build && rsync -a --delete dist/ e2e/thefehrs-learning-manager/ && node scripts/run-e2e-docker.mjs",
     "test:e2e:verify": "bash scripts/e2e-verify.sh",
     "test:e2e:verify:local": "node --env-file-if-exists=.env $(command -v npm) run test:e2e:verify",
-    "release": "release-it",
     "prepare": "husky"
   },
   "devDependencies": {
     "@league-of-foundry-developers/foundry-vtt-types": "^14.366.0-beta.20260825144710",
     "@playwright/test": "^1.59.1",
-    "@release-it/bumper": "^8.0.0",
     "@sveltejs/vite-plugin-svelte": "^7.0.0",
     "@thefehr/foundry-playwright": "^1.8.4",
     "@vitest/coverage-v8": "4.1.12",
@@ -36,7 +34,6 @@
     "lint-staged": "^17.0.0",
     "oxfmt": "^0.80.0",
     "oxlint": "^1.60.0",
-    "release-it": "^21.0.0",
     "sass-embedded": "^1.97.3",
     "svelte": "^5.20.0",
     "typescript": "^6.0.0",
