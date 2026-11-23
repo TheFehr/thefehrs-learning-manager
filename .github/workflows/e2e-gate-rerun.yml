@@ -1,0 +1,28 @@
+# Re-runs the `e2e-gate` check when the local e2e verification reports on a commit, so the
+# release PR turns green (and auto-merges) without anyone pressing a button. Status events
+# run from the default branch; this only ever re-runs the gate for that exact commit.
+name: E2E gate rerun
+
+on: status
+
+permissions:
+  actions: write
+  contents: read
+
+jobs:
+  rerun:
+    if: github.event.context == 'e2e/local' && github.event.state == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Re-run the gate for the reported commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.sha }}
+        run: |
+          RUN=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow e2e-gate.yml --commit "$SHA" \
+            --event pull_request --limit 1 --json databaseId --jq '.[0].databaseId // empty')
+          if [ -z "$RUN" ]; then
+            echo "No e2e-gate run for $SHA (not a release PR head); nothing to re-run."
+            exit 0
+          fi
+          gh run rerun "$RUN" --repo "$GITHUB_REPOSITORY"

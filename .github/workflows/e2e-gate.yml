@@ -1,0 +1,39 @@
+# Required check `e2e-gate`. Ordinary PRs pass at once. The release PR (head release/next)
+# passes only when its exact head commit carries a successful `e2e/local` commit status,
+# which the local e2e verification posts after running the suite on that commit. The status
+# belongs to a SHA, so a rebuilt or force-pushed release PR is never covered by an older
+# result. e2e-gate-rerun.yml re-runs this check when the status arrives.
+name: E2E gate
+
+on:
+  pull_request:
+    branches:
+      - main
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  statuses: read
+
+jobs:
+  e2e-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require e2e/local on the release PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          HEAD_REPO: ${{ github.event.pull_request.head.repo.full_name }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          if [ "$HEAD_REF" != "release/next" ] || [ "$HEAD_REPO" != "$GITHUB_REPOSITORY" ]; then
+            echo "Not the release PR: no e2e verification required."
+            exit 0
+          fi
+          STATE=$(gh api "repos/$GITHUB_REPOSITORY/commits/$HEAD_SHA/statuses" \
+            --jq '[.[] | select(.context == "e2e/local")] | first | .state // "missing"')
+          echo "e2e/local on $HEAD_SHA: $STATE"
+          if [ "$STATE" != "success" ]; then
+            echo "::error::The release PR needs a successful e2e/local status on $HEAD_SHA (currently: $STATE)."
+            exit 1
+          fi

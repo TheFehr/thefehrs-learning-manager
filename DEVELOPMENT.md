@@ -25,10 +25,10 @@ Releases are automatic and driven by conventional commits (use `feat:`, `fix:`, 
 
 1. Once a day (or via _Run workflow_ on **Release PR**), the workflow looks at the commits since the last tag. Dependency updates (bot commits, `(deps)` scopes) never count; `feat` bumps the minor version, `fix`/`perf` the patch, a breaking change the major. `docs`, `chore`, `ci` and `test` alone do not trigger a release.
 2. If a release is due, it opens a `chore: release vX.Y.Z` PR labelled `release` and enables auto-merge. The PR is rebuilt on top of `main` whenever `main` moves.
-3. The PR merges itself once CI and the local e2e verification (the `e2e/local` commit status, posted for the exact PR head SHA) are green and the branch is up to date.
+3. The PR merges itself once CI and the local e2e verification (the `e2e-gate` check, satisfied by an `e2e/local` commit status posted for the exact PR head SHA) are green and the branch is up to date.
 4. Merging tags `vX.Y.Z`, which starts the **CI/CD Pipeline** release job (GitHub Release and Foundry package notification).
 
-Required repository setup: the `CLIENT_ID` / `APP_PRIVATE_KEY` secrets of a GitHub App with contents and pull-request write access, "Allow auto-merge", and branch protection on `main` requiring `test`, `e2e/local` and up-to-date branches (the `e2e/local` requirement applies to the release PR only if it is configured as a ruleset limited to `release/next`).
+Required repository setup: the `CLIENT_ID` / `APP_PRIVATE_KEY` secrets of a GitHub App with contents and pull-request write access, "Allow auto-merge", and branch protection on `main` requiring `test` and `e2e-gate` plus up-to-date branches. `e2e-gate` passes at once on ordinary PRs and, on the release PR, only once its head commit has a successful `e2e/local` status.
 
 ---
 

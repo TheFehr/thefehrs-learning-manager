@@ -9,10 +9,11 @@
 #   tag       The merge of the release PR is tagged v<version>, which starts release.yml.
 #
 # The PR is rebuilt on top of main whenever main moves. Together with "Require branches to be
-# up to date before merging" and the required `e2e/local` commit status on the PR head, a
-# green e2e result only ever applies to the exact tree that gets merged: a dependency PR that
-# lands mid-verification leaves the release PR behind, blocks auto-merge, and gives the
-# rebuilt head a new SHA that has to be verified again.
+# up to date before merging" and the required `e2e-gate` check (e2e-gate.yml: the release PR
+# needs a successful `e2e/local` commit status on its exact head), a green e2e result only
+# ever applies to the exact tree that gets merged: a dependency PR that lands
+# mid-verification leaves the release PR behind, blocks auto-merge, and gives the rebuilt head
+# a new SHA that has to be verified again.
 name: Release PR
 
 on:
