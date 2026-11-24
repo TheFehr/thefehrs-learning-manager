@@ -1,0 +1,242 @@
+# Automated releases, driven by conventional commits.
+#
+#   plan      Read-only. Decides whether a release is due (see scripts/release-plan.mjs:
+#             anything but dependency updates since the last tag) and which version it carries.
+#   release   Daily (and on dispatch): opens the "release"-labelled PR that bumps the version
+#             and enables auto-merge. On a push to main the PR is only refreshed, never opened,
+#             so a release goes out at most once a day.
+#   close     Closes the release PR when nothing releasable is left.
+#   tag       A merged release PR is tagged v<version>, which starts release.yml. Stateless
+#             on purpose: runs of this workflow can be cancelled or replaced while queued, so
+#             "HEAD is the release commit" cannot be relied on. Instead, whenever package.json
+#             carries a version that has no tag yet, the commit that last changed it is tagged
+#             (if it came from a release PR), however many commits landed after it.
+#
+# The PR is rebuilt on top of main whenever main moves. Together with "Require branches to be
+# up to date before merging" and the required `e2e-gate` check (e2e-gate.yml: the release PR
+# needs a successful `e2e/local` commit status on its exact head), a green e2e result only
+# ever applies to the exact tree that gets merged: a dependency PR that lands
+# mid-verification leaves the release PR behind, blocks auto-merge, and gives the rebuilt head
+# a new SHA that has to be verified again.
+name: Release PR
+
+on:
+  push:
+    branches:
+      - main
+  schedule:
+    # Off the hour on purpose: everyone's "0 0 * * *" jobs queue at once and run late.
+    - cron: "17 3 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: release-pr
+  cancel-in-progress: false
+
+env:
+  RELEASE_BRANCH: release/next
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      tag_pending: ${{ steps.plan.outputs.tag_pending }}
+      release_sha: ${{ steps.plan.outputs.release_sha }}
+      release: ${{ steps.plan.outputs.release }}
+      version: ${{ steps.plan.outputs.version }}
+      open_pr: ${{ steps.plan.outputs.open_pr }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event_name == 'push' && github.sha || github.event.repository.default_branch }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: ".tool-versions"
+          cache: npm
+
+      # release-plan.mjs needs the commit parser. No lifecycle scripts run: this job is
+      # read-only and only ever executes that one script.
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Plan
+        id: plan
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # An untagged release: package.json carries a version without a tag, and the commit
+          # that last changed it came from a `release`-labelled PR. Detected by the label, not
+          # the commit message, so an edited merge title cannot break detection. Looked up
+          # from the version rather than from HEAD, so a release commit is still found after
+          # later commits landed on top of it (or its own run was cancelled).
+          VERSION=$(jq -r .version package.json)
+          TAG_PENDING=false
+          RELEASE_SHA=""
+          if ! git rev-parse -q --verify "refs/tags/v$VERSION" > /dev/null; then
+            CANDIDATE=$(git log -1 --format=%H -G'^[[:space:]]*"version"' -- package.json)
+            LABELLED=$(gh api "repos/$GITHUB_REPOSITORY/commits/$CANDIDATE/pulls" \
+              --jq '[.[] | select(.labels[].name == "release")] | length > 0')
+            if [ "$LABELLED" = "true" ]; then
+              TAG_PENDING=true
+              RELEASE_SHA=$CANDIDATE
+            fi
+          fi
+          echo "tag_pending=$TAG_PENDING" >> "$GITHUB_OUTPUT"
+          echo "release_sha=$RELEASE_SHA" >> "$GITHUB_OUTPUT"
+
+          OPEN_PR=$(gh pr list --head "$RELEASE_BRANCH" --label release --state open \
+            --json number --jq '.[0].number // empty')
+          echo "open_pr=$OPEN_PR" >> "$GITHUB_OUTPUT"
+
+          if [ "$TAG_PENDING" = "true" ]; then
+            # Tag first; the next run plans from the new tag.
+            echo "release=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          PLAN=$(node scripts/release-plan.mjs)
+          echo "$PLAN"
+          echo "release=$(echo "$PLAN" | jq -r .release)" >> "$GITHUB_OUTPUT"
+          echo "version=$(echo "$PLAN" | jq -r .version)" >> "$GITHUB_OUTPUT"
+
+  release-pr:
+    needs: plan
+    if: >-
+      needs.plan.outputs.release == 'true'
+      && (github.event_name != 'push' || needs.plan.outputs.open_pr != '')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate token
+        id: app
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+        with:
+          client-id: ${{ secrets.CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ github.event_name == 'push' && github.sha || github.event.repository.default_branch }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
+        with:
+          node-version-file: ".tool-versions"
+
+      - name: Bump version
+        env:
+          VERSION: ${{ needs.plan.outputs.version }}
+        run: |
+          npm version "$VERSION" --no-git-tag-version --allow-same-version --ignore-scripts
+          jq --arg version "$VERSION" '.version = $version' public/module.json > public/module.json.tmp
+          mv public/module.json.tmp public/module.json
+
+      - name: Ensure the release label exists
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+        run: gh label create release --color 0e8a16 --description "Automated release PR" --repo "$GITHUB_REPOSITORY" 2>/dev/null || true
+
+      - name: Open or refresh the release PR
+        uses: peter-evans/create-pull-request@5f6978faf089d4d20b00c7766989d076bb2fc7f1 # v8
+        with:
+          token: ${{ steps.app.outputs.token }}
+          commit-message: "chore: release v${{ needs.plan.outputs.version }}"
+          title: "chore: release v${{ needs.plan.outputs.version }}"
+          body: >-
+            Automated release. Merging this PR tags v${{ needs.plan.outputs.version }}
+            and publishes it. It merges itself once CI and the local e2e verification
+            (`e2e/local`) are green on this exact commit.
+          add-paths: |
+            package.json
+            package-lock.json
+            public/module.json
+          branch: ${{ env.RELEASE_BRANCH }}
+          base: ${{ github.event.repository.default_branch }}
+          delete-branch: true
+          sign-commits: true
+          labels: release
+
+      - name: Enable auto-merge
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          VERSION: ${{ needs.plan.outputs.version }}
+        run: |
+          PR=$(gh pr list --head "$RELEASE_BRANCH" --label release --state open \
+            --json number --jq '.[0].number // empty')
+          [ -n "$PR" ] || { echo "::error::No open release PR found."; exit 1; }
+          gh pr merge "$PR" --auto --squash --subject "chore: release v$VERSION" --repo "$GITHUB_REPOSITORY"
+
+  close-release-pr:
+    needs: plan
+    if: >-
+      needs.plan.outputs.release == 'false'
+      && needs.plan.outputs.tag_pending == 'false'
+      && needs.plan.outputs.open_pr != ''
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate token
+        id: app
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+        with:
+          client-id: ${{ secrets.CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
+      - name: Close the release PR
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+          PR: ${{ needs.plan.outputs.open_pr }}
+        run: gh pr close "$PR" --delete-branch --comment "Nothing releasable is left since the last tag." --repo "$GITHUB_REPOSITORY"
+
+  tag:
+    needs: plan
+    if: needs.plan.outputs.tag_pending == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate token
+        id: app
+        uses: actions/create-github-app-token@64ab729a6294000f5aa4a4bc0b73d1f32bc45510 # v3
+        with:
+          client-id: ${{ secrets.CLIENT_ID }}
+          private-key: ${{ secrets.APP_PRIVATE_KEY }}
+          permission-contents: write
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: ${{ needs.plan.outputs.release_sha }}
+          persist-credentials: false
+
+      # Pushed with the app token so the tag push starts release.yml (a GITHUB_TOKEN push
+      # would not). The checkout is the release commit itself, not HEAD, so commits merged
+      # after it do not matter.
+      - name: Tag the release commit
+        env:
+          GH_TOKEN: ${{ steps.app.outputs.token }}
+        run: |
+          VERSION=$(jq -r .version package.json)
+          MODULE_VERSION=$(jq -r .version public/module.json)
+          [ "$VERSION" = "$MODULE_VERSION" ] || {
+            echo "::error::package.json ($VERSION) and public/module.json ($MODULE_VERSION) disagree."
+            exit 1
+          }
+          TAG="v$VERSION"
+          git fetch --tags --quiet
+          if git rev-parse -q --verify "refs/tags/$TAG" > /dev/null; then
+            [ "$(git rev-list -n1 "$TAG")" = "$(git rev-parse HEAD)" ] || {
+              echo "::error::Tag $TAG already exists on a different commit."
+              exit 1
+            }
+            echo "Tag $TAG already exists on this commit, nothing to do."
+            exit 0
+          fi
+          git tag "$TAG"
+          git push "https://x-access-token:${GH_TOKEN}@github.com/$GITHUB_REPOSITORY.git" "$TAG"
