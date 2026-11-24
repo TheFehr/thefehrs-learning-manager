@@ -6,7 +6,11 @@
 #             and enables auto-merge. On a push to main the PR is only refreshed, never opened,
 #             so a release goes out at most once a day.
 #   close     Closes the release PR when nothing releasable is left.
-#   tag       The merge of the release PR is tagged v<version>, which starts release.yml.
+#   tag       A merged release PR is tagged v<version>, which starts release.yml. Stateless
+#             on purpose: runs of this workflow can be cancelled or replaced while queued, so
+#             "HEAD is the release commit" cannot be relied on. Instead, whenever package.json
+#             carries a version that has no tag yet, the commit that last changed it is tagged
+#             (if it came from a release PR), however many commits landed after it.
 #
 # The PR is rebuilt on top of main whenever main moves. Together with "Require branches to be
 # up to date before merging" and the required `e2e-gate` check (e2e-gate.yml: the release PR
@@ -40,7 +44,8 @@ jobs:
   plan:
     runs-on: ubuntu-latest
     outputs:
-      is_release_commit: ${{ steps.plan.outputs.is_release_commit }}
+      tag_pending: ${{ steps.plan.outputs.tag_pending }}
+      release_sha: ${{ steps.plan.outputs.release_sha }}
       release: ${{ steps.plan.outputs.release }}
       version: ${{ steps.plan.outputs.version }}
       open_pr: ${{ steps.plan.outputs.open_pr }}
@@ -66,19 +71,33 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          # A merged release PR is detected by its label, not the commit message, so an
-          # edited merge title cannot break detection.
-          LABELLED=$(gh api "repos/$GITHUB_REPOSITORY/commits/$(git rev-parse HEAD)/pulls" \
-            --jq '[.[] | select(.labels[].name == "release")] | length > 0')
-          echo "is_release_commit=$LABELLED" >> "$GITHUB_OUTPUT"
+          # An untagged release: package.json carries a version without a tag, and the commit
+          # that last changed it came from a `release`-labelled PR. Detected by the label, not
+          # the commit message, so an edited merge title cannot break detection. Looked up
+          # from the version rather than from HEAD, so a release commit is still found after
+          # later commits landed on top of it (or its own run was cancelled).
+          VERSION=$(jq -r .version package.json)
+          TAG_PENDING=false
+          RELEASE_SHA=""
+          if ! git rev-parse -q --verify "refs/tags/v$VERSION" > /dev/null; then
+            CANDIDATE=$(git log -1 --format=%H -G'^[[:space:]]*"version"' -- package.json)
+            LABELLED=$(gh api "repos/$GITHUB_REPOSITORY/commits/$CANDIDATE/pulls" \
+              --jq '[.[] | select(.labels[].name == "release")] | length > 0')
+            if [ "$LABELLED" = "true" ]; then
+              TAG_PENDING=true
+              RELEASE_SHA=$CANDIDATE
+            fi
+          fi
+          echo "tag_pending=$TAG_PENDING" >> "$GITHUB_OUTPUT"
+          echo "release_sha=$RELEASE_SHA" >> "$GITHUB_OUTPUT"
 
           OPEN_PR=$(gh pr list --head "$RELEASE_BRANCH" --label release --state open \
             --json number --jq '.[0].number // empty')
           echo "open_pr=$OPEN_PR" >> "$GITHUB_OUTPUT"
 
-          if [ "$LABELLED" = "true" ]; then
+          if [ "$TAG_PENDING" = "true" ]; then
+            # Tag first; the next run plans from the new tag.
             echo "release=false" >> "$GITHUB_OUTPUT"
-            # The tag job reads the version from package.json.
             exit 0
           fi
 
@@ -159,7 +178,7 @@ jobs:
     needs: plan
     if: >-
       needs.plan.outputs.release == 'false'
-      && needs.plan.outputs.is_release_commit == 'false'
+      && needs.plan.outputs.tag_pending == 'false'
       && needs.plan.outputs.open_pr != ''
     runs-on: ubuntu-latest
     steps:
@@ -180,7 +199,7 @@ jobs:
 
   tag:
     needs: plan
-    if: needs.plan.outputs.is_release_commit == 'true'
+    if: needs.plan.outputs.tag_pending == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Generate token
@@ -193,12 +212,12 @@ jobs:
 
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ github.event_name == 'push' && github.sha || github.event.repository.default_branch }}
+          ref: ${{ needs.plan.outputs.release_sha }}
           persist-credentials: false
 
       # Pushed with the app token so the tag push starts release.yml (a GITHUB_TOKEN push
-      # would not). HEAD stays the release commit until the next push, so every run until
-      # then lands here again: an existing tag on this commit means "already released".
+      # would not). The checkout is the release commit itself, not HEAD, so commits merged
+      # after it do not matter.
       - name: Tag the release commit
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}

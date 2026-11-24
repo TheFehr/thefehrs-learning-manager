@@ -17,8 +17,9 @@ cd "$(dirname "$0")/.."
 # into its shell before calling this script, so there's nothing to load here
 # either way.
 
-# Check for uncommitted changes
-if ! git diff-index --quiet HEAD -- .; then
+# Check for uncommitted changes, staged or untracked included: the result is reported for
+# HEAD's SHA, so the tested tree must be exactly HEAD's (ignored build output is fine).
+if [ -n "$(git status --porcelain)" ]; then
     echo "❌ Error: Working directory must be clean before running verification."
     echo "Please commit or stash your changes first."
     exit 1

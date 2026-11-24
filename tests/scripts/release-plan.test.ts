@@ -27,6 +27,14 @@ describe("classifyCommit", () => {
     expect(classifyCommit(c("fix: x", "details\n\nBREAKING CHANGE: gone"))).toBe("major");
   });
 
+  it("does not release for a breaking marker on a non-releasable type", () => {
+    expect(classifyCommit(c("chore!: drop a script"))).toBeNull();
+    expect(classifyCommit(c("docs: x", "BREAKING CHANGE: words"))).toBeNull();
+    expect(planRelease({ commits: [c("fix: a"), c("ci!: b")], currentVersion: "1.0.0" }).kind).toBe(
+      "patch",
+    );
+  });
+
   it("ignores dependency updates by scope and by bot author", () => {
     expect(classifyCommit(c("fix(deps): update dependency foo"))).toBeNull();
     expect(classifyCommit(c("chore(deps-dev): bump"))).toBeNull();

@@ -4,7 +4,7 @@
 //
 //   feat                  -> minor
 //   fix, perf             -> patch
-//   "!" or BREAKING CHANGE -> major
+//   "!" or BREAKING CHANGE -> major (only on feat, fix and perf)
 //
 // Dependency updates never count: not commits by a bot, not (deps)/(deps-dev)
 // scoped ones. Any other type (docs, chore, ci, test, ...) does not trigger a
@@ -31,9 +31,9 @@ export function isDependencyCommit({ author, subject }) {
 export function classifyCommit(commit) {
   if (isDependencyCommit(commit)) return null;
   const parsed = parser.parse(`${commit.subject}\n\n${commit.body ?? ""}`);
-  if (!parsed.type) return null;
-  if (parsed.breaking || parsed.notes.length > 0) return "major";
-  return BUMP_BY_TYPE[parsed.type.toLowerCase()] ?? null;
+  const bump = BUMP_BY_TYPE[parsed.type?.toLowerCase()];
+  if (!bump) return null;
+  return parsed.breaking || parsed.notes.length > 0 ? "major" : bump;
 }
 
 export function bumpVersion(version, kind) {
