@@ -138,8 +138,13 @@ jobs:
           VERSION: ${{ needs.plan.outputs.version }}
         run: |
           npm version "$VERSION" --no-git-tag-version --allow-same-version --ignore-scripts
-          jq --arg version "$VERSION" '.version = $version' public/module.json > public/module.json.tmp
-          mv public/module.json.tmp public/module.json
+          # Only the version line changes: re-serialising the file with jq would change its
+          # formatting, which the formatting check then rejects on the release PR.
+          sed -i -E '0,/^  "version": "[^"]*"/s//  "version": "'"$VERSION"'"/' public/module.json
+          [ "$(jq -r .version public/module.json)" = "$VERSION" ] || {
+            echo "::error::Could not set the version in public/module.json."
+            exit 1
+          }
 
       - name: Ensure the release label exists
         env:
