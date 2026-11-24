@@ -23,6 +23,10 @@ export default defineConfig({
   workers: 1,
   /* Reporter to use. See https://playwright.dev/docs/test-reporters */
   reporter: [
+    // One line per finished test on stdout. Without it a run prints nothing between
+    // "Running N tests" and the end, which makes a long run impossible to follow
+    // (and its progress impossible to report).
+    ["list"],
     [
       "html",
       { open: "never", outputFolder: process.env.PLAYWRIGHT_HTML_REPORT || "playwright-report" },
