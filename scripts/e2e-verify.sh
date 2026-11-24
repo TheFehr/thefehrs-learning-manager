@@ -30,6 +30,14 @@ SHA=$(git rev-parse HEAD)
 echo "🚀 Running E2E tests (Foundry v14, Docker) on ${SHA}..."
 npm run test:e2e:docker:verbose
 
+# The suite reads the working tree while it runs, so make sure it still is the commit that
+# was checked at the start (a moved HEAD or a changed or new file would make the result
+# describe a different tree).
+if [ "$(git rev-parse HEAD)" != "$SHA" ] || [ -n "$(git status --porcelain)" ]; then
+    echo "❌ Error: The working tree changed while the tests were running; the result does not describe ${SHA}."
+    exit 1
+fi
+
 # Nothing is committed: the result belongs to the commit that was tested, and whatever
 # automation ran this reports it for exactly that SHA (the `e2e/local` commit status).
 echo "✅ E2E verification successful for ${SHA}."
