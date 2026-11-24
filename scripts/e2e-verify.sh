@@ -32,8 +32,9 @@ npm run test:e2e:docker:verbose
 
 # The suite reads the working tree while it runs, so make sure it still is the commit that
 # was checked at the start (a moved HEAD or a changed or new file would make the result
-# describe a different tree).
-if [ "$(git rev-parse HEAD)" != "$SHA" ] || [ -n "$(git status --porcelain)" ]; then
+# describe a different tree). e2e/screenshots/ is excluded: every run regenerates those PNGs
+# and they are documentation of the current UI, not an input of the suite.
+if [ "$(git rev-parse HEAD)" != "$SHA" ] || [ -n "$(git status --porcelain -- . ':!e2e/screenshots')" ]; then
     echo "❌ Error: The working tree changed while the tests were running; the result does not describe ${SHA}."
     exit 1
 fi
