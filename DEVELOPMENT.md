@@ -88,3 +88,13 @@ To ensure project stability and type safety, **always** run the following comman
     - Run `npm run test:e2e:ui` to open the Playwright UI for debugging.
     - Run `npm run test:e2e:verify:local` to perform the full verification suite without committing anything (loads `.env` via Node's `--env-file-if-exists`; `test:e2e:verify` itself expects credentials already in the environment).
 4.  **Linting**: Run `npm run lint` and `npm run fmt:check` to ensure code style compliance.
+
+### Running the e2e suite on a PR (opt-in)
+
+Ordinary PRs are not e2e-verified automatically: the suite takes about 45 minutes against a real Foundry install. To check a large change before it reaches `main`, add the **`e2e`** label to a PR from this repository once its `test` check is green. The verification machine picks it up within a few minutes and reports on the PR's head commit:
+
+- The `e2e/local` commit status shows progress while the run is going (phase, minutes, and a finished-test counter) and the result at the end.
+- A failure adds a PR comment. A commit that has failed twice is not retried until it gets a new commit.
+- A new push is verified again while the label stays on.
+
+The result is informational: only the release PR is gated on `e2e/local` (`e2e-gate`). The machine verifies one commit at a time, in this order: the release PR, labelled PRs (oldest first), then `main`. PRs from forks are never run.
