@@ -91,8 +91,10 @@ jobs:
           echo "tag_pending=$TAG_PENDING" >> "$GITHUB_OUTPUT"
           echo "release_sha=$RELEASE_SHA" >> "$GITHUB_OUTPUT"
 
-          OPEN_PR=$(gh pr list --head "$RELEASE_BRANCH" --label release --state open \
-            --json number --jq '.[0].number // empty')
+          # Not `--label`: that goes through the search index, which lags behind a PR that
+          # was just created. The label is checked on the listed PR instead.
+          OPEN_PR=$(gh pr list --head "$RELEASE_BRANCH" --state open --json number,labels \
+            --jq '[.[] | select(any(.labels[]; .name == "release"))] | .[0].number // empty')
           echo "open_pr=$OPEN_PR" >> "$GITHUB_OUTPUT"
 
           if [ "$TAG_PENDING" = "true" ]; then
@@ -136,8 +138,13 @@ jobs:
           VERSION: ${{ needs.plan.outputs.version }}
         run: |
           npm version "$VERSION" --no-git-tag-version --allow-same-version --ignore-scripts
-          jq --arg version "$VERSION" '.version = $version' public/module.json > public/module.json.tmp
-          mv public/module.json.tmp public/module.json
+          # Only the version line changes: re-serialising the file with jq would change its
+          # formatting, which the formatting check then rejects on the release PR.
+          sed -i -E '0,/^  "version": "[^"]*"/s//  "version": "'"$VERSION"'"/' public/module.json
+          [ "$(jq -r .version public/module.json)" = "$VERSION" ] || {
+            echo "::error::Could not set the version in public/module.json."
+            exit 1
+          }
 
       - name: Ensure the release label exists
         env:
@@ -169,8 +176,8 @@ jobs:
           GH_TOKEN: ${{ steps.app.outputs.token }}
           VERSION: ${{ needs.plan.outputs.version }}
         run: |
-          PR=$(gh pr list --head "$RELEASE_BRANCH" --label release --state open \
-            --json number --jq '.[0].number // empty')
+          PR=$(gh pr list --head "$RELEASE_BRANCH" --state open --json number,labels \
+            --jq '[.[] | select(any(.labels[]; .name == "release"))] | .[0].number // empty')
           [ -n "$PR" ] || { echo "::error::No open release PR found."; exit 1; }
           gh pr merge "$PR" --auto --squash --subject "chore: release v$VERSION" --repo "$GITHUB_REPOSITORY"
 
