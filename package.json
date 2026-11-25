@@ -27,7 +27,7 @@
     "@playwright/test": "^1.59.1",
     "@sveltejs/vite-plugin-svelte": "^7.0.0",
     "@thefehr/foundry-playwright": "^1.8.4",
-    "@vitest/coverage-v8": "4.1.12",
+    "@vitest/coverage-v8": "5.1.2",
     "conventional-commits-parser": "7.1.4",
     "dotenv": "^18.0.0",
     "happy-dom": "^21.0.0",
@@ -39,7 +39,7 @@
     "svelte": "^5.20.0",
     "typescript": "^6.0.0",
     "vite": "^8.0.1",
-    "vitest": "4.1.12"
+    "vitest": "5.1.2"
   },
   "lint-staged": {
     "**/*.{ts,json,js,scss,md,mjs,yml}": "npm run fmt",

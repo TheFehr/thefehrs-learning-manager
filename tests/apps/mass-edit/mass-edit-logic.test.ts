@@ -186,7 +186,7 @@ describe("loadFullDocument", () => {
     expect(result).toBe(fakeDoc);
   });
 
-  it("loads a world actor when packId is empty", () => {
+  it("loads a world actor when packId is empty", async () => {
     const fakeActor = { id: "actor-1", name: "Gandalf" };
     (globalThis as any).game.actors = new ActorsCollection();
     (globalThis as any).game.actors.push(fakeActor);
@@ -199,7 +199,7 @@ describe("loadFullDocument", () => {
       uuid: "",
       learningModeEnabled: true,
     });
-    expect(result).resolves.toBe(fakeActor);
+    await expect(result).resolves.toBe(fakeActor);
   });
 
   it("returns null when the pack is not found", async () => {
