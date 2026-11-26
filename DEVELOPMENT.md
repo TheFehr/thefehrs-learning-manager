@@ -24,7 +24,7 @@ npm install
 Releases are automatic and driven by conventional commits (use `feat:`, `fix:`, `perf:`, and `!` / `BREAKING CHANGE:` for major).
 
 1. Once a day (or via _Run workflow_ on **Release PR**), the workflow looks at the commits since the last tag. Dependency updates (bot commits, `(deps)` scopes) never count; `feat` bumps the minor version, `fix`/`perf` the patch, a breaking change the major. `docs`, `chore`, `ci` and `test` alone do not trigger a release.
-2. If a release is due, it opens a `chore: release vX.Y.Z` PR labelled `release` and enables auto-merge. The PR is rebuilt on top of `main` whenever `main` moves.
+2. If a release is due, it opens a `chore: release vX.Y.Z` PR labelled `release` and enables auto-merge. The PR adds the release notes to `public/CHANGELOG.md`, which ships with the module and is shown in Foundry by [TheFehr's Changelog](https://github.com/TheFehr/thefehrs-changelog). The PR is rebuilt on top of `main` whenever `main` moves.
 3. The PR merges itself once CI and the local e2e verification (the `e2e-gate` check, satisfied by an `e2e/local` commit status posted for the exact PR head SHA) are green and the branch is up to date.
 4. Merging tags `vX.Y.Z`, which starts the **CI/CD Pipeline** release job (GitHub Release and Foundry package notification).
 

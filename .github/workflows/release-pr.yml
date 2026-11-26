@@ -49,6 +49,8 @@ jobs:
       release: ${{ steps.plan.outputs.release }}
       version: ${{ steps.plan.outputs.version }}
       open_pr: ${{ steps.plan.outputs.open_pr }}
+      notes: ${{ steps.plan.outputs.notes }}
+      planned_sha: ${{ steps.plan.outputs.planned_sha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -103,10 +105,23 @@ jobs:
             exit 0
           fi
 
+          echo "planned_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           PLAN=$(node scripts/release-plan.mjs)
           echo "$PLAN"
           echo "release=$(echo "$PLAN" | jq -r .release)" >> "$GITHUB_OUTPUT"
           echo "version=$(echo "$PLAN" | jq -r .version)" >> "$GITHUB_OUTPUT"
+
+          # Written here, so that the job holding the app token installs no dependencies.
+          # The delimiter is random because the notes contain commit messages.
+          if [ "$(echo "$PLAN" | jq -r .release)" = "true" ]; then
+            NOTES=$(node scripts/changelog-notes.mjs "$(echo "$PLAN" | jq -r .version)")
+            DELIMITER="notes-$(openssl rand -hex 16)"
+            {
+              echo "notes<<$DELIMITER"
+              echo "$NOTES"
+              echo "$DELIMITER"
+            } >> "$GITHUB_OUTPUT"
+          fi
 
   release-pr:
     needs: plan
@@ -133,6 +148,18 @@ jobs:
         with:
           node-version-file: ".tool-versions"
 
+      # Both jobs check out the default branch, which can move between them. The version and
+      # the notes must describe the tree being released; a later run picks up the new head.
+      - name: Require the planned commit
+        env:
+          PLANNED_SHA: ${{ needs.plan.outputs.planned_sha }}
+        run: |
+          HEAD_SHA=$(git rev-parse HEAD)
+          [ "$HEAD_SHA" = "$PLANNED_SHA" ] || {
+            echo "::error::Planned $PLANNED_SHA, but checked out $HEAD_SHA."
+            exit 1
+          }
+
       - name: Bump version
         env:
           VERSION: ${{ needs.plan.outputs.version }}
@@ -145,6 +172,11 @@ jobs:
             echo "::error::Could not set the version in public/module.json."
             exit 1
           }
+
+      - name: Update the changelog
+        env:
+          NOTES: ${{ needs.plan.outputs.notes }}
+        run: printf '%s\n' "$NOTES" | node scripts/changelog-add.mjs
 
       - name: Ensure the release label exists
         env:
@@ -165,6 +197,7 @@ jobs:
             package.json
             package-lock.json
             public/module.json
+            public/CHANGELOG.md
           branch: ${{ env.RELEASE_BRANCH }}
           base: ${{ github.event.repository.default_branch }}
           delete-branch: true
