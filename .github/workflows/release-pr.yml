@@ -50,6 +50,7 @@ jobs:
       version: ${{ steps.plan.outputs.version }}
       open_pr: ${{ steps.plan.outputs.open_pr }}
       notes: ${{ steps.plan.outputs.notes }}
+      planned_sha: ${{ steps.plan.outputs.planned_sha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -104,6 +105,7 @@ jobs:
             exit 0
           fi
 
+          echo "planned_sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
           PLAN=$(node scripts/release-plan.mjs)
           echo "$PLAN"
           echo "release=$(echo "$PLAN" | jq -r .release)" >> "$GITHUB_OUTPUT"
@@ -145,6 +147,18 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7
         with:
           node-version-file: ".tool-versions"
+
+      # Both jobs check out the default branch, which can move between them. The version and
+      # X
+      - name: Require the planned commit
+        env:
+          PLANNED_SHA: ${{ needs.plan.outputs.planned_sha }}
+        run: |
+          HEAD_SHA=$(git rev-parse HEAD)
+          [ "$HEAD_SHA" = "$PLANNED_SHA" ] || {
+            echo "::error::Planned $PLANNED_SHA, but checked out $HEAD_SHA."
+            exit 1
+          }
 
       - name: Bump version
         env:

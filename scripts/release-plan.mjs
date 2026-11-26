@@ -35,7 +35,9 @@ export function parseCommit({ subject, body }) {
 export function classifyCommit(commit) {
   if (isDependencyCommit(commit)) return null;
   const parsed = parseCommit(commit);
-  const bump = BUMP_BY_TYPE[parsed.type?.toLowerCase()];
+  const type = parsed.type?.toLowerCase();
+  // Own keys only: a type such as "constructor" must not match an inherited one.
+  const bump = Object.hasOwn(BUMP_BY_TYPE, type) ? BUMP_BY_TYPE[type] : null;
   if (!bump) return null;
   return parsed.breaking || parsed.notes.length > 0 ? "major" : bump;
 }

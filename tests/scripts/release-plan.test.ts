@@ -19,6 +19,8 @@ describe("classifyCommit", () => {
     ["ci: pipeline", null],
     ["test(e2e): more", null],
     ["not conventional", null],
+    ["constructor: explain initialization", null],
+    ["toString: x", null],
   ])("%s -> %s", (subject, expected) => {
     expect(classifyCommit(c(subject))).toBe(expected);
   });
