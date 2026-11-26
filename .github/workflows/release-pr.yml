@@ -149,7 +149,7 @@ jobs:
           node-version-file: ".tool-versions"
 
       # Both jobs check out the default branch, which can move between them. The version and
-      # X
+      # the notes must describe the tree being released; a later run picks up the new head.
       - name: Require the planned commit
         env:
           PLANNED_SHA: ${{ needs.plan.outputs.planned_sha }}
