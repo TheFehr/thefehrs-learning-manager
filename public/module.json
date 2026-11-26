@@ -24,7 +24,18 @@
       {
         "id": "tidy5e-sheet"
       }
+    ],
+    "recommends": [
+      {
+        "id": "thefehrs-changelog",
+        "type": "module"
+      }
     ]
+  },
+  "flags": {
+    "thefehrs-changelog": {
+      "changelog": "CHANGELOG.md"
+    }
   },
   "esmodules": ["main.js"],
   "styles": ["main.css"],

@@ -49,6 +49,7 @@ jobs:
       release: ${{ steps.plan.outputs.release }}
       version: ${{ steps.plan.outputs.version }}
       open_pr: ${{ steps.plan.outputs.open_pr }}
+      notes: ${{ steps.plan.outputs.notes }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -108,6 +109,18 @@ jobs:
           echo "release=$(echo "$PLAN" | jq -r .release)" >> "$GITHUB_OUTPUT"
           echo "version=$(echo "$PLAN" | jq -r .version)" >> "$GITHUB_OUTPUT"
 
+          # Written here, so that the job holding the app token installs no dependencies.
+          # The delimiter is random because the notes contain commit messages.
+          if [ "$(echo "$PLAN" | jq -r .release)" = "true" ]; then
+            NOTES=$(node scripts/changelog-notes.mjs "$(echo "$PLAN" | jq -r .version)")
+            DELIMITER="notes-$(openssl rand -hex 16)"
+            {
+              echo "notes<<$DELIMITER"
+              echo "$NOTES"
+              echo "$DELIMITER"
+            } >> "$GITHUB_OUTPUT"
+          fi
+
   release-pr:
     needs: plan
     if: >-
@@ -146,6 +159,11 @@ jobs:
             exit 1
           }
 
+      - name: Update the changelog
+        env:
+          NOTES: ${{ needs.plan.outputs.notes }}
+        run: printf '%s\n' "$NOTES" | node scripts/changelog-add.mjs
+
       - name: Ensure the release label exists
         env:
           GH_TOKEN: ${{ steps.app.outputs.token }}
@@ -165,6 +183,7 @@ jobs:
             package.json
             package-lock.json
             public/module.json
+            public/CHANGELOG.md
           branch: ${{ env.RELEASE_BRANCH }}
           base: ${{ github.event.repository.default_branch }}
           delete-branch: true

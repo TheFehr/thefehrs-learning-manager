@@ -27,10 +27,14 @@ export function isDependencyCommit({ author, subject }) {
   return scope === "deps" || scope === "deps-dev";
 }
 
+export function parseCommit({ subject, body }) {
+  return parser.parse(`${subject}\n\n${body ?? ""}`);
+}
+
 // Returns "major" | "minor" | "patch", or null when the commit is not releasable.
 export function classifyCommit(commit) {
   if (isDependencyCommit(commit)) return null;
-  const parsed = parser.parse(`${commit.subject}\n\n${commit.body ?? ""}`);
+  const parsed = parseCommit(commit);
   const bump = BUMP_BY_TYPE[parsed.type?.toLowerCase()];
   if (!bump) return null;
   return parsed.breaking || parsed.notes.length > 0 ? "major" : bump;
@@ -60,7 +64,7 @@ function git(...args) {
   return execFileSync("git", args, { encoding: "utf8" }).trim();
 }
 
-function lastTag() {
+export function lastTag() {
   try {
     return git("describe", "--tags", "--abbrev=0", "--match", "v[0-9]*");
   } catch {
@@ -68,8 +72,8 @@ function lastTag() {
   }
 }
 
-function readCommits(since) {
-  const range = since ? [`${since}..HEAD`] : [];
+export function readCommits(since, until = "HEAD") {
+  const range = [since ? `${since}..${until}` : until];
   const raw = git("log", "--no-merges", "--format=%x1e%ae%x1f%an%x1f%s%x1f%b", ...range);
   return raw
     .split("\x1e")
